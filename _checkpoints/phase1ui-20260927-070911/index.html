@@ -1,0 +1,689 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Expo Design AI — Project Intelligence Platform</title>
+<link rel="stylesheet" href="/ui/fonts.css">
+<style>
+  :root{
+    --bg:#0b0f17; --bg2:#080c13; --panel:#131b26; --panel2:#1b2533; --panel3:#1f2b3d;
+    --border:#213042; --border2:#2a3b52; --text:#eaf0f7; --muted:#8797ac; --faint:#5d6b80;
+    --accent:#4d7cfe; --violet:#8a6cff; --mint:#31d0a5; --amber:#f5b73d; --red:#f2585f;
+    --nav-h:52px;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--text);
+    font-family:"Inter","Segoe UI",system-ui,Arial,sans-serif;font-size:13.5px;overflow:hidden}
+  button{font-family:inherit}
+  ::-webkit-scrollbar{width:9px;height:9px}
+  ::-webkit-scrollbar-thumb{background:#26344a;border-radius:5px}
+  ::-webkit-scrollbar-track{background:transparent}
+
+  /* ---------- app shell ---------- */
+  #app{display:grid;grid-template-rows:var(--nav-h) 1fr;height:100vh}
+  #topnav{display:flex;align-items:center;gap:14px;padding:0 14px;background:linear-gradient(180deg,#111a27,#0e1622);
+    border-bottom:1px solid var(--border);white-space:nowrap;overflow:hidden}
+  .brand{display:flex;align-items:center;gap:10px;flex:none}
+  .brand .logo{width:30px;height:30px;border-radius:8px;background:linear-gradient(150deg,var(--accent),var(--violet));
+    display:grid;place-items:center;font-weight:800;color:#fff;font-size:16px;box-shadow:0 4px 14px rgba(77,124,254,.4)}
+  .brand .bt{font-weight:700;font-size:14px;letter-spacing:.3px;line-height:1}
+  .brand .bs{font-size:9.5px;color:var(--muted);letter-spacing:1.4px;text-transform:uppercase}
+  nav.tabs{display:flex;gap:2px;flex:1;overflow-x:auto;scrollbar-width:none}
+  nav.tabs::-webkit-scrollbar{display:none}
+  .tab{background:none;border:none;color:var(--muted);padding:8px 12px;border-radius:8px;font-size:12.5px;cursor:pointer;
+    display:flex;align-items:center;gap:6px;white-space:nowrap}
+  .tab:hover{color:var(--text);background:var(--panel2)}
+  .tab.active{color:#fff;background:var(--accent)}
+  .tab .ph{font-size:8.5px;padding:1px 5px;border-radius:8px;background:#33415a;color:#aeb9c9;letter-spacing:.3px}
+  .modes{display:flex;gap:3px;background:var(--panel);border:1px solid var(--border);border-radius:9px;padding:3px;flex:none}
+  .modes button{background:none;border:none;color:var(--muted);padding:6px 9px;border-radius:6px;font-size:11.5px;cursor:pointer}
+  .modes button:hover{color:var(--text)}
+  .modes button.on{background:var(--panel3);color:#fff}
+  .np{display:flex;align-items:center;gap:9px;flex:none}
+  .chip{display:flex;align-items:center;gap:6px;background:var(--panel);border:1px solid var(--border);border-radius:20px;
+    padding:5px 11px;font-size:12px;color:var(--text);max-width:220px;overflow:hidden;text-overflow:ellipsis}
+  .chip b{color:var(--mint);font-weight:600}
+  .ghost{background:var(--panel);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:7px 11px;font-size:12px;cursor:pointer}
+  .ghost:hover{border-color:var(--accent);color:#bcd0ff}
+  .uav{width:28px;height:28px;border-radius:50%;background:var(--violet);color:#fff;display:grid;place-items:center;font-size:12px;font-weight:700}
+
+  /* ---------- stage ---------- */
+  #stage{display:grid;grid-template-columns:262px 1fr 344px;min-height:0}
+  #left,#right{background:var(--panel);min-height:0;overflow:auto;display:flex;flex-direction:column}
+  #left{border-right:1px solid var(--border)}
+  #right{border-left:1px solid var(--border)}
+  #center{min-width:0;min-height:0;position:relative;background:var(--bg)}
+  body[data-mode="chat"] #stage,
+  body[data-mode="model"] #stage,
+  body[data-mode="drawing"] #stage,
+  body[data-mode="report"] #stage{grid-template-columns:0 1fr 0}
+  body.left-collapsed #stage{grid-template-columns:0 1fr var(--rcol,344px)}
+  body.right-collapsed #stage{grid-template-columns:var(--lcol,262px) 1fr 0}
+  body.left-collapsed.right-collapsed #stage{grid-template-columns:0 1fr 0}
+  body[data-mode="chat"] #left,body[data-mode="chat"] #right,
+  body[data-mode="model"] #left,body[data-mode="model"] #right,
+  body[data-mode="drawing"] #left,body[data-mode="drawing"] #right,
+  body[data-mode="report"] #left,body[data-mode="report"] #right{display:none}
+
+  .side-sec{padding:12px 13px;border-bottom:1px solid var(--border)}
+  .side-h{font-size:10px;letter-spacing:1.1px;text-transform:uppercase;color:var(--faint);font-weight:700;margin:0 0 9px;display:flex;justify-content:space-between;align-items:center}
+  .side-h button{background:none;border:none;color:var(--accent);font-size:11px;cursor:pointer}
+  .li{display:flex;align-items:center;gap:8px;padding:7px 9px;border-radius:8px;cursor:pointer;color:var(--text);font-size:12.5px}
+  .li:hover{background:var(--panel2)}
+  .li.active{background:var(--panel3);color:#fff}
+  .li .dot{width:7px;height:7px;border-radius:50%;background:var(--accent);flex:none}
+  .li .nm{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .li .mt{font-size:10px;color:var(--faint)}
+  .empty{color:var(--faint);font-size:11.5px;padding:4px 2px;line-height:1.5}
+  .collapse-tab{position:absolute;top:9px;z-index:6;width:22px;height:34px;background:var(--panel);border:1px solid var(--border);
+    color:var(--muted);border-radius:7px;cursor:pointer;display:grid;place-items:center;font-size:12px}
+  .collapse-tab:hover{color:#fff;border-color:var(--accent)}
+  #ltab{left:0}#rtab{right:0}
+
+  /* ---------- center panels ---------- */
+  .panel{position:absolute;inset:0;display:none;flex-direction:column;min-height:0}
+  .panel.show{display:flex}
+  .phead{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--border);flex:none}
+  .phead .pt{font-size:15px;font-weight:700}
+  .phead .psub{font-size:12px;color:var(--muted)}
+  .pbody{flex:1;min-height:0;overflow:auto;padding:16px}
+
+  /* home */
+  .grid-tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px}
+  .tile{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:16px}
+  .tile h4{margin:0 0 6px;font-size:13.5px}
+  .tile p{margin:0;color:var(--muted);font-size:12px;line-height:1.5}
+  .tile .big{font-size:26px;font-weight:800;margin:2px 0}
+  .tag{display:inline-block;font-size:9.5px;font-weight:700;letter-spacing:.5px;padding:2px 8px;border-radius:20px}
+  .tag.live{background:rgba(49,208,165,.16);color:var(--mint);border:1px solid rgba(49,208,165,.4)}
+  .tag.soon{background:rgba(245,183,61,.14);color:var(--amber);border:1px solid rgba(245,183,61,.38)}
+  .qa{display:flex;gap:10px;flex-wrap:wrap;margin-top:4px}
+  .qbtn{background:var(--panel2);border:1px solid var(--border);color:var(--text);border-radius:10px;padding:12px 14px;cursor:pointer;display:flex;gap:10px;align-items:center;font-size:13px}
+  .qbtn:hover{border-color:var(--accent)}
+  .qbtn .ic{width:30px;height:30px;border-radius:8px;display:grid;place-items:center;font-size:15px;background:var(--panel3)}
+
+  /* chat */
+  .msgs{flex:1;min-height:0;overflow:auto;padding:18px;display:flex;flex-direction:column;gap:14px}
+  .msg{display:flex;gap:11px;max-width:860px}
+  .msg .av{width:30px;height:30px;border-radius:8px;flex:none;display:grid;place-items:center;font-size:12px;font-weight:700}
+  .msg.user{align-self:flex-end;flex-direction:row-reverse}
+  .msg.user .av{background:var(--accent);color:#fff}
+  .msg.ai .av{background:var(--panel3);color:var(--mint)}
+  .bub{padding:11px 14px;border-radius:12px;font-size:13.5px;line-height:1.55;white-space:normal;word-break:break-word}
+  .msg.user .bub{background:var(--accent);color:#fff;border-top-right-radius:4px}
+  .msg.ai .bub{background:var(--panel);border:1px solid var(--border);border-top-left-radius:4px}
+  .bub code{background:#0d1420;border:1px solid var(--border);border-radius:4px;padding:1px 5px;font-size:12px}
+  .composer{flex:none;border-top:1px solid var(--border);padding:12px 16px;display:flex;gap:9px;align-items:flex-end}
+  .composer textarea{flex:1;background:var(--panel2);border:1px solid var(--border);color:var(--text);border-radius:11px;
+    padding:11px 13px;font-family:inherit;font-size:13.5px;resize:none;max-height:160px;min-height:44px}
+  .composer textarea:focus{outline:none;border-color:var(--accent)}
+  .send{background:var(--accent);border:none;color:#fff;width:44px;height:44px;border-radius:11px;cursor:pointer;display:grid;place-items:center;flex:none}
+  .send:hover{filter:brightness(1.08)}
+  .hintline{color:var(--faint);font-size:11px;padding:0 16px 10px}
+
+  /* 3d */
+  #modelBar{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border);flex:none;flex-wrap:wrap}
+  #modelPick{display:flex;gap:8px;flex-wrap:wrap;flex:1;min-width:0}
+  .mck{display:flex;align-items:center;gap:7px;background:var(--panel2);border:1px solid var(--border);border-radius:8px;padding:6px 10px;font-size:12px;cursor:pointer;max-width:260px}
+  .mck input{accent-color:var(--violet)}
+  .mck .nm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .primary{background:linear-gradient(180deg,var(--violet),#7658f0);border:none;color:#fff;border-radius:9px;padding:8px 15px;font-weight:600;font-size:12.5px;cursor:pointer}
+  .primary:hover{filter:brightness(1.07)}
+  #viewerWrap{flex:1;min-height:0;position:relative;background:#0a0e14}
+  #viewerFrame{border:none;width:100%;height:100%;display:block}
+  #viewerEmpty{position:absolute;inset:0;display:grid;place-items:center;text-align:center;color:var(--muted);font-size:13px;padding:20px}
+
+  /* file lists (docs/drawings/reports/schedules) */
+  .flist{display:flex;flex-direction:column;gap:8px}
+  .frow{display:flex;align-items:center;gap:11px;background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:11px 13px}
+  .frow .fi{width:34px;height:34px;border-radius:8px;background:var(--panel3);display:grid;place-items:center;font-size:15px;flex:none}
+  .frow .fn{flex:1;min-width:0}
+  .frow .fn b{font-size:13px;font-weight:600;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .frow .fn span{font-size:11px;color:var(--muted)}
+  .frow .oc{background:var(--panel2);border:1px solid var(--border);color:var(--text);border-radius:7px;padding:6px 12px;font-size:12px;cursor:pointer;flex:none}
+  .frow .oc:hover{border-color:var(--accent)}
+
+  /* phase banner */
+  .phase{max-width:640px;margin:6px 0 18px;background:linear-gradient(180deg,var(--panel),var(--panel2));border:1px solid var(--border);border-radius:14px;padding:20px 22px}
+  .phase h3{margin:0 0 8px;font-size:16px;display:flex;align-items:center;gap:10px}
+  .phase p{margin:0 0 10px;color:var(--muted);font-size:13px;line-height:1.6}
+  .phase ul{margin:8px 0 0;padding-left:18px;color:var(--muted);font-size:12.5px;line-height:1.7}
+
+  /* ---------- right panel ---------- */
+  .rtabs{display:flex;border-bottom:1px solid var(--border);flex:none}
+  .rtabs button{flex:1;background:none;border:none;color:var(--muted);padding:11px 4px;font-size:11.5px;cursor:pointer;border-bottom:2px solid transparent}
+  .rtabs button.on{color:#fff;border-bottom-color:var(--accent)}
+  .rpane{display:none;flex-direction:column;min-height:0;flex:1}
+  .rpane.on{display:flex}
+  .rprops{padding:14px;overflow:auto}
+  .prow{margin-bottom:11px}
+  .prow b{display:block;font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--faint);margin-bottom:2px}
+  .prow span{font-size:13px;word-break:break-word}
+  .askSelBtn{margin:6px 14px 14px;background:var(--mint);border:none;color:#062018;border-radius:9px;padding:10px;font-weight:700;font-size:12.5px;cursor:pointer;width:calc(100% - 28px)}
+  .askSelBtn:hover{filter:brightness(1.05)}
+  .evrow{background:var(--panel);border:1px solid var(--border);border-radius:9px;padding:10px 12px;margin-bottom:9px;font-size:12px;cursor:pointer}
+  .evrow:hover{border-color:var(--accent)}
+  .evrow b{display:block;font-size:12.5px;margin-bottom:2px}
+  .evrow .pg{color:var(--mint);font-size:11px}
+  .rassist{display:flex;flex-direction:column;min-height:0;flex:1}
+  .rassist .msgs{padding:13px}
+  .rassist .bub{font-size:12.5px}
+  .rassist .composer{padding:10px 12px}
+  .rassist textarea{min-height:38px;font-size:12.5px}
+  .rctx{font-size:11px;color:var(--faint);padding:7px 13px;border-bottom:1px solid var(--border)}
+  .rctx b{color:var(--mint)}
+
+  /* login */
+  #login{position:fixed;inset:0;background:rgba(6,9,14,.92);display:none;place-items:center;z-index:50}
+  #login.show{display:grid}
+  .lcard{background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:30px 28px;width:340px;box-shadow:0 20px 60px rgba(0,0,0,.5)}
+  .lcard .logo{width:44px;height:44px;border-radius:11px;background:linear-gradient(150deg,var(--accent),var(--violet));display:grid;place-items:center;font-weight:800;color:#fff;font-size:22px;margin-bottom:16px}
+  .lcard h2{margin:0 0 3px;font-size:19px}
+  .lcard p{margin:0 0 18px;color:var(--muted);font-size:12.5px}
+  .lcard label{font-size:11px;color:var(--muted);display:block;margin:12px 0 5px}
+  .lcard input{width:100%;background:var(--panel2);border:1px solid var(--border);color:var(--text);border-radius:9px;padding:11px 12px;font-size:13.5px;font-family:inherit}
+  .lcard input:focus{outline:none;border-color:var(--accent)}
+  .lcard button{width:100%;margin-top:18px;background:var(--accent);border:none;color:#fff;border-radius:9px;padding:12px;font-size:14px;font-weight:600;cursor:pointer}
+  #lerr{color:var(--red);font-size:12px;margin-top:10px;min-height:16px}
+
+  .toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--panel3);border:1px solid var(--border2);
+    color:var(--text);padding:10px 16px;border-radius:10px;font-size:12.5px;z-index:60;opacity:0;transition:opacity .2s;pointer-events:none}
+  .toast.show{opacity:1}
+
+  @media (min-width:2200px){ #stage{grid-template-columns:300px 1fr 384px} :root{--nav-h:56px} html,body{font-size:14.5px} }
+  @media (max-width:1500px){ #stage{grid-template-columns:222px 1fr 300px} }
+  @media (max-width:1150px){ #stage{grid-template-columns:0 1fr 0} #left,#right{position:absolute;top:var(--nav-h);bottom:0;width:280px;z-index:8}
+    #left{left:0;box-shadow:6px 0 24px rgba(0,0,0,.4)} #right{right:0;box-shadow:-6px 0 24px rgba(0,0,0,.4)}
+    body:not(.show-left) #left{display:none} body:not(.show-right) #right{display:none} }
+</style>
+</head>
+<body data-mode="split">
+<div id="app">
+
+  <header id="topnav">
+    <div class="brand">
+      <div class="logo">E</div>
+      <div><div class="bt">EXPO DESIGN AI</div><div class="bs">Project Intelligence Platform</div></div>
+    </div>
+    <nav class="tabs" id="navTabs"></nav>
+    <div class="modes" id="modeSw"></div>
+    <div class="np">
+      <div class="chip" id="projChip">Project: <b id="projName">—</b></div>
+      <button class="ghost" onclick="location.href='/ui/classic.html'" title="Open the classic console for upload, admin & deep document management">Manage</button>
+      <div class="uav" id="uav" title="">?</div>
+      <button class="ghost" id="logoutBtn" title="Sign out">Logout</button>
+    </div>
+  </header>
+
+  <div id="stage">
+    <button class="collapse-tab" id="ltab" title="Toggle project panel" style="display:none">‹</button>
+    <button class="collapse-tab" id="rtab" title="Toggle assistant panel" style="display:none">›</button>
+
+    <!-- LEFT -->
+    <aside id="left">
+      <div class="side-sec">
+        <div class="side-h">Projects <button onclick="location.href='/ui/classic.html'">+ New</button></div>
+        <div id="projListW"><div class="empty">Loading…</div></div>
+      </div>
+      <div class="side-sec" style="flex:1;min-height:0;display:flex;flex-direction:column">
+        <div class="side-h">Documents <button onclick="setTab('documents')">View all</button></div>
+        <div id="docListW" style="flex:1;overflow:auto"><div class="empty">Select a project.</div></div>
+      </div>
+      <div class="side-sec" id="kbSec" style="display:none">
+        <div class="side-h">Knowledge Base</div>
+        <div id="kbListW"><div class="empty">—</div></div>
+      </div>
+    </aside>
+
+    <!-- CENTER -->
+    <section id="center">
+      <!-- HOME -->
+      <div class="panel" data-panel="home">
+        <div class="phead"><div><div class="pt">Home</div><div class="psub">Project overview & quick actions</div></div></div>
+        <div class="pbody" id="homeBody"></div>
+      </div>
+      <!-- CHAT -->
+      <div class="panel" data-panel="chat">
+        <div class="phead"><div><div class="pt">Chat</div><div class="psub">Ask across the project's documents & knowledge base</div></div></div>
+        <div class="msgs" id="chatMsgs"></div>
+        <div class="hintline" id="chatHint"></div>
+        <div class="composer">
+          <textarea id="chatIn" rows="1" placeholder="Ask about drawings, schedules, specs, DBC/IBC… e.g. “What is the required fire rating for the stair?”"></textarea>
+          <button class="send" id="chatSend" title="Send">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
+          </button>
+        </div>
+      </div>
+      <!-- 3D MODEL -->
+      <div class="panel" data-panel="model">
+        <div id="modelBar">
+          <div style="font-size:11px;letter-spacing:.5px;color:var(--faint);font-weight:700">IFC MODELS</div>
+          <div id="modelPick"><span class="empty">Select a project with IFC models.</span></div>
+          <button class="primary" id="loadModelsBtn">Load selected</button>
+          <a class="ghost" id="popoutBtn" href="#" target="_blank" title="Open the 3D viewer in a full page (fallback)">Full page ↗</a>
+        </div>
+        <div id="viewerWrap">
+          <div id="viewerEmpty">Tick one or more IFC models above and click <b>Load selected</b>.<br>The full 3D review engine (sections, measure, Plan/True North, gizmo, Ask AI) runs here.</div>
+          <iframe id="viewerFrame" title="3D BIM viewer" src="about:blank"></iframe>
+        </div>
+      </div>
+      <!-- DRAWINGS -->
+      <div class="panel" data-panel="drawings">
+        <div class="phead"><div><div class="pt">Drawings</div><div class="psub">Drawing sheets in this project</div></div><span class="tag soon" style="margin-left:auto">Structured index · Phase 3</span></div>
+        <div class="pbody">
+          <div class="phase"><h3>Drawing intelligence is coming in Phase 3</h3>
+            <p>A structured drawing index (number, title, revision, discipline, level, sheet, status) will let the AI answer “which drawing shows this element?”, “show Level 03 plan”, and check drawings against the BIM model. For now, the actual drawing files in this project are listed below — open any of them.</p></div>
+          <div class="flist" id="drawList"><div class="empty">Select a project.</div></div>
+        </div>
+      </div>
+      <!-- REPORTS -->
+      <div class="panel" data-panel="reports">
+        <div class="phead"><div><div class="pt">Reports</div><div class="psub">Reports & documents in this project</div></div><span class="tag soon" style="margin-left:auto">Generated reports · Phase 9</span></div>
+        <div class="pbody">
+          <div class="phase"><h3>One-click reports are coming in Phase 9</h3>
+            <p>The deterministic QA engine (Phase 8) will feed model/schedule/drawing findings into generated PDF & Excel review reports with evidence, severity and recommendations. Existing report files in this project are listed below.</p></div>
+          <div class="flist" id="reportList"><div class="empty">Select a project.</div></div>
+        </div>
+      </div>
+      <!-- SCHEDULES -->
+      <div class="panel" data-panel="schedules">
+        <div class="phead"><div><div class="pt">Schedules</div><div class="psub">Schedule & spreadsheet files in this project</div></div><span class="tag soon" style="margin-left:auto">Structured data · Phase 4</span></div>
+        <div class="pbody">
+          <div class="phase"><h3>Schedule intelligence is coming in Phase 4</h3>
+            <p>Door/window/room/equipment schedules and BOQ will be parsed into structured rows so the system can compare BIM values against schedule values (e.g. width 1050 mm vs 1200 mm → mismatch) with deterministic calculations. Existing schedule files are listed below.</p></div>
+          <div class="flist" id="schedList"><div class="empty">Select a project.</div></div>
+        </div>
+      </div>
+      <!-- DOCUMENTS -->
+      <div class="panel" data-panel="documents">
+        <div class="phead"><div><div class="pt">Documents</div><div class="psub">All indexed documents in this project</div></div>
+          <button class="ghost" style="margin-left:auto" onclick="location.href='/ui/classic.html'">Upload / Manage</button></div>
+        <div class="pbody"><div class="flist" id="allDocList"><div class="empty">Select a project.</div></div></div>
+      </div>
+      <!-- MODEL REVIEW -->
+      <div class="panel" data-panel="review">
+        <div class="phead"><div><div class="pt">Model Review</div><div class="psub">Deterministic BIM QA</div></div><span class="tag soon" style="margin-left:auto">Phase 8</span></div>
+        <div class="pbody"><div class="phase"><h3>Deterministic QA engine — Phase 8</h3>
+          <p>A code-based engine (not the LLM) will run repeatable checks and the AI will explain the findings:</p>
+          <ul><li>Missing parameters / information &amp; LOD requirements</li><li>Model ↔ schedule and model ↔ drawing mismatches (with computed differences)</li><li>Missing fire rating / material, wrong level, duplicates, classification &amp; naming errors</li><li>Company BIM-standard &amp; coordination checks</li></ul></div></div>
+      </div>
+      <!-- AUTOMATION -->
+      <div class="panel" data-panel="automation">
+        <div class="phead"><div><div class="pt">Automation</div><div class="psub">Offline review automation</div></div><span class="tag soon" style="margin-left:auto">Roadmap</span></div>
+        <div class="pbody"><div class="phase"><h3>Automation — on the roadmap</h3>
+          <p>Batch, fully-offline automation of the daily review workflow: run a discipline's checklist across a project, auto-draft DBC/IBC compliance passes, generate comment sheets and QA reports — all on your own hardware. This builds on Phases 2–9.</p></div></div>
+      </div>
+    </section>
+
+    <!-- RIGHT -->
+    <aside id="right">
+      <div class="rtabs">
+        <button data-r="assist" class="on">Assistant</button>
+        <button data-r="props">Properties</button>
+        <button data-r="evidence">Evidence</button>
+      </div>
+      <!-- assistant -->
+      <div class="rpane on" data-r="assist">
+        <div class="rassist">
+          <div class="rctx" id="asstCtx">Context: <b id="asstCtxLbl">Project documents</b></div>
+          <div class="msgs" id="asstMsgs" style="flex:1"></div>
+          <div class="composer">
+            <textarea id="asstIn" rows="1" placeholder="Ask the assistant…"></textarea>
+            <button class="send" id="asstSend" title="Send">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+      <!-- properties -->
+      <div class="rpane" data-r="props">
+        <div class="rprops" id="propBox"><div class="empty">Open the 3D Model and click an element to see its properties here.</div></div>
+        <button class="askSelBtn" id="askSelBtn" style="display:none">Ask AI About Selection</button>
+      </div>
+      <!-- evidence -->
+      <div class="rpane" data-r="evidence">
+        <div class="rprops" id="evBox"><div class="empty">Sources cited by the assistant will appear here after you ask a question.</div></div>
+      </div>
+    </aside>
+  </div>
+</div>
+
+<!-- login -->
+<div id="login"><div class="lcard">
+  <div class="logo">E</div>
+  <h2>Expo Design AI</h2>
+  <p>Private · offline · project-scoped</p>
+  <label>Username</label><input id="luser" autocomplete="username">
+  <label>Password</label><input id="lpass" type="password" autocomplete="current-password">
+  <button id="lbtn">Sign in</button>
+  <div id="lerr"></div>
+</div></div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const API = window.location.origin;
+let authToken = null, currentUser = null, currentProject = null, projectsData = {};
+let allDocs = [], lastSelection = null, viewer3DActive = false;
+try { authToken = localStorage.getItem('expo_token') || null; } catch(e){}
+
+// auth-aware fetch (mirrors classic app)
+const _fetch = window.fetch.bind(window);
+window.fetch = function(url, opts){
+  opts = opts || {};
+  try{ const u = (typeof url==='string')?url:(url&&url.url)||'';
+    if(authToken && (u.indexOf(API)===0 || u.charAt(0)==='/')){
+      const h = new Headers(opts.headers||{});
+      if(!h.has('Authorization')) h.set('Authorization','Bearer '+authToken);
+      opts = Object.assign({}, opts, {headers:h});
+    }
+  }catch(e){}
+  return _fetch(url, opts);
+};
+const $ = id => document.getElementById(id);
+const esc = s => (s==null?'':String(s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function toast(t){ const el=$('toast'); el.textContent=t; el.classList.add('show'); clearTimeout(el._t); el._t=setTimeout(()=>el.classList.remove('show'),2200); }
+function mdLite(s){
+  let h = esc(s);
+  h = h.replace(/```([\s\S]*?)```/g,(m,c)=>'<pre style="background:#0d1420;border:1px solid #213042;border-radius:8px;padding:10px;overflow:auto;font-size:12px">'+c+'</pre>');
+  h = h.replace(/`([^`]+)`/g,'<code>$1</code>').replace(/\*\*([^*]+)\*\*/g,'<b>$1</b>');
+  h = h.replace(/^[-•]\s+(.*)$/gm,'• $1').replace(/\n/g,'<br>');
+  return h;
+}
+
+// ---- nav / tabs / modes ----
+const TABS = [
+  ['home','Home'],['chat','Chat'],['model','3D Model'],['drawings','Drawings'],
+  ['reports','Reports'],['schedules','Schedules'],['documents','Documents'],
+  ['review','Model Review'],['automation','Automation']
+];
+const MODES = [['split','Split'],['chat','Chat Focus'],['model','3D Focus'],['drawing','Drawing Focus'],['report','Report Focus']];
+const MODE_TAB = { chat:'chat', model:'model', drawing:'drawings', report:'reports' };
+let currentTab = 'home';
+
+function buildNav(){
+  $('navTabs').innerHTML = TABS.map(([k,l])=>{
+    const soon = ['drawings','reports','schedules','review','automation'].includes(k);
+    return `<button class="tab" data-tab="${k}">${l}${soon?' <span class="ph">soon</span>':''}</button>`;
+  }).join('');
+  $('navTabs').querySelectorAll('.tab').forEach(b=> b.onclick = ()=>{ setTab(b.dataset.tab); if(document.body.dataset.mode!=='split') setMode('split'); });
+  $('modeSw').innerHTML = MODES.map(([k,l])=>`<button data-mode="${k}">${l}</button>`).join('');
+  $('modeSw').querySelectorAll('button').forEach(b=> b.onclick = ()=> setMode(b.dataset.mode));
+}
+function setTab(name){
+  currentTab = name;
+  document.querySelectorAll('.panel').forEach(p=>p.classList.toggle('show', p.dataset.panel===name));
+  $('navTabs').querySelectorAll('.tab').forEach(b=>b.classList.toggle('active', b.dataset.tab===name));
+  viewer3DActive = (name==='model');
+  updateAsstCtx();
+  if(name==='model') refreshModelPicker();
+  if(name==='documents') renderDocPanels();
+  if(name==='drawings'||name==='reports'||name==='schedules') renderDocPanels();
+  if(name==='home') renderHome();
+}
+function setMode(m){
+  document.body.dataset.mode = m;
+  $('modeSw').querySelectorAll('button').forEach(b=>b.classList.toggle('on', b.dataset.mode===m));
+  if(MODE_TAB[m]) setTab(MODE_TAB[m]);
+  updateCollapseTabs();
+}
+function updateCollapseTabs(){
+  const split = document.body.dataset.mode==='split';
+  $('ltab').style.display = split ? 'grid':'none';
+  $('rtab').style.display = split ? 'grid':'none';
+  $('ltab').textContent = document.body.classList.contains('left-collapsed')?'›':'‹';
+  $('rtab').textContent = document.body.classList.contains('right-collapsed')?'‹':'›';
+}
+$('ltab').onclick = ()=>{ document.body.classList.toggle('left-collapsed'); updateCollapseTabs(); };
+$('rtab').onclick = ()=>{ document.body.classList.toggle('right-collapsed'); updateCollapseTabs(); };
+
+// right sub-tabs
+document.querySelectorAll('.rtabs button').forEach(b=> b.onclick = ()=>{
+  document.querySelectorAll('.rtabs button').forEach(x=>x.classList.toggle('on', x===b));
+  document.querySelectorAll('.rpane').forEach(p=>p.classList.toggle('on', p.dataset.r===b.dataset.r));
+});
+
+// ---- auth ----
+async function boot(){
+  buildNav();
+  if(!authToken){ showLogin(); return; }
+  try{
+    const r = await fetch(`${API}/auth/me`);
+    if(!r.ok){ showLogin(); return; }
+    currentUser = await r.json();
+    onAuthed();
+  }catch(e){ showLogin(); }
+}
+function showLogin(){ $('login').classList.add('show'); $('luser').focus(); }
+$('lbtn').onclick = doLogin;
+$('lpass').addEventListener('keydown',e=>{ if(e.key==='Enter') doLogin(); });
+async function doLogin(){
+  $('lerr').textContent='';
+  const u=$('luser').value.trim(), p=$('lpass').value;
+  if(!u||!p){ $('lerr').textContent='Enter username and password.'; return; }
+  try{
+    const r = await _fetch(`${API}/auth/login`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:u,password:p})});
+    const d = await r.json();
+    if(!r.ok){ $('lerr').textContent = d.detail || 'Login failed.'; return; }
+    authToken = d.token; try{ localStorage.setItem('expo_token', d.token); }catch(e){}
+    currentUser = d.user; $('login').classList.remove('show'); onAuthed();
+  }catch(e){ $('lerr').textContent='Could not reach the server.'; }
+}
+$('logoutBtn').onclick = ()=>{ try{ localStorage.removeItem('expo_token'); }catch(e){} authToken=null; location.reload(); };
+
+function onAuthed(){
+  const nm = (currentUser&&(currentUser.username||currentUser.full_name))||'user';
+  $('uav').textContent = nm.charAt(0).toUpperCase(); $('uav').title = nm + ' · ' + ((currentUser&&currentUser.role)||'');
+  if(currentUser && currentUser.role==='admin') $('kbSec').style.display='';
+  loadProjects();
+  setTab('home'); setMode('split');
+}
+
+// ---- projects / docs ----
+async function loadProjects(){
+  try{
+    const r = await fetch(`${API}/projects`);
+    if(r.status===401){ showLogin(); return; }
+    projectsData = await r.json() || {};
+    const keys = Object.keys(projectsData);
+    if(!currentProject || !projectsData[currentProject]) currentProject = keys[0] || null;
+    renderProjectList();
+    if(currentProject) selectProject(currentProject);
+  }catch(e){ $('projListW').innerHTML='<div class="empty">Could not load projects.</div>'; }
+}
+function renderProjectList(){
+  const keys = Object.keys(projectsData);
+  $('projListW').innerHTML = keys.length ? keys.map(n=>
+    `<div class="li ${n===currentProject?'active':''}" data-p="${esc(n)}"><span class="dot"></span><span class="nm">${esc(n)}</span></div>`).join('')
+    : '<div class="empty">No projects yet. Use <b>Manage</b> to create one.</div>';
+  $('projListW').querySelectorAll('.li').forEach(el=> el.onclick=()=>selectProject(el.dataset.p));
+}
+function selectProject(p){
+  currentProject = p; $('projName').textContent = p;
+  renderProjectList(); loadDocuments(); loadKB();
+  if(currentTab==='model') refreshModelPicker();
+  renderHome();
+}
+async function loadDocuments(){
+  if(!currentProject){ allDocs=[]; return; }
+  try{
+    const r = await fetch(`${API}/projects/${encodeURIComponent(currentProject)}/documents`);
+    const d = await r.json(); allDocs = d.documents || [];
+  }catch(e){ allDocs = []; }
+  renderSideDocs(); renderDocPanels(); if(currentTab==='model') refreshModelPicker(); if(currentTab==='home') renderHome();
+}
+function fileHref(rel){ return `${API}/projects/${encodeURIComponent(currentProject)}/file?rel=${encodeURIComponent(rel)}&token=${encodeURIComponent(authToken||'')}`; }
+function fileIcon(fn){ const e=(fn.split('.').pop()||'').toLowerCase();
+  if(e==='ifc') return '▣'; if(['pdf'].includes(e)) return '▤'; if(['xls','xlsx','csv'].includes(e)) return '▦';
+  if(['doc','docx'].includes(e)) return '▧'; if(['dwg','dxf'].includes(e)) return '◈'; if(['png','jpg','jpeg'].includes(e)) return '▨'; return '◻'; }
+function renderSideDocs(){
+  const box=$('docListW');
+  if(!allDocs.length){ box.innerHTML='<div class="empty">No documents. Use <b>Manage</b> to upload.</div>'; return; }
+  box.innerHTML = allDocs.slice(0,60).map(f=>
+    `<div class="li" title="${esc(f.filename)}" onclick="openFile('${esc(encodeURIComponent(f.rel))}')">
+      <span class="mt">${fileIcon(f.filename)}</span><span class="nm">${esc(f.filename)}</span>
+      ${f.status&&f.status!=='ready'?'<span class="mt">…</span>':''}</div>`).join('');
+}
+function openFile(relEnc){ window.open(fileHref(decodeURIComponent(relEnc)),'_blank'); }
+function frow(f){ return `<div class="frow"><div class="fi">${fileIcon(f.filename)}</div>
+  <div class="fn"><b title="${esc(f.filename)}">${esc(f.filename)}</b><span>${esc(f.folder||'')}${f.status&&f.status!=='ready'?' · '+esc(f.status):''}</span></div>
+  <button class="oc" onclick="openFile('${esc(encodeURIComponent(f.rel))}')">Open</button></div>`; }
+function renderDocPanels(){
+  const byExt = arr => allDocs.filter(f=>arr.test(f.filename||''));
+  const put=(id,list,empty)=>{ const el=$(id); if(!el) return; el.innerHTML = list.length?list.map(frow).join(''):`<div class="empty">${empty}</div>`; };
+  put('allDocList', allDocs, 'No documents in this project yet.');
+  put('drawList', byExt(/\.(pdf|dwg|dxf)$/i), 'No drawing files found.');
+  put('reportList', byExt(/\.(docx?|pdf)$/i), 'No report files found.');
+  put('schedList', byExt(/\.(xlsx?|csv)$/i), 'No schedule files found.');
+}
+async function loadKB(){
+  if(!(currentUser&&currentUser.role==='admin')) return;
+  try{ const r=await fetch(`${API}/kb`); const d=await r.json();
+    const items=d.documents||d.files||[];
+    $('kbListW').innerHTML = items.length? items.slice(0,30).map(x=>`<div class="li"><span class="mt">§</span><span class="nm">${esc(x.filename||x.name||x)}</span></div>`).join('') : '<div class="empty">No code/standard files.</div>';
+  }catch(e){ $('kbListW').innerHTML='<div class="empty">—</div>'; }
+}
+
+// ---- home ----
+function renderHome(){
+  const p = currentProject || '—';
+  const docs = allDocs.length, ifc = allDocs.filter(f=>/\.ifc$/i.test(f.filename)).length;
+  $('homeBody').innerHTML = `
+    <div class="grid-tiles" style="margin-bottom:18px">
+      <div class="tile"><span class="tag live">LIVE</span><h4 style="margin-top:8px">Active project</h4><div class="big">${esc(p)}</div><p>${docs} documents · ${ifc} IFC model${ifc===1?'':'s'}</p></div>
+      <div class="tile"><h4>Private &amp; offline</h4><p>All reasoning runs on local hardware via Ollama. No project data leaves the office.</p></div>
+      <div class="tile"><h4>Your access</h4><div class="big" style="font-size:18px;text-transform:capitalize">${esc((currentUser&&currentUser.role)||'user')}</div><p>Projects &amp; folders are permission-scoped server-side.</p></div>
+    </div>
+    <div class="side-h" style="color:var(--muted);margin:6px 0 10px">Quick actions</div>
+    <div class="qa">
+      <button class="qbtn" onclick="setTab('chat')"><span class="ic">💬</span> Ask the project</button>
+      <button class="qbtn" onclick="setTab('model');refreshModelPicker()"><span class="ic">▣</span> Open 3D model</button>
+      <button class="qbtn" onclick="setTab('documents')"><span class="ic">▤</span> Browse documents</button>
+      <button class="qbtn" onclick="location.href='/ui/classic.html'"><span class="ic">⬆</span> Upload / Admin</button>
+    </div>`;
+}
+
+// ---- chat + assistant (shared streamer) ----
+function addMsg(box, who, html){ const d=document.createElement('div'); d.className='msg '+who;
+  d.innerHTML = `<div class="av">${who==='user'?'U':'AI'}</div><div class="bub">${html}</div>`;
+  box.appendChild(d); box.scrollTop=box.scrollHeight; return d.querySelector('.bub'); }
+let chatHist=[], asstHist=[];
+async function streamAsk(query, endpoint, body, box, hist, onSources){
+  addMsg(box,'user',esc(query));
+  const bub = addMsg(box,'ai','<span style="color:var(--faint)">…</span>');
+  let answer='';
+  try{
+    const res = await fetch(endpoint,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    if(!res.ok){ bub.innerHTML='<span style="color:var(--red)">Error '+res.status+'</span>'; return; }
+    const reader=res.body.getReader(); const dec=new TextDecoder(); let buf='';
+    while(true){ const {value,done}=await reader.read(); if(done)break; buf+=dec.decode(value,{stream:true});
+      let i; while((i=buf.indexOf('\n\n'))>=0){ const line=buf.slice(0,i); buf=buf.slice(i+2);
+        const dl=line.split('\n').find(l=>l.startsWith('data:')); if(!dl)continue;
+        let d; try{ d=JSON.parse(dl.slice(5).trim()); }catch(e){ continue; }
+        if(d.type==='sources'){ if(onSources) onSources(d.sources); }
+        else if(d.type==='token'){ answer+=d.text; bub.innerHTML=mdLite(answer); box.scrollTop=box.scrollHeight; }
+        else if(d.type==='error'){ answer+='\n[error] '+d.message; bub.innerHTML=mdLite(answer); }
+      }
+    }
+    if(!answer) bub.innerHTML='<span style="color:var(--faint)">(no answer)</span>';
+    hist.push({role:'user',content:query}); hist.push({role:'assistant',content:answer});
+  }catch(e){ bub.innerHTML='<span style="color:var(--red)">Request failed: '+esc(e.message||e)+'</span>'; }
+  return answer;
+}
+function renderEvidence(sources){
+  const box=$('evBox');
+  if(!sources || !sources.length){ box.innerHTML='<div class="empty">No sources cited for the last answer.</div>'; return; }
+  box.innerHTML = sources.map(s=>{
+    const name = s.filename || s.source || s.rel || 'source';
+    const pg = (s.page!=null)?('Page '+s.page):''; const rev = s.revision?(' · '+s.revision):'';
+    const rel = s.rel || s.source || '';
+    return `<div class="evrow" onclick="openFile('${esc(encodeURIComponent(rel))}')"><b>${esc(name)}</b><span class="pg">${esc(pg)}${esc(rev)}</span></div>`;
+  }).join('');
+}
+// main chat
+function autoGrow(t){ t.style.height='auto'; t.style.height=Math.min(160,t.scrollHeight)+'px'; }
+$('chatIn').addEventListener('input',e=>autoGrow(e.target));
+$('chatIn').addEventListener('keydown',e=>{ if(e.key==='Enter'&&!e.shiftKey){ e.preventDefault(); sendChat(); } });
+$('chatSend').onclick = sendChat;
+async function sendChat(){
+  const t=$('chatIn'); const q=t.value.trim(); if(!q||!currentProject) { if(!currentProject) toast('Select a project first'); return; }
+  t.value=''; autoGrow(t);
+  await streamAsk(q, `${API}/ask_stream`, {project:currentProject, query:q, messages:chatHist.slice(-8), k:8}, $('chatMsgs'), chatHist, renderEvidence);
+}
+// right assistant
+$('asstIn').addEventListener('keydown',e=>{ if(e.key==='Enter'&&!e.shiftKey){ e.preventDefault(); sendAsst(); } });
+$('asstSend').onclick = sendAsst;
+function updateAsstCtx(){ $('asstCtxLbl').textContent = viewer3DActive ? '3D model + selection' : 'Project documents'; }
+async function sendAsst(){
+  const t=$('asstIn'); const q=t.value.trim(); if(!q||!currentProject){ if(!currentProject) toast('Select a project first'); return; }
+  t.value='';
+  if(viewer3DActive){
+    const ctx = await getViewerContext();
+    await streamAsk(q, `${API}/ask_model`, {project:currentProject, query:q, context:ctx.context||'', selection:ctx.selection||'', messages:asstHist.slice(-6)}, $('asstMsgs'), asstHist);
+  } else {
+    await streamAsk(q, `${API}/ask_stream`, {project:currentProject, query:q, messages:asstHist.slice(-8), k:8}, $('asstMsgs'), asstHist, renderEvidence);
+  }
+}
+
+// ---- 3D model ----
+function refreshModelPicker(){
+  const models = allDocs.filter(f=>/\.ifc$/i.test(f.filename||''));
+  const box=$('modelPick');
+  if(!currentProject){ box.innerHTML='<span class="empty">Select a project.</span>'; return; }
+  if(!models.length){ box.innerHTML='<span class="empty">No IFC models. Upload an .ifc via <b>Manage</b>.</span>'; return; }
+  box.innerHTML = models.map((f,i)=>`<label class="mck" title="${esc(f.filename)}">
+    <input type="checkbox" class="mcb" value="${esc(encodeURIComponent(f.rel))}" ${i===0?'checked':''}>
+    <span class="nm">${esc(f.filename.split('/').pop())}</span></label>`).join('');
+}
+$('loadModelsBtn').onclick = loadSelectedModels;
+function loadSelectedModels(){
+  const rels=[...document.querySelectorAll('.mcb:checked')].map(c=>c.value);
+  if(!rels.length){ toast('Tick at least one model'); return; }
+  const relParams = rels.map(r=>'rel='+r).join('&');
+  const url = `/ui/viewer.html?project=${encodeURIComponent(currentProject)}&token=${encodeURIComponent(authToken||'')}&${relParams}`;
+  $('viewerEmpty').style.display='none';
+  $('viewerFrame').src = url;
+  $('popoutBtn').href = url;
+}
+// viewer bridge
+window.addEventListener('message',(ev)=>{
+  const d=ev.data||{}; if(d.source!=='expo-viewer') return;
+  if(d.type==='selection'){ lastSelection=d.payload; renderProps(d.payload); }
+});
+function renderProps(p){
+  const box=$('propBox'); const btn=$('askSelBtn');
+  if(!p || p.kind==='none'){ box.innerHTML='<div class="empty">Nothing selected. Click an element in the 3D model.</div>'; btn.style.display='none'; return; }
+  if(p.kind==='category'){ box.innerHTML=`<div class="prow"><b>Category selected</b><span>${esc(p.name)} — ${p.count} elements</span></div>`; btn.style.display='none'; return; }
+  const rows=[['Type',p.typeName],['Name',p.name],['Object type',p.objType],['Global ID',p.gid],['Express ID',p.expressID]];
+  box.innerHTML = rows.filter(r=>r[1]!=null && r[1]!=='').map(r=>`<div class="prow"><b>${r[0]}</b><span>${esc(r[1])}</span></div>`).join('')
+    + (p.text?`<div class="prow"><b>Property sets</b><span style="white-space:pre-wrap;font-size:12px;color:var(--muted)">${esc(p.text)}</span></div>`:'');
+  btn.style.display='block';
+  // make sure Properties tab is visible
+  document.querySelectorAll('.rtabs button').forEach(x=>x.classList.toggle('on', x.dataset.r==='props'));
+  document.querySelectorAll('.rpane').forEach(x=>x.classList.toggle('on', x.dataset.r==='props'));
+}
+$('askSelBtn').onclick = async ()=>{
+  if(!lastSelection || lastSelection.kind!=='element') return;
+  document.querySelectorAll('.rtabs button').forEach(x=>x.classList.toggle('on', x.dataset.r==='assist'));
+  document.querySelectorAll('.rpane').forEach(x=>x.classList.toggle('on', x.dataset.r==='assist'));
+  const ctx = await getViewerContext();
+  const label = (lastSelection.name||lastSelection.typeName||'element');
+  await streamAsk(`Explain the selected ${esc(lastSelection.typeName||'element')} "${label}" and flag anything missing or inconsistent.`,
+    `${API}/ask_model`, {project:currentProject, query:`Explain the selected element (${label}) and flag anything missing or inconsistent based on its properties.`,
+     context:ctx.context||'', selection:ctx.selection||lastSelection.text||''}, $('asstMsgs'), asstHist);
+};
+function getViewerContext(){
+  return new Promise(res=>{
+    let done=false;
+    const h=(ev)=>{ const d=ev.data||{}; if(d.source==='expo-viewer'&&d.type==='context'){ done=true; window.removeEventListener('message',h); res({context:d.context,selection:d.selection}); } };
+    window.addEventListener('message',h);
+    try{ $('viewerFrame').contentWindow.postMessage({type:'expo:getContext'},'*'); }catch(e){}
+    setTimeout(()=>{ if(!done){ window.removeEventListener('message',h); res({context:'',selection:(lastSelection&&lastSelection.text)||''}); } },1600);
+  });
+}
+
+boot();
+</script>
+</body>
+</html>

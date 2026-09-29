@@ -1,6 +1,49 @@
-data/
+# Python
 __pycache__/
-*.pyc
+*.py[cod]
+*$py.class
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# Environment variables
 .env
-secret.key
-_checkpoints/
+
+# Data directory (contains uploads, indexes, database, logs)
+data/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Backup files (no longer needed with git)
+*.bak
+*.bak-*
+
+# Test artifacts
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Model files
+*.gguf
+*.bin
+*.safetensors
+
+# Temporary files
+*.tmp
+*.temp

@@ -1,0 +1,138 @@
+"""Reliable local chat streaming for Expo Design AI.
+
+Talks to Ollama's /api/chat directly (the call vision.py already uses well),
+instead of langchain_ollama's ChatOllama. Key robustness:
+  * bigger context window (num_ctx) so a report's retrieved context fits,
+  * retry on a COLD START: Ollama can answer a first request with an empty
+    model-load acknowledgment (done, zero content); we detect zero output and
+    retry so the answer is not silently lost,
+  * diagnostic logging of every attempt (prompt size, tokens out, done_reason),
+  * a .stream(msgs) shaped like ChatOllama's (yields objects with .content),
+    so the existing streaming loop in main.py is unchanged.
+"""
+import os
+import json
+import time
+
+try:
+    from loguru import logger
+except Exception:  # logging is best-effort
+    class _Nop:
+        def __getattr__(self, _): return lambda *a, **k: None
+    logger = _Nop()
+
+OLLAMA_URL = os.getenv("OLLAMA_HOST", "http://127.0.0.1:11434").rstrip("/")
+NUM_CTX = int(os.getenv("EXPO_NUM_CTX", "8192"))
+CHAT_RETRIES = int(os.getenv("EXPO_CHAT_RETRIES", "3"))
+KEEP_ALIVE = os.getenv("EXPO_KEEP_ALIVE", "5m")
+
+
+class _Chunk:
+    __slots__ = ("content",)
+    def __init__(self, content):
+        self.content = content
+
+
+def _role(m):
+    t = getattr(m, "type", None)
+    if t == "human":
+        return "user"
+    if t == "ai":
+        return "assistant"
+    if t == "system":
+        return "system"
+    cn = m.__class__.__name__.lower()
+    if "human" in cn:
+        return "user"
+    if "ai" in cn:
+        return "assistant"
+    return "system"
+
+
+def to_ollama_messages(msgs):
+    out = []
+    for m in msgs:
+        content = getattr(m, "content", "")
+        if isinstance(content, list):
+            content = " ".join(str(p) for p in content)
+        out.append({"role": _role(m), "content": content or ""})
+    return out
+
+
+class LocalChatOllama:
+    def __init__(self, model, temperature=0.1, num_ctx=NUM_CTX, num_predict=8192,
+                 keep_alive=KEEP_ALIVE, fmt=None, url=OLLAMA_URL, timeout=900):
+        self.model = model
+        self.temperature = temperature
+        self.num_ctx = num_ctx
+        self.num_predict = num_predict
+        self.keep_alive = keep_alive
+        self.fmt = fmt
+        self.url = url.rstrip("/")
+        self.timeout = timeout
+
+    def _payload(self, ol_msgs):
+        p = {
+            "model": self.model,
+            "messages": ol_msgs,
+            "stream": True,
+            "keep_alive": self.keep_alive,
+            "options": {
+                "temperature": self.temperature,
+                "num_ctx": self.num_ctx,
+                "num_predict": self.num_predict,
+            },
+        }
+        if self.fmt:
+            p["format"] = self.fmt
+        return p
+
+    def stream(self, msgs):
+        import httpx
+        ol_msgs = to_ollama_messages(msgs)
+        payload = self._payload(ol_msgs)
+        prompt_chars = sum(len(m["content"]) for m in ol_msgs)
+
+        for attempt in range(max(1, CHAT_RETRIES)):
+            got = 0
+            out_chars = 0
+            done_reason = None
+            try:
+                with httpx.stream("POST", self.url + "/api/chat", json=payload,
+                                  timeout=self.timeout) as r:
+                    r.raise_for_status()
+                    for line in r.iter_lines():
+                        if not line:
+                            continue
+                        try:
+                            obj = json.loads(line)
+                        except Exception:
+                            continue
+                        if obj.get("error"):
+                            raise RuntimeError(str(obj.get("error")))
+                        tok = (obj.get("message") or {}).get("content") or ""
+                        if tok:
+                            got += 1
+                            out_chars += len(tok)
+                            yield _Chunk(tok)
+                        if obj.get("done"):
+                            done_reason = obj.get("done_reason")
+                            break
+                logger.info("chat attempt {}/{}: model={} promptChars={} tokens={} outChars={} done_reason={}",
+                            attempt + 1, CHAT_RETRIES, self.model, prompt_chars, got, out_chars, done_reason)
+                if got > 0:
+                    return
+                # Zero content but a clean finish -> almost always a cold model-load
+                # acknowledgment. Retry (model is warm now) instead of losing the answer.
+                if attempt < CHAT_RETRIES - 1:
+                    time.sleep(2)
+                    continue
+                logger.warning("chat produced no tokens after {} attempts (done_reason={})",
+                               CHAT_RETRIES, done_reason)
+                return
+            except Exception as e:
+                logger.exception("chat attempt {}/{} failed: {}", attempt + 1, CHAT_RETRIES, e)
+                if got > 0 or attempt >= CHAT_RETRIES - 1:
+                    raise
+                time.sleep(min(2 ** attempt * 2, 12))
+        return

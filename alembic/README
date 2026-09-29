@@ -1,0 +1,12 @@
+Alembic migrations for Expo Design AI.
+
+The app also calls db.init_db() (create_all) on startup, so it runs without
+migrations during development. To adopt versioned migrations for production:
+
+  1. Start from an empty DB (or `alembic stamp head` on an existing one).
+  2. Generate the first migration:  alembic revision --autogenerate -m "initial"
+  3. Apply:                          alembic upgrade head
+
+The DB URL comes from EXPO_DATABASE_URL (default: sqlite in ./data/expo.db).
+For production, point it at Postgres, e.g.
+  EXPO_DATABASE_URL=postgresql+psycopg://user:pass@host:5432/expo

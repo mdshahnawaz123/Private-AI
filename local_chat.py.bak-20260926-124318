@@ -1,0 +1,118 @@
+"""Reliable local chat streaming for Expo Design AI.
+
+Uses Ollama's stable /api/chat endpoint directly (the same call vision.py uses
+successfully), instead of langchain_ollama's ChatOllama client which was
+returning empty/near-instant responses on this machine. Benefits:
+  * bigger context window (num_ctx) so a large report's retrieved context fits
+    (Ollama's default 4096 was truncating the prompt),
+  * retry/backoff on a cold model start,
+  * a .stream(msgs) method shaped exactly like ChatOllama's, yielding objects
+    with a .content attribute, so the existing streaming loop is unchanged.
+"""
+import os
+import json
+import time
+
+OLLAMA_URL = os.getenv("OLLAMA_HOST", "http://127.0.0.1:11434").rstrip("/")
+NUM_CTX = int(os.getenv("EXPO_NUM_CTX", "8192"))
+CHAT_RETRIES = int(os.getenv("EXPO_CHAT_RETRIES", "3"))
+KEEP_ALIVE = os.getenv("EXPO_KEEP_ALIVE", "5m")
+
+
+class _Chunk:
+    __slots__ = ("content",)
+    def __init__(self, content):
+        self.content = content
+
+
+def _role(m):
+    t = getattr(m, "type", None)
+    if t == "human":
+        return "user"
+    if t == "ai":
+        return "assistant"
+    if t == "system":
+        return "system"
+    # fall back on class name
+    cn = m.__class__.__name__.lower()
+    if "human" in cn:
+        return "user"
+    if "ai" in cn:
+        return "assistant"
+    return "system"
+
+
+def to_ollama_messages(msgs):
+    out = []
+    for m in msgs:
+        content = getattr(m, "content", "")
+        if isinstance(content, list):  # some langchain contents are lists of parts
+            content = " ".join(str(p) for p in content)
+        out.append({"role": _role(m), "content": content or ""})
+    return out
+
+
+class LocalChatOllama:
+    def __init__(self, model, temperature=0.1, num_ctx=NUM_CTX, num_predict=8192,
+                 keep_alive=KEEP_ALIVE, fmt=None, url=OLLAMA_URL, timeout=900):
+        self.model = model
+        self.temperature = temperature
+        self.num_ctx = num_ctx
+        self.num_predict = num_predict
+        self.keep_alive = keep_alive
+        self.fmt = fmt
+        self.url = url.rstrip("/")
+        self.timeout = timeout
+
+    def _payload(self, msgs):
+        p = {
+            "model": self.model,
+            "messages": to_ollama_messages(msgs),
+            "stream": True,
+            "keep_alive": self.keep_alive,
+            "options": {
+                "temperature": self.temperature,
+                "num_ctx": self.num_ctx,
+                "num_predict": self.num_predict,
+            },
+        }
+        if self.fmt:
+            p["format"] = self.fmt
+        return p
+
+    def stream(self, msgs):
+        """Yield _Chunk(content) tokens. Retries the initial connection so a cold
+        model start does not fail the turn; once tokens flow, no mid-stream retry."""
+        import httpx
+        payload = self._payload(msgs)
+        last_err = None
+        for attempt in range(max(1, CHAT_RETRIES)):
+            got_any = False
+            try:
+                with httpx.stream("POST", self.url + "/api/chat", json=payload,
+                                  timeout=self.timeout) as r:
+                    r.raise_for_status()
+                    for line in r.iter_lines():
+                        if not line:
+                            continue
+                        try:
+                            obj = json.loads(line)
+                        except Exception:
+                            continue
+                        if obj.get("error"):
+                            raise RuntimeError(str(obj.get("error")))
+                        msg = obj.get("message") or {}
+                        tok = msg.get("content") or ""
+                        if tok:
+                            got_any = True
+                            yield _Chunk(tok)
+                        if obj.get("done"):
+                            return
+                return
+            except Exception as e:
+                last_err = e
+                if got_any or attempt >= CHAT_RETRIES - 1:
+                    raise
+                time.sleep(min(2 ** attempt * 2, 12))  # ride out cold start
+        if last_err:
+            raise last_err

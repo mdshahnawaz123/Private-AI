@@ -1,0 +1,295 @@
+{
+  "timestamp": "2026-09-30T05:29:21.864455",
+  "project": "Expo Design AI — Private Engineering AI Platform",
+  "sections": {
+    "code_metrics": {
+      "total_python_files": 52,
+      "total_lines": 11728,
+      "top_20_files": [
+        {
+          "file": "./main.py",
+          "lines": 2634
+        },
+        {
+          "file": "./db.py",
+          "lines": 942
+        },
+        {
+          "file": "./intelligence/compliance.py",
+          "lines": 627
+        },
+        {
+          "file": "./engines/ifc_engine.py",
+          "lines": 409
+        },
+        {
+          "file": "./intelligence/reports.py",
+          "lines": 403
+        },
+        {
+          "file": "./agents/runtime.py",
+          "lines": 387
+        },
+        {
+          "file": "./knowledge/hub.py",
+          "lines": 358
+        },
+        {
+          "file": "./core/model_registry.py",
+          "lines": 328
+        },
+        {
+          "file": "./engines/drawing_engine.py",
+          "lines": 328
+        },
+        {
+          "file": "./core/orchestrator.py",
+          "lines": 313
+        },
+        {
+          "file": "./tests/evaluation/eval_framework.py",
+          "lines": 313
+        },
+        {
+          "file": "./agents/tools.py",
+          "lines": 312
+        },
+        {
+          "file": "./intelligence/retrieval.py",
+          "lines": 291
+        },
+        {
+          "file": "./knowledge/extraction.py",
+          "lines": 250
+        },
+        {
+          "file": "./engines/layout_engine.py",
+          "lines": 247
+        },
+        {
+          "file": "./engines/ocr_engine.py",
+          "lines": 243
+        },
+        {
+          "file": "./services/ingestion.py",
+          "lines": 241
+        },
+        {
+          "file": "./audit_script.py",
+          "lines": 225
+        },
+        {
+          "file": "./intelligence/validation.py",
+          "lines": 206
+        },
+        {
+          "file": "./core/observability.py",
+          "lines": 195
+        }
+      ],
+      "files_over_500_lines": [
+        "./main.py",
+        "./db.py",
+        "./intelligence/compliance.py"
+      ]
+    },
+    "api_endpoints": {
+      "app_routes": {
+        "get": 28,
+        "post": 24,
+        "put": 0,
+        "delete": 5,
+        "total": 57
+      },
+      "api_v1_routes": {
+        "get": 30,
+        "post": 16,
+        "put": 3,
+        "delete": 0,
+        "total": 49
+      },
+      "total_endpoints": 106
+    },
+    "module_inventory": {
+      "core": {
+        "files": 4,
+        "lines": 837
+      },
+      "knowledge": {
+        "files": 7,
+        "lines": 1134
+      },
+      "intelligence": {
+        "files": 6,
+        "lines": 1619
+      },
+      "engines": {
+        "files": 5,
+        "lines": 1228
+      },
+      "agents": {
+        "files": 3,
+        "lines": 700
+      },
+      "services": {
+        "files": 3,
+        "lines": 421
+      },
+      "worker": {
+        "files": 3,
+        "lines": 192
+      },
+      "tests": {
+        "files": 0,
+        "lines": 0
+      }
+    },
+    "security_audit": {
+      "issues_found": 1,
+      "issues": [
+        {
+          "type": "bare_except",
+          "file": "./main.py",
+          "line": 1242,
+          "detail": "except:"
+        }
+      ]
+    },
+    "todo_fixme": {
+      "count": 2,
+      "items": [
+        {
+          "file": "./audit_script.py",
+          "line": 100,
+          "detail": "# ── 5. TODO/FIXME audit ────────────────────────────────────"
+        },
+        {
+          "file": "./audit_script.py",
+          "line": 110,
+          "detail": "if re.search(r'#.*(TODO|FIXME|HACK|XXX|BUG)', line, re.IGNORECASE):"
+        }
+      ]
+    },
+    "import_audit": {
+      "total": 29,
+      "passed": 27,
+      "failed": 2,
+      "failures": [
+        {
+          "module": "worker.celery_app",
+          "error": "No module named 'celery'"
+        },
+        {
+          "module": "worker.tasks",
+          "error": "No module named 'celery'"
+        }
+      ]
+    },
+    "database": {
+      "total_tables": 23,
+      "tables": [
+        "users",
+        "projects",
+        "chats",
+        "documents",
+        "findings",
+        "audit_log",
+        "project_members",
+        "folders",
+        "folder_members",
+        "doc_meta",
+        "requirements",
+        "evidence",
+        "source_precedence",
+        "graph_edges",
+        "engineering_rules",
+        "qa_findings",
+        "bim_models",
+        "bim_elements",
+        "drawings",
+        "schedules",
+        "schedule_rows",
+        "eval_datasets",
+        "eval_examples"
+      ]
+    },
+    "git": {
+      "total_commits": 14,
+      "recent_commits": [
+        "a9b3dc7 Phase 9+10: Private Data Center + Distributed Deployment + Fine-tuning â€” Docker, Celery, observability, evaluation framework, backup",
+        "76bc98c Phase 8: Reports + Dashboards â€” PDF/Excel/Word reports, compliance reports, issue registers, dashboard stats",
+        "41f6200 Phase 7: IFC/Revit/BIM Intelligence â€” IFC engine, BIM service, element querying, browser ingestion",
+        "e606dca Phase 6: Controlled Agentic Orchestration â€” agent runtime, tools, planning, execution, validation",
+        "cbabf44 Phase 5: Drawing Intelligence + OCR/Layout â€” OCR engine, layout detection, drawing comparison, dimension extraction",
+        "b1bee89 Phase 4: Compliance + Validation â€” deterministic rules, PASS/FAIL/REVIEW, finding lifecycle, human verification",
+        "379fb7d Phase 3: Hybrid Retrieval â€” BM25, RRF, reranker, fast user query pipeline",
+        "07b969a Phase 1: Admin Data Hub â€” ingestion pipeline, document states, quality checks, admin API",
+        "28bd15d Phase 2: Engineering Knowledge Hub â€” structured entities, graph, provenance, precedence, extraction",
+        "5350054 Phase 0: Foundation â€” model registry, orchestrator skeleton, DB schema, security, API versioning"
+      ]
+    },
+    "dependencies": {
+      "total": 33,
+      "packages": [
+        "fastapi",
+        "uvicorn[standard]",
+        "python-multipart          # file upload support for FastAPI — required by current /upload endpoints",
+        "sqlalchemy                # ORM — users, projects, revisions, findings, audit log",
+        "alembic                   # database migrations",
+        "langchain",
+        "langchain-community",
+        "langchain-ollama",
+        "langchain-text-splitters",
+        "langchain-core",
+        "faiss-cpu                 # in use now by main.py — do NOT remove until migration lands",
+        "chromadb                  # target: persistent, project-aware vector DB",
+        "langchain-chroma          # LangChain <-> Chroma bridge (chromadb alone is only the backend client)",
+        "pypdf                     # PDF text extraction",
+        "pdfplumber                # PDF table extraction — was missing",
+        "docx2txt                  # REQUIRED by Docx2txtLoader for .docx INGESTION (was missing)",
+        "python-docx               # Word document GENERATION (review reports)",
+        "openpyxl                  # Excel files (BOQ / cost data)",
+        "unstructured[xlsx]        # unstructured / mixed document parsing",
+        "Pillow                    # image handling for scanned PDFs",
+        "pymupdf                   # PDF page rendering (deep extraction / vision per page)",
+        "ezdxf                     # read DXF (and DWG via ODA) - CAD data extraction",
+        "matplotlib                # render CAD drawings to images for the vision model",
+        "pandas",
+        "tabulate",
+        "pydantic-settings         # config management — was missing",
+        "python-dotenv             # .env file support — was missing",
+        "httpx                     # async HTTP client for Ollama API calls",
+        "loguru                    # structured logging (pairs with the audit trail)",
+        "jinja2                    # report templates (HTML)",
+        "reportlab                 # PDF report generation.",
+        "passlib                   # password hashing (pbkdf2_sha256, pure-python)",
+        "python-jose[cryptography] # JWT login tokens"
+      ]
+    },
+    "architecture_compliance": {
+      "checks": {
+        "model_registry": true,
+        "orchestrator": true,
+        "knowledge_hub": true,
+        "hybrid_retrieval": true,
+        "compliance_engine": true,
+        "validation_engine": true,
+        "report_engine": true,
+        "ocr_engine": true,
+        "layout_engine": true,
+        "drawing_engine": true,
+        "ifc_engine": true,
+        "agent_runtime": true,
+        "agent_tools": true,
+        "bim_service": true,
+        "ingestion_pipeline": true,
+        "observability": true,
+        "evaluation_framework": true,
+        "docker_deployment": true,
+        "backup_script": true
+      },
+      "implemented": 19,
+      "total": 19
+    }
+  }
+}

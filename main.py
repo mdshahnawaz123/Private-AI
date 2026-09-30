@@ -205,7 +205,7 @@ async def health_db():
     """Check database connectivity."""
     try:
         with db.SessionLocal() as s:
-            s.execute("SELECT 1")
+            s.execute(text("SELECT 1"))
         return {"status": "ok", "database": "connected"}
     except Exception as e:
         return {"status": "error", "database": str(e)}
@@ -275,6 +275,7 @@ async def evaluation_summary():
 # ============================================================
 
 from fastapi import APIRouter
+from sqlalchemy import text  # for health-check SELECT 1 (SQLAlchemy 2.x)
 
 api_v1 = APIRouter(prefix="/api/v1")
 

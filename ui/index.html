@@ -145,23 +145,40 @@ table.qa td{padding:6px 8px;border-bottom:1px solid #14203508;border-bottom:1px 
 .ai-seg{margin-left:auto;display:flex;gap:3px;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:3px}
 .ai-seg button{background:none;border:none;color:var(--muted);padding:5px 11px;border-radius:6px;font-size:11.5px}
 .ai-seg button.on{background:var(--accent);color:#fff}
-.ai-msgs{flex:1;min-height:0;overflow:auto;padding:14px;display:flex;flex-direction:column;gap:13px}
+.ai-msgs{flex:1;min-height:0;overflow:auto;padding:20px 16px;display:flex;flex-direction:column;gap:16px;max-width:820px;margin:0 auto;width:100%}
 .m{display:flex;gap:10px;max-width:100%}
 .m .av{width:28px;height:28px;border-radius:8px;flex:none;display:grid;place-items:center;font-size:11px;font-weight:700}
 .m.u{flex-direction:row-reverse}.m.u .av{background:var(--accent);color:#fff}
 .m.a .av{background:linear-gradient(150deg,var(--accent),var(--violet));color:#fff}
-.m .bub{padding:11px 13px;border-radius:12px;font-size:12.5px;line-height:1.55;word-break:break-word}
-.m.u .bub{background:var(--accent);color:#fff;border-top-right-radius:4px}
-.m.a .bub{background:var(--card);border:1px solid var(--border);border-top-left-radius:4px}
-.m .bub b{color:#fff}
-.m.a .bub code{background:#0c1526;border:1px solid var(--border);border-radius:4px;padding:1px 5px}
+.m{display:flex;gap:10px;align-items:flex-start}
+.m .av{width:32px;height:32px;border-radius:50%;display:grid;place-items:center;font-size:11px;font-weight:700;flex:none;margin-top:2px}
+.m.u .av{background:linear-gradient(135deg,#3b82f6,#8b5cf6);color:#fff}
+.m.a .av{background:linear-gradient(135deg,#10b981,#059669);color:#fff}
+.m .bub{padding:12px 16px;border-radius:16px;font-size:13.5px;line-height:1.6;word-break:break-word;flex:1}
+.m.u .bub{background:linear-gradient(135deg,#3b82f6 0%,#2563eb 100%);color:#fff;border-top-right-radius:4px;box-shadow:0 2px 8px rgba(59,130,246,.25)}
+.m.a .bub{background:#111827;border:1px solid #1f2937;border-top-left-radius:4px;color:#e5e7eb}
+.m .bub b{color:inherit}
+.m.a .bub code{background:#1f2937;border:1px solid #374151;border-radius:6px;padding:2px 6px;font-size:12px;color:#a5b4fc}
+.m.a .bub pre{background:#0f172a;border:1px solid #1e293b;border-radius:10px;padding:12px 14px;overflow-x:auto;margin:8px 0}
+.m.a .bub pre code{background:none;border:none;padding:0;color:#e2e8f0}
+.m.a .bub h1,.m.a .bub h2,.m.a .bub h3{color:#f3f4f6;margin:12px 0 6px}
+.m.a .bub ul,.m.a .bub ol{padding-left:20px;margin:6px 0}
+.m.a .bub li{margin:3px 0}
+.m.a .bub p{margin:6px 0}
+.m.a .bub strong{color:#fff}
 .chk{display:flex;align-items:flex-start;gap:8px;margin:6px 0;font-size:12px}
 .chk .c{color:var(--green);flex:none;margin-top:1px}
-.evd{margin-top:9px}
-.evd .er{display:flex;align-items:center;gap:9px;background:#0c1526;border:1px solid var(--border);border-radius:9px;padding:9px 11px;margin-bottom:7px;cursor:pointer}
-.evd .er:hover{border-color:var(--accent)}
-.evd .er .ic{width:26px;height:26px;border-radius:6px;background:#1a1420;display:grid;place-items:center;color:var(--red);flex:none;font-size:13px}
-.evd .er b{font-size:12px;display:block}.evd .er span{font-size:10.5px;color:var(--mint,#31d0a5);color:var(--cyan)}
+.evd{margin-top:12px;display:flex;flex-direction:column;gap:8px}
+.evd .er{display:flex;align-items:center;gap:12px;background:linear-gradient(135deg,#111827 0%,#0f172a 100%);border:1px solid #1e293b;border-radius:12px;padding:12px 14px;cursor:pointer;transition:all .2s ease;position:relative;overflow:hidden}
+.evd .er::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:linear-gradient(180deg,#3b82f6,#8b5cf6);border-radius:3px 0 0 3px}
+.evd .er:hover{border-color:#3b82f6;transform:translateX(4px);box-shadow:0 4px 12px rgba(59,130,246,.15)}
+.evd .er .ic{width:36px;height:36px;border-radius:9px;background:linear-gradient(135deg,#1e293b 0%,#0f172a 100%);display:grid;place-items:center;color:#60a5fa;flex:none;font-size:16px;border:1px solid #334155}
+.evd .er .txt{flex:1;min-width:0}
+.evd .er b{font-size:13px;display:block;color:#e2e8f0;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.evd .er .meta{display:flex;align-items:center;gap:8px;margin-top:3px}
+.evd .er .meta span{font-size:11px;color:#22d3ee;font-weight:500}
+.evd .er .meta .rev{font-size:10px;color:#94a3b8;background:#1e293b;padding:2px 6px;border-radius:4px;border:1px solid #334155}
+.evd .er .ext{width:28px;height:28px;border-radius:7px;background:#1e293b;display:grid;place-items:center;color:#64748b;flex:none;font-size:11px;font-weight:700;text-transform:uppercase}
 .ai-quick{display:flex;flex-wrap:wrap;gap:7px;padding:0 14px 10px}
 .ai-quick button{background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:20px;padding:7px 12px;font-size:11.5px}
 .ai-quick button:hover{border-color:var(--accent);color:#bcd0ff}
@@ -567,8 +584,17 @@ async function stream(display,endpoint,body){ const bub=addMsg('a','<span style=
     aiHist.push({role:'user',content:body.query}); aiHist.push({role:'assistant',content:ans});
   }catch(e){ bub.innerHTML='<span style="color:var(--red)">Request failed: '+esc(e.message||e)+'</span>'; } }
 function renderEvidence(bub,sources){ if(!sources||!sources.length)return;
-  bub._ev='<div class="evd">'+sources.slice(0,4).map(s=>{ const name=s.filename||s.source||s.rel||'source'; const pg=(s.page!=null)?('Page '+s.page):''; const rel=s.rel||s.source||'';
-    return `<div class="er" onclick="openFile('${esc(encodeURIComponent(rel))}')"><div class="ic">▤</div><div><b>${esc(name)}</b><span>${esc(pg)}${s.revision?(' · '+esc(s.revision)):''}</span></div></div>`; }).join('')+'</div>';
+  bub._ev='<div class="evd">'+sources.slice(0,6).map(s=>{
+    const name=s.filename||s.source||s.rel||'source';
+    const pg=(s.page!=null)?('Page '+s.page):'';
+    const rel=s.rel||s.source||'';
+    const ext=(name.split('.').pop()||'').toUpperCase();
+    const rev=s.revision?`<span class="rev">${esc(s.revision)}</span>`:'';
+    return `<div class="er" onclick="openFile('${esc(encodeURIComponent(rel))}')">
+      <div class="ic">📄</div>
+      <div class="txt"><b>${esc(name)}</b><div class="meta"><span>${esc(pg)}</span>${rev}</div></div>
+      <div class="ext">${esc(ext)}</div>
+    </div>`; }).join('')+'</div>';
   bub.innerHTML=mdLite('').length?bub.innerHTML+bub._ev:bub.innerHTML+bub._ev; }
 $('aiIn').addEventListener('keydown',e=>{ if(e.key==='Enter'&&!e.shiftKey){ e.preventDefault(); sendAi(); } });
 $('aiSend').onclick=sendAi;

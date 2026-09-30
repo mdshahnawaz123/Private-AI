@@ -24,6 +24,7 @@ import psutil
 import datetime
 from typing import Dict, Any, Optional
 from dataclasses import dataclass, field
+from sqlalchemy import text  # for health-check SELECT 1 (SQLAlchemy 2.x)
 
 try:
     from loguru import logger
@@ -137,7 +138,7 @@ class Observability:
         try:
             import db
             with db.SessionLocal() as s:
-                s.execute("SELECT 1")
+                s.execute(text("SELECT 1"))
             health["services"]["database"] = "healthy"
         except Exception as e:
             health["services"]["database"] = f"unhealthy: {e}"

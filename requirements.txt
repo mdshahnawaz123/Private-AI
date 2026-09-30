@@ -54,3 +54,7 @@ python-jose[cryptography] # JWT login tokens
 # NOTE: reportlab builds PDFs programmatically and does NOT render Jinja/HTML
 # templates. If reports are HTML-template -> PDF, weasyprint fits better.
 # Kept per your list — confirm the intended report pipeline.
+
+# --- Added for the Phase 0-10 build (observability + background worker) ---
+psutil                    # system metrics for /health/full and /metrics (REQUIRED by core/observability.py)
+celery                    # optional: background worker (worker/); web app runs without it

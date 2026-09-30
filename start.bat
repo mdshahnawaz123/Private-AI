@@ -70,11 +70,16 @@ REM ---------- 7. Wait, open UI ----------
 timeout /t 6 /nobreak >nul
 start "" "http://127.0.0.1:8090/ui/"
 
+REM ---------- 7b. Open health check (confirms you are on the LATEST build) ----------
+echo  [..] Opening health check ^(should return JSON if this is the latest build^)...
+start "" "http://127.0.0.1:8090/health/full"
+
 echo.
 echo  ============================================================
 echo    Expo Design AI is RUNNING
 echo    UI:  http://127.0.0.1:8090/ui/
 echo    API: http://127.0.0.1:8090/docs
+    Verify latest: http://127.0.0.1:8090/health/full  (404 = old folder)
 echo  ============================================================
 echo.
 echo  Press any key to close this launcher...

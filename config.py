@@ -42,6 +42,14 @@ class Settings(BaseSettings):
     enable_model_tiering: bool = False
     rerank_candidates: int = 20
     rerank_keep: int = 5
+    enable_query_expansion: bool = False  # Wave 1.5: expand short/coded queries via worker model
+    enable_metadata_prefilter: bool = False  # Wave 1.5: pre-filter candidates by metadata before ranking
+
+    # Phase 2: Structured data
+    enable_structured_tables: bool = False  # Phase 2: extract tables/schedules as structured rows
+    enable_quantities_store: bool = False  # Phase 2: capture numeric quantities as structured data
+    enable_self_check: bool = False  # Phase 2: worker model self-check for answer verification
+    not_found_threshold: float = 0.0  # Phase 2 FIX: 0.3 was miscalibrated for bge-reranker-v2-m3 (relevant chunks score ~0.01-0.06), which silently discarded valid retrievals. 0.0 disables the score-gate; honest "not found" is still handled by the answer prompt. Recalibrate later with eval data.
 
     # Ollama
     ollama_host: str = "http://127.0.0.1:11434"

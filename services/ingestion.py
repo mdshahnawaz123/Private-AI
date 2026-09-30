@@ -156,6 +156,32 @@ class IngestionPipeline:
         else:
             return "none"
 
+    def extract_structured_tables(self, project_id: str, filename: str,
+                                  meta: Dict[str, Any]) -> int:
+        """
+        Extract structured tables from document metadata.
+        Phase 2: Store each row as a structured record.
+        """
+        try:
+            from knowledge.extraction import index_structured_tables
+            return index_structured_tables(project_id, filename, meta)
+        except Exception as e:
+            logger.warning("Structured table extraction failed: {}", e)
+            return 0
+
+    def extract_quantities(self, project_id: str, filename: str,
+                           meta: Dict[str, Any]) -> int:
+        """
+        Extract numeric quantities from document metadata.
+        Phase 2: Store quantities as structured data.
+        """
+        try:
+            from knowledge.extraction import index_quantities
+            return index_quantities(project_id, filename, meta)
+        except Exception as e:
+            logger.warning("Quantities extraction failed: {}", e)
+            return 0
+
     def quality_check(self, extraction_result: Dict[str, Any]) -> Dict[str, Any]:
         """
         Run quality checks on extraction results.

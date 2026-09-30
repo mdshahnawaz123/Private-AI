@@ -51,6 +51,11 @@ reportlab                 # PDF report generation.
 # ── Auth (multi-user) ──────────────────────────────────────
 passlib                   # password hashing (pbkdf2_sha256, pure-python)
 python-jose[cryptography] # JWT login tokens
+
+# ── Wave 1.5: In-process reranker (Task A) ─────────────────
+# One-time setup (requires internet): python -m sentence_transformers.download BAAI/bge-reranker-v2-m3
+# After setup, runs fully offline. CPU-only to protect VRAM for AutoCAD/D5.
+sentence-transformers     # CrossEncoder for local reranking (bge-reranker-v2-m3)
 # NOTE: reportlab builds PDFs programmatically and does NOT render Jinja/HTML
 # templates. If reports are HTML-template -> PDF, weasyprint fits better.
 # Kept per your list — confirm the intended report pipeline.

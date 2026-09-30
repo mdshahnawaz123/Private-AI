@@ -1,0 +1,18 @@
+# DBC Compliance Golden Set Template
+# Fill in the REAL values from your DBC documents
+# Do NOT invent code numbers — use only verified values from your uploaded documents
+#
+# Format:
+# {"id": "c001", "question": "...", "expected_answer_contains": ["..."], "expected_sources": ["..."], "type": "compliance", "dbc_part": "B", "requirement": "..."}
+#
+# DBC Parts: A=General, B=Architecture, C=Accessibility, D=Vertical transportation,
+#            E=Building envelope, F=Structure, G=Incoming utilities, H=Indoor environment,
+#            J=Security, K=Villas
+#
+# Example (replace with REAL values from your DBC):
+# {"id": "c001", "question": "What is the minimum clear door width?", "expected_answer_contains": ["800mm"], "expected_sources": ["DBC_2021_Part_B.pdf"], "type": "compliance", "dbc_part": "B", "requirement": "Minimum clear door width"}
+#
+# --- ADD YOUR REAL DBC COMPLIANCE QUESTIONS BELOW ---
+# {"id": "c001", "question": "", "expected_answer_contains": [""], "expected_sources": [""], "type": "compliance", "dbc_part": "", "requirement": ""}
+# {"id": "c002", "question": "", "expected_answer_contains": [""], "expected_sources": [""], "type": "compliance", "dbc_part": "", "requirement": ""}
+# {"id": "c003", "question": "", "expected_answer_contains": [""], "expected_sources": [""], "type": "compliance", "dbc_part": "", "requirement": ""}

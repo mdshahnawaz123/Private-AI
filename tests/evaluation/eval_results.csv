@@ -1,51 +1,61 @@
 id,question,type,passed,answer_match,source_match,retrieval_hit,honesty,latency_ms
-q001,What is the project name?,lookup,True,True,True,True,True,2019.5
-q002,What is the drawing number of this document?,lookup,True,True,True,True,True,250.6
-q003,What is the date of the developed design report?,lookup,True,True,True,True,True,215.3
-q004,What is the ramp slope down to the basement?,lookup,True,True,True,True,True,232.4
-q005,What is the ramp slope up to the podium?,lookup,True,True,True,True,True,218.3
-q006,What is the retail type 2 depth requirement?,lookup,True,True,True,True,True,326.1
-q007,What is the retail type 2 minimum area requirement?,lookup,True,True,True,True,True,319.3
-q008,What is the TOS level for Tower 1?,lookup,False,False,True,True,True,303.4
-q009,What is the TOPR level for Tower 1?,lookup,False,False,True,True,True,331.4
-q010,What is the TOS level for Tower 4?,lookup,True,True,True,True,True,303.5
-q011,What is the TOPR level for Tower 4?,lookup,True,True,True,True,True,297.2
-q012,What is the TOS level for Tower 5?,lookup,False,False,True,True,True,276.8
-q013,What is the highest TOS level mentioned?,lookup,False,False,True,True,True,312.8
-q014,What is the plot number for this project?,lookup,True,True,True,True,True,304.5
-q015,What is the North coordinate for the site?,lookup,True,True,True,True,True,289.6
-q016,What is the East coordinate for the site?,lookup,True,True,True,True,True,328.1
-q017,How many towers are shown on the ground floor plan?,quantity,True,True,True,True,True,275.6
-q018,What is the corridor width dimension?,quantity,True,True,True,True,True,326.0
-q019,"What is the dimension 6,250?",quantity,True,True,True,True,True,191.8
-q020,"What is the dimension 9,050?",quantity,True,True,True,True,True,250.5
-q021,"What is the dimension 1,200?",quantity,True,True,True,True,True,295.5
-q022,"What is the dimension 1,600?",quantity,True,True,True,True,True,309.2
-q023,"What is the dimension 4,800?",quantity,True,True,True,True,True,279.9
-q024,What is the dimension 11.50 m?,quantity,False,False,True,True,True,203.4
-q025,What is the dimension 120M2?,quantity,True,True,True,True,True,283.1
-q026,"What is the dimension 57,800?",quantity,True,True,True,True,True,311.5
-q027,"What is the dimension 58,400?",quantity,True,True,True,True,True,306.9
-q028,"What is the dimension 30,200?",quantity,False,False,True,True,True,328.1
-q029,"What is the dimension 9,500?",quantity,False,False,True,True,True,315.2
-q030,"What is the dimension 2,700?",quantity,False,False,True,True,True,314.4
-q031,What type of shaft is the PRESSURIZATION SHAFT?,general,True,True,True,True,True,456.0
-q032,What type of shaft is the SMOKE SHAFT?,general,True,True,True,True,True,339.1
-q033,What type of shaft is the CHILLED WATER SHAFT?,general,False,False,True,True,True,326.3
-q034,What type of shaft is the GARBAGE EXTRACT SHAFT?,general,True,True,True,True,True,330.7
-q035,What type of shaft is the CHUTE SHAFT?,general,True,True,True,True,True,316.4
-q036,What is the room type 1 BED-A?,general,True,True,True,True,True,307.7
-q037,What is the room type 2 BED-E?,general,True,True,True,True,True,252.8
-q038,What is the BoH room type?,general,True,True,True,True,True,222.1
-q039,What is the F&B room type?,general,True,True,True,True,True,208.8
-q040,What is the LOBBY room type?,general,True,True,True,True,True,329.3
-q041,What is the RETAIL room type?,general,True,True,True,True,True,306.1
-q042,What is the SECURITY room type?,general,True,True,True,True,True,247.3
-q043,What is the SERVICE room type?,general,True,True,True,True,True,288.0
-q044,What is the FIRE EXIT room type?,general,True,True,True,True,True,322.0
-q045,What is the FIRE LIFT room type?,general,True,True,True,True,True,328.3
-q046,What is the FM OPERATIONS room type?,general,False,False,True,True,True,330.1
-q047,What is the CIRCULATION room type?,general,False,False,True,True,True,326.3
-q048,What is the AMENITIES room type?,general,True,True,True,True,True,322.6
-q049,What is the GYM room type?,general,True,True,True,True,True,315.2
-q050,What is the OLS buffer requirement?,lookup,True,True,True,True,True,327.1
+q001,What is the project name?,lookup,True,True,True,True,True,6049.9
+q002,What is the drawing number of this document?,lookup,True,True,True,True,True,206.0
+q003,What is the date of the developed design report?,lookup,True,True,True,True,True,217.1
+q004,What is the ramp slope down to the basement?,lookup,True,True,True,True,True,219.4
+q005,What is the ramp slope up to the podium?,lookup,True,True,True,True,True,207.0
+q006,What is the retail type 2 depth requirement?,lookup,True,True,True,True,True,185.6
+q007,What is the retail type 2 minimum area requirement?,lookup,True,True,True,True,True,195.9
+q008,What is the TOS level for Tower 1?,lookup,False,False,True,True,True,194.6
+q009,What is the TOPR level for Tower 1?,lookup,False,False,True,True,True,211.3
+q010,What is the TOS level for Tower 4?,lookup,True,True,True,True,True,204.3
+q011,What is the TOPR level for Tower 4?,lookup,True,True,True,True,True,181.5
+q012,What is the TOS level for Tower 5?,lookup,False,False,True,True,True,184.6
+q013,What is the highest TOS level mentioned?,lookup,False,False,True,True,True,188.2
+q014,What is the plot number for this project?,lookup,True,True,True,True,True,199.2
+q015,What is the North coordinate for the site?,lookup,True,True,True,True,True,186.6
+q016,What is the East coordinate for the site?,lookup,True,True,True,True,True,169.3
+q017,How many towers are shown on the ground floor plan?,quantity,True,True,True,True,True,203.9
+q018,What is the corridor width dimension?,quantity,True,True,True,True,True,169.1
+q019,"What is the dimension 6,250?",quantity,True,True,True,True,True,187.0
+q020,"What is the dimension 9,050?",quantity,True,True,True,True,True,191.0
+q021,"What is the dimension 1,200?",quantity,True,True,True,True,True,192.0
+q022,"What is the dimension 1,600?",quantity,True,True,True,True,True,222.8
+q023,"What is the dimension 4,800?",quantity,True,True,True,True,True,201.0
+q024,What is the dimension 11.50 m?,quantity,False,False,True,True,True,217.3
+q025,What is the dimension 120M2?,quantity,True,True,True,True,True,175.3
+q026,"What is the dimension 57,800?",quantity,True,True,True,True,True,197.8
+q027,"What is the dimension 58,400?",quantity,True,True,True,True,True,216.2
+q028,"What is the dimension 30,200?",quantity,False,False,True,True,True,207.4
+q029,"What is the dimension 9,500?",quantity,False,False,True,True,True,208.9
+q030,"What is the dimension 2,700?",quantity,False,False,True,True,True,265.0
+q031,What type of shaft is the PRESSURIZATION SHAFT?,general,True,True,True,True,True,388.1
+q032,What type of shaft is the SMOKE SHAFT?,general,True,True,True,True,True,238.8
+q033,What type of shaft is the CHILLED WATER SHAFT?,general,False,False,True,True,True,212.6
+q034,What type of shaft is the GARBAGE EXTRACT SHAFT?,general,True,True,True,True,True,208.9
+q035,What type of shaft is the CHUTE SHAFT?,general,True,True,True,True,True,228.8
+q036,What is the room type 1 BED-A?,general,True,True,True,True,True,243.0
+q037,What is the room type 2 BED-E?,general,True,True,True,True,True,208.8
+q038,What is the BoH room type?,general,True,True,True,True,True,231.4
+q039,What is the F&B room type?,general,True,True,True,True,True,236.1
+q040,What is the LOBBY room type?,general,True,True,True,True,True,221.3
+q041,What is the RETAIL room type?,general,True,True,True,True,True,223.9
+q042,What is the SECURITY room type?,general,True,True,True,True,True,232.0
+q043,What is the SERVICE room type?,general,True,True,True,True,True,261.2
+q044,What is the FIRE EXIT room type?,general,True,True,True,True,True,230.4
+q045,What is the FIRE LIFT room type?,general,True,True,True,True,True,225.9
+q046,What is the FM OPERATIONS room type?,general,False,False,True,True,True,222.5
+q047,What is the CIRCULATION room type?,general,False,False,True,True,True,205.1
+q048,What is the AMENITIES room type?,general,True,True,True,True,True,210.3
+q049,What is the GYM room type?,general,True,True,True,True,True,245.5
+q050,What is the OLS buffer requirement?,lookup,True,True,True,True,True,219.4
+nf001,What is the main contractor's company name for this project?,not-found,False,True,True,True,False,246.5
+nf002,What is the tender submission deadline?,not-found,False,True,True,True,False,234.3
+nf003,What is the total construction budget for the project?,not-found,False,True,True,True,False,222.6
+nf004,What is the unit price of the marble flooring?,not-found,False,True,True,True,False,214.4
+nf005,What is the warranty period for the curtain wall system?,not-found,False,True,True,True,False,233.7
+nf006,What is the client's contact phone number?,not-found,False,True,True,True,False,236.7
+nf007,What is the name of the appointed MEP subcontractor?,not-found,False,True,True,True,False,213.0
+nf008,What is the on-site tower crane lifting capacity?,not-found,False,True,True,True,False,246.9
+nf009,What is the concrete supplier's delivery schedule?,not-found,False,True,True,True,False,216.8
+nf010,What is the site insurance policy number?,not-found,False,True,True,True,False,210.9

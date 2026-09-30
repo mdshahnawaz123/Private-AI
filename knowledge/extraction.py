@@ -248,3 +248,221 @@ def index_structured_entities(project_id: str, filename: str,
 
     logger.info("Indexed structured entities for {}: {}", filename, counts)
     return counts
+
+
+# ── Phase 2: Structured Table Extraction ───────────────────
+
+def extract_structured_tables_from_pdf(meta: Dict[str, Any],
+                                        project_id: str = "default") -> List[Dict[str, Any]]:
+    """
+    Extract structured tables from PDF metadata.
+    Detects TOS/TOPR level tables, legends, and schedules.
+    Returns list of table rows with row_key and row_values.
+    """
+    import re
+    rows = []
+    filename = meta.get("filename", "")
+
+    for page in meta.get("pages", []):
+        text = page.get("text", "")
+        page_num = page.get("page")
+        if not text:
+            continue
+
+        # Detect TOS/TOPR level tables
+        if "TOS" in text or "TOPR" in text:
+            # Pattern: TOS/TOPR followed by level value
+            tos_pattern = r'TOS\s+(\d+\.\d+)'
+            topr_pattern = r'TOPR\s+(\d+\.\d+)'
+            tower_pattern = r'TOWER\s*(\d+)'
+
+            towers = re.findall(tower_pattern, text, re.IGNORECASE)
+            tos_values = re.findall(tos_pattern, text, re.IGNORECASE)
+            topr_values = re.findall(topr_pattern, text, re.IGNORECASE)
+
+            for i, tower in enumerate(towers):
+                row_key = f"TOS Tower {tower}"
+                row_values = {"tower": tower}
+                if i < len(tos_values):
+                    row_values["TOS"] = tos_values[i]
+                if i < len(topr_values):
+                    row_values["TOPR"] = topr_values[i]
+                rows.append({
+                    "doc": filename,
+                    "page": page_num,
+                    "table_name": "TOS/TOPR Levels",
+                    "row_key": row_key,
+                    "row_values": row_values,
+                    "revision": meta.get("revision", ""),
+                })
+
+        # Detect legend codes (e.g., LX-PT, 1 BED-A, etc.)
+        legend_pattern = r'\b([A-Z]{1,3}-[A-Z]{1,3})\b'
+        legends = re.findall(legend_pattern, text)
+        for legend in legends:
+            rows.append({
+                "doc": filename,
+                "page": page_num,
+                "table_name": "Legend",
+                "row_key": legend,
+                "row_values": {"code": legend},
+                "revision": meta.get("revision", ""),
+            })
+
+    return rows
+
+
+def index_structured_tables(project_id: str, filename: str,
+                            meta: Dict[str, Any]) -> int:
+    """
+    Index structured table rows into the database.
+    Each row is stored as a separate retrievable unit.
+    """
+    import db
+
+    rows = extract_structured_tables_from_pdf(meta, project_id)
+    count = 0
+
+    for row in rows:
+        # Store in schedule_rows table
+        db_session = db.SessionLocal()
+        try:
+            # Check if row already exists
+            existing = db_session.query(db.ScheduleRow).filter_by(
+                project_id=project_id,
+                doc=row["doc"],
+                page=row["page"],
+                row_key=row["row_key"],
+            ).first()
+
+            if not existing:
+                new_row = db.ScheduleRow(
+                    project_id=project_id,
+                    doc=row["doc"],
+                    page=row["page"],
+                    table_name=row["table_name"],
+                    row_key=row["row_key"],
+                    row_values=row["row_values"],
+                    revision=row["revision"],
+                )
+                db_session.add(new_row)
+                db_session.commit()   # Phase 2 fix: persist the row (was rolled back on close)
+                count += 1
+        finally:
+            db_session.close()
+
+    logger.info("Indexed {} structured table rows for {}", count, filename)
+    return count
+
+
+# ── Phase 2: Quantities Store ───────────────────────────────
+
+def extract_quantities_from_pdf(meta: Dict[str, Any],
+                                 project_id: str = "default") -> List[Dict[str, Any]]:
+    """
+    Extract numeric quantities from PDF metadata.
+    Captures TOS/TOPR levels, areas, dimensions, and other numeric values.
+    """
+    quantities = []
+    filename = meta.get("filename", "")
+
+    for page in meta.get("pages", []):
+        text = page.get("text", "")
+        page_num = page.get("page")
+        if not text:
+            continue
+
+        import re
+
+        # Extract TOS/TOPR levels
+        tos_pattern = r'TOS\s+(\d+\.\d+)'
+        topr_pattern = r'TOPR\s+(\d+\.\d+)'
+        tower_pattern = r'TOWER\s*(\d+)'
+
+        towers = re.findall(tower_pattern, text, re.IGNORECASE)
+        tos_values = re.findall(tos_pattern, text, re.IGNORECASE)
+        topr_values = re.findall(topr_pattern, text, re.IGNORECASE)
+
+        for i, tower in enumerate(towers):
+            if i < len(tos_values):
+                quantities.append({
+                    "project_id": project_id,
+                    "building": f"Tower {tower}",
+                    "metric": "TOS",
+                    "value": tos_values[i],
+                    "unit": "m",
+                    "source_doc": filename,
+                    "source_page": page_num,
+                    "revision": meta.get("revision", ""),
+                })
+            if i < len(topr_values):
+                quantities.append({
+                    "project_id": project_id,
+                    "building": f"Tower {tower}",
+                    "metric": "TOPR",
+                    "value": topr_values[i],
+                    "unit": "m",
+                    "source_doc": filename,
+                    "source_page": page_num,
+                    "revision": meta.get("revision", ""),
+                })
+
+        # Extract dimensions (e.g., 6,250, 9,050, etc.)
+        dim_pattern = r'\b(\d{1,3}(?:,\d{3})+(?:\.\d+)?)\s*(mm|cm|m)\b'
+        dims = re.findall(dim_pattern, text, re.IGNORECASE)
+        for value, unit in dims:
+            quantities.append({
+                "project_id": project_id,
+                "building": "",
+                "metric": "dimension",
+                "value": value.replace(",", ""),
+                "unit": unit.lower(),
+                "source_doc": filename,
+                "source_page": page_num,
+                "revision": meta.get("revision", ""),
+            })
+
+    return quantities
+
+
+def index_quantities(project_id: str, filename: str,
+                     meta: Dict[str, Any]) -> int:
+    """
+    Index quantities into the database.
+    """
+    import db
+
+    quantities = extract_quantities_from_pdf(meta, project_id)
+    count = 0
+
+    for q in quantities:
+        db_session = db.SessionLocal()
+        try:
+            # Check if quantity already exists
+            existing = db_session.query(db.Quantity).filter_by(
+                project_id=project_id,
+                building=q["building"],
+                metric=q["metric"],
+                source_doc=q["source_doc"],
+                source_page=q["source_page"],
+            ).first()
+
+            if not existing:
+                new_q = db.Quantity(
+                    project_id=q["project_id"],
+                    building=q["building"],
+                    metric=q["metric"],
+                    value=q["value"],
+                    unit=q["unit"],
+                    source_doc=q["source_doc"],
+                    source_page=q["source_page"],
+                    revision=q["revision"],
+                )
+                db_session.add(new_q)
+                db_session.commit()   # Phase 2 fix: persist the quantity (was rolled back on close)
+                count += 1
+        finally:
+            db_session.close()
+
+    logger.info("Indexed {} quantities for {}", count, filename)
+    return count

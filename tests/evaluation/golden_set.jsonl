@@ -48,3 +48,13 @@
 {"id": "q048", "question": "What is the AMENITIES room type?", "expected_answer_contains": ["AMENITIES"], "expected_sources": ["C3085-RPT-3EH6105-AR-0000002(5).pdf"], "type": "general"}
 {"id": "q049", "question": "What is the GYM room type?", "expected_answer_contains": ["GYM"], "expected_sources": ["C3085-RPT-3EH6105-AR-0000002(5).pdf"], "type": "general"}
 {"id": "q050", "question": "What is the OLS buffer requirement?", "expected_answer_contains": ["300MM"], "expected_sources": ["C3085-RPT-3EH6105-AR-0000002(5).pdf"], "type": "lookup"}
+{"id": "nf001", "question": "What is the main contractor's company name for this project?", "expected_answer_contains": [], "expected_sources": [], "type": "not-found"}
+{"id": "nf002", "question": "What is the tender submission deadline?", "expected_answer_contains": [], "expected_sources": [], "type": "not-found"}
+{"id": "nf003", "question": "What is the total construction budget for the project?", "expected_answer_contains": [], "expected_sources": [], "type": "not-found"}
+{"id": "nf004", "question": "What is the unit price of the marble flooring?", "expected_answer_contains": [], "expected_sources": [], "type": "not-found"}
+{"id": "nf005", "question": "What is the warranty period for the curtain wall system?", "expected_answer_contains": [], "expected_sources": [], "type": "not-found"}
+{"id": "nf006", "question": "What is the client's contact phone number?", "expected_answer_contains": [], "expected_sources": [], "type": "not-found"}
+{"id": "nf007", "question": "What is the name of the appointed MEP subcontractor?", "expected_answer_contains": [], "expected_sources": [], "type": "not-found"}
+{"id": "nf008", "question": "What is the on-site tower crane lifting capacity?", "expected_answer_contains": [], "expected_sources": [], "type": "not-found"}
+{"id": "nf009", "question": "What is the concrete supplier's delivery schedule?", "expected_answer_contains": [], "expected_sources": [], "type": "not-found"}
+{"id": "nf010", "question": "What is the site insurance policy number?", "expected_answer_contains": [], "expected_sources": [], "type": "not-found"}

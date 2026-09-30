@@ -11,8 +11,47 @@ never asserts a threshold it cannot cite from the source.
 import re
 
 CODE_EDITIONS = {
+    # Architecture
     "DBC": "Dubai Building Code 2021",
     "IBC": "International Building Code 2021",
+    # Structural
+    "ACI": "ACI 318-19 (Concrete)",
+    "ASCE": "ASCE 7-22 (Loads)",
+    "AISC": "AISC 360-22 (Steel)",
+    # MEP
+    "NFPA": "NFPA 92 (Smoke Control)",
+    "IMC": "International Mechanical Code 2021",
+    "IPC": "International Plumbing Code 2021",
+    # Sustainability
+    "LEED": "LEED v4.1",
+    "ESTIDAMA": "Estidama Pearl Rating System",
+}
+
+# DBC Part mapping — each discipline maps to specific DBC parts
+DBC_PARTS = {
+    "A": "General",
+    "B": "Architecture",
+    "C": "Accessibility",
+    "D": "Vertical transportation",
+    "E": "Building envelope",
+    "F": "Structure",
+    "G": "Incoming utilities",
+    "H": "Indoor environment",
+    "J": "Security",
+    "K": "Villas",
+}
+
+# Discipline → DBC Part mapping
+DISCIPLINE_TO_DBC_PART = {
+    "architecture": ["B"],
+    "structural": ["F"],
+    "mep": ["G", "H"],
+    "sustainability": ["A"],
+    "accessibility": ["C"],
+    "vertical_transportation": ["D"],
+    "building_envelope": ["E"],
+    "security": ["J"],
+    "villas": ["K"],
 }
 
 # ── Architecture reviewer prompt ───────────────────────────
@@ -126,11 +165,15 @@ ARCHITECTURE_CHECKLIST = [
 DISCIPLINES = {
     "architecture": {"key": "architecture", "name": "Architecture", "status": "active",
                      "prompt": ARCHITECTURE_PROMPT, "checklist": ARCHITECTURE_CHECKLIST, "codes": ["DBC", "IBC"]},
-    "structural":  {"key": "structural",  "name": "Structural",  "status": "planned", "prompt": None, "checklist": [], "codes": []},
-    "mep":         {"key": "mep",         "name": "MEP",         "status": "planned", "prompt": None, "checklist": [], "codes": []},
+    "structural":  {"key": "structural",  "name": "Structural",  "status": "active",
+                     "prompt": None, "checklist": [], "codes": ["ACI", "ASCE", "AISC"]},
+    "mep":         {"key": "mep",         "name": "MEP",         "status": "active",
+                     "prompt": None, "checklist": [], "codes": ["NFPA", "IMC", "IPC"]},
     "landscape":   {"key": "landscape",   "name": "Landscape",   "status": "planned", "prompt": None, "checklist": [], "codes": []},
     "bim":         {"key": "bim",         "name": "BIM",         "status": "planned", "prompt": None, "checklist": [], "codes": []},
     "cost_ve":     {"key": "cost_ve",     "name": "Cost / VE",   "status": "planned", "prompt": None, "checklist": [], "codes": []},
+    "sustainability": {"key": "sustainability", "name": "Sustainability", "status": "active",
+                     "prompt": None, "checklist": [], "codes": ["LEED", "ESTIDAMA"]},
 }
 
 def normalize(key):

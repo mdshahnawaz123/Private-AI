@@ -190,3 +190,30 @@ def chat_author(msgs, **kwargs):
 
     llm = LocalChatOllama(model=model, **kwargs)
     return llm.stream(msgs)
+
+
+# ── Wave 1/2: non-streaming worker helper (first real consumer of the worker model) ──
+
+def _msg(role, content):
+    return type("_M", (), {"type": role, "content": content})()
+
+
+def worker_complete(system, user=None, num_predict=192, temperature=0.0, timeout=120):
+    """Collect a short worker-model completion into a string.
+    Uses the worker model when tiering is enabled, else the author model
+    (via chat_worker). Returns '' on ANY failure so callers degrade gracefully."""
+    try:
+        # Accept worker_complete(prompt) as well as worker_complete(system, user):
+        # with one argument, treat it as the user message.
+        if user is None:
+            user, system = system, "You are a precise construction-review assistant."
+        msgs = [_msg("system", system), _msg("human", user)]
+        out = []
+        for chunk in chat_worker(msgs, temperature=temperature,
+                                 num_predict=num_predict, timeout=timeout):
+            c = getattr(chunk, "content", "")
+            if c:
+                out.append(c)
+        return "".join(out).strip()
+    except Exception:
+        return ""

@@ -1240,8 +1240,11 @@ def get_vectorstore(project: str):
             vs = FAISS.load_local(proj_idx, embedder, allow_dangerous_deserialization=True)
             vectorstores[project] = vs
             return vs
-        except:
+        except Exception as _e:
+            logger.exception("get_vectorstore LOAD FAILED for {}: {}", project, _e)
             pass
+    else:
+        logger.warning("get_vectorstore: no index for {} at {}", project, proj_idx)
     return None
 
 def save_vectorstore(project: str):
@@ -1459,6 +1462,7 @@ def retrieve_context(project: str, query: str, k: int, user=None):
     sees ONLY chunks from folders assigned to them; anyone else sees nothing.
 
     Phase 3: Now uses hybrid retrieval (BM25 + Vector + RRF + Reranker) when available.
+    Phase 2: Adds confidence gate for honest "not found" responses.
     """
     srcs, parts = [], []
     # Resolve the user's folder access up front.
@@ -1504,10 +1508,89 @@ def retrieve_context(project: str, query: str, k: int, user=None):
             rerank_keep = 5
 
         # Over-fetch, then filter by folder permission
-        cand = vs.similarity_search(query, k=max(rerank_candidates, k))
+        # Wave 2 (safe, flag-gated): expand short/coded queries via the worker model.
+        search_query = query
+        try:
+            from config import get_settings as _gs_qe
+            if _gs_qe().enable_query_expansion:
+                import local_chat as _lc_qe
+                _exp = _lc_qe.worker_complete(
+                    "You expand construction-review search queries. Given a question, "
+                    "output 3-8 extra search keywords or likely legend/schedule terms, "
+                    "comma-separated, no sentences.", query, num_predict=96)
+                if _exp:
+                    search_query = query + " " + _exp.replace(chr(10), " ")
+        except Exception:
+            search_query = query
+        cand = vs.similarity_search(search_query, k=max(rerank_candidates, k))
         permitted = [d for d in cand if _permitted(d)]
 
+        # Wave 1.5 (Task D): Metadata pre-filter — restrict candidates BEFORE ranking
+        # Only active when enable_metadata_prefilter=True (default: False)
+        # Auto-widens if too few candidates match (never filters the answer away)
+        try:
+            from config import get_settings as _gs_pf
+            if _gs_pf().enable_metadata_prefilter:
+                # Extract discipline/doctype/drawing-no from query
+                import re as _re_pf
+                _q_lower = query.lower()
+                # Discipline detection
+                _disc = None
+                for _d in ["architect", "structural", "mep", "landscape", "bim", "cost"]:
+                    if _d in _q_lower:
+                        _disc = _d
+                        break
+                # Document type detection
+                _doctype = None
+                for _dt in ["drawing", "schedule", "report", "spec", "calculation"]:
+                    if _dt in _q_lower:
+                        _doctype = _dt
+                        break
+                # Drawing number detection (e.g., C3085-RPT-3EH6105-AR-0000002)
+                _drawing_no = None
+                _dn_match = _re_pf.search(r'C\d{4}-[A-Z]{2,4}-[A-Z0-9-]+', query, _re_pf.IGNORECASE)
+                if _dn_match:
+                    _drawing_no = _dn_match.group(0).upper()
+
+                # DBC Part filtering — map discipline to DBC parts
+                _dbc_parts = None
+                try:
+                    from disciplines import DISCIPLINE_TO_DBC_PART
+                    if _disc and _disc in DISCIPLINE_TO_DBC_PART:
+                        _dbc_parts = DISCIPLINE_TO_DBC_PART[_disc]
+                except Exception:
+                    pass
+
+                # Apply pre-filter
+                _filtered = permitted
+                if _disc:
+                    _filtered = [d for d in _filtered
+                                 if d.metadata.get("discipline", "").lower() == _disc
+                                 or _disc in d.metadata.get("source", "").lower()]
+                if _doctype:
+                    _filtered = [d for d in _filtered
+                                 if d.metadata.get("doctype", "").lower() == _doctype
+                                 or _doctype in d.metadata.get("source", "").lower()]
+                if _drawing_no:
+                    _filtered = [d for d in _filtered
+                                 if _drawing_no.lower() in d.metadata.get("source", "").lower()]
+                if _dbc_parts:
+                    _filtered = [d for d in _filtered
+                                 if d.metadata.get("dbc_part", "") in _dbc_parts]
+
+                # Auto-widen: if too few candidates, use original permitted list
+                if len(_filtered) >= max(k, 3):
+                    permitted = _filtered
+                    logger.info("Metadata pre-filter: {} candidates (disc={}, doctype={}, drawing={}, dbc_parts={})",
+                                len(permitted), _disc, _doctype, _drawing_no, _dbc_parts)
+                else:
+                    logger.info("Metadata pre-filter: too few matches ({}), using original {}",
+                                len(_filtered), len(permitted))
+        except Exception:
+            pass  # Pre-filter is optional, never break retrieval
+
         # Rerank if enabled
+        top_score = None
         if reranker.is_enabled() and permitted:
             docs_for_rerank = [{"content": d.page_content, "metadata": d.metadata} for d in permitted]
             reranked = reranker.rerank_with_fallback(query, docs_for_rerank, top_k=rerank_keep)
@@ -1517,6 +1600,8 @@ def retrieve_context(project: str, query: str, k: int, user=None):
                 for d in permitted:
                     if d.page_content == r.get("content"):
                         docs.append(d)
+                        if r.get("rerank_score") is not None:
+                            top_score = r["rerank_score"]
                         break
             # If reranking returned fewer than k, fill from permitted
             if len(docs) < k:
@@ -1529,6 +1614,115 @@ def retrieve_context(project: str, query: str, k: int, user=None):
                             break
         else:
             docs = permitted[:k]
+
+        # Phase 2 (Task 3): Confidence gate — check if top score indicates "not found"
+        try:
+            from config import get_settings as _gs_cg
+            _nf_thresh = _gs_cg().not_found_threshold
+            if top_score is not None and top_score < _nf_thresh:
+                logger.info("Confidence gate: top score {:.4f} below threshold {:.4f} — marking as not found",
+                            top_score, _nf_thresh)
+                # Return empty context — the answer builder will handle "not found"
+                return [], ""
+        except Exception:
+            pass
+
+        # Phase 2 (Task 1): Read structured rows/quantities — inject as HIGH-PRIORITY context
+        try:
+            from config import get_settings as _gs_read
+            _enable_tables = _gs_read().enable_structured_tables
+            _enable_quantities = _gs_read().enable_quantities_store
+
+            if _enable_tables or _enable_quantities:
+                import re as _re_read
+                _q_lower = query.lower()
+
+                # Derive lookup key from query
+                _lookup_key = None
+                # Check for TOS/TOPR + Tower pattern
+                _tos_match = _re_read.search(r'(TOS|TOPR)\s*(?:level\s*)?(?:for\s*)?(?:tower\s*)?(\d+)', query, _re_read.IGNORECASE)
+                if _tos_match:
+                    _metric = _tos_match.group(1).upper()
+                    _tower = _tos_match.group(2)
+                    _lookup_key = f"{_metric} Tower {_tower}"
+                else:
+                    # Check for legend code pattern (e.g., LX-PT)
+                    _legend_match = _re_read.search(r'\b([A-Z]{1,3}-[A-Z]{1,3})\b', query)
+                    if _legend_match:
+                        _lookup_key = _legend_match.group(1)
+
+                if _lookup_key:
+                    # Query structured stores
+                    _structured_context = ""
+                    _structured_src = None
+
+                    # Check schedule_rows and quantities using ONE session
+                    _session = db.SessionLocal()
+                    try:
+                        _proj = _session.query(db.Project).filter_by(name=project).first()
+                        if _proj:
+                            # Check schedule_rows
+                            if _enable_tables:
+                                _rows = _session.query(db.ScheduleRow).filter(
+                                    db.ScheduleRow.project_id == _proj.id,
+                                    db.ScheduleRow.row_key.ilike(f"%{_lookup_key}%")
+                                ).all()
+
+                                for _row in _rows:
+                                    _row_data = _row.row_values if hasattr(_row, 'row_values') else {}
+                                    _structured_context += f"\n[STRUCTURED ROW: {_row.table_name}]\n"
+                                    _structured_context += f"Row Key: {_row.row_key}\n"
+                                    for _k, _v in _row_data.items():
+                                        _structured_context += f"  {_k}: {_v}\n"
+                                    _structured_src = {
+                                        "source": _row.doc,
+                                        "page": _row.page,
+                                        "revision": _row.revision,
+                                    }
+
+                            # Check quantities
+                            if _enable_quantities and not _structured_context:
+                                _metric = None
+                                if "tos" in _q_lower:
+                                    _metric = "TOS"
+                                elif "topr" in _q_lower:
+                                    _metric = "TOPR"
+                                elif "gfa" in _q_lower or "area" in _q_lower:
+                                    _metric = "GFA"
+
+                                if _metric:
+                                    _building = None
+                                    _tower_match = _re_read.search(r'tower\s*(\d+)', query, _re_read.IGNORECASE)
+                                    if _tower_match:
+                                        _building = f"Tower {_tower_match.group(1)}"
+
+                                    _q_filter = db.Quantity.project_id == _proj.id
+                                    if _metric:
+                                        _q_filter = _q_filter & (db.Quantity.metric == _metric)
+                                    if _building:
+                                        _q_filter = _q_filter & (db.Quantity.building == _building)
+
+                                    _quantities = _session.query(db.Quantity).filter(_q_filter).all()
+                                    for _q in _quantities:
+                                        _structured_context += f"\n[QUANTITY: {_q.metric}]\n"
+                                        _structured_context += f"  Building: {_q.building}\n"
+                                        _structured_context += f"  Value: {_q.value} {_q.unit}\n"
+                                        _structured_src = {
+                                            "source": _q.source_doc,
+                                            "page": _q.source_page,
+                                            "revision": _q.revision,
+                                        }
+                    finally:
+                        _session.close()
+
+                    # Inject structured context as HIGH-PRIORITY block
+                    if _structured_context:
+                        parts.insert(0, "STRUCTURED DATA (from schedules/quantities):\n" + _structured_context)
+                        if _structured_src:
+                            srcs.insert(0, _structured_src)
+                        logger.info("Injected structured data for lookup: {}", _lookup_key)
+        except Exception as _e_read:
+            logger.warning("Structured data read failed: {}", _e_read)
 
         if docs:
             blocks = []
@@ -1544,8 +1738,16 @@ def retrieve_context(project: str, query: str, k: int, user=None):
     if kb is not None:
         cdocs = kb.similarity_search(query, k=k)
         if cdocs:
+            # Grounding fix: tag each code excerpt with [SOURCE | PAGE] like project docs,
+            # so the model can cite the real page instead of inventing a section/page.
+            _kb_blocks = []
+            for d in cdocs:
+                _src = d.metadata.get("source", "?")
+                _pg = d.metadata.get("page")
+                _tag = "[SOURCE: %s%s]" % (_src, (" | PAGE %s" % _pg) if _pg is not None else "")
+                _kb_blocks.append("%s\n%s" % (_tag, d.page_content))
             parts.append("CODE CONTEXT (DBC 2021 / IBC 2021 excerpts):\n" +
-                         "\n\n---\n\n".join(d.page_content for d in cdocs))
+                         "\n\n---\n\n".join(_kb_blocks))
             srcs += [{"source": d.metadata.get("source","?"), "page": d.metadata.get("page")} for d in cdocs]
     note = revision_notice(project, user)
     if note:
@@ -1687,6 +1889,36 @@ def process_document(project, save_path, filename, disc, category, folder_id=Non
                 chunks_n = index_structured(project, meta, filename, folder_id)
                 if chunks_n == 0:  # fallback if structured units were empty
                     chunks_n = index_text(project, combined, filename, folder_id)
+                # Phase 2: Structured table extraction
+                try:
+                    from config import get_settings as _gs_st
+                    if _gs_st().enable_structured_tables:
+                        from services.ingestion import get_pipeline
+                        # Get project ID (not name)
+                        with db.SessionLocal() as _s:
+                            _proj = _s.query(db.Project).filter_by(name=project).first()
+                            _proj_id = _proj.id if _proj else None
+                        if _proj_id:
+                            table_rows = get_pipeline().extract_structured_tables(_proj_id, filename, meta)
+                            if table_rows > 0:
+                                logger.info("Extracted {} structured table rows for {}", table_rows, filename)
+                except Exception as e:
+                    logger.warning("Structured table extraction failed: {}", e)
+                # Phase 2: Quantities extraction
+                try:
+                    from config import get_settings as _gs_q
+                    if _gs_q().enable_quantities_store:
+                        from services.ingestion import get_pipeline
+                        # Get project ID (not name)
+                        with db.SessionLocal() as _s:
+                            _proj = _s.query(db.Project).filter_by(name=project).first()
+                            _proj_id = _proj.id if _proj else None
+                        if _proj_id:
+                            quantities = get_pipeline().extract_quantities(_proj_id, filename, meta)
+                            if quantities > 0:
+                                logger.info("Extracted {} quantities for {}", quantities, filename)
+                except Exception as e:
+                    logger.warning("Quantities extraction failed: {}", e)
                 db.update_document_status(project, filename, chunks_n, "ready")
                 logger.info("Processed {} -> {} chunks (page-aware)", filename, chunks_n)
             except Exception:
@@ -1807,6 +2039,17 @@ ANSWER RULES:
 - If the value is genuinely not present in the context, say clearly: "I could not find this in the uploaded documents" and name what document/section would contain it. Never fabricate a value.
 
 ABOUT YOUR CAPABILITIES: You are a VISION-capable engineering assistant. Every uploaded drawing, PDF page and image has ALREADY been read by a local vision model (Qwen2.5-VL) and its extracted text/description appears in the context above under [DRAWING/VISION] or [SOURCE:] markers. NEVER say you are a text-only AI, that you cannot see or view images/drawings, or that you have no access to uploaded files - that is false. If a specific drawing's details are not in the provided context, say the drawing was not found in the retrieved context and ask the user to open it or name the sheet - do NOT deny your ability to read drawings."""
+
+        # Phase 2 (Task 3): Add not-found guidance when context is empty
+        if not ctx.strip():
+            sys_msg = """You are Expo Design AI, an expert engineering assistant. The user asked a question, but NO relevant content was found in the uploaded documents.
+
+IMPORTANT: You MUST honestly state that you could not find the information. Do NOT invent or guess any value.
+
+Response format:
+"I could not find this in the uploaded documents. This information would typically be found in [document type: e.g., door schedule, finishes legend, structural calculations, etc.]."
+
+Replace [document type] with the most likely document type based on the question."""
     else:
         sys_msg = "You are Expo Design AI, an expert engineering assistant for structural design, Dubai local code compliance, drawings review, and technical reports. Uploaded drawings, PDFs and images are read by a local vision model (Qwen2.5-VL), so you CAN analyze drawings and images. NEVER claim to be a text-only AI or that you cannot see images/drawings/PDFs - that is false. If the user has not uploaded a relevant file yet, ask them to upload it; do not deny your vision ability."
         
@@ -1865,6 +2108,37 @@ def get_llm(req: QueryRequest):
     # Fallback: existing behavior
     return local_chat.LocalChatOllama(model=req.model, temperature=0.1,
                                       num_predict=3072, keep_alive="5m")
+
+
+def self_check_answer(answer: str, context: str, query: str) -> str:
+    """
+    Phase 2 (Task 3): Worker model self-check.
+    Drops any claim not supported by a cited chunk.
+    Returns the cleaned answer or the original if self-check fails.
+    """
+    try:
+        from config import get_settings as _gs_sc
+        if not _gs_sc().enable_self_check:
+            return answer
+
+        import local_chat as _lc_sc
+        prompt = (
+            "You verify engineering answers. Given a question, context, and answer, "
+            "remove any claim NOT supported by the context. Keep all supported claims. "
+            "If the answer cannot be supported, say: 'I could not find this in the uploaded documents.'\n\n"
+            f"Question: {query}\n\n"
+            f"Context:\n{context[:4000]}\n\n"
+            f"Answer:\n{answer}\n\n"
+            "Verified answer:"
+        )
+        result = _lc_sc.worker_complete(prompt, num_predict=512)
+        if result and result.strip():
+            logger.info("Self-check: answer verified/cleaned")
+            return result.strip()
+        return answer
+    except Exception as e:
+        logger.warning("Self-check failed: {}", e)
+        return answer
 
 @app.post("/ask_image")
 async def ask_image(request: Request, project: str = Form("default"),
@@ -2029,7 +2303,20 @@ async def ask_stream(req: QueryRequest, request: Request = None):
                     msgs.append(SystemMessage(content=err))
             else:
                 break # No tool called, we are done
-                
+
+        # Phase 2 (Task 2): Self-check the final answer
+        try:
+            from config import get_settings as _gs_sc
+            if _gs_sc().enable_self_check and full_response:
+                verified = self_check_answer(full_response, ctx, req.query)
+                if verified != full_response:
+                    logger.info("Self-check: answer was modified")
+                    # Send the corrected answer
+                    _vtxt = "\n\n[Verified Answer]\n" + verified
+                    yield f"data: {json.dumps({'type':'token','text':_vtxt})}\n\n"
+        except Exception as _e_sc:
+            logger.warning("Self-check failed: {}", _e_sc)
+
         yield f"data: {json.dumps({'type':'done'})}\n\n"
         
     return StreamingResponse(gen(), media_type="text/event-stream")
@@ -2157,7 +2444,7 @@ async def set_project_discipline(project: str, discipline: str, request: Request
     return {"status": "ok", "project": project, "discipline": d["key"]}
 
 @app.post("/kb/upload")
-async def kb_upload(request: Request, file: UploadFile = File(...), code: str = Form("")):
+async def kb_upload(request: Request, file: UploadFile = File(...), code: str = Form(""), part: str = Form("")):
     user = auth.require_roles(request, "admin", "lead")
     ext = os.path.splitext(file.filename)[-1].lower()
     if ext not in (".pdf",".docx",".xlsx",".xls"):
@@ -2169,9 +2456,22 @@ async def kb_upload(request: Request, file: UploadFile = File(...), code: str = 
         shutil.copyfileobj(file.file, f)
     try:
         chunks_n = await run_in_threadpool(index_document, KB_COLLECTION, save_path)
+        # Store discipline and part in metadata
+        discipline = code or "code"
         db.record_document(KB_COLLECTION, file.filename, save_path, chunks_n,
-                           discipline=(code or "code"), user=user, ip=_client_ip(request))
-        return {"message":"Indexed into code knowledge base","filename":file.filename,"chunks":chunks_n}
+                           discipline=discipline, user=user, ip=_client_ip(request))
+        # Save part info in doc_meta
+        if part:
+            import json
+            meta_path = save_path + ".index.json"
+            if os.path.exists(meta_path):
+                with open(meta_path, "r", encoding="utf-8") as f:
+                    meta = json.load(f)
+                meta["dbc_part"] = part
+                meta["discipline"] = discipline
+                with open(meta_path, "w", encoding="utf-8") as f:
+                    json.dump(meta, f, ensure_ascii=False, indent=1)
+        return {"message":"Indexed into code knowledge base","filename":file.filename,"chunks":chunks_n,"part":part}
     except Exception as e:
         logger.exception("KB upload error")
         raise HTTPException(500, f"Error processing file: {str(e)}")

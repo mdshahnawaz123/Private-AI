@@ -53,7 +53,7 @@ class EvaluationRunner:
         with open(self.golden_set_path, "r", encoding="utf-8") as f:
             for line in f:
                 line = line.strip()
-                if line:
+                if line and not line.startswith("#"):
                     questions.append(json.loads(line))
         logger.info(f"Loaded {len(questions)} questions from golden set")
         return questions

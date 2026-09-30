@@ -911,6 +911,13 @@ class ScheduleRow(Base):
     mark = Column(String(100), default="")
     guid = Column(String(100), default="")
     fields = Column(JSON, nullable=True)
+    # Phase 2: Structured table extraction
+    doc = Column(String(400), default="")  # Source document filename
+    page = Column(Integer, nullable=True)  # Page number
+    table_name = Column(String(200), default="")  # Table/schedule/legend name
+    row_key = Column(String(200), default="")  # Searchable row key (e.g., "LX-PT", "TOS Tower 1")
+    row_values = Column(JSON, nullable=True)  # Full row data as JSON
+    revision = Column(String(50), default="")  # Document revision
     created_at = Column(DateTime, default=_utcnow)
 
 
@@ -921,6 +928,21 @@ class EvalDataset(Base):
     name = Column(String(200), nullable=False)
     description = Column(Text, default="")
     dataset_type = Column(String(50), default="")
+    created_at = Column(DateTime, default=_utcnow)
+
+
+class Quantity(Base):
+    """Phase 2: Structured numeric quantities (TOS/TOPR levels, areas, dimensions)."""
+    __tablename__ = "quantities"
+    id = Column(Integer, primary_key=True)
+    project_id = Column(Integer, ForeignKey("projects.id"), nullable=False)
+    building = Column(String(200), default="")  # Building/tower name
+    metric = Column(String(100), default="")  # e.g., TOS, TOPR, GFA, dimension
+    value = Column(String(100), default="")  # Numeric value as string
+    unit = Column(String(50), default="")  # e.g., m, mm, m2
+    source_doc = Column(String(400), default="")
+    source_page = Column(Integer, nullable=True)
+    revision = Column(String(50), default="")
     created_at = Column(DateTime, default=_utcnow)
 
 

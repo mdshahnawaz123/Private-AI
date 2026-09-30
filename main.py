@@ -142,6 +142,13 @@ from agents.tools import get_registry
 agent_runtime = get_runtime()
 tool_registry = get_registry()
 
+# Phase 7: Initialize BIM Service
+from engines.ifc_engine import get_ifc_engine
+from services.bim_service import get_bim_service
+
+ifc_engine = get_ifc_engine()
+bim_service = get_bim_service()
+
 def _client_ip(request):
     try:
         return request.client.host if request and request.client else None
@@ -937,6 +944,70 @@ async def get_agent_run(run_id: str):
         "completed_at": run.completed_at,
         "error": run.error,
     }
+
+
+# ── Phase 7: BIM endpoints ──────────────────────────────────
+
+@api_v1.get("/bim/status")
+async def bim_status():
+    """Get BIM engine status."""
+    return {
+        "ifc_engine_available": ifc_engine.is_available(),
+        "ifc_backend": ifc_engine.get_backend(),
+        "models_registered": len(bim_service._models),
+    }
+
+
+@api_v1.post("/bim/ingest")
+async def bim_ingest(request: Request, project: str = "default"):
+    """
+    Ingest BIM data extracted by the browser (web-ifc).
+    The viewer sends typed element data to this endpoint.
+    """
+    user = auth.require_project(request, project)
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+
+    model_data = body.get("model_data", {})
+    if not model_data:
+        raise HTTPException(400, "model_data required")
+
+    model_id = bim_service.ingest_from_browser(model_data, project_id=project)
+    db.audit("bim.ingest", project=project, detail={"model_id": model_id}, user=user)
+    return {"status": "ingested", "model_id": model_id}
+
+
+@api_v1.get("/bim/models")
+async def bim_models(project: str = "default"):
+    """List all registered BIM models."""
+    return {"models": bim_service.list_models(project_id=project)}
+
+
+@api_v1.get("/bim/elements")
+async def bim_elements(project: str = "default", ifc_class: str = "",
+                        level: str = "", guid: str = ""):
+    """Query BIM elements."""
+    elements = bim_service.query_elements(
+        project_id=project, ifc_class=ifc_class, level=level, guid=guid
+    )
+    return {"elements": elements, "count": len(elements)}
+
+
+@api_v1.get("/bim/elements/{guid}")
+async def bim_element_detail(guid: str, project: str = "default"):
+    """Get a single BIM element by GUID."""
+    element = bim_service.get_element_by_guid(guid, project_id=project)
+    if not element:
+        raise HTTPException(404, "Element not found")
+    return element
+
+
+@api_v1.get("/bim/stats")
+async def bim_stats(project: str = "default"):
+    """Get BIM statistics."""
+    return bim_service.get_stats(project_id=project)
 
 
 app.include_router(api_v1)

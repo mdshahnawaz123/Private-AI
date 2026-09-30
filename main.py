@@ -175,6 +175,15 @@ if os.path.isdir("ui"):
 
 @app.get("/")
 async def root():
+    # V2 UI is opt-in and reversible: when enable_ui_v2 is True, land on the new
+    # Design Workspace shell (ui/app.html); otherwise keep the current ui/index.html.
+    # Both files stay directly reachable under /ui/ regardless of the flag.
+    try:
+        from config import get_settings as _gs_ui
+        if _gs_ui().enable_ui_v2:
+            return RedirectResponse(url="/ui/app.html")
+    except Exception:
+        pass
     return RedirectResponse(url="/ui/")
 
 
@@ -1221,6 +1230,51 @@ async def dashboard_stats(project: str = "default"):
         "findings": finding_stats,
         "bim": bim_stats_data,
         "knowledge_hub": hub_stats,
+    }
+
+
+# ── V2 UI: Schedules / Quantities read endpoint ─────────────
+# Additive, read-only. Surfaces the structured rows (ScheduleRow) and numeric
+# quantities (Quantity) that ingestion already writes, so the Schedules workspace
+# can show a real data table with source/page/revision. No schema change.
+@api_v1.get("/projects/{project}/schedules")
+async def project_schedules(project: str, request: Request):
+    """List structured schedule rows and quantities for a project."""
+    user = auth.require_project(request, project)
+    rows_out, qty_out = [], []
+    s = db.SessionLocal()
+    try:
+        proj = s.query(db.Project).filter_by(name=project).first()
+        if proj:
+            for r in s.query(db.ScheduleRow).filter(db.ScheduleRow.project_id == proj.id).all():
+                rows_out.append({
+                    "id": r.id,
+                    "table_name": r.table_name or "",
+                    "row_key": r.row_key or "",
+                    "row_values": r.row_values or {},
+                    "doc": r.doc or "",
+                    "page": r.page,
+                    "revision": r.revision or "",
+                })
+            for q in s.query(db.Quantity).filter(db.Quantity.project_id == proj.id).all():
+                qty_out.append({
+                    "id": q.id,
+                    "building": q.building or "",
+                    "metric": q.metric or "",
+                    "value": q.value or "",
+                    "unit": q.unit or "",
+                    "source_doc": q.source_doc or "",
+                    "source_page": q.source_page,
+                    "revision": q.revision or "",
+                })
+    finally:
+        s.close()
+    return {
+        "project": project,
+        "rows": rows_out,
+        "quantities": qty_out,
+        "row_count": len(rows_out),
+        "quantity_count": len(qty_out),
     }
 
 

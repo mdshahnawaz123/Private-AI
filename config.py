@@ -45,6 +45,10 @@ class Settings(BaseSettings):
     enable_query_expansion: bool = False  # Wave 1.5: expand short/coded queries via worker model
     enable_metadata_prefilter: bool = False  # Wave 1.5: pre-filter candidates by metadata before ranking
 
+    # V2 UI (professional Design Workspace redesign) — additive, reversible
+    enable_ui_v2: bool = False  # serve the V2 UI (ui/app.html) at "/" ; False keeps the current ui/index.html
+    enable_clash_action: bool = False  # show the Copilot "Check for clashes" action (no clash engine yet — keep off)
+
     # Phase 2: Structured data
     enable_structured_tables: bool = False  # Phase 2: extract tables/schedules as structured rows
     enable_quantities_store: bool = False  # Phase 2: capture numeric quantities as structured data

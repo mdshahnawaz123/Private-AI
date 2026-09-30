@@ -98,6 +98,17 @@ from core.orchestrator import get_orchestrator
 model_registry = get_registry()
 orchestrator = get_orchestrator()
 
+# Phase 2: Initialize Knowledge Hub
+from knowledge.hub import get_hub
+from knowledge.graph import get_graph
+from knowledge.provenance import get_tracker
+from knowledge.precedence import get_precedence
+
+knowledge_hub = get_hub()
+knowledge_graph = get_graph()
+provenance_tracker = get_tracker()
+source_precedence = get_precedence()
+
 def _client_ip(request):
     try:
         return request.client.host if request and request.client else None
@@ -158,6 +169,136 @@ async def list_models():
 async def models_health():
     """Check health of all AI models."""
     return model_registry.health_check()
+
+
+# ── Knowledge Hub endpoints ─────────────────────────────────
+
+@api_v1.get("/knowledge/stats")
+async def knowledge_stats(project: str = "default"):
+    """Get Knowledge Hub statistics."""
+    return knowledge_hub.get_stats()
+
+
+@api_v1.get("/knowledge/entities")
+async def knowledge_entities(project: str = "default", entity_type: str = ""):
+    """List entities in the Knowledge Hub."""
+    from knowledge.entities import EntityType
+    et = None
+    if entity_type:
+        try:
+            et = EntityType(entity_type)
+        except ValueError:
+            raise HTTPException(400, f"Unknown entity type: {entity_type}")
+    entities = knowledge_hub.find_entities(entity_type=et, project_id=project)
+    return {
+        "entities": [
+            {
+                "id": e.entity_id,
+                "type": e.entity_type.value,
+                "name": e.name,
+                "project": e.project_id,
+                "status": e.status,
+            }
+            for e in entities
+        ],
+        "count": len(entities),
+    }
+
+
+@api_v1.get("/knowledge/entities/{entity_id}")
+async def knowledge_entity_detail(entity_id: str):
+    """Get detailed information about an entity."""
+    entity = knowledge_hub.get_entity(entity_id)
+    if not entity:
+        raise HTTPException(404, "Entity not found")
+    return {
+        "id": entity.entity_id,
+        "type": entity.entity_type.value,
+        "name": entity.name,
+        "description": entity.description,
+        "properties": entity.properties,
+        "provenance": {
+            "source_doc": entity.provenance.source_doc,
+            "source_page": entity.provenance.source_page,
+            "source_clause": entity.provenance.source_clause,
+            "confidence": entity.provenance.confidence.value if hasattr(entity.provenance.confidence, 'value') else entity.provenance.confidence,
+            "verified_by": entity.provenance.verified_by,
+        },
+        "status": entity.status,
+        "version": entity.version,
+    }
+
+
+@api_v1.get("/knowledge/requirements")
+async def knowledge_requirements(project: str = "default", discipline: str = ""):
+    """List requirements in the Knowledge Hub."""
+    reqs = knowledge_hub.get_requirements(project_id=project, discipline=discipline)
+    return {
+        "requirements": [
+            {
+                "id": r.entity_id,
+                "name": r.name,
+                "value": r.value,
+                "unit": r.unit,
+                "operator": r.operator,
+                "discipline": r.discipline,
+                "code_reference": r.code_reference,
+            }
+            for r in reqs
+        ],
+        "count": len(reqs),
+    }
+
+
+@api_v1.get("/knowledge/drawings")
+async def knowledge_drawings(project: str = "default", discipline: str = ""):
+    """List drawings in the Knowledge Hub."""
+    drawings = knowledge_hub.get_drawings(project_id=project, discipline=discipline)
+    return {
+        "drawings": [
+            {
+                "id": d.entity_id,
+                "name": d.name,
+                "drawing_number": d.drawing_number,
+                "revision": d.revision,
+                "discipline": d.discipline,
+            }
+            for d in drawings
+        ],
+        "count": len(drawings),
+    }
+
+
+@api_v1.get("/knowledge/bim-elements")
+async def knowledge_bim_elements(project: str = "default", ifc_class: str = "", level: str = ""):
+    """List BIM elements in the Knowledge Hub."""
+    elements = knowledge_hub.get_bim_elements(project_id=project, ifc_class=ifc_class, level=level)
+    return {
+        "elements": [
+            {
+                "id": e.entity_id,
+                "name": e.name,
+                "guid": e.guid,
+                "ifc_class": e.ifc_class,
+                "level": e.level,
+            }
+            for e in elements
+        ],
+        "count": len(elements),
+    }
+
+
+@api_v1.get("/knowledge/graph/{entity_id}")
+async def knowledge_graph_nav(entity_id: str, relation: str = "", direction: str = "out"):
+    """Navigate the knowledge graph from an entity."""
+    entity = knowledge_hub.get_entity(entity_id)
+    if not entity:
+        raise HTTPException(404, "Entity not found")
+    rels = knowledge_hub.get_relationships(entity_id, relation=relation, direction=direction)
+    return {
+        "entity_id": entity_id,
+        "relationships": rels,
+    }
 
 
 app.include_router(api_v1)

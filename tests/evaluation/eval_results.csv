@@ -1,0 +1,51 @@
+id,question,type,passed,answer_match,source_match,retrieval_hit,honesty,latency_ms
+q001,What is the project name?,lookup,True,True,True,True,True,2019.5
+q002,What is the drawing number of this document?,lookup,True,True,True,True,True,250.6
+q003,What is the date of the developed design report?,lookup,True,True,True,True,True,215.3
+q004,What is the ramp slope down to the basement?,lookup,True,True,True,True,True,232.4
+q005,What is the ramp slope up to the podium?,lookup,True,True,True,True,True,218.3
+q006,What is the retail type 2 depth requirement?,lookup,True,True,True,True,True,326.1
+q007,What is the retail type 2 minimum area requirement?,lookup,True,True,True,True,True,319.3
+q008,What is the TOS level for Tower 1?,lookup,False,False,True,True,True,303.4
+q009,What is the TOPR level for Tower 1?,lookup,False,False,True,True,True,331.4
+q010,What is the TOS level for Tower 4?,lookup,True,True,True,True,True,303.5
+q011,What is the TOPR level for Tower 4?,lookup,True,True,True,True,True,297.2
+q012,What is the TOS level for Tower 5?,lookup,False,False,True,True,True,276.8
+q013,What is the highest TOS level mentioned?,lookup,False,False,True,True,True,312.8
+q014,What is the plot number for this project?,lookup,True,True,True,True,True,304.5
+q015,What is the North coordinate for the site?,lookup,True,True,True,True,True,289.6
+q016,What is the East coordinate for the site?,lookup,True,True,True,True,True,328.1
+q017,How many towers are shown on the ground floor plan?,quantity,True,True,True,True,True,275.6
+q018,What is the corridor width dimension?,quantity,True,True,True,True,True,326.0
+q019,"What is the dimension 6,250?",quantity,True,True,True,True,True,191.8
+q020,"What is the dimension 9,050?",quantity,True,True,True,True,True,250.5
+q021,"What is the dimension 1,200?",quantity,True,True,True,True,True,295.5
+q022,"What is the dimension 1,600?",quantity,True,True,True,True,True,309.2
+q023,"What is the dimension 4,800?",quantity,True,True,True,True,True,279.9
+q024,What is the dimension 11.50 m?,quantity,False,False,True,True,True,203.4
+q025,What is the dimension 120M2?,quantity,True,True,True,True,True,283.1
+q026,"What is the dimension 57,800?",quantity,True,True,True,True,True,311.5
+q027,"What is the dimension 58,400?",quantity,True,True,True,True,True,306.9
+q028,"What is the dimension 30,200?",quantity,False,False,True,True,True,328.1
+q029,"What is the dimension 9,500?",quantity,False,False,True,True,True,315.2
+q030,"What is the dimension 2,700?",quantity,False,False,True,True,True,314.4
+q031,What type of shaft is the PRESSURIZATION SHAFT?,general,True,True,True,True,True,456.0
+q032,What type of shaft is the SMOKE SHAFT?,general,True,True,True,True,True,339.1
+q033,What type of shaft is the CHILLED WATER SHAFT?,general,False,False,True,True,True,326.3
+q034,What type of shaft is the GARBAGE EXTRACT SHAFT?,general,True,True,True,True,True,330.7
+q035,What type of shaft is the CHUTE SHAFT?,general,True,True,True,True,True,316.4
+q036,What is the room type 1 BED-A?,general,True,True,True,True,True,307.7
+q037,What is the room type 2 BED-E?,general,True,True,True,True,True,252.8
+q038,What is the BoH room type?,general,True,True,True,True,True,222.1
+q039,What is the F&B room type?,general,True,True,True,True,True,208.8
+q040,What is the LOBBY room type?,general,True,True,True,True,True,329.3
+q041,What is the RETAIL room type?,general,True,True,True,True,True,306.1
+q042,What is the SECURITY room type?,general,True,True,True,True,True,247.3
+q043,What is the SERVICE room type?,general,True,True,True,True,True,288.0
+q044,What is the FIRE EXIT room type?,general,True,True,True,True,True,322.0
+q045,What is the FIRE LIFT room type?,general,True,True,True,True,True,328.3
+q046,What is the FM OPERATIONS room type?,general,False,False,True,True,True,330.1
+q047,What is the CIRCULATION room type?,general,False,False,True,True,True,326.3
+q048,What is the AMENITIES room type?,general,True,True,True,True,True,322.6
+q049,What is the GYM room type?,general,True,True,True,True,True,315.2
+q050,What is the OLS buffer requirement?,lookup,True,True,True,True,True,327.1

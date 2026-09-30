@@ -36,6 +36,13 @@ class Settings(BaseSettings):
     reranker_model: str = "bge-reranker-v2-m3"
     reranker_enabled: bool = False
 
+    # Wave 1: Model tiering
+    worker_model: str = "qwen3:4b"
+    author_model: str = "qwen2.5vl:32b"
+    enable_model_tiering: bool = False
+    rerank_candidates: int = 20
+    rerank_keep: int = 5
+
     # Ollama
     ollama_host: str = "http://127.0.0.1:11434"
     keep_alive: str = "5m"

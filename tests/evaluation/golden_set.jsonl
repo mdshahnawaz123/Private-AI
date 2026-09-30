@@ -1,0 +1,50 @@
+{"id": "q001", "question": "What is the project name?", "expected_answer_contains": ["Expo Hills"], "expected_sources": ["C3085-RPT-3EH6105-AR-0000002(5).pdf"], "type": "lookup"}
+{"id": "q002", "question": "What is the drawing number of this document?", "expected_answer_contains": ["C3085-RPT-3EH6105-AR-0000002(5)"], "expected_sources": ["C3085-RPT-3EH6105-AR-0000002(5).pdf"], "type": "lookup"}
+{"id": "q003", "question": "What is the date of the developed design report?", "expected_answer_contains": ["05 AUG 2026"], "expected_sources": ["C3085-RPT-3EH6105-AR-0000002(5).pdf"], "type": "lookup"}
+{"id": "q004", "question": "What is the ramp slope down to the basement?", "expected_answer_contains": ["10%"], "expected_sources": ["C3085-RPT-3EH6105-AR-0000002(5).pdf"], "type": "lookup"}
+{"id": "q005", "question": "What is the ramp slope up to the podium?", "expected_answer_contains": ["10%"], "expected_sources": ["C3085-RPT-3EH6105-AR-0000002(5).pdf"], "type": "lookup"}
+{"id": "q006", "question": "What is the retail type 2 depth requirement?", "expected_answer_contains": ["8 meters"], "expected_sources": ["C3085-RPT-3EH6105-AR-0000002(5).pdf"], "type": "lookup"}
+{"id": "q007", "question": "What is the retail type 2 minimum area requirement?", "expected_answer_contains": ["80sqm"], "expected_sources": ["C3085-RPT-3EH6105-AR-0000002(5).pdf"], "type": "lookup"}
+{"id": "q008", "question": "What is the TOS level for Tower 1?", "expected_answer_contains": ["59.400"], "expected_sources": ["C3085-RPT-3EH6105-AR-0000002(5).pdf"], "type": "lookup"}
+{"id": "q009", "question": "What is the TOPR level for Tower 1?", "expected_answer_contains": ["61.000"], "expected_sources": ["C3085-RPT-3EH6105-AR-0000002(5).pdf"], "type": "lookup"}
+{"id": "q010", "question": "What is the TOS level for Tower 4?", "expected_answer_contains": ["58.400"], "expected_sources": ["C3085-RPT-3EH6105-AR-0000002(5).pdf"], "type": "lookup"}
+{"id": "q011", "question": "What is the TOPR level for Tower 4?", "expected_answer_contains": ["60.000"], "expected_sources": ["C3085-RPT-3EH6105-AR-0000002(5).pdf"], "type": "lookup"}
+{"id": "q012", "question": "What is the TOS level for Tower 5?", "expected_answer_contains": ["61.000"], "expected_sources": ["C3085-RPT-3EH6105-AR-0000002(5).pdf"], "type": "lookup"}
+{"id": "q013", "question": "What is the highest TOS level mentioned?", "expected_answer_contains": ["61.000"], "expected_sources": ["C3085-RPT-3EH6105-AR-0000002(5).pdf"], "type": "lookup"}
+{"id": "q014", "question": "What is the plot number for this project?", "expected_answer_contains": ["5-085"], "expected_sources": ["C3085-RPT-3EH6105-AR-0000002(5).pdf"], "type": "lookup"}
+{"id": "q015", "question": "What is the North coordinate for the site?", "expected_answer_contains": ["2,762,271.1569"], "expected_sources": ["C3085-RPT-3EH6105-AR-0000002(5).pdf"], "type": "lookup"}
+{"id": "q016", "question": "What is the East coordinate for the site?", "expected_answer_contains": ["482,595.7764"], "expected_sources": ["C3085-RPT-3EH6105-AR-0000002(5).pdf"], "type": "lookup"}
+{"id": "q017", "question": "How many towers are shown on the ground floor plan?", "expected_answer_contains": ["8"], "expected_sources": ["C3085-RPT-3EH6105-AR-0000002(5).pdf"], "type": "quantity"}
+{"id": "q018", "question": "What is the corridor width dimension?", "expected_answer_contains": ["2,400"], "expected_sources": ["C3085-RPT-3EH6105-AR-0000002(5).pdf"], "type": "quantity"}
+{"id": "q019", "question": "What is the dimension 6,250?", "expected_answer_contains": ["6,250"], "expected_sources": ["C3085-RPT-3EH6105-AR-0000002(5).pdf"], "type": "quantity"}
+{"id": "q020", "question": "What is the dimension 9,050?", "expected_answer_contains": ["9,050"], "expected_sources": ["C3085-RPT-3EH6105-AR-0000002(5).pdf"], "type": "quantity"}
+{"id": "q021", "question": "What is the dimension 1,200?", "expected_answer_contains": ["1,200"], "expected_sources": ["C3085-RPT-3EH6105-AR-0000002(5).pdf"], "type": "quantity"}
+{"id": "q022", "question": "What is the dimension 1,600?", "expected_answer_contains": ["1,600"], "expected_sources": ["C3085-RPT-3EH6105-AR-0000002(5).pdf"], "type": "quantity"}
+{"id": "q023", "question": "What is the dimension 4,800?", "expected_answer_contains": ["4,800"], "expected_sources": ["C3085-RPT-3EH6105-AR-0000002(5).pdf"], "type": "quantity"}
+{"id": "q024", "question": "What is the dimension 11.50 m?", "expected_answer_contains": ["11.50"], "expected_sources": ["C3085-RPT-3EH6105-AR-0000002(5).pdf"], "type": "quantity"}
+{"id": "q025", "question": "What is the dimension 120M2?", "expected_answer_contains": ["120M2"], "expected_sources": ["C3085-RPT-3EH6105-AR-0000002(5).pdf"], "type": "quantity"}
+{"id": "q026", "question": "What is the dimension 57,800?", "expected_answer_contains": ["57,800"], "expected_sources": ["C3085-RPT-3EH6105-AR-0000002(5).pdf"], "type": "quantity"}
+{"id": "q027", "question": "What is the dimension 58,400?", "expected_answer_contains": ["58,400"], "expected_sources": ["C3085-RPT-3EH6105-AR-0000002(5).pdf"], "type": "quantity"}
+{"id": "q028", "question": "What is the dimension 30,200?", "expected_answer_contains": ["30,200"], "expected_sources": ["C3085-RPT-3EH6105-AR-0000002(5).pdf"], "type": "quantity"}
+{"id": "q029", "question": "What is the dimension 9,500?", "expected_answer_contains": ["9,500"], "expected_sources": ["C3085-RPT-3EH6105-AR-0000002(5).pdf"], "type": "quantity"}
+{"id": "q030", "question": "What is the dimension 2,700?", "expected_answer_contains": ["2,700"], "expected_sources": ["C3085-RPT-3EH6105-AR-0000002(5).pdf"], "type": "quantity"}
+{"id": "q031", "question": "What type of shaft is the PRESSURIZATION SHAFT?", "expected_answer_contains": ["PRESSURIZATION"], "expected_sources": ["C3085-RPT-3EH6105-AR-0000002(5).pdf"], "type": "general"}
+{"id": "q032", "question": "What type of shaft is the SMOKE SHAFT?", "expected_answer_contains": ["SMOKE"], "expected_sources": ["C3085-RPT-3EH6105-AR-0000002(5).pdf"], "type": "general"}
+{"id": "q033", "question": "What type of shaft is the CHILLED WATER SHAFT?", "expected_answer_contains": ["CHILLED WATER"], "expected_sources": ["C3085-RPT-3EH6105-AR-0000002(5).pdf"], "type": "general"}
+{"id": "q034", "question": "What type of shaft is the GARBAGE EXTRACT SHAFT?", "expected_answer_contains": ["GARBAGE"], "expected_sources": ["C3085-RPT-3EH6105-AR-0000002(5).pdf"], "type": "general"}
+{"id": "q035", "question": "What type of shaft is the CHUTE SHAFT?", "expected_answer_contains": ["CHUTE"], "expected_sources": ["C3085-RPT-3EH6105-AR-0000002(5).pdf"], "type": "general"}
+{"id": "q036", "question": "What is the room type 1 BED-A?", "expected_answer_contains": ["1 BED-A"], "expected_sources": ["C3085-RPT-3EH6105-AR-0000002(5).pdf"], "type": "general"}
+{"id": "q037", "question": "What is the room type 2 BED-E?", "expected_answer_contains": ["2 BED-E"], "expected_sources": ["C3085-RPT-3EH6105-AR-0000002(5).pdf"], "type": "general"}
+{"id": "q038", "question": "What is the BoH room type?", "expected_answer_contains": ["BoH"], "expected_sources": ["C3085-RPT-3EH6105-AR-0000002(5).pdf"], "type": "general"}
+{"id": "q039", "question": "What is the F&B room type?", "expected_answer_contains": ["F&B"], "expected_sources": ["C3085-RPT-3EH6105-AR-0000002(5).pdf"], "type": "general"}
+{"id": "q040", "question": "What is the LOBBY room type?", "expected_answer_contains": ["LOBBY"], "expected_sources": ["C3085-RPT-3EH6105-AR-0000002(5).pdf"], "type": "general"}
+{"id": "q041", "question": "What is the RETAIL room type?", "expected_answer_contains": ["RETAIL"], "expected_sources": ["C3085-RPT-3EH6105-AR-0000002(5).pdf"], "type": "general"}
+{"id": "q042", "question": "What is the SECURITY room type?", "expected_answer_contains": ["SECURITY"], "expected_sources": ["C3085-RPT-3EH6105-AR-0000002(5).pdf"], "type": "general"}
+{"id": "q043", "question": "What is the SERVICE room type?", "expected_answer_contains": ["SERVICE"], "expected_sources": ["C3085-RPT-3EH6105-AR-0000002(5).pdf"], "type": "general"}
+{"id": "q044", "question": "What is the FIRE EXIT room type?", "expected_answer_contains": ["FIRE EXIT"], "expected_sources": ["C3085-RPT-3EH6105-AR-0000002(5).pdf"], "type": "general"}
+{"id": "q045", "question": "What is the FIRE LIFT room type?", "expected_answer_contains": ["FIRE LIFT"], "expected_sources": ["C3085-RPT-3EH6105-AR-0000002(5).pdf"], "type": "general"}
+{"id": "q046", "question": "What is the FM OPERATIONS room type?", "expected_answer_contains": ["FM OPERATIONS"], "expected_sources": ["C3085-RPT-3EH6105-AR-0000002(5).pdf"], "type": "general"}
+{"id": "q047", "question": "What is the CIRCULATION room type?", "expected_answer_contains": ["CIRCULATION"], "expected_sources": ["C3085-RPT-3EH6105-AR-0000002(5).pdf"], "type": "general"}
+{"id": "q048", "question": "What is the AMENITIES room type?", "expected_answer_contains": ["AMENITIES"], "expected_sources": ["C3085-RPT-3EH6105-AR-0000002(5).pdf"], "type": "general"}
+{"id": "q049", "question": "What is the GYM room type?", "expected_answer_contains": ["GYM"], "expected_sources": ["C3085-RPT-3EH6105-AR-0000002(5).pdf"], "type": "general"}
+{"id": "q050", "question": "What is the OLS buffer requirement?", "expected_answer_contains": ["300MM"], "expected_sources": ["C3085-RPT-3EH6105-AR-0000002(5).pdf"], "type": "lookup"}

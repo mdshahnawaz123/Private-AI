@@ -136,3 +136,57 @@ class LocalChatOllama:
                     raise
                 time.sleep(min(2 ** attempt * 2, 12))
         return
+
+
+# ── Wave 1: Model Tiering ───────────────────────────────────
+
+def _get_model_config():
+    """Get model configuration from settings."""
+    try:
+        from config import get_settings
+        s = get_settings()
+        return {
+            "worker_model": s.worker_model,
+            "author_model": s.author_model,
+            "enable_model_tiering": s.enable_model_tiering,
+        }
+    except Exception:
+        return {
+            "worker_model": "qwen3:4b",
+            "author_model": "qwen2.5vl:32b",
+            "enable_model_tiering": False,
+        }
+
+
+def chat_worker(msgs, **kwargs):
+    """
+    Worker model call — uses worker model when tiering enabled,
+    falls back to author model when disabled (preserves current behavior).
+
+    Worker handles: intent classification, query expansion, retrieval judging,
+    reranking, self-check.
+    """
+    cfg = _get_model_config()
+    model = cfg["worker_model"] if cfg["enable_model_tiering"] else cfg["author_model"]
+    role = "worker" if cfg["enable_model_tiering"] else "author"
+
+    logger.info("MODEL_ROLE={} MODEL_NAME={}", role, model)
+
+    llm = LocalChatOllama(model=model, **kwargs)
+    return llm.stream(msgs)
+
+
+def chat_author(msgs, **kwargs):
+    """
+    Author model call — always uses the author model.
+
+    Author handles: final answer synthesis, difficult vision,
+    drawing interpretation, final engineering explanation.
+    """
+    cfg = _get_model_config()
+    model = cfg["author_model"]
+
+    logger.info("MODEL_ROLE=author MODEL_NAME={}", model)
+
+    llm = LocalChatOllama(model=model, **kwargs)
+    return llm.stream(msgs)

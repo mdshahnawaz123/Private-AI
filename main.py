@@ -1489,18 +1489,28 @@ def retrieve_context(project: str, query: str, k: int, user=None):
     vs = get_vectorstore(project)
     # If a restricted user has no accessible folders, skip project docs entirely.
     if vs is not None and (allow_all or allowed_ids):
-        # Phase 3: Use hybrid retrieval (over-fetch, filter, rerank)
+        # Wave 1: Configurable rerank candidates and keep count
         from intelligence.reranker import get_reranker
         reranker = get_reranker()
 
+        # Get rerank configuration
+        try:
+            from config import get_settings
+            s = get_settings()
+            rerank_candidates = s.rerank_candidates
+            rerank_keep = s.rerank_keep
+        except Exception:
+            rerank_candidates = 20
+            rerank_keep = 5
+
         # Over-fetch, then filter by folder permission
-        cand = vs.similarity_search(query, k=max(k * 5, k))
+        cand = vs.similarity_search(query, k=max(rerank_candidates, k))
         permitted = [d for d in cand if _permitted(d)]
 
         # Rerank if enabled
         if reranker.is_enabled() and permitted:
             docs_for_rerank = [{"content": d.page_content, "metadata": d.metadata} for d in permitted]
-            reranked = reranker.rerank_with_fallback(query, docs_for_rerank, top_k=k)
+            reranked = reranker.rerank_with_fallback(query, docs_for_rerank, top_k=rerank_keep)
             # Map back to document objects
             docs = []
             for r in reranked:
@@ -1508,6 +1518,15 @@ def retrieve_context(project: str, query: str, k: int, user=None):
                     if d.page_content == r.get("content"):
                         docs.append(d)
                         break
+            # If reranking returned fewer than k, fill from permitted
+            if len(docs) < k:
+                existing = set(d.page_content for d in docs)
+                for d in permitted:
+                    if d.page_content not in existing:
+                        docs.append(d)
+                        existing.add(d.page_content)
+                        if len(docs) >= k:
+                            break
         else:
             docs = permitted[:k]
 
@@ -1831,6 +1850,19 @@ You must wait for the system to reply with the tool result before continuing you
 
 def get_llm(req: QueryRequest):
     # Direct /api/chat streamer (reliable + larger context) instead of ChatOllama.
+    # Wave 1: Model tiering — when enabled, uses worker/author split.
+    # When disabled, preserves existing behavior (single author model).
+    try:
+        from config import get_settings
+        s = get_settings()
+        if s.enable_model_tiering:
+            # Use worker model for simple queries, author model for complex
+            # For now, default to author model (worker routing happens in orchestrator)
+            return local_chat.LocalChatOllama(model=s.author_model, temperature=0.1,
+                                              num_predict=3072, keep_alive="5m")
+    except Exception:
+        pass
+    # Fallback: existing behavior
     return local_chat.LocalChatOllama(model=req.model, temperature=0.1,
                                       num_predict=3072, keep_alive="5m")
 

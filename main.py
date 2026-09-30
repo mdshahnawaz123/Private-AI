@@ -119,6 +119,13 @@ from intelligence.retrieval import get_retriever
 
 hybrid_retriever = get_retriever()
 
+# Phase 4: Initialize Compliance + Validation engines
+from intelligence.compliance import get_engine, ComplianceStatus, Severity
+from intelligence.validation import get_validation_engine, FindingState
+
+compliance_engine = get_engine()
+validation_engine = get_validation_engine()
+
 def _client_ip(request):
     try:
         return request.client.host if request and request.client else None
@@ -417,6 +424,230 @@ async def retrieval_search(request: Request, project: str = "default",
         ],
         "total": len(result.results),
     }
+
+
+# ── Phase 4: Compliance endpoints ───────────────────────────
+
+@api_v1.get("/compliance/rules")
+async def compliance_rules():
+    """List all compliance rules."""
+    return {"rules": compliance_engine.list_rules()}
+
+
+@api_v1.post("/compliance/check")
+async def compliance_check(request: Request):
+    """Run a deterministic compliance check."""
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+
+    rule_id = body.get("rule_id", "")
+    actual_value = body.get("actual_value")
+    project_id = body.get("project", "default")
+    source_doc = body.get("source_doc", "")
+    source_page = body.get("source_page")
+    context = body.get("context", {})
+
+    if not rule_id:
+        raise HTTPException(400, "rule_id required")
+
+    finding = compliance_engine.evaluate(
+        rule_id=rule_id,
+        actual_value=actual_value,
+        context=context,
+        project_id=project_id,
+        source_doc=source_doc,
+        source_page=source_page,
+    )
+
+    # Store finding
+    validation_engine._findings[finding.finding_id] = finding
+
+    return {
+        "finding_id": finding.finding_id,
+        "status": finding.status.value,
+        "severity": finding.severity.value,
+        "title": finding.title,
+        "calculation": finding.calculation,
+        "actual_value": finding.actual_value,
+        "expected_value": finding.expected_value,
+        "difference": finding.difference,
+        "recommendation": finding.recommendation,
+        "confidence": finding.confidence,
+    }
+
+
+@api_v1.post("/compliance/check-batch")
+async def compliance_check_batch(request: Request):
+    """Run multiple compliance checks in batch."""
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+
+    checks = body.get("checks", [])
+    project_id = body.get("project", "default")
+
+    if not checks:
+        raise HTTPException(400, "checks array required")
+
+    findings = compliance_engine.evaluate_batch(checks, project_id)
+
+    # Store findings
+    for f in findings:
+        validation_engine._findings[f.finding_id] = f
+
+    return {
+        "findings": [
+            {
+                "finding_id": f.finding_id,
+                "status": f.status.value,
+                "severity": f.severity.value,
+                "title": f.title,
+                "calculation": f.calculation,
+            }
+            for f in findings
+        ],
+        "total": len(findings),
+        "passed": sum(1 for f in findings if f.status == ComplianceStatus.PASS),
+        "failed": sum(1 for f in findings if f.status == ComplianceStatus.FAIL),
+        "review": sum(1 for f in findings if f.status == ComplianceStatus.REVIEW),
+    }
+
+
+# ── Phase 4: Validation endpoints ───────────────────────────
+
+@api_v1.get("/qa/findings")
+async def qa_findings(project: str = "default", status: str = "",
+                      severity: str = "", discipline: str = ""):
+    """List QA findings."""
+    findings = validation_engine.list_findings(
+        project_id=project, status=status, severity=severity, discipline=discipline
+    )
+    return {
+        "findings": [
+            {
+                "finding_id": f.finding_id,
+                "status": f.status.value,
+                "severity": f.severity.value,
+                "title": f.title,
+                "discipline": f.discipline,
+                "source_doc": f.source_doc,
+                "source_page": f.source_page,
+                "lifecycle_state": f.lifecycle_state,
+                "ai_generated": f.ai_generated,
+                "human_reviewed": f.human_reviewed,
+                "created_at": f.created_at,
+            }
+            for f in findings
+        ],
+        "count": len(findings),
+    }
+
+
+@api_v1.get("/qa/findings/{finding_id}")
+async def qa_finding_detail(finding_id: str):
+    """Get detailed information about a finding."""
+    finding = validation_engine.get_finding(finding_id)
+    if not finding:
+        raise HTTPException(404, "Finding not found")
+    return {
+        "finding_id": finding.finding_id,
+        "status": finding.status.value,
+        "severity": finding.severity.value,
+        "title": finding.title,
+        "description": finding.description,
+        "requirement": finding.requirement,
+        "actual_value": finding.actual_value,
+        "expected_value": finding.expected_value,
+        "difference": finding.difference,
+        "calculation": finding.calculation,
+        "rule_id": finding.rule_id,
+        "evidence": finding.evidence,
+        "source_doc": finding.source_doc,
+        "source_page": finding.source_page,
+        "confidence": finding.confidence,
+        "recommendation": finding.recommendation,
+        "lifecycle_state": finding.lifecycle_state,
+        "ai_generated": finding.ai_generated,
+        "human_reviewed": finding.human_reviewed,
+        "verified_by": finding.verified_by,
+        "comments": finding.comments,
+        "created_at": finding.created_at,
+        "updated_at": finding.updated_at,
+    }
+
+
+@api_v1.put("/qa/findings/{finding_id}/verify")
+async def qa_finding_verify(finding_id: str, request: Request):
+    """Verify a finding (human review)."""
+    user = auth.require_user(request)
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    comment = body.get("comment", "")
+    success = validation_engine.verify_finding(finding_id, user["username"], comment)
+    if not success:
+        raise HTTPException(404, "Finding not found")
+    db.audit("finding.verify", target=finding_id, user=user)
+    return {"status": "verified", "finding_id": finding_id}
+
+
+@api_v1.put("/qa/findings/{finding_id}/reject")
+async def qa_finding_reject(finding_id: str, request: Request):
+    """Reject a finding."""
+    user = auth.require_user(request)
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    comment = body.get("comment", "")
+    success = validation_engine.reject_finding(finding_id, user["username"], comment)
+    if not success:
+        raise HTTPException(404, "Finding not found")
+    db.audit("finding.reject", target=finding_id, user=user)
+    return {"status": "rejected", "finding_id": finding_id}
+
+
+@api_v1.put("/qa/findings/{finding_id}/resolve")
+async def qa_finding_resolve(finding_id: str, request: Request):
+    """Mark a finding as resolved."""
+    user = auth.require_user(request)
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    comment = body.get("comment", "")
+    success = validation_engine.resolve_finding(finding_id, user["username"], comment)
+    if not success:
+        raise HTTPException(404, "Finding not found")
+    db.audit("finding.resolve", target=finding_id, user=user)
+    return {"status": "resolved", "finding_id": finding_id}
+
+
+@api_v1.post("/qa/findings/{finding_id}/comment")
+async def qa_finding_comment(finding_id: str, request: Request):
+    """Add a comment to a finding."""
+    user = auth.require_user(request)
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    comment = body.get("comment", "")
+    if not comment:
+        raise HTTPException(400, "comment required")
+    success = validation_engine.add_comment(finding_id, user["username"], comment)
+    if not success:
+        raise HTTPException(404, "Finding not found")
+    return {"status": "comment_added", "finding_id": finding_id}
+
+
+@api_v1.get("/qa/stats")
+async def qa_stats(project: str = "default"):
+    """Get QA finding statistics."""
+    return validation_engine.get_stats(project)
 
 
 app.include_router(api_v1)

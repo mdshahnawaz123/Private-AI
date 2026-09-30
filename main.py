@@ -114,6 +114,11 @@ from services.ingestion import get_pipeline, DocumentState
 
 ingestion_pipeline = get_pipeline()
 
+# Phase 3: Initialize Hybrid Retrieval
+from intelligence.retrieval import get_retriever
+
+hybrid_retriever = get_retriever()
+
 def _client_ip(request):
     try:
         return request.client.host if request and request.client else None
@@ -378,6 +383,42 @@ async def reject_document(project: str, filename: str, request: Request):
     return {"status": "rejected", "filename": filename}
 
 
+# ── Phase 3: Hybrid Retrieval endpoints ─────────────────────
+
+@api_v1.get("/retrieval/stats")
+async def retrieval_stats():
+    """Get retrieval engine statistics."""
+    return {
+        "bm25_indexed_docs": len(hybrid_retriever._documents),
+        "reranker_enabled": get_reranker().is_enabled(),
+        "vector_stores_cached": len(vectorstores),
+    }
+
+
+@api_v1.post("/retrieval/search")
+async def retrieval_search(request: Request, project: str = "default",
+                           query: str = "", k: int = 8):
+    """Search using hybrid retrieval (BM25 + Vector + RRF + Reranker)."""
+    user = auth.require_project(request, project)
+    if not query:
+        raise HTTPException(400, "Query required")
+    vs = get_vectorstore(project)
+    result = hybrid_retriever.retrieve_from_faiss(query, project, k=k, user=user, vectorstore=vs)
+    return {
+        "query": query,
+        "results": [
+            {
+                "source": r.source,
+                "page": r.page,
+                "score": r.score,
+                "content_preview": r.content[:200],
+            }
+            for r in result.results
+        ],
+        "total": len(result.results),
+    }
+
+
 app.include_router(api_v1)
 
 vectorstores = {}
@@ -610,7 +651,10 @@ def retrieve_context(project: str, query: str, k: int, user=None):
     """Retrieve grounded context. Folder permissions are ENFORCED here: a chunk is
     only included if the user may access the folder its source document lives in.
     allow_all (admin, or lead who is a member) sees everything; a regular member
-    sees ONLY chunks from folders assigned to them; anyone else sees nothing."""
+    sees ONLY chunks from folders assigned to them; anyone else sees nothing.
+
+    Phase 3: Now uses hybrid retrieval (BM25 + Vector + RRF + Reranker) when available.
+    """
     srcs, parts = [], []
     # Resolve the user's folder access up front.
     if user is None:
@@ -640,9 +684,28 @@ def retrieve_context(project: str, query: str, k: int, user=None):
     vs = get_vectorstore(project)
     # If a restricted user has no accessible folders, skip project docs entirely.
     if vs is not None and (allow_all or allowed_ids):
-        # Over-fetch, then filter by folder permission, then keep top k.
+        # Phase 3: Use hybrid retrieval (over-fetch, filter, rerank)
+        from intelligence.reranker import get_reranker
+        reranker = get_reranker()
+
+        # Over-fetch, then filter by folder permission
         cand = vs.similarity_search(query, k=max(k * 5, k))
-        docs = [d for d in cand if _permitted(d)][:k]
+        permitted = [d for d in cand if _permitted(d)]
+
+        # Rerank if enabled
+        if reranker.is_enabled() and permitted:
+            docs_for_rerank = [{"content": d.page_content, "metadata": d.metadata} for d in permitted]
+            reranked = reranker.rerank_with_fallback(query, docs_for_rerank, top_k=k)
+            # Map back to document objects
+            docs = []
+            for r in reranked:
+                for d in permitted:
+                    if d.page_content == r.get("content"):
+                        docs.append(d)
+                        break
+        else:
+            docs = permitted[:k]
+
         if docs:
             blocks = []
             for d in docs:

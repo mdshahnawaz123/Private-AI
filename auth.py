@@ -151,3 +151,18 @@ def ensure_admin():
         db.logger.info("Seeded 'admin' account - CHANGE THE PASSWORD after first login")
     except Exception as e:
         db.logger.error("admin seed failed: {}", e)
+
+
+def must_change_password(user: dict) -> bool:
+    """Check if the user must change their password (first login with default)."""
+    if not user:
+        return False
+    # Admin with default password must change it
+    if user.get("role") == "admin" and user.get("username") == "admin":
+        # Check if password is still the default
+        from config import get_settings
+        settings = get_settings()
+        default_pw = settings.admin_password
+        if verify_password(default_pw, user.get("password_hash", "")):
+            return True
+    return False

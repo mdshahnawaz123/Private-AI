@@ -12,7 +12,7 @@ import json
 import datetime
 
 from sqlalchemy import (create_engine, event, Column, Integer, String, Text,
-                        DateTime, ForeignKey, JSON, UniqueConstraint)
+                        DateTime, ForeignKey, JSON, UniqueConstraint, Float)
 from sqlalchemy.orm import declarative_base, sessionmaker, relationship
 from loguru import logger
 
@@ -155,6 +155,8 @@ def init_db():
             s.add(User(id=1, username="system", full_name="System", role="admin", is_active=1))
             s.commit()
     _migrate_json_projects()
+    # Phase 0: Initialize Knowledge Hub tables
+    init_knowledge_tables()
     logger.info("DB ready at {}", DATABASE_URL)
 
 def _get_or_create_project(s, name, user_id=1):
@@ -687,3 +689,254 @@ def update_document_status(project, filename, chunks, status):
         d.status = status
         sess.commit()
     return True
+
+
+# ============================================================
+# Phase 0: Knowledge Hub tables (additive — existing tables untouched)
+# ============================================================
+
+class DocMeta(Base):
+    """Extended document metadata for provenance and authority."""
+    __tablename__ = "doc_meta"
+    id = Column(Integer, primary_key=True)
+    document_id = Column(Integer, ForeignKey("documents.id"), nullable=True)
+    doc_number = Column(String(200), default="")
+    revision = Column(String(50), default="")
+    section = Column(String(200), default="")
+    discipline = Column(String(40), nullable=True)
+    doc_date = Column(String(50), nullable=True)
+    status = Column(String(20), default="draft")
+    authority_level = Column(Integer, default=0)
+    jurisdiction = Column(String(100), default="")
+    effective_date = Column(String(50), nullable=True)
+    applicable_scope = Column(Text, default="")
+
+
+class Requirement(Base):
+    """Extracted code requirements with full provenance."""
+    __tablename__ = "requirements"
+    id = Column(Integer, primary_key=True)
+    project_id = Column(Integer, ForeignKey("projects.id"), nullable=False)
+    req_id = Column(String(100), nullable=False)
+    title = Column(Text, default="")
+    description = Column(Text, default="")
+    value = Column(Text, default="")
+    unit = Column(String(50), default="")
+    source_type = Column(String(50), default="")
+    source_doc = Column(String(400), default="")
+    source_page = Column(Integer, nullable=True)
+    source_clause = Column(String(200), default="")
+    evidence = Column(Text, default="")
+    confidence = Column(String(20), default="medium")
+    status = Column(String(20), default="draft")
+    version = Column(String(50), default="")
+    authority_rank = Column(Integer, default=0)
+    discipline = Column(String(40), nullable=True)
+    created_at = Column(DateTime, default=_utcnow)
+    updated_at = Column(DateTime, default=_utcnow, onupdate=_utcnow)
+    __table_args__ = (UniqueConstraint("project_id", "req_id", name="uq_requirement_project_reqid"),)
+
+
+class Evidence(Base):
+    """Typed evidence objects with provenance."""
+    __tablename__ = "evidence"
+    id = Column(Integer, primary_key=True)
+    project_id = Column(Integer, ForeignKey("projects.id"), nullable=False)
+    evidence_id = Column(String(100), nullable=False)
+    evidence_type = Column(String(50), default="")
+    content = Column(Text, default="")
+    source_doc = Column(String(400), default="")
+    source_page = Column(Integer, nullable=True)
+    bounding_box = Column(JSON, nullable=True)
+    confidence = Column(Float, default=0.0)
+    metadata_json = Column("metadata", JSON, nullable=True)
+    created_at = Column(DateTime, default=_utcnow)
+    __table_args__ = (UniqueConstraint("project_id", "evidence_id", name="uq_evidence_project_id"),)
+
+
+class SourcePrecedence(Base):
+    """Configurable source authority/precedence per project/discipline."""
+    __tablename__ = "source_precedence"
+    id = Column(Integer, primary_key=True)
+    project_id = Column(Integer, ForeignKey("projects.id"), nullable=False)
+    discipline = Column(String(40), nullable=True)
+    rank = Column(Integer, default=0)
+    source_type = Column(String(50), default="")
+    source_doc_pattern = Column(String(400), default="")
+    effective_date = Column(String(50), nullable=True)
+    notes = Column(Text, default="")
+
+
+class GraphEdge(Base):
+    """Knowledge graph relationships between entities."""
+    __tablename__ = "graph_edges"
+    id = Column(Integer, primary_key=True)
+    project_id = Column(Integer, ForeignKey("projects.id"), nullable=False)
+    src_type = Column(String(50), default="")
+    src_id = Column(String(100), default="")
+    relation = Column(String(100), default="")
+    dst_type = Column(String(50), default="")
+    dst_id = Column(String(100), default="")
+    metadata_json = Column("metadata", JSON, nullable=True)
+    created_at = Column(DateTime, default=_utcnow)
+
+
+class EngineeringRule(Base):
+    """Version-controlled engineering rules (deterministic, independent from LLMs)."""
+    __tablename__ = "engineering_rules"
+    id = Column(Integer, primary_key=True)
+    project_id = Column(Integer, ForeignKey("projects.id"), nullable=False)
+    rule_id = Column(String(100), nullable=False)
+    discipline = Column(String(40), nullable=True)
+    category = Column(String(100), default="")
+    title = Column(Text, default="")
+    description = Column(Text, default="")
+    rule_type = Column(String(50), default="deterministic")
+    rule_definition = Column(JSON, nullable=True)
+    version = Column(String(50), default="1.0")
+    status = Column(String(20), default="draft")
+    created_at = Column(DateTime, default=_utcnow)
+    updated_at = Column(DateTime, default=_utcnow, onupdate=_utcnow)
+    __table_args__ = (UniqueConstraint("project_id", "rule_id", name="uq_rule_project_id"),)
+
+
+class QAFinding(Base):
+    """QA findings with lifecycle (replaces unused findings table)."""
+    __tablename__ = "qa_findings"
+    id = Column(Integer, primary_key=True)
+    project_id = Column(Integer, ForeignKey("projects.id"), nullable=False)
+    finding_id = Column(String(100), nullable=False)
+    discipline = Column(String(40), nullable=True)
+    severity = Column(String(20), default="medium")
+    status = Column(String(20), default="open")
+    check_id = Column(String(100), default="")
+    issue = Column(Text, default="")
+    required_value = Column(Text, default="")
+    actual_value = Column(Text, default="")
+    difference = Column(Text, default="")
+    calculation = Column(Text, default="")
+    rule_id = Column(String(100), default="")
+    evidence = Column(Text, default="")
+    source_doc = Column(String(400), default="")
+    source_page = Column(Integer, nullable=True)
+    confidence = Column(Float, default=0.0)
+    recommendation = Column(Text, default="")
+    created_by = Column(Integer, ForeignKey("users.id"), nullable=True)
+    verified_by = Column(Integer, ForeignKey("users.id"), nullable=True)
+    created_at = Column(DateTime, default=_utcnow)
+    updated_at = Column(DateTime, default=_utcnow, onupdate=_utcnow)
+    revision = Column(String(50), default="")
+    __table_args__ = (UniqueConstraint("project_id", "finding_id", name="uq_finding_project_id"),)
+
+
+class BimModel(Base):
+    """IFC/Revit model registry."""
+    __tablename__ = "bim_models"
+    id = Column(Integer, primary_key=True)
+    project_id = Column(Integer, ForeignKey("projects.id"), nullable=False)
+    document_id = Column(Integer, ForeignKey("documents.id"), nullable=True)
+    filename = Column(String(400), default="")
+    ifc_schema = Column(String(50), default="")
+    length_unit = Column(String(20), default="")
+    true_north_deg = Column(Float, nullable=True)
+    site_origin = Column(JSON, nullable=True)
+    coordination_matrix = Column(JSON, nullable=True)
+    element_count = Column(Integer, default=0)
+    created_at = Column(DateTime, default=_utcnow)
+
+
+class BimElement(Base):
+    """Typed BIM elements (GUID is the stable cross-domain key)."""
+    __tablename__ = "bim_elements"
+    id = Column(Integer, primary_key=True)
+    project_id = Column(Integer, ForeignKey("projects.id"), nullable=False)
+    bim_model_id = Column(Integer, ForeignKey("bim_models.id"), nullable=True)
+    guid = Column(String(100), default="")
+    ifc_class = Column(String(100), default="")
+    type_name = Column(String(200), default="")
+    name = Column(String(400), default="")
+    level = Column(String(200), default="")
+    x = Column(Float, nullable=True)
+    y = Column(Float, nullable=True)
+    z = Column(Float, nullable=True)
+    length = Column(Float, nullable=True)
+    width = Column(Float, nullable=True)
+    height = Column(Float, nullable=True)
+    thickness = Column(Float, nullable=True)
+    area = Column(Float, nullable=True)
+    volume = Column(Float, nullable=True)
+    material = Column(String(200), default="")
+    system = Column(String(200), default="")
+    classification = Column(String(200), default="")
+    psets = Column(JSON, nullable=True)
+    created_at = Column(DateTime, default=_utcnow)
+
+
+class Drawing(Base):
+    """Drawing metadata."""
+    __tablename__ = "drawings"
+    id = Column(Integer, primary_key=True)
+    project_id = Column(Integer, ForeignKey("projects.id"), nullable=False)
+    document_id = Column(Integer, ForeignKey("documents.id"), nullable=True)
+    number = Column(String(200), default="")
+    title = Column(Text, default="")
+    revision = Column(String(50), default="")
+    discipline = Column(String(40), nullable=True)
+    level = Column(String(100), default="")
+    sheet = Column(String(100), default="")
+    sheet_date = Column(String(50), nullable=True)
+    status = Column(String(20), default="draft")
+    file_path = Column(Text, default="")
+    page = Column(Integer, nullable=True)
+    source = Column(String(200), default="")
+
+
+class Schedule(Base):
+    """Schedule registry."""
+    __tablename__ = "schedules"
+    id = Column(Integer, primary_key=True)
+    project_id = Column(Integer, ForeignKey("projects.id"), nullable=False)
+    document_id = Column(Integer, ForeignKey("documents.id"), nullable=True)
+    schedule_type = Column(String(100), default="")
+    source_sheet = Column(String(200), default="")
+    created_at = Column(DateTime, default=_utcnow)
+
+
+class ScheduleRow(Base):
+    """Individual schedule rows with typed fields."""
+    __tablename__ = "schedule_rows"
+    id = Column(Integer, primary_key=True)
+    schedule_id = Column(Integer, ForeignKey("schedules.id"), nullable=True)
+    project_id = Column(Integer, ForeignKey("projects.id"), nullable=False)
+    mark = Column(String(100), default="")
+    guid = Column(String(100), default="")
+    fields = Column(JSON, nullable=True)
+    created_at = Column(DateTime, default=_utcnow)
+
+
+class EvalDataset(Base):
+    """Evaluation datasets for AI quality measurement."""
+    __tablename__ = "eval_datasets"
+    id = Column(Integer, primary_key=True)
+    name = Column(String(200), nullable=False)
+    description = Column(Text, default="")
+    dataset_type = Column(String(50), default="")
+    created_at = Column(DateTime, default=_utcnow)
+
+
+class EvalExample(Base):
+    """Individual evaluation examples."""
+    __tablename__ = "eval_examples"
+    id = Column(Integer, primary_key=True)
+    dataset_id = Column(Integer, ForeignKey("eval_datasets.id"), nullable=True)
+    input = Column(Text, default="")
+    expected_output = Column(Text, default="")
+    source = Column(String(400), default="")
+    verification_status = Column(String(20), default="pending")
+    created_at = Column(DateTime, default=_utcnow)
+
+
+def init_knowledge_tables():
+    """Create Phase 0 Knowledge Hub tables. Idempotent."""
+    Base.metadata.create_all(engine)
+    logger.info("Knowledge Hub tables initialized")

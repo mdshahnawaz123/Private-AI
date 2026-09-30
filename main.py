@@ -91,6 +91,13 @@ os.makedirs(WORKSPACE_DIR, exist_ok=True)
 db.init_db()
 auth.ensure_admin()
 
+# Phase 0: Initialize model registry and orchestrator
+from core.model_registry import get_registry
+from core.orchestrator import get_orchestrator
+
+model_registry = get_registry()
+orchestrator = get_orchestrator()
+
 def _client_ip(request):
     try:
         return request.client.host if request and request.client else None
@@ -103,6 +110,57 @@ if os.path.isdir("ui"):
 @app.get("/")
 async def root():
     return RedirectResponse(url="/ui/")
+
+
+# ============================================================
+# Phase 0: Health endpoints
+# ============================================================
+
+@app.get("/health")
+async def health_check():
+    """Basic health check — always responds."""
+    return {"status": "ok", "service": "expo-design-ai"}
+
+
+@app.get("/health/models")
+async def health_models():
+    """Check health of all registered AI models."""
+    return model_registry.health_check()
+
+
+@app.get("/health/db")
+async def health_db():
+    """Check database connectivity."""
+    try:
+        with db.SessionLocal() as s:
+            s.execute("SELECT 1")
+        return {"status": "ok", "database": "connected"}
+    except Exception as e:
+        return {"status": "error", "database": str(e)}
+
+
+# ============================================================
+# Phase 0: API versioning — /api/v1/ structure
+# ============================================================
+
+from fastapi import APIRouter
+
+api_v1 = APIRouter(prefix="/api/v1")
+
+
+@api_v1.get("/models")
+async def list_models():
+    """List all registered AI models."""
+    return {"models": model_registry.list_models()}
+
+
+@api_v1.get("/models/health")
+async def models_health():
+    """Check health of all AI models."""
+    return model_registry.health_check()
+
+
+app.include_router(api_v1)
 
 vectorstores = {}
 embedder = local_embed.LocalOllamaEmbeddings(model="bge-m3")
@@ -165,6 +223,25 @@ class ProjectSave(BaseModel):
 class LoginReq(BaseModel):
     username: str
     password: str
+
+
+# Phase 0: Simple in-memory rate limiter for login
+_login_attempts = {}
+_LOGIN_RATE_LIMIT = 5  # attempts
+_LOGIN_RATE_WINDOW = 300  # seconds (5 minutes)
+
+
+def _check_rate_limit(ip: str) -> bool:
+    """Check if IP has exceeded login rate limit. Returns True if allowed."""
+    now = time.time()
+    attempts = _login_attempts.get(ip, [])
+    # Remove old attempts
+    attempts = [t for t in attempts if now - t < _LOGIN_RATE_WINDOW]
+    _login_attempts[ip] = attempts
+    if len(attempts) >= _LOGIN_RATE_LIMIT:
+        return False
+    attempts.append(now)
+    return True
 
 class CreateUserReq(BaseModel):
     username: str
@@ -521,6 +598,46 @@ def process_document(project, save_path, filename, disc, category, folder_id=Non
         db.update_document_status(project, filename, 0, "error")
     finally:
         PROGRESS.pop(key, None)
+# Phase 0: File content validation (magic bytes)
+MAGIC_BYTES = {
+    ".pdf": b"%PDF",
+    ".png": b"\x89PNG",
+    ".jpg": b"\xff\xd8\xff",
+    ".jpeg": b"\xff\xd8\xff",
+    ".gif": b"GIF8",
+    ".webp": b"RIFF",
+    ".bmp": b"BM",
+    ".tiff": b"II",
+    ".tif": b"II",
+    ".zip": b"PK",
+    ".docx": b"PK",  # docx is a zip
+    ".xlsx": b"PK",  # xlsx is a zip
+    ".dwg": b"AC10",  # DWG files start with AC10xx
+    ".dxf": b"AutoCAD",
+}
+
+
+def validate_file_content(path: str, ext: str) -> bool:
+    """Validate file content matches expected magic bytes."""
+    magic = MAGIC_BYTES.get(ext)
+    if magic is None:
+        return True  # Unknown type, allow
+    try:
+        with open(path, "rb") as f:
+            header = f.read(len(magic) + 8)
+        if ext in (".docx", ".xlsx"):
+            # ZIP-based formats — check for ZIP signature
+            return header[:2] == b"PK"
+        if ext == ".dxf":
+            # DXF files may start with whitespace or AutoCAD header
+            return b"AutoCAD" in header or b"DXF" in header or header[:4] == b"  0\n"
+        if ext == ".dwg":
+            return header[:4] == b"AC10" or header[:4] == b"AC11" or header[:4] == b"AC12"
+        return header[:len(magic)] == magic
+    except Exception:
+        return False
+
+
 @app.post("/upload")
 async def upload_document(request: Request, background: BackgroundTasks, project: str = Form("default"), discipline: str = Form(""), folder_id: int = Form(None), file: UploadFile = File(...)):
     user = auth.require_roles(request, "admin", "lead")
@@ -541,6 +658,10 @@ async def upload_document(request: Request, background: BackgroundTasks, project
     save_path = os.path.join(proj_doc_dir, file.filename)
     with open(save_path, "wb") as f:
         shutil.copyfileobj(file.file, f)
+    # Phase 0: Validate file content
+    if not validate_file_content(save_path, ext):
+        os.remove(save_path)
+        raise HTTPException(400, "File content does not match its extension. Upload rejected.")
     disc = disciplines.normalize(discipline) or category
     needs = (ext in INDEXABLE_EXTS) or vision.is_image(save_path) or cad.is_cad(save_path)
     status = "processing" if needs else "stored"
@@ -688,6 +809,23 @@ async def ask_stream(req: QueryRequest, request: Request = None):
     db.audit("ask.stream", project=req.project,
              detail={"model": req.model, "mode": req.mode, "chars": len(req.query or "")},
              user=user, ip=_client_ip(request))
+
+    # Phase 0: Optional orchestrator mode (falls back to direct RAG if orchestrator fails)
+    if req.mode == "orchestrated":
+        try:
+            result = orchestrator.process(
+                query=req.query,
+                project=req.project,
+                user=user,
+                discipline=req.discipline,
+                messages=[{"role": m.role, "content": m.content} for m in (req.messages or [])],
+            )
+            # For now, fall through to normal RAG — orchestrator returns classification only
+            logger.info("Orchestrator classified query as: {} (confidence={:.2f})",
+                        result.query_type, result.confidence)
+        except Exception as e:
+            logger.warning("Orchestrator failed, falling back to direct RAG: {}", e)
+
     srcs, ctx = retrieve_context(req.project, req.query, req.k, user)
     msgs = build_messages(req, ctx)
     current_llm = get_llm(req)
@@ -1288,6 +1426,10 @@ async def permission_test(request: Request):
 
 @app.post("/auth/login")
 async def login(body: LoginReq, request: Request = None):
+    # Phase 0: Rate limiting
+    client_ip = _client_ip(request)
+    if not _check_rate_limit(client_ip):
+        raise HTTPException(429, "Too many login attempts. Please try again later.")
     u = auth.authenticate(body.username, body.password)
     if not u:
         db.audit("auth.fail", target=body.username, ip=_client_ip(request))
@@ -1295,7 +1437,9 @@ async def login(body: LoginReq, request: Request = None):
     token = auth.make_token(u)
     db.audit("auth.login", target=u["username"], user=u, ip=_client_ip(request))
     projects = None if u["role"] == "admin" else db.user_projects(u["id"])
-    return {"token": token, "user": u, "projects": projects}
+    # Phase 0: Check if password change is required
+    must_change = auth.must_change_password(u)
+    return {"token": token, "user": u, "projects": projects, "must_change_password": must_change}
 
 @app.get("/auth/me")
 async def me(request: Request):

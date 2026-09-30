@@ -109,6 +109,11 @@ knowledge_graph = get_graph()
 provenance_tracker = get_tracker()
 source_precedence = get_precedence()
 
+# Phase 1: Initialize Ingestion Pipeline
+from services.ingestion import get_pipeline, DocumentState
+
+ingestion_pipeline = get_pipeline()
+
 def _client_ip(request):
     try:
         return request.client.host if request and request.client else None
@@ -299,6 +304,78 @@ async def knowledge_graph_nav(entity_id: str, relation: str = "", direction: str
         "entity_id": entity_id,
         "relationships": rels,
     }
+
+
+# ── Phase 1: Document state management ──────────────────────
+
+@api_v1.get("/projects/{project}/documents/state")
+async def documents_state(project: str, request: Request):
+    """Get all documents with their current state in the pipeline."""
+    user = auth.require_project(request, project)
+    docs = db.list_documents(project, user)
+    return {
+        "project": project,
+        "documents": [
+            {
+                "filename": d["filename"],
+                "status": d.get("status", "unknown"),
+                "folder": d.get("folder"),
+                "uploaded_at": d.get("uploaded_at"),
+                "chunks": d.get("chunks", 0),
+            }
+            for d in docs
+        ],
+    }
+
+
+@api_v1.post("/projects/{project}/documents/{filename}/verify")
+async def verify_document(project: str, filename: str, request: Request):
+    """Mark a document as verified (human review complete)."""
+    user = auth.require_project(request, project)
+    if not auth.can_manage_project(user, project):
+        raise HTTPException(403, "Not permitted")
+    db.update_document_status(project, filename, 0, DocumentState.VERIFIED)
+    db.audit("document.verify", project=project, target=filename, user=user)
+    return {"status": "verified", "filename": filename}
+
+
+@api_v1.post("/projects/{project}/documents/{filename}/publish")
+async def publish_document(project: str, filename: str, request: Request):
+    """Publish a document — makes it available for user queries."""
+    user = auth.require_project(request, project)
+    if not auth.can_manage_project(user, project):
+        raise HTTPException(403, "Not permitted")
+    doc = next((d for d in db.list_documents(project) if d["filename"] == filename), None)
+    if not doc:
+        raise HTTPException(404, "Document not found")
+    # Only verified documents can be published
+    if doc.get("status") not in (DocumentState.VERIFIED, DocumentState.PUBLISHED, DocumentState.READY):
+        raise HTTPException(400, f"Document must be verified before publishing (current: {doc.get('status')})")
+    db.update_document_status(project, filename, doc.get("chunks", 0), DocumentState.PUBLISHED)
+    db.audit("document.publish", project=project, target=filename, user=user)
+    return {"status": "published", "filename": filename}
+
+
+@api_v1.post("/projects/{project}/documents/{filename}/archive")
+async def archive_document(project: str, filename: str, request: Request):
+    """Archive a document — removes from active use but keeps for reference."""
+    user = auth.require_project(request, project)
+    if not auth.can_manage_project(user, project):
+        raise HTTPException(403, "Not permitted")
+    db.update_document_status(project, filename, 0, DocumentState.ARCHIVED)
+    db.audit("document.archive", project=project, target=filename, user=user)
+    return {"status": "archived", "filename": filename}
+
+
+@api_v1.post("/projects/{project}/documents/{filename}/reject")
+async def reject_document(project: str, filename: str, request: Request):
+    """Reject a document — marks it as failed or invalid."""
+    user = auth.require_project(request, project)
+    if not auth.can_manage_project(user, project):
+        raise HTTPException(403, "Not permitted")
+    db.update_document_status(project, filename, 0, DocumentState.FAILED)
+    db.audit("document.reject", project=project, target=filename, user=user)
+    return {"status": "rejected", "filename": filename}
 
 
 app.include_router(api_v1)

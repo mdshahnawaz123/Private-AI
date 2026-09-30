@@ -1,0 +1,123 @@
+version: '3.8'
+
+# Expo Design AI — Private Data Center Deployment
+# All services run on private network. No outbound internet access required.
+
+services:
+  # ── Application ──────────────────────────────────────────
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8090:8090"
+    environment:
+      - EXPO_HOST=0.0.0.0
+      - EXPO_PORT=8090
+      - EXPO_DATABASE_URL=postgresql+psycopg://expo:expo@postgres:5432/expo
+      - EXPO_DATA_DIR=/data
+      - OLLAMA_HOST=http://ollama:11434
+      - EXPO_CORS_ORIGINS=http://localhost:8090
+    volumes:
+      - expo_data:/data
+    depends_on:
+      - postgres
+      - redis
+      - ollama
+    networks:
+      - expo_network
+    restart: unless-stopped
+
+  # ── PostgreSQL ───────────────────────────────────────────
+  postgres:
+    image: postgres:16
+    environment:
+      - POSTGRES_USER=expo
+      - POSTGRES_PASSWORD=expo
+      - POSTGRES_DB=expo
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - expo_network
+    restart: unless-stopped
+
+  # ── Redis (Job Queue) ───────────────────────────────────
+  redis:
+    image: redis:7
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - expo_network
+    restart: unless-stopped
+
+  # ── Celery Worker (Document Processing) ────────────────
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.worker
+    environment:
+      - EXPO_DATABASE_URL=postgresql+psycopg://expo:expo@postgres:5432/expo
+      - EXPO_DATA_DIR=/data
+      - OLLAMA_HOST=http://ollama:11434
+      - CELERY_BROKER_URL=redis://redis:6379/0
+    volumes:
+      - expo_data:/data
+    depends_on:
+      - postgres
+      - redis
+      - ollama
+    networks:
+      - expo_network
+    restart: unless-stopped
+
+  # ── Ollama (Local AI) ───────────────────────────────────
+  ollama:
+    image: ollama/ollama:latest
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    networks:
+      - expo_network
+    restart: unless-stopped
+
+  # ── Chroma (Vector DB) ──────────────────────────────────
+  chroma:
+    image: chromadb/chroma:latest
+    ports:
+      - "8000:8000"
+    volumes:
+      - chroma_data:/chroma/chroma
+    networks:
+      - expo_network
+    restart: unless-stopped
+
+  # ── Nginx (Reverse Proxy) ───────────────────────────────
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - api
+    networks:
+      - expo_network
+    restart: unless-stopped
+
+volumes:
+  expo_data:
+  postgres_data:
+  redis_data:
+  ollama_data:
+  chroma_data:
+
+networks:
+  expo_network:
+    driver: bridge

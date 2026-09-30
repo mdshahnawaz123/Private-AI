@@ -154,6 +154,16 @@ from intelligence.reports import get_report_engine
 
 report_engine = get_report_engine()
 
+# Phase 9: Initialize Observability
+from core.observability import get_observability
+
+observability = get_observability()
+
+# Phase 10: Initialize Evaluation Framework
+from tests.evaluation.eval_framework import get_eval_framework
+
+eval_framework = get_eval_framework()
+
 def _client_ip(request):
     try:
         return request.client.host if request and request.client else None
@@ -178,6 +188,12 @@ async def health_check():
     return {"status": "ok", "service": "expo-design-ai"}
 
 
+@app.get("/health/full")
+async def health_full():
+    """Comprehensive health check including all services."""
+    return observability.health_check()
+
+
 @app.get("/health/models")
 async def health_models():
     """Check health of all registered AI models."""
@@ -193,6 +209,65 @@ async def health_db():
         return {"status": "ok", "database": "connected"}
     except Exception as e:
         return {"status": "error", "database": str(e)}
+
+
+# ── Phase 9: Observability endpoints ───────────────────────
+
+@app.get("/metrics")
+async def metrics():
+    """Get system metrics."""
+    return observability.get_system_metrics()
+
+
+@app.get("/metrics/summary")
+async def metrics_summary():
+    """Get summary of recorded metrics."""
+    return observability.get_metrics_summary()
+
+
+# ── Phase 10: Evaluation endpoints ─────────────────────────
+
+@app.get("/evaluation/datasets")
+async def evaluation_datasets():
+    """List evaluation datasets."""
+    return {"datasets": list(eval_framework._datasets.keys())}
+
+
+@app.post("/evaluation/run")
+async def evaluation_run(request: Request):
+    """Run an evaluation."""
+    user = auth.require_user(request)
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    dataset_id = body.get("dataset_id", "")
+    eval_type = body.get("type", "")
+    if not dataset_id or not eval_type:
+        raise HTTPException(400, "dataset_id and type required")
+    if eval_type == "ocr":
+        from engines.ocr_engine import get_ocr_engine
+        result = eval_framework.evaluate_ocr(dataset_id, get_ocr_engine())
+    elif eval_type == "retrieval":
+        result = eval_framework.evaluate_retrieval(dataset_id, hybrid_retriever)
+    elif eval_type == "compliance":
+        result = eval_framework.evaluate_compliance(dataset_id, compliance_engine)
+    else:
+        raise HTTPException(400, f"Unknown evaluation type: {eval_type}")
+    return {
+        "dataset": result.dataset_name,
+        "total": result.total_examples,
+        "passed": result.passed,
+        "failed": result.failed,
+        "accuracy": result.accuracy,
+        "latency_ms": result.latency_ms,
+    }
+
+
+@app.get("/evaluation/summary")
+async def evaluation_summary():
+    """Get evaluation summary."""
+    return eval_framework.get_summary()
 
 
 # ============================================================

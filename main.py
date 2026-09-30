@@ -1594,14 +1594,18 @@ def retrieve_context(project: str, query: str, k: int, user=None):
         if reranker.is_enabled() and permitted:
             docs_for_rerank = [{"content": d.page_content, "metadata": d.metadata} for d in permitted]
             reranked = reranker.rerank_with_fallback(query, docs_for_rerank, top_k=rerank_keep)
+            # top_score is the BEST relevance score. reranked is sorted descending,
+            # so the top score is the first entry's. (Previously this was set inside
+            # the map-back loop and ended up holding the LAST/lowest kept score, which
+            # made the confidence gate below compare the wrong value.)
+            if reranked and reranked[0].get("rerank_score") is not None:
+                top_score = reranked[0]["rerank_score"]
             # Map back to document objects
             docs = []
             for r in reranked:
                 for d in permitted:
                     if d.page_content == r.get("content"):
                         docs.append(d)
-                        if r.get("rerank_score") is not None:
-                            top_score = r["rerank_score"]
                         break
             # If reranking returned fewer than k, fill from permitted
             if len(docs) < k:
@@ -1619,11 +1623,14 @@ def retrieve_context(project: str, query: str, k: int, user=None):
         try:
             from config import get_settings as _gs_cg
             _nf_thresh = _gs_cg().not_found_threshold
-            if top_score is not None and top_score < _nf_thresh:
-                logger.info("Confidence gate: top score {:.4f} below threshold {:.4f} — marking as not found",
+            if top_score is not None and _nf_thresh > 0 and top_score < _nf_thresh:
+                logger.info("Confidence gate: top score {:.4f} below threshold {:.4f} — dropping weak project-vector docs",
                             top_score, _nf_thresh)
-                # Return empty context — the answer builder will handle "not found"
-                return [], ""
+                # Drop only the weak project-vector docs. Do NOT early-return: the
+                # structured-data read (schedules/quantities) and the code-KB block
+                # below can still answer this query. If everything ends up empty, the
+                # assembled context is "" and the answer builder handles "not found".
+                docs = []
         except Exception:
             pass
 

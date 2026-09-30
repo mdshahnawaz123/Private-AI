@@ -250,6 +250,34 @@ def index_structured_entities(project_id: str, filename: str,
     return counts
 
 
+def _resolve_project_id(project_id):
+    """Normalize a project identifier to the integer projects.id FK.
+
+    ScheduleRow.project_id / Quantity.project_id are integer FKs to projects.id.
+    Callers historically passed a project *name* here, which caused
+    `sqlite3.IntegrityError: FOREIGN KEY constraint failed` (P0 bug). Accept
+    either an int id or a name/slug and return the int id, or None if it can't
+    be resolved (caller should then skip indexing rather than insert a bad FK).
+    """
+    if isinstance(project_id, int):
+        return project_id
+    try:
+        if str(project_id).isdigit():
+            return int(project_id)
+    except Exception:
+        pass
+    import db
+    s = db.SessionLocal()
+    try:
+        p = s.query(db.Project).filter_by(name=project_id).first()
+        return p.id if p else None
+    except Exception as e:
+        logger.warning("Could not resolve project id for {!r}: {}", project_id, e)
+        return None
+    finally:
+        s.close()
+
+
 # ── Phase 2: Structured Table Extraction ───────────────────
 
 def extract_structured_tables_from_pdf(meta: Dict[str, Any],
@@ -312,13 +340,22 @@ def extract_structured_tables_from_pdf(meta: Dict[str, Any],
     return rows
 
 
-def index_structured_tables(project_id: str, filename: str,
+def index_structured_tables(project_id, filename: str,
                             meta: Dict[str, Any]) -> int:
     """
     Index structured table rows into the database.
     Each row is stored as a separate retrievable unit.
+
+    `project_id` may be an integer projects.id OR a project name/slug; it is
+    normalized to the integer FK. If it cannot be resolved, indexing is skipped
+    (avoids the FOREIGN KEY IntegrityError seen in the field).
     """
     import db
+
+    project_id = _resolve_project_id(project_id)
+    if project_id is None:
+        logger.warning("index_structured_tables: unresolved project id for {} — skipping", filename)
+        return 0
 
     rows = extract_structured_tables_from_pdf(meta, project_id)
     count = 0
@@ -425,12 +462,21 @@ def extract_quantities_from_pdf(meta: Dict[str, Any],
     return quantities
 
 
-def index_quantities(project_id: str, filename: str,
+def index_quantities(project_id, filename: str,
                      meta: Dict[str, Any]) -> int:
     """
     Index quantities into the database.
+
+    `project_id` may be an integer projects.id OR a project name/slug; it is
+    normalized to the integer FK. If it cannot be resolved, indexing is skipped
+    (avoids the FOREIGN KEY IntegrityError seen in the field).
     """
     import db
+
+    project_id = _resolve_project_id(project_id)
+    if project_id is None:
+        logger.warning("index_quantities: unresolved project id for {} — skipping", filename)
+        return 0
 
     quantities = extract_quantities_from_pdf(meta, project_id)
     count = 0

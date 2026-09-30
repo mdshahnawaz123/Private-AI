@@ -149,6 +149,11 @@ from services.bim_service import get_bim_service
 ifc_engine = get_ifc_engine()
 bim_service = get_bim_service()
 
+# Phase 8: Initialize Report Engine
+from intelligence.reports import get_report_engine
+
+report_engine = get_report_engine()
+
 def _client_ip(request):
     try:
         return request.client.host if request and request.client else None
@@ -1008,6 +1013,139 @@ async def bim_element_detail(guid: str, project: str = "default"):
 async def bim_stats(project: str = "default"):
     """Get BIM statistics."""
     return bim_service.get_stats(project_id=project)
+
+
+# ── Phase 8: Report endpoints ───────────────────────────────
+
+@api_v1.post("/reports/generate")
+async def reports_generate(request: Request, project: str = "default"):
+    """Generate a report."""
+    user = auth.require_project(request, project)
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+
+    report_type = body.get("report_type", "compliance")
+    format = body.get("format", "pdf")
+    discipline = body.get("discipline", "")
+
+    # Gather data based on report type
+    if report_type == "compliance":
+        findings = list(validation_engine._findings.values())
+        findings = [f.__dict__ if hasattr(f, '__dict__') else f for f in findings]
+        report = report_engine.generate_compliance_report(
+            project_id=project,
+            findings=findings,
+            discipline=discipline,
+            created_by=user["username"],
+        )
+    elif report_type == "bim_qa":
+        bim_stats = bim_service.get_stats(project_id=project)
+        findings = list(validation_engine._findings.values())
+        findings = [f.__dict__ if hasattr(f, '__dict__') else f for f in findings]
+        report = report_engine.generate_bim_qa_report(
+            project_id=project,
+            bim_stats=bim_stats,
+            findings=findings,
+            created_by=user["username"],
+        )
+    elif report_type == "issue_register":
+        findings = list(validation_engine._findings.values())
+        findings = [f.__dict__ if hasattr(f, '__dict__') else f for f in findings]
+        report = report_engine.generate_issue_register(
+            project_id=project,
+            findings=findings,
+            created_by=user["username"],
+        )
+    else:
+        raise HTTPException(400, f"Unknown report type: {report_type}")
+
+    # Export to file
+    output_dir = os.path.join(DATA_DIR, "reports", project)
+    os.makedirs(output_dir, exist_ok=True)
+    output_path = os.path.join(output_dir, f"{report.report_id}.{format}")
+
+    try:
+        report_engine.export(report, output_path, format)
+    except Exception as e:
+        raise HTTPException(500, f"Report generation failed: {str(e)}")
+
+    db.audit("report.generate", project=project,
+             detail={"report_type": report_type, "format": format, "report_id": report.report_id},
+             user=user)
+
+    return {
+        "status": "generated",
+        "report_id": report.report_id,
+        "report_type": report_type,
+        "format": format,
+        "file_path": output_path,
+        "download_url": f"/api/v1/reports/{report.report_id}/download",
+    }
+
+
+@api_v1.get("/reports/{report_id}/download")
+async def reports_download(report_id: str, request: Request):
+    """Download a generated report."""
+    user = auth.require_user(request)
+    # Find the report file
+    reports_dir = os.path.join(DATA_DIR, "reports")
+    for root, dirs, files in os.walk(reports_dir):
+        for f in files:
+            if report_id in f:
+                file_path = os.path.join(root, f)
+                return FileResponse(file_path, filename=f)
+    raise HTTPException(404, "Report not found")
+
+
+@api_v1.get("/reports/list")
+async def reports_list(project: str = "default"):
+    """List all generated reports for a project."""
+    reports_dir = os.path.join(DATA_DIR, "reports", project)
+    if not os.path.exists(reports_dir):
+        return {"reports": []}
+    reports = []
+    for f in os.listdir(reports_dir):
+        file_path = os.path.join(reports_dir, f)
+        reports.append({
+            "filename": f,
+            "size": os.path.getsize(file_path),
+            "created": datetime.datetime.fromtimestamp(os.path.getctime(file_path)).isoformat(),
+        })
+    return {"reports": reports}
+
+
+# ── Phase 8: Dashboard endpoints ────────────────────────────
+
+@api_v1.get("/dashboard/stats")
+async def dashboard_stats(project: str = "default"):
+    """Get dashboard statistics for a project."""
+    # Document stats
+    docs = db.list_documents(project)
+    total_docs = len(docs)
+    processed_docs = sum(1 for d in docs if d.get("status") in ("ready", "published", "verified"))
+
+    # Finding stats
+    finding_stats = validation_engine.get_stats(project)
+
+    # BIM stats
+    bim_stats_data = bim_service.get_stats(project_id=project)
+
+    # Knowledge Hub stats
+    hub_stats = knowledge_hub.get_stats()
+
+    return {
+        "project": project,
+        "documents": {
+            "total": total_docs,
+            "processed": processed_docs,
+            "pending": total_docs - processed_docs,
+        },
+        "findings": finding_stats,
+        "bim": bim_stats_data,
+        "knowledge_hub": hub_stats,
+    }
 
 
 app.include_router(api_v1)

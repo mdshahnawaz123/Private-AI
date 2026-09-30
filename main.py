@@ -135,6 +135,13 @@ ocr_engine = get_ocr_engine()
 layout_engine = get_layout_engine()
 drawing_engine = get_drawing_engine()
 
+# Phase 6: Initialize Agent Runtime
+from agents.runtime import get_runtime
+from agents.tools import get_registry
+
+agent_runtime = get_runtime()
+tool_registry = get_registry()
+
 def _client_ip(request):
     try:
         return request.client.host if request and request.client else None
@@ -818,6 +825,117 @@ async def drawings_extract_dimensions(request: Request, project: str = "default"
             for d in dimensions
         ],
         "count": len(dimensions),
+    }
+
+
+# ── Phase 6: Agent endpoints ────────────────────────────────
+
+@api_v1.get("/agents")
+async def list_agents():
+    """List all registered agents."""
+    return {"agents": agent_runtime.list_agents()}
+
+
+@api_v1.get("/agents/tools")
+async def list_agent_tools(permission: str = ""):
+    """List all available agent tools."""
+    from agents.tools import ToolPermission
+    perm = None
+    if permission:
+        try:
+            perm = ToolPermission(permission)
+        except ValueError:
+            raise HTTPException(400, f"Unknown permission: {permission}")
+    return {"tools": tool_registry.list_tools(permission=perm)}
+
+
+@api_v1.post("/agents/{agent_name}/execute")
+async def execute_agent(agent_name: str, request: Request, project: str = "default"):
+    """Execute an agent run."""
+    user = auth.require_project(request, project)
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    query = body.get("query", "")
+    if not query:
+        raise HTTPException(400, "query required")
+    context = body.get("context", {})
+    run = agent_runtime.execute(agent_name, query, project_id=project, user=user, context=context)
+    return {
+        "run_id": run.run_id,
+        "agent_name": run.agent_name,
+        "state": run.state.value,
+        "success": run.success,
+        "steps": [
+            {
+                "step": s.step_number,
+                "action": s.action,
+                "description": s.description,
+                "tool_name": s.tool_name,
+                "duration_ms": s.duration_ms,
+            }
+            for s in run.steps
+        ],
+        "final_response": run.final_response,
+        "total_duration_ms": run.total_duration_ms,
+        "error": run.error,
+    }
+
+
+@api_v1.get("/agents/runs")
+async def list_agent_runs(project: str = "default"):
+    """List agent runs."""
+    runs = agent_runtime.list_runs(project_id=project)
+    return {
+        "runs": [
+            {
+                "run_id": r.run_id,
+                "agent_name": r.agent_name,
+                "state": r.state.value,
+                "success": r.success,
+                "created_at": r.created_at,
+                "total_duration_ms": r.total_duration_ms,
+            }
+            for r in runs
+        ],
+    }
+
+
+@api_v1.get("/agents/runs/{run_id}")
+async def get_agent_run(run_id: str):
+    """Get detailed information about an agent run."""
+    run = agent_runtime.get_run(run_id)
+    if not run:
+        raise HTTPException(404, "Run not found")
+    return {
+        "run_id": run.run_id,
+        "agent_name": run.agent_name,
+        "state": run.state.value,
+        "success": run.success,
+        "query": run.query,
+        "steps": [
+            {
+                "step": s.step_number,
+                "action": s.action,
+                "description": s.description,
+                "tool_name": s.tool_name,
+                "tool_params": s.tool_params,
+                "tool_result": {
+                    "success": s.tool_result.success if s.tool_result else None,
+                    "data": s.tool_result.data if s.tool_result else None,
+                    "error": s.tool_result.error if s.tool_result else None,
+                } if s.tool_result else None,
+                "duration_ms": s.duration_ms,
+                "timestamp": s.timestamp,
+            }
+            for s in run.steps
+        ],
+        "final_response": run.final_response,
+        "total_duration_ms": run.total_duration_ms,
+        "created_at": run.created_at,
+        "completed_at": run.completed_at,
+        "error": run.error,
     }
 
 

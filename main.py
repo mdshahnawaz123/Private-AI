@@ -126,6 +126,15 @@ from intelligence.validation import get_validation_engine, FindingState
 compliance_engine = get_engine()
 validation_engine = get_validation_engine()
 
+# Phase 5: Initialize specialized engines
+from engines.ocr_engine import get_ocr_engine
+from engines.layout_engine import get_layout_engine
+from engines.drawing_engine import get_drawing_engine
+
+ocr_engine = get_ocr_engine()
+layout_engine = get_layout_engine()
+drawing_engine = get_drawing_engine()
+
 def _client_ip(request):
     try:
         return request.client.host if request and request.client else None
@@ -648,6 +657,168 @@ async def qa_finding_comment(finding_id: str, request: Request):
 async def qa_stats(project: str = "default"):
     """Get QA finding statistics."""
     return validation_engine.get_stats(project)
+
+
+# ── Phase 5: OCR endpoints ──────────────────────────────────
+
+@api_v1.get("/ocr/status")
+async def ocr_status():
+    """Get OCR engine status and available backends."""
+    return {
+        "available": ocr_engine.is_available(),
+        "backend": ocr_engine.get_backend(),
+        "paddle_available": ocr_engine._paddle_available,
+        "tesseract_available": ocr_engine._tesseract_available,
+        "vision_available": ocr_engine._vision_available,
+    }
+
+
+@api_v1.post("/ocr/recognize")
+async def ocr_recognize(request: Request, project: str = "default"):
+    """Recognize text in an uploaded image."""
+    user = auth.require_project(request, project)
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    image_path = body.get("image_path", "")
+    if not image_path or not os.path.exists(image_path):
+        raise HTTPException(400, "Valid image_path required")
+    result = ocr_engine.recognize(image_path, source_doc=body.get("source_doc", ""))
+    return {
+        "text": result.full_text,
+        "confidence": result.average_confidence,
+        "results": [
+            {
+                "text": r.text,
+                "confidence": r.confidence,
+                "bounding_box": r.bounding_box,
+            }
+            for r in result.results
+        ],
+    }
+
+
+# ── Phase 5: Layout endpoints ───────────────────────────────
+
+@api_v1.get("/layout/status")
+async def layout_status():
+    """Get layout engine status and available backends."""
+    return {
+        "available": layout_engine.is_available(),
+        "backend": layout_engine.get_backend(),
+        "pp_available": layout_engine._pp_available,
+        "vision_available": layout_engine._vision_available,
+    }
+
+
+@api_v1.post("/layout/detect")
+async def layout_detect(request: Request, project: str = "default"):
+    """Detect layout in an uploaded image."""
+    user = auth.require_project(request, project)
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    image_path = body.get("image_path", "")
+    if not image_path or not os.path.exists(image_path):
+        raise HTTPException(400, "Valid image_path required")
+    result = layout_engine.detect(image_path)
+    return {
+        "page": result.page_number,
+        "has_table": result.has_table,
+        "has_figure": result.has_figure,
+        "has_image": result.has_image,
+        "blocks": [
+            {
+                "type": b.block_type.value,
+                "bounding_box": b.bounding_box,
+                "content": b.content[:200],
+                "confidence": b.confidence,
+            }
+            for b in result.blocks
+        ],
+    }
+
+
+# ── Phase 5: Drawing Intelligence endpoints ─────────────────
+
+@api_v1.get("/drawings/status")
+async def drawings_status():
+    """Get drawing intelligence engine status."""
+    return {
+        "ocr_available": drawing_engine.ocr_engine.is_available(),
+        "layout_available": drawing_engine.layout_engine.is_available(),
+        "ocr_backend": drawing_engine.ocr_engine.get_backend(),
+        "layout_backend": drawing_engine.layout_engine.get_backend(),
+    }
+
+
+@api_v1.post("/drawings/analyze")
+async def drawings_analyze(request: Request, project: str = "default"):
+    """Analyze a drawing image for dimensions, elements, and layout."""
+    user = auth.require_project(request, project)
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    image_path = body.get("image_path", "")
+    ocr_text = body.get("ocr_text", "")
+    if not image_path or not os.path.exists(image_path):
+        raise HTTPException(400, "Valid image_path required")
+    result = drawing_engine.analyze_drawing(image_path, ocr_text)
+    return result
+
+
+@api_v1.post("/drawings/compare")
+async def drawings_compare(request: Request, project: str = "default"):
+    """Compare two drawing revisions."""
+    user = auth.require_project(request, project)
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    text_a = body.get("text_a", "")
+    text_b = body.get("text_b", "")
+    revision_a = body.get("revision_a", "A")
+    revision_b = body.get("revision_b", "B")
+    if not text_a or not text_b:
+        raise HTTPException(400, "text_a and text_b required")
+    result = drawing_engine.compare_drawings(text_a, text_b, revision_a, revision_b)
+    return {
+        "revision_a": result.revision_a,
+        "revision_b": result.revision_b,
+        "total_changes": result.total_changes,
+        "summary": result.summary,
+        "changes": result.changes,
+    }
+
+
+@api_v1.post("/drawings/extract-dimensions")
+async def drawings_extract_dimensions(request: Request, project: str = "default"):
+    """Extract dimensions from drawing text."""
+    user = auth.require_project(request, project)
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    text = body.get("text", "")
+    if not text:
+        raise HTTPException(400, "text required")
+    dimensions = drawing_engine.extract_dimensions(text)
+    return {
+        "dimensions": [
+            {
+                "value": d.value,
+                "unit": d.unit,
+                "type": d.dimension_type,
+                "text": d.text,
+                "confidence": d.confidence,
+            }
+            for d in dimensions
+        ],
+        "count": len(dimensions),
+    }
 
 
 app.include_router(api_v1)

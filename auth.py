@@ -34,8 +34,27 @@ def secret():
                 s = secrets.token_hex(32)
                 with open(path, "w", encoding="utf-8") as f:
                     f.write(s)
-        except Exception:
-            s = "dev-insecure-secret-change-me"
+        except Exception as e:
+            # Security fix: the old fallback here was a hardcoded string
+            # ("dev-insecure-secret-change-me") baked into the source code.
+            # If data/secret.key could never be read OR written (e.g. a
+            # permissions issue), every deployment would silently sign JWTs
+            # with that SAME publicly-known string, letting anyone who reads
+            # this file forge a valid admin token. Fall back to a random
+            # in-memory secret instead: unpredictable, but it does mean every
+            # existing session is invalidated on process restart until the
+            # underlying file-write problem is fixed -- a safe trade-off for
+            # a login-token secret, and loud (logged) rather than silent.
+            s = secrets.token_hex(32)
+            try:
+                db.logger.error(
+                    "auth.secret: could not read/write {} ({}). Using a random "
+                    "in-memory secret for this run -- all existing login "
+                    "sessions are now invalid, and sessions won't survive a "
+                    "restart until this is fixed. Set EXPO_SECRET or fix "
+                    "permissions on the data directory.", path, e)
+            except Exception:
+                pass
     _SECRET = s
     return _SECRET
 
@@ -60,7 +79,11 @@ def make_token(user):
     exp = datetime.datetime.utcnow() + datetime.timedelta(hours=TOKEN_TTL_HOURS)
     claims = {"sub": str(user["id"]), "username": user["username"],
               "role": user["role"], "exp": exp}
-    return jwt.encode(claims, secret(), algorithm=ALGO)
+    tok = jwt.encode(claims, secret(), algorithm=ALGO)
+    # Some jose/jwt backends return bytes; the JSON response needs a str.
+    if isinstance(tok, (bytes, bytearray)):
+        tok = tok.decode("utf-8")
+    return tok
 
 def decode_token(token):
     try:

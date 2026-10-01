@@ -9,7 +9,9 @@ CODE REQUIREMENT + DRAWING/MODEL EVIDENCE + DETERMINISTIC RULE = PASS / FAIL / R
 The AI explains the finding — it does not determine it.
 """
 import re
+import ast
 import json
+import operator
 import datetime
 from typing import List, Optional, Dict, Any, Tuple
 from dataclasses import dataclass, field
@@ -36,6 +38,93 @@ class Severity(str, Enum):
     MEDIUM = "medium"
     LOW = "low"
     INFO = "info"
+
+
+# ── Safe custom-rule expression evaluator ──────────────────
+# Security fix: _evaluate_custom() used to call Python's eval() with
+# __builtins__ stripped. That pattern is a well-known, bypassable sandbox
+# (attribute-access chains like ().__class__.__base__.__subclasses__() can
+# still reach arbitrary objects without needing __builtins__ at all). No rule
+# shipped today actually sets an "expression" (grep confirms it), and no API
+# lets a caller set one either, so this was not reachable by outside input --
+# but it is cheap to close off properly now, before a future "custom rule"
+# admin UI makes it reachable without anyone remembering this risk.
+#
+# This replaces eval() with a tiny AST-walking evaluator that only permits
+# comparisons, boolean logic, basic arithmetic, literals, dict/list/str
+# indexing, and a small whitelisted function set (float/int/str/len/abs) --
+# nothing that can access attributes, import modules, or call anything else.
+class UnsafeExpressionError(ValueError):
+    """Raised when a compliance-rule expression uses anything outside the
+    safe-evaluator's whitelist (attribute access, arbitrary calls, etc.)."""
+    pass
+
+_SAFE_BINOPS = {ast.Add: operator.add, ast.Sub: operator.sub,
+                ast.Mult: operator.mul, ast.Div: operator.truediv,
+                ast.Mod: operator.mod}
+_SAFE_CMPOPS = {ast.Eq: operator.eq, ast.NotEq: operator.ne,
+                 ast.Lt: operator.lt, ast.LtE: operator.le,
+                 ast.Gt: operator.gt, ast.GtE: operator.ge,
+                 ast.In: lambda a, b: a in b, ast.NotIn: lambda a, b: a not in b}
+_SAFE_UNARYOPS = {ast.Not: operator.not_, ast.USub: operator.neg, ast.UAdd: operator.pos}
+_SAFE_FUNCS = {"float": float, "int": int, "str": str, "len": len, "abs": abs,
+               "round": round, "min": min, "max": max}
+
+
+def _safe_eval_node(node, names):
+    if isinstance(node, ast.Expression):
+        return _safe_eval_node(node.body, names)
+    if isinstance(node, ast.Constant):
+        return node.value
+    if isinstance(node, ast.Name):
+        if node.id in names:
+            return names[node.id]
+        raise UnsafeExpressionError(f"Unknown name: {node.id!r}")
+    if isinstance(node, ast.BinOp) and type(node.op) in _SAFE_BINOPS:
+        return _SAFE_BINOPS[type(node.op)](_safe_eval_node(node.left, names),
+                                           _safe_eval_node(node.right, names))
+    if isinstance(node, ast.UnaryOp) and type(node.op) in _SAFE_UNARYOPS:
+        return _SAFE_UNARYOPS[type(node.op)](_safe_eval_node(node.operand, names))
+    if isinstance(node, ast.BoolOp) and type(node.op) in (ast.And, ast.Or):
+        vals = [_safe_eval_node(v, names) for v in node.values]
+        return all(vals) if isinstance(node.op, ast.And) else any(vals)
+    if isinstance(node, ast.Compare):
+        left = _safe_eval_node(node.left, names)
+        result = True
+        for op_, comparator in zip(node.ops, node.comparators):
+            if type(op_) not in _SAFE_CMPOPS:
+                raise UnsafeExpressionError(f"Unsupported comparison: {type(op_).__name__}")
+            right = _safe_eval_node(comparator, names)
+            result = result and _SAFE_CMPOPS[type(op_)](left, right)
+            left = right
+        return result
+    if isinstance(node, ast.Call):
+        if not isinstance(node.func, ast.Name) or node.func.id not in _SAFE_FUNCS:
+            raise UnsafeExpressionError("Only float/int/str/len/abs/round/min/max may be called")
+        args = [_safe_eval_node(a, names) for a in node.args]
+        return _SAFE_FUNCS[node.func.id](*args)
+    if isinstance(node, (ast.List, ast.Tuple)):
+        return [_safe_eval_node(e, names) for e in node.elts]
+    if isinstance(node, ast.Subscript):
+        base = _safe_eval_node(node.value, names)
+        if isinstance(node.slice, ast.Slice):
+            raise UnsafeExpressionError("Slicing is not supported")
+        idx = _safe_eval_node(node.slice, names)
+        if not isinstance(base, (dict, list, tuple, str)):
+            raise UnsafeExpressionError("Indexing only supported on dict/list/tuple/str")
+        return base[idx]
+    raise UnsafeExpressionError(f"Unsupported expression element: {type(node).__name__}")
+
+
+def safe_eval_expression(expression: str, names: dict):
+    """Evaluate a restricted boolean/arithmetic expression without eval().
+    `names` is the whitelist of variables the expression may reference
+    (e.g. {"value": ..., "context": {...}})."""
+    try:
+        tree = ast.parse(expression, mode="eval")
+    except SyntaxError as e:
+        raise UnsafeExpressionError(f"Invalid expression syntax: {e}")
+    return _safe_eval_node(tree, names)
 
 
 @dataclass
@@ -404,13 +493,10 @@ class ComplianceRule:
             )
 
         try:
-            # Safe evaluation with limited context
-            result = eval(expression, {"__builtins__": {}}, {
+            # Restricted AST-based evaluator -- see safe_eval_expression() above.
+            result = safe_eval_expression(expression, {
                 "value": actual_value,
                 "context": context,
-                "float": float,
-                "int": int,
-                "str": str,
             })
 
             if isinstance(result, bool):

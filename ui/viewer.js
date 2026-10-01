@@ -21,8 +21,9 @@ function fileURL(rel){ return `${location.origin}/projects/${encodeURIComponent(
 // ---- three scene (Y-up, matching web-ifc geometry output) ----
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x0a0e14);
-const camera = new THREE.PerspectiveCamera(60, 1, 0.1, 100000);
+let camera = new THREE.PerspectiveCamera(60, 1, 0.1, 100000);  // `let` so the Ortho toggle can swap the active camera
 camera.up.set(0,1,0);
+const perspCamera = camera;   // keep a handle to the original perspective camera
 const renderer = new THREE.WebGLRenderer({ antialias:true });
 renderer.localClippingEnabled = true;
 viewEl.appendChild(renderer.domElement);
@@ -34,7 +35,10 @@ const dir2 = new THREE.DirectionalLight(0xffffff, 0.4); dir2.position.set(-1,-1,
 const grid = new THREE.GridHelper(200, 40, 0x2a3a50, 0x18222f); scene.add(grid); // Y-up: default GridHelper lies in the horizontal X-Z plane
 const root = new THREE.Group(); scene.add(root); // holds all models; rotated for True/Project North
 
-function resize(){ const w=viewEl.clientWidth, h=viewEl.clientHeight; renderer.setSize(w,h,false); camera.aspect=w/h; camera.updateProjectionMatrix(); }
+function resize(){ const w=viewEl.clientWidth, h=viewEl.clientHeight; renderer.setSize(w,h,false);
+  if(camera.isOrthographicCamera){ const asp=w/h, halfH=(camera.top-camera.bottom)/2, halfW=halfH*asp; camera.left=-halfW; camera.right=halfW; }
+  else { camera.aspect=w/h; }
+  camera.updateProjectionMatrix(); }
 window.addEventListener("resize", resize);
 (function loop(){ requestAnimationFrame(loop); controls.update(); renderer.render(scene, camera); })();
 
@@ -172,10 +176,31 @@ function renderModelList(){
 }
 function renderCatList(){
   const box = $("catList"); box.innerHTML = "";
+  // Categories are ALWAYS derived from the loaded model (catMap), never hard-coded.
   [...catMap.keys()].sort().forEach(t => {
-    const row = document.createElement("div"); row.className="catrow";
-    row.textContent = t.replace(/^IFC/,"") + "  (" + catMap.get(t).length + ")";
-    row.onclick = () => { selection = catMap.get(t).slice(); renderSel(); showProps(null, t); emitSel(null, t); };
+    const meshes = catMap.get(t);
+    const row = document.createElement("div"); row.className="catrow"; row.dataset.cat = t.toLowerCase();
+    const eye = document.createElement("span"); eye.className="cvis"; eye.textContent = "◉"; eye.title = "Toggle visibility";
+    const lbl = document.createElement("span"); lbl.textContent = t.replace(/^IFC/,""); lbl.style.flex = "1";
+    const cnt = document.createElement("span"); cnt.className="tcount"; cnt.textContent = meshes.length;
+    row.appendChild(eye); row.appendChild(lbl); row.appendChild(cnt);
+    // Click label = select category (additive with Ctrl/Shift for multi-select).
+    lbl.onclick = (ev) => {
+      const add = ev.ctrlKey || ev.shiftKey || ev.metaKey;
+      const set = add ? new Set(selection) : new Set();
+      meshes.forEach(m=>set.add(m));
+      selection = [...set];
+      box.querySelectorAll(".catrow").forEach(r=>r.classList.remove("on"));
+      if(!add) row.classList.add("on"); else row.classList.add("on");
+      renderSel(); showProps(selection.length===1?selection[0]:null, selection.length===1?null:t); emitSel(null, t);
+    };
+    // Eye = toggle this category's visibility (does not touch selection).
+    eye.onclick = (ev) => {
+      ev.stopPropagation();
+      const anyVisible = meshes.some(m=>m.visible);
+      meshes.forEach(m=>{ if(!m.userData.outlier || showOutliers) m.visible = !anyVisible; });
+      eye.style.opacity = anyVisible ? ".35" : ".8";
+    };
     box.appendChild(row);
   });
 }
@@ -196,6 +221,7 @@ function pick(ev){
 renderer.domElement.addEventListener("pointerdown", (ev) => {
   if(ev.button!==0) return;
   if(measureMode){ handleMeasureClick(ev); return; }
+  if(ev.button===0 && typeof SBX!=="undefined" && SBX.on && sbxTryDrag(ev)) return;  // section-box face drag preempts selection
   const hit = pick(ev);
   if(ev.button===0 && secTryDrag(ev)) return;
   if(hit){ selection = [hit.object]; renderSel(); showProps(hit.object); emitSel(hit.object); window._lastDiag=elementDiag(hit.object); if($("dbgPanel")&&$("dbgPanel").classList.contains("open")) buildDebug(); }
@@ -205,18 +231,46 @@ renderer.domElement.addEventListener("pointerdown", (ev) => {
 function attr(line, k){ try{ return line[k] && (line[k].value!==undefined? line[k].value : line[k]); }catch(e){ return undefined; } }
 function showProps(mesh, catName){
   const box = $("propBox");
-  if(catName && !mesh){ box.innerHTML = `<div class="prop"><b>Category selected</b>${catName} — ${catMap.get(catName).length} elements</div>`; return; }
+  if(catName && !mesh){ const arr=catMap.get(catName); const n=arr?arr.length:selection.length; box.innerHTML = `<div class="prop"><b>Selected group</b>${_esc(catName)} — ${n} element(s)</div>`; return; }
   if(!mesh){ box.innerHTML = `<div class="hint">Click an element in the model to see its properties.</div>`; return; }
   const { modelID, expressID, typeName } = mesh.userData;
   let name="", gid="", objType="";
   try { const line = ifcAPI.GetLine(modelID, expressID, true); name = attr(line,"Name")||""; gid = attr(line,"GlobalId")||""; objType = attr(line,"ObjectType")||""; } catch(e){}
+  // Dimensions from the element's world bounding box (what the geometry actually spans).
+  let dimHtml = "";
+  try {
+    mesh.geometry.computeBoundingBox();
+    const s = mesh.geometry.boundingBox.getSize(new THREE.Vector3());
+    dimHtml = `<div class="sec" style="margin-top:12px">Geometry</div>` +
+      `<div class="prop"><b>Size (x,y,z)</b>${s.x.toFixed(3)} × ${s.y.toFixed(3)} × ${s.z.toFixed(3)} m</div>`;
+    const wc = mesh.geometry.boundingBox.getCenter(new THREE.Vector3());
+    const st = _nearStorey(wc.y);
+    if (st && st !== "—") dimHtml += `<div class="prop"><b>Nearest storey</b>${st}</div>`;
+  } catch(e){}
+  // Property sets + quantities (dynamic — only what the IFC actually carries).
+  let psHtml = "";
+  try {
+    const pmap = buildPsetMap();
+    const sets = pmap.get(modelID + ":" + expressID) || [];
+    if (sets.length){
+      psHtml = `<div class="sec" style="margin-top:12px">Property sets &amp; quantities</div>`;
+      sets.forEach(ps=>{
+        if(!ps.props.length) return;
+        psHtml += `<div class="prop" style="margin-bottom:4px"><b>${_esc(ps.name||"(unnamed)")}</b></div>`;
+        ps.props.forEach(p=>{ psHtml += `<div class="pr" style="display:flex;justify-content:space-between;gap:10px;font-size:11.5px;padding:2px 0;color:var(--text)"><span style="color:var(--muted)">${_esc(p.k)}</span><span style="text-align:right">${_esc(p.v!==undefined&&p.v!==null?p.v:"")}</span></div>`; });
+      });
+    }
+  } catch(e){}
   box.innerHTML =
-    `<div class="prop"><b>Type</b>${typeName}</div>` +
-    (name?`<div class="prop"><b>Name</b>${name}</div>`:"") +
-    (objType?`<div class="prop"><b>Object type</b>${objType}</div>`:"") +
-    (gid?`<div class="prop"><b>Global ID</b>${gid}</div>`:"") +
-    `<div class="prop"><b>Express ID</b>${expressID}</div>`;
+    `<div class="sec">Identity</div>` +
+    `<div class="prop"><b>IFC class</b>${_esc(typeName)}</div>` +
+    (name?`<div class="prop"><b>Name</b>${_esc(name)}</div>`:"") +
+    (objType?`<div class="prop"><b>Object type</b>${_esc(objType)}</div>`:"") +
+    (gid?`<div class="prop"><b>Global ID</b>${_esc(gid)}</div>`:"") +
+    `<div class="prop"><b>Express ID</b>${expressID}</div>` +
+    dimHtml + psHtml;
 }
+function _esc(s){ return (s==null?"":String(s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 
 // ---- visibility ----
 function showAll(){ allMeshes.forEach(m=>{ if(!m.userData.outlier || showOutliers) m.visible=true; }); }
@@ -252,6 +306,7 @@ function secBuildVisual(){
 }
 function secClamp(){ if(SEC.pos<SEC.lo)SEC.pos=SEC.lo; if(SEC.pos>SEC.hi)SEC.pos=SEC.hi; }
 function secStart(axis){
+  if(typeof sbxOff==="function" && SBX && SBX.on) sbxOff();   // box and plane are mutually exclusive
   clip.plane=null;                 // stop any storey-plan cut
   const b=bboxAll(); SEC._box=b; SEC.on=true; if(axis) SEC.axis=axis;
   const a=SEC.axis;
@@ -354,7 +409,9 @@ function moveSection(pct){
   clip.plane.normal.copy(n);
   clip.plane.constant = -clip.sign*at;
 }
-function clearSection(){ secOff(); clip.plane=null; renderer.clippingPlanes=[]; document.querySelectorAll("[data-ax]").forEach(b=>b.classList.remove("on")); }
+function clearSection(){ secOff(); if(typeof sbxOff==="function") sbxOff(); clip.plane=null; renderer.clippingPlanes=[];
+  if(typeof setDisplayMode==="function" && displayMode!=="shaded") setDisplayMode("shaded");
+  document.querySelectorAll("[data-ax]").forEach(b=>b.classList.remove("on")); }
 document.querySelectorAll("[data-ax]").forEach(b=> b.onclick = ()=> setSection(b.dataset.ax));
 $("secOff").onclick = clearSection;
 $("secInvert").onclick = ()=> secReverse();
@@ -387,6 +444,7 @@ $("storeySel").onchange = (e)=>{
   const v = e.target.value;
   if(v===""){ clearSection(); fit(); return; }
   SEC.on=false; if(SEC.group) SEC.group.visible=false; showSecPanel(false);
+  if(typeof sbxOff==="function" && SBX && SBX.on) sbxOff();
   const s = storeys[+v]; const box = bboxAll();
   const c = box.getCenter(new THREE.Vector3()); const sz = box.getSize(new THREE.Vector3());
   // Y-up world: vertical = Y. Map the storey's IFC elevation onto the model's world-Y
@@ -508,6 +566,15 @@ function buildModelContext(){
     if(spaces.length>300) L.push("  ...(" + (spaces.length-300) + " more spaces not listed)");
     if(ta) L.push("  TOTAL LISTED SPACE AREA: " + ta.toFixed(2) + " m2");
   }
+  try{
+    if(typeof SBX!=="undefined" && SBX.on && SBX.box){ const b=SBX.box;
+      L.push(""); L.push("ACTIVE SECTION BOX (view clip, " + (SBX.outside?"keeping OUTSIDE":"keeping INSIDE") + "): "
+        + "X[" + b.min.x.toFixed(2) + ".." + b.max.x.toFixed(2) + "] "
+        + "Y[" + b.min.y.toFixed(2) + ".." + b.max.y.toFixed(2) + "] "
+        + "Z[" + b.min.z.toFixed(2) + ".." + b.max.z.toFixed(2) + "]");
+    } else if(SEC.on){ L.push(""); L.push("ACTIVE SECTION PLANE: axis " + SEC.axis.toUpperCase() + " at " + SEC.pos.toFixed(2) + " (view clip)"); }
+    if(typeof displayMode!=="undefined" && displayMode!=="shaded") L.push("DISPLAY MODE: " + displayMode);
+  }catch(e){}
   return L.join("\n");
 }
 function selectedElementContext(){
@@ -776,11 +843,195 @@ window.addEventListener("message", (ev)=>{
       else if(c==="iso"){ const b=$("btnIso"); if(b) b.click(); }
       else if(c==="showall") showAll();
       else if(c==="measure"){ const b=$("btnLen"); if(b) b.click(); }
+      else if(c==="secBox"){ if(SBX.on) sbxOff(); else sbxStart(); }
+      else if(c==="secBoxOff"){ sbxOff(); }
       else if(c==="resize"){ resize(); }
+      else if(c.indexOf("display:")===0) setDisplayMode(c.slice(8));
+      else if(c.indexOf("proj:")===0) setProjection(c.slice(5));
       else if(c.indexOf("view:")===0) setView(c.slice(5));
     }catch(e){}
   }
 });
+
+// ============================================================
+// UPGRADE MODULE (additive) — section box, display modes, ortho,
+// spatial tree, left search + resizer. All view-only; never edits
+// IFC geometry; preserves the existing plane-section + storey logic.
+// ============================================================
+
+// ---- ACC-style interactive SECTION BOX (6 clipping planes) ----
+const SBX = { on:false, box:null, full:null, planes:[], helper:null, faces:[], group:null, dragging:null, outside:false };
+function applyClipRestore(){
+  allMeshes.forEach(m=>{ if(m.material) m.material.clipIntersection=false; });
+  renderer.clippingPlanes = SEC.on ? [SEC._plane] : (clip.plane ? [clip.plane] : []);
+}
+function sbxBuildVisual(){
+  if(SBX.group) return;
+  SBX.group = new THREE.Group(); scene.add(SBX.group);
+  SBX.helper = new THREE.Box3Helper(SBX.box, new THREE.Color(0x4d7cfe));
+  try{ SBX.helper.material.depthTest=false; }catch(e){}
+  SBX.group.add(SBX.helper);
+  const mk=(axis,side)=>{ const q=new THREE.Mesh(new THREE.PlaneGeometry(1,1),
+      new THREE.MeshBasicMaterial({color:0x4d7cfe,transparent:true,opacity:0.10,side:THREE.DoubleSide,depthWrite:false,depthTest:false}));
+    q.userData.sbxFace={axis,side}; q.renderOrder=999; SBX.faces.push(q); SBX.group.add(q); };
+  ["x","y","z"].forEach(a=>{ mk(a,"min"); mk(a,"max"); });
+}
+function sbxPlaceVisual(){
+  if(!SBX.group) return; SBX.group.visible=true;
+  const b=SBX.box, c=b.getCenter(new THREE.Vector3()), s=b.getSize(new THREE.Vector3());
+  SBX.faces.forEach(q=>{ const {axis,side}=q.userData.sbxFace; const pos=c.clone(); let w,h,euler;
+    if(axis==="x"){ pos.x=side==="min"?b.min.x:b.max.x; w=s.y; h=s.z; euler=new THREE.Euler(0,Math.PI/2,0); }
+    else if(axis==="y"){ pos.y=side==="min"?b.min.y:b.max.y; w=s.x; h=s.z; euler=new THREE.Euler(-Math.PI/2,0,0); }
+    else { pos.z=side==="min"?b.min.z:b.max.z; w=s.x; h=s.y; euler=new THREE.Euler(0,0,0); }
+    q.position.copy(pos); q.scale.set(Math.max(w,0.01),Math.max(h,0.01),1); q.setRotationFromEuler(euler);
+  });
+}
+function sbxApply(){
+  if(!SBX.on){ applyClipRestore(); if(SBX.group)SBX.group.visible=false; return; }
+  const b=SBX.box, P=SBX.planes;
+  P[0].set(new THREE.Vector3(-1,0,0),  b.max.x);  // keep x <= max
+  P[1].set(new THREE.Vector3( 1,0,0), -b.min.x);  // keep x >= min
+  P[2].set(new THREE.Vector3(0,-1,0),  b.max.y);
+  P[3].set(new THREE.Vector3(0, 1,0), -b.min.y);
+  P[4].set(new THREE.Vector3(0,0,-1),  b.max.z);
+  P[5].set(new THREE.Vector3(0,0, 1), -b.min.z);
+  if(SBX.outside){ P.forEach(p=>{ p.normal.multiplyScalar(-1); p.constant*=-1; });
+    allMeshes.forEach(m=>{ if(m.material) m.material.clipIntersection=true; }); }
+  else { allMeshes.forEach(m=>{ if(m.material) m.material.clipIntersection=false; }); }
+  renderer.clippingPlanes = P.slice();
+  sbxPlaceVisual();
+}
+function sbxStart(){
+  secOff();                         // turn single-plane section off first (no conflict)
+  const f=bboxAll(); SBX.full=f.clone(); SBX.box=f.clone(); SBX.outside=false;
+  if(!SBX.planes.length){ for(let i=0;i<6;i++) SBX.planes.push(new THREE.Plane()); }
+  SBX.on=true; sbxBuildVisual(); SBX.helper.box=SBX.box; sbxApply(); sbxSyncSliders(); showBoxPanel(true); sbxSyncBtn();
+}
+function sbxOff(){ SBX.on=false; if(SBX.group)SBX.group.visible=false; applyClipRestore(); showBoxPanel(false); sbxSyncBtn(); }
+function sbxReset(){ if(!SBX.full)return; SBX.box.copy(SBX.full); SBX.outside=false; sbxApply(); sbxSyncSliders(); }
+function sbxReverse(){ SBX.outside=!SBX.outside; sbxApply(); }
+function sbxSyncBtn(){ const b=$("btnSecBox"); if(b) b.classList.toggle("on", SBX.on); }
+function showBoxPanel(v){ const p=$("secBoxPanel"); if(p) p.classList.toggle("open", v===undefined?!p.classList.contains("open"):v); }
+function sbxPct(axis,side){ const f=SBX.full,b=SBX.box; const lo=f.min[axis],hi=f.max[axis]; return hi>lo?((b[side][axis]-lo)/(hi-lo))*100:(side==="min"?0:100); }
+function sbxSyncSliders(){ if(!SBX.full)return; const set=(id,val)=>{const e=$(id); if(e&&document.activeElement!==e)e.value=val;};
+  set("bxXmin",sbxPct("x","min")); set("bxXmax",sbxPct("x","max"));
+  set("bxYmin",sbxPct("y","min")); set("bxYmax",sbxPct("y","max"));
+  set("bxZmin",sbxPct("z","min")); set("bxZmax",sbxPct("z","max")); }
+function sbxSetSlider(axis,side,pct){ if(!SBX.full)return; const f=SBX.full,lo=f.min[axis],hi=f.max[axis];
+  const EPS=(hi-lo)*0.02||0.01; let v=lo+(hi-lo)*(pct/100);
+  if(side==="min") SBX.box.min[axis]=Math.min(v, SBX.box.max[axis]-EPS);
+  else SBX.box.max[axis]=Math.max(v, SBX.box.min[axis]+EPS);
+  sbxApply(); }
+function sbxTryDrag(ev){ if(!SBX.on||!SBX.group) return false;
+  const r=renderer.domElement.getBoundingClientRect();
+  mouse.x=((ev.clientX-r.left)/r.width)*2-1; mouse.y=-((ev.clientY-r.top)/r.height)*2+1;
+  ray.setFromCamera(mouse,camera);
+  const hit=ray.intersectObjects(SBX.faces,false);
+  if(hit.length){ SBX.dragging=hit[0].object.userData.sbxFace; controls.enabled=false; return true; }
+  return false; }
+function sbxDragMove(ev){ if(!SBX.dragging) return;
+  const {axis,side}=SBX.dragging;
+  const r=renderer.domElement.getBoundingClientRect();
+  const ndc=new THREE.Vector2(((ev.clientX-r.left)/r.width)*2-1, -((ev.clientY-r.top)/r.height)*2+1);
+  ray.setFromCamera(ndc,camera);
+  const axisV=_axisVec(axis), viewDir=new THREE.Vector3(); camera.getWorldDirection(viewDir);
+  let pn=new THREE.Vector3().crossVectors(axisV,viewDir).cross(axisV); if(pn.lengthSq()<1e-8)pn.copy(viewDir); pn.normalize();
+  const dp=new THREE.Plane().setFromNormalAndCoplanarPoint(pn, SBX.box.getCenter(new THREE.Vector3())), hit=new THREE.Vector3();
+  if(ray.ray.intersectPlane(dp,hit)){ const f=SBX.full, EPS=(f.max[axis]-f.min[axis])*0.02||0.01;
+    let v=Math.max(f.min[axis], Math.min(f.max[axis], hit[axis]));
+    if(side==="min") SBX.box.min[axis]=Math.min(v, SBX.box.max[axis]-EPS);
+    else SBX.box.max[axis]=Math.max(v, SBX.box.min[axis]+EPS);
+    sbxApply(); sbxSyncSliders(); } }
+function sbxDragEnd(){ if(SBX.dragging){ SBX.dragging=null; controls.enabled=true; } }
+// face-drag start is handled inside the existing pointerdown handler (deterministic);
+// here we only need move + end listeners (they no-op unless a face drag is active).
+renderer.domElement.addEventListener("pointermove", sbxDragMove);
+window.addEventListener("pointerup", sbxDragEnd);
+if($("btnSecBox")) $("btnSecBox").onclick = ()=>{ if(SBX.on) sbxOff(); else sbxStart(); };
+if($("secBoxClose")) $("secBoxClose").onclick = ()=> showBoxPanel(false);
+if($("bxReset")) $("bxReset").onclick = sbxReset;
+if($("bxOff")) $("bxOff").onclick = sbxOff;
+if($("bxReverse")) $("bxReverse").onclick = sbxReverse;
+[["bxXmin","x","min"],["bxXmax","x","max"],["bxYmin","y","min"],["bxYmax","y","max"],["bxZmin","z","min"],["bxZmax","z","max"]]
+  .forEach(([id,a,s])=>{ const e=$(id); if(e) e.oninput=()=> sbxSetSlider(a,s,+e.value); });
+
+// ---- Display modes (material-level, reversible) ----
+let displayMode="shaded";
+function setDisplayMode(mode){
+  displayMode=mode;
+  allMeshes.forEach(m=>{ const md=m.material; if(!md) return;
+    md.wireframe=false; md.color.copy(m.userData.origColor); md.opacity=m.userData.origOpacity; md.transparent=m.userData.origOpacity<0.999; md.depthWrite=true;
+    if(mode==="wire"){ md.wireframe=true; }
+    else if(mode==="trans"){ md.transparent=true; md.opacity=0.35; }
+    else if(mode==="xray"){ md.transparent=true; md.opacity=0.12; md.depthWrite=false; }
+    md.needsUpdate=true;
+  });
+  [["dmShaded","shaded"],["dmWire","wire"],["dmTrans","trans"],["dmXray","xray"]].forEach(([id,k])=>{ const b=$(id); if(b) b.classList.toggle("on", k===mode); });
+}
+
+// ---- Perspective / Orthographic toggle (camera only) ----
+let projMode="persp";
+function setProjection(kind){
+  if(kind===projMode) return;
+  const w=viewEl.clientWidth||1, h=viewEl.clientHeight||1, asp=w/h;
+  const pos=camera.position.clone(), tgt=controls.target.clone(), up=camera.up.clone();
+  const box=bboxAll(), r=Math.max(...box.getSize(new THREE.Vector3()).toArray())||10;
+  if(kind==="ortho"){
+    const dist=pos.distanceTo(tgt)||r*2, halfH=dist*0.6, halfW=halfH*asp;
+    const oc=new THREE.OrthographicCamera(-halfW,halfW,halfH,-halfH, r/1000, r*50);
+    oc.position.copy(pos); oc.up.copy(up); oc.lookAt(tgt); camera=oc;
+  } else {
+    perspCamera.position.copy(pos); perspCamera.up.copy(up); perspCamera.aspect=asp;
+    perspCamera.near=r/1000; perspCamera.far=r*50; perspCamera.lookAt(tgt); perspCamera.updateProjectionMatrix(); camera=perspCamera;
+  }
+  projMode=kind; controls.object=camera; controls.target.copy(tgt); camera.updateProjectionMatrix(); controls.update();
+  const bp=$("btnPersp"), bo=$("btnOrtho"); if(bp)bp.classList.toggle("on",kind==="persp"); if(bo)bo.classList.toggle("on",kind==="ortho");
+}
+if($("btnPersp")) $("btnPersp").onclick=()=> setProjection("persp");
+if($("btnOrtho")) $("btnOrtho").onclick=()=> setProjection("ortho");
+[["dmShaded","shaded"],["dmWire","wire"],["dmTrans","trans"],["dmXray","xray"]].forEach(([id,k])=>{ const b=$(id); if(b) b.onclick=()=> setDisplayMode(k); });
+
+// ---- Left panel: search filter + resizable splitter ----
+function filterTree(){ const q=(($("treeSearch")||{}).value||"").toLowerCase().trim();
+  document.querySelectorAll("#catList .catrow, #spatialTree .trow").forEach(r=>{ r.style.display=(!q||(r.dataset.cat||"").includes(q)||r.textContent.toLowerCase().includes(q))?"":"none"; });
+  document.querySelectorAll("#modelList .mrow").forEach(r=>{ r.style.display=(!q||r.textContent.toLowerCase().includes(q))?"":"none"; }); }
+if($("treeSearch")) $("treeSearch").oninput=filterTree;
+(function wireResizer(){ const h=$("leftResizer"); if(!h) return; let drag=false;
+  h.addEventListener("pointerdown",e=>{ drag=true; h.classList.add("drag"); try{h.setPointerCapture(e.pointerId);}catch(_){} });
+  window.addEventListener("pointermove",e=>{ if(!drag)return; const w=Math.min(460,Math.max(170,e.clientX)); document.documentElement.style.setProperty("--leftw",w+"px"); resize(); });
+  window.addEventListener("pointerup",()=>{ if(drag){ drag=false; h.classList.remove("drag"); resize(); } });
+})();
+
+// ---- Spatial tree (Project / Site / Building / Storey) — dynamic ----
+function buildSpatialTree(){
+  const host=$("spatialTree"); if(!host) return; host.innerHTML="";
+  const idx=new Map(); allMeshes.forEach(m=>{ const k=m.userData.modelID+":"+m.userData.expressID; if(!idx.has(k))idx.set(k,[]); idx.get(k).push(m); });
+  const nodes=[];
+  models.forEach(m=>{
+    const byStorey=new Map();
+    try{ const rels=ifcAPI.GetLineIDsWithType(m.modelID, WebIFC.IFCRELCONTAINEDINSPATIALSTRUCTURE);
+      for(let i=0;i<rels.size();i++){ let rel; try{rel=ifcAPI.GetLine(m.modelID,rels.get(i),true);}catch(e){continue;}
+        const st=rel.RelatingStructure, stEid=st&&(st.value!==undefined?st.value:st.expressID);
+        const arr=byStorey.get(stEid)||[]; const els=rel.RelatedElements||[];
+        (Array.isArray(els)?els:[]).forEach(o=>{ const eid=o&&(o.value!==undefined?o.value:o.expressID); if(eid!=null)(idx.get(m.modelID+":"+eid)||[]).forEach(me=>arr.push(me)); });
+        byStorey.set(stEid,arr); }
+    }catch(e){}
+    [["IfcProject",WebIFC.IFCPROJECT],["IfcSite",WebIFC.IFCSITE],["IfcBuilding",WebIFC.IFCBUILDING],["IfcBuildingStorey",WebIFC.IFCBUILDINGSTOREY]].forEach(([tn,code],depth)=>{
+      let ids; try{ids=ifcAPI.GetLineIDsWithType(m.modelID,code);}catch(e){return;}
+      for(let i=0;i<ids.size();i++){ const eid=ids.get(i); let line; try{line=ifcAPI.GetLine(m.modelID,eid);}catch(e){continue;}
+        const nm=(line.LongName&&line.LongName.value)||(line.Name&&line.Name.value)||tn;
+        nodes.push({label:nm, type:tn, depth, meshes: byStorey.get(eid)||null}); }
+    });
+  });
+  if(!nodes.length){ host.innerHTML='<div class="hint">No spatial hierarchy found in this model.</div>'; return; }
+  nodes.forEach(n=>{ const row=document.createElement("div"); row.className="trow"; row.dataset.cat=n.label.toLowerCase();
+    row.style.paddingLeft=(6+n.depth*12)+"px";
+    const lbl=document.createElement("span"); lbl.textContent=n.label; lbl.style.flex="1"; lbl.title=n.type; row.appendChild(lbl);
+    if(n.meshes&&n.meshes.length){ const c=document.createElement("span"); c.className="tcount"; c.textContent=n.meshes.length; row.appendChild(c);
+      row.onclick=()=>{ selection=n.meshes.slice(); renderSel(); showProps(null,n.label); emitSel(null,n.label);
+        host.querySelectorAll(".trow").forEach(r=>r.classList.remove("on")); row.classList.add("on"); }; }
+    host.appendChild(row); });
+}
 
 // ---- boot ----
 (async () => {
@@ -791,6 +1042,7 @@ window.addEventListener("message", (ev)=>{
     northAngle = detectNorthAngle();
     applyNorthBtn();
     renderModelList(); renderCatList(); loadStoreys();
+    try{ buildSpatialTree(); }catch(e){ console.warn("spatial tree:", e); }
     classifyStrays();
     buildDebug();
     resize(); fit(); injectGizmo(); setLoading(null);

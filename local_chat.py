@@ -90,6 +90,13 @@ class LocalChatOllama:
     def stream(self, msgs):
         import httpx
         ol_msgs = to_ollama_messages(msgs)
+        _is_q3 = "qwen3" in (self.model or "").lower()
+        if _is_q3:
+            # qwen3 is a hybrid reasoning model; "/no_think" keeps answers fast and clean
+            for _m in reversed(ol_msgs):
+                if _m.get("role") == "user" and "/no_think" not in (_m.get("content") or ""):
+                    _m["content"] = (_m.get("content") or "") + " /no_think"
+                    break
         payload = self._payload(ol_msgs)
         prompt_chars = sum(len(m["content"]) for m in ol_msgs)
 
@@ -97,6 +104,7 @@ class LocalChatOllama:
             got = 0
             out_chars = 0
             done_reason = None
+            _buf = ""
             try:
                 with httpx.stream("POST", self.url + "/api/chat", json=payload,
                                   timeout=self.timeout) as r:
@@ -112,11 +120,24 @@ class LocalChatOllama:
                             raise RuntimeError(str(obj.get("error")))
                         tok = (obj.get("message") or {}).get("content") or ""
                         if tok:
-                            got += 1
-                            out_chars += len(tok)
-                            yield _Chunk(tok)
+                            if _is_q3:
+                                _buf += tok
+                                while "<think>" in _buf and "</think>" in _buf:
+                                    _buf = _buf[:_buf.index("<think>")] + _buf[_buf.index("</think>") + len("</think>"):]
+                                if "<think>" in _buf:
+                                    _emit = _buf[:_buf.index("<think>")]; _buf = _buf[_buf.index("<think>"):]
+                                else:
+                                    _emit = _buf; _buf = ""
+                                if _emit:
+                                    got += 1; out_chars += len(_emit); yield _Chunk(_emit)
+                            else:
+                                got += 1
+                                out_chars += len(tok)
+                                yield _Chunk(tok)
                         if obj.get("done"):
                             done_reason = obj.get("done_reason")
+                            if _is_q3 and _buf and "<think>" not in _buf:
+                                got += 1; out_chars += len(_buf); yield _Chunk(_buf); _buf = ""
                             break
                 logger.info("chat attempt {}/{}: model={} promptChars={} tokens={} outChars={} done_reason={}",
                             attempt + 1, CHAT_RETRIES, self.model, prompt_chars, got, out_chars, done_reason)

@@ -8,7 +8,7 @@
   :root{ --bg:#0b0f17; --panel:#131b26; --panel2:#1b2533; --border:#213042; --text:#eaf0f7; --muted:#8797ac; --accent:#4d7cfe; --mint:#31d0a5; --amber:#f5b73d; --red:#f2585f; }
   *{box-sizing:border-box}
   html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font-family:"Segoe UI",system-ui,Arial,sans-serif;overflow:hidden;font-size:13px}
-  #wrap{display:grid;grid-template-columns:230px 1fr 260px;grid-template-rows:48px 1fr;height:100vh}
+  #wrap{display:grid;grid-template-columns:var(--leftw,230px) 1fr 260px;grid-template-rows:48px 1fr;height:100vh}
   #bar{grid-column:1/4;display:flex;align-items:center;gap:6px;padding:0 12px;background:var(--panel);border-bottom:1px solid var(--border);overflow-x:auto;white-space:nowrap}
   .grp{display:inline-flex;align-items:center;gap:4px;padding:0 8px;border-right:1px solid var(--border);height:30px}
   .grp:last-child{border-right:none}
@@ -77,6 +77,29 @@
   #aiFab:hover{filter:brightness(1.07)}
   #aiFab .fabdot{width:8px;height:8px;border-radius:50%;background:#062018;opacity:.7}
   #aiPanel.open ~ #aiFab, #aiFab.hidden{display:none}
+  /* left-panel resizer */
+  #wrap{position:relative}
+  #leftResizer{position:absolute;top:48px;bottom:0;left:var(--leftw,230px);width:6px;margin-left:-3px;cursor:col-resize;z-index:9;background:transparent}
+  #leftResizer:hover,#leftResizer.drag{background:rgba(77,124,254,.35)}
+  #treeSearch{background:var(--panel2);border:1px solid var(--border);color:var(--text);border-radius:7px;font-family:inherit;font-size:12px}
+  #treeSearch:focus{outline:none;border-color:var(--accent)}
+  .trow{display:flex;align-items:center;gap:6px;padding:3px 6px;border-radius:6px;font-size:12px;cursor:pointer;color:var(--muted)}
+  .trow:hover{background:var(--panel2);color:var(--text)}
+  .trow .tcount{margin-left:auto;font-size:10.5px;color:var(--muted);background:var(--panel2);border:1px solid var(--border);border-radius:9px;padding:0 6px}
+  .trow.on{color:#fff;background:rgba(77,124,254,.18)}
+  .catrow.on{color:#fff;background:rgba(77,124,254,.18)}
+  .catrow .tcount{margin-left:auto;font-size:10.5px;color:var(--muted);background:var(--panel2);border:1px solid var(--border);border-radius:9px;padding:0 6px}
+  .catrow .cvis{cursor:pointer;opacity:.7}
+  .catrow .cvis:hover{opacity:1;color:var(--accent)}
+  /* section box panel */
+  #secBoxPanel{position:absolute;left:16px;bottom:16px;width:300px;display:none;flex-direction:column;background:var(--panel);border:1px solid var(--border);border-radius:12px;z-index:8;box-shadow:0 12px 44px rgba(0,0,0,.55)}
+  #secBoxPanel.open{display:flex}
+  #secBoxPanel .hd{padding:9px 12px;font-weight:700;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;font-size:12.5px}
+  #secBoxPanel .hd button{background:none;border:none;color:var(--muted);cursor:pointer;font-size:14px}
+  #secBoxPanel .bd{padding:11px 12px;display:flex;flex-direction:column;gap:7px}
+  .sbx{display:grid;grid-template-columns:52px 1fr 1fr;align-items:center;gap:8px;font-size:11.5px;color:var(--muted)}
+  .sbx input[type=range]{width:100%}
+  .sbxbtns{display:flex;gap:6px;margin-top:4px}
 </style>
 </head>
 <body>
@@ -85,8 +108,9 @@
     <div class="grp"><button class="tb" id="btnFit">Fit</button><button class="tb" id="btnReset">Reset</button></div>
     <div class="grp"><span class="glbl">Align</span><button class="tb on" id="btnAlign" title="Rotates the VIEW to Project North (your 2D plan). Toggle for True North. Geometry keeps its true IFC coordinates.">Plan North</button><button class="tb" id="btnDebug" title="Show the IFC coordinate / transform audit">Debug</button><button class="tb" id="btnStray" title="Show/hide far stray geometry (survey-coordinate slivers)">Strays: off</button></div>
     <div class="grp"><span class="glbl">Section</span>
-      <button class="tb" id="btnSection" title="Interactive section tool">Section</button>
+      <button class="tb" id="btnSection" title="Interactive section plane">Plane</button>
       <button class="tb" data-ax="x">X</button><button class="tb" data-ax="y">Y</button><button class="tb" data-ax="z">Z</button>
+      <button class="tb" id="btnSecBox" title="Interactive section box (clip to a 3D region)">Box</button>
     </div>
     <div class="grp"><span class="glbl">Navigate</span>
       <button class="tb on" id="btnOrbit">Orbit</button><button class="tb" id="btnPan">Pan</button><button class="tb" id="btnZoom">Zoom</button>
@@ -101,6 +125,12 @@
     <div class="grp"><span class="glbl">Measure</span>
       <button class="tb" id="btnLen">Length</button><button class="tb" id="btnArea">Area</button><button class="tb" id="btnMclr">Clear</button>
     </div>
+    <div class="grp"><span class="glbl">Display</span>
+      <button class="tb on" id="dmShaded" data-dm="shaded">Shaded</button><button class="tb" id="dmWire" data-dm="wire">Wireframe</button><button class="tb" id="dmTrans" data-dm="trans">Transparent</button><button class="tb" id="dmXray" data-dm="xray">X-Ray</button>
+    </div>
+    <div class="grp"><span class="glbl">Camera</span>
+      <button class="tb on" id="btnPersp" title="Perspective projection">Persp</button><button class="tb" id="btnOrtho" title="Orthographic projection">Ortho</button>
+    </div>
     <div class="grp"><span class="glbl">Plan</span>
       <select class="tb" id="storeySel"><option value="">3D view</option></select>
     </div>
@@ -110,11 +140,15 @@
   </div>
 
   <div id="left">
+    <input id="treeSearch" class="tb" style="width:100%;margin-bottom:10px;padding:6px 8px" placeholder="Search models / categories…">
     <div class="sec">Models</div>
     <div id="modelList"></div>
-    <div class="sec" style="margin-top:14px">Categories</div>
+    <div class="sec" style="margin-top:14px">Spatial tree</div>
+    <div id="spatialTree"></div>
+    <div class="sec" style="margin-top:14px">Categories / Types</div>
     <div id="catList"></div>
   </div>
+  <div id="leftResizer" title="Drag to resize panel"></div>
 
   <div id="view">
     <div id="loading">Loading engine…</div>
@@ -129,6 +163,16 @@
         <div class="secrow"><span>Value</span><input type="number" id="secNum" step="0.01"><span class="secu">world</span></div>
         <div class="secrow secbtns"><button class="tb" id="secInvert">Reverse</button><button class="tb" id="secReset">Reset</button><button class="tb" id="secOff">Off</button></div>
         <div class="sechint">Drag the blue plane in the model, or use the slider / value — all stay in sync. The green arrow marks the visible side. Selection, properties, measure and Ask AI keep working while a section is active.</div>
+      </div>
+    </div>
+    <div id="secBoxPanel">
+      <div class="hd"><span>Section box</span><button id="secBoxClose">✕</button></div>
+      <div class="bd">
+        <div class="sbx"><span>X min</span><input type="range" id="bxXmin" min="0" max="100" value="0"><input type="range" id="bxXmax" min="0" max="100" value="100"></div>
+        <div class="sbx"><span>Y min</span><input type="range" id="bxYmin" min="0" max="100" value="0"><input type="range" id="bxYmax" min="0" max="100" value="100"></div>
+        <div class="sbx"><span>Z min</span><input type="range" id="bxZmin" min="0" max="100" value="0"><input type="range" id="bxZmax" min="0" max="100" value="100"></div>
+        <div class="sbxbtns"><button class="tb" id="bxReverse" title="Flip which side is kept">Reverse</button><button class="tb" id="bxReset">Reset</button><button class="tb" id="bxOff">Off</button></div>
+        <div class="sechint">Drag a box face in the model, or use the sliders. Clipping is view-only — IFC geometry is never changed. Selection, properties, measure and Ask AI keep working.</div>
       </div>
     </div>
     <div id="dbgPanel">

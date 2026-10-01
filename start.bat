@@ -10,6 +10,13 @@ echo    EXPO DESIGN AI  -  Local RAG Launcher
 echo  ============================================================
 echo.
 
+REM ---------- 0. Stop any previous Expo backend (frees port 8090 so NEW code loads) ----------
+echo  [..] Stopping any previous Expo backend...
+taskkill /F /IM python.exe >nul 2>&1
+REM give the OS a moment to release port 8090
+timeout /t 2 /nobreak >nul
+echo  [OK] Previous backend stopped (if any was running).
+
 REM ---------- 1. Ollama check ----------
 where ollama >nul 2>&1
 if errorlevel 1 (
@@ -49,7 +56,6 @@ echo  [OK] Packages installed.
 
 REM ---------- 5. Check models ----------
 echo  [..] Checking models...
-REM chat + drawings both use qwen2.5vl:32b (pulled below) - no separate chat model needed
 ollama list | findstr /C:"bge-m3" >nul
 if errorlevel 1 (
     echo  [..] Pulling bge-m3 embedding model...
@@ -66,20 +72,20 @@ REM ---------- 6. Start FastAPI ----------
 echo  [..] Starting backend on http://127.0.0.1:8090
 start "Expo RAG Backend" /min cmd /c "cd /d %~dp0 && python main.py"
 
-REM ---------- 7. Wait, open UI ----------
+REM ---------- 7. Wait, open the V2 UI ----------
 timeout /t 6 /nobreak >nul
-start "" "http://127.0.0.1:8090/ui/"
+start "" "http://127.0.0.1:8090/ui/app.html"
 
-REM ---------- 7b. Open health check (confirms you are on the LATEST build) ----------
+REM ---------- 7b. Health check (confirms the LATEST build is serving) ----------
 echo  [..] Opening health check ^(should return JSON if this is the latest build^)...
 start "" "http://127.0.0.1:8090/health/full"
 
 echo.
 echo  ============================================================
 echo    Expo Design AI is RUNNING
-echo    UI:  http://127.0.0.1:8090/ui/
+echo    UI:  http://127.0.0.1:8090/ui/app.html
 echo    API: http://127.0.0.1:8090/docs
-    Verify latest: http://127.0.0.1:8090/health/full  (404 = old folder)
+echo    Verify latest: http://127.0.0.1:8090/health/full  ^(404 = old folder^)
 echo  ============================================================
 echo.
 echo  Press any key to close this launcher...

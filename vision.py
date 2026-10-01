@@ -30,9 +30,12 @@ EXTRACTION_PROMPT = (
     "where every value must be correct.\n"
     "Return two clearly separated sections:\n\n"
     "1) VERBATIM TEXT - reproduce every label, number, dimension, unit, note and "
-    "table cell EXACTLY as shown. Preserve units and symbols. Keep tabular data as "
-    "a text table. If any character is unclear or unreadable, write [illegible] in "
-    "its place - NEVER guess a value.\n\n"
+    "table cell EXACTLY as shown. Preserve units and symbols. For EVERY table, first "
+    "write the table's title on its own line, then render the table as a GitHub-style "
+    "Markdown pipe table: a header row of column names, a separator row, then one row "
+    "per line with cells separated by | . Keep each value in the correct row and "
+    "column; put a dash (-) for blank cells. If any character is unclear or unreadable, "
+    "write [illegible] in its place - NEVER guess a value.\n\n"
     "2) DRAWING DESCRIPTION - describe the elements, layout, symbols and what the "
     "drawing depicts. Do NOT state any dimension or value that is not visibly "
     "written in the image.\n\n"
@@ -47,7 +50,23 @@ def is_image(path):
 
 def encode_image(path):
     with open(path, "rb") as f:
-        return base64.b64encode(f.read()).decode("ascii")
+        data = f.read()
+    # Downscale very large page renders; big images can make the local vision
+    # server error out. Cap the longest side (default 1600px). No-op without PIL.
+    try:
+        import io as _io
+        from PIL import Image as _Image
+        _cap = int(os.getenv("EXPO_VISION_MAX_DIM", "1600"))
+        _im = _Image.open(_io.BytesIO(data))
+        _w, _h = _im.size
+        _m = max(_w, _h)
+        if _cap and _m > _cap:
+            _sc = _cap / float(_m)
+            _im = _im.convert("RGB").resize((max(1, int(_w * _sc)), max(1, int(_h * _sc))))
+            _buf = _io.BytesIO(); _im.save(_buf, format="PNG"); data = _buf.getvalue()
+    except Exception:
+        pass
+    return base64.b64encode(data).decode("ascii")
 
 def build_payload(b64, instruction=None, model=None):
     return {
@@ -59,7 +78,7 @@ def build_payload(b64, instruction=None, model=None):
         }],
         "stream": False,
         "keep_alive": KEEP_ALIVE,
-        "options": {"temperature": 0},   # deterministic transcription
+        "options": {"temperature": 0, "num_predict": 3072},   # deterministic, allow full table transcription
     }
 
 def describe_image(path, instruction=None, model=None, timeout=600):
@@ -79,6 +98,17 @@ def describe_image(path, instruction=None, model=None, timeout=600):
                 return ((data.get("message") or {}).get("content") or "").strip()
             except Exception as e:
                 last_err = e
+                try:
+                    _detail = ""
+                    _resp = getattr(e, "response", None)
+                    if _resp is not None:
+                        try: _detail = _resp.text[:800]
+                        except Exception: _detail = ""
+                    _lp = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "vision_error.log")
+                    with open(_lp, "w", encoding="utf-8") as _lf:
+                        _lf.write("attempt %d\n%r\n%s" % (attempt, e, _detail))
+                except Exception:
+                    pass
                 if attempt < VISION_RETRIES - 1:
                     _time.sleep(min(2 ** attempt * 2, 20))  # 2s, 4s, 8s ... (max 20s)
     raise last_err

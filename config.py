@@ -39,10 +39,12 @@ class Settings(BaseSettings):
     # Wave 1: Model tiering
     worker_model: str = "qwen3:4b"
     author_model: str = "qwen2.5vl:32b"
+    chat_model: str = "qwen3:4b"  # fast model for answering/chat; vision+upload still use the 32B
     enable_model_tiering: bool = False
     rerank_candidates: int = 20
     rerank_keep: int = 5
     enable_query_expansion: bool = False  # Wave 1.5: expand short/coded queries via worker model
+    enable_hybrid_bm25: bool = True  # fuse BM25 keyword search with vector search (RRF) in the main RAG path
     enable_metadata_prefilter: bool = False  # Wave 1.5: pre-filter candidates by metadata before ranking
 
     # V2 UI (professional Design Workspace redesign) — additive, reversible
@@ -50,10 +52,17 @@ class Settings(BaseSettings):
     enable_clash_action: bool = False  # show the Copilot "Check for clashes" action (no clash engine yet — keep off)
 
     # Phase 2: Structured data
-    enable_structured_tables: bool = False  # Phase 2: extract tables/schedules as structured rows
-    enable_quantities_store: bool = False  # Phase 2: capture numeric quantities as structured data
+    enable_structured_tables: bool = True  # extract EVERY table (area/parking/lift/unit-mix) as structured rows for exact lookup
+    enable_quantities_store: bool = True  # capture numeric quantities as structured data
     enable_self_check: bool = False  # Phase 2: worker model self-check for answer verification
     not_found_threshold: float = 0.0  # Phase 2 FIX: 0.3 was miscalibrated for bge-reranker-v2-m3 (relevant chunks score ~0.01-0.06), which silently discarded valid retrievals. 0.0 disables the score-gate; honest "not found" is still handled by the answer prompt. Recalibrate later with eval data.
+
+    # Accurate extraction: run the vision model (qwen2.5vl:32b) on EVERY PDF page
+    # at upload, not only image-only pages, so dense multi-table data sheets keep
+    # their row/column structure. Heavy but accurate; set False to revert to the
+    # fast "smart" mode (vision only on image-only pages).
+    pdf_vision_all: bool = False  # geometry engine handles text-layer tables fast; vision only for scans
+    vision_max_pages: int = 300  # safety cap on pages vision-read per PDF at upload
 
     # Ollama
     ollama_host: str = "http://127.0.0.1:11434"

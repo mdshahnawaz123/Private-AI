@@ -280,6 +280,57 @@ def _resolve_project_id(project_id):
 
 # ── Phase 2: Structured Table Extraction ───────────────────
 
+def parse_generic_tables(text, source_doc="", page=None, revision=""):
+    """Parse markdown-style tables (| a | b | ...) from vision/extraction text into
+    structured rows. table_name = the nearest heading line above the block. This is
+    general-purpose: it captures area, parking, lift, unit-mix and any other table
+    the vision model transcribes, not just a few hardcoded patterns."""
+    import re as _re
+    rows = []
+    lines = (text or "").split("\n")
+    def _is_sep(c):
+        return bool(_re.fullmatch(r'\s*\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)*\|?\s*', c))
+    def _cells(c):
+        c = c.strip()
+        if c.startswith("|"): c = c[1:]
+        if c.endswith("|"): c = c[:-1]
+        return [x.strip() for x in c.split("|")]
+    i = 0
+    last_heading = ""
+    while i < len(lines):
+        ln = lines[i]
+        if ("|" in ln) and len(_cells(ln)) >= 2 and not _is_sep(ln):
+            block = []
+            j = i
+            while j < len(lines) and ("|" in lines[j]) and len(_cells(lines[j])) >= 2:
+                if not _is_sep(lines[j]):
+                    block.append(_cells(lines[j]))
+                j += 1
+            if len(block) >= 2:
+                header = block[0]
+                ncol = len(header)
+                for r in block[1:]:
+                    r = (r + [""] * ncol)[:ncol]
+                    key = r[0] if r else ""
+                    if not key:
+                        continue
+                    vals = {}
+                    for ci in range(1, ncol):
+                        col = header[ci] if ci < len(header) and header[ci] else ("col%d" % ci)
+                        vals[col] = r[ci]
+                    rows.append({"doc": source_doc, "page": page,
+                                 "table_name": last_heading or (header[0] if header else "Table"),
+                                 "row_key": key, "row_values": vals, "revision": revision})
+            i = j
+            continue
+        s2 = ln.strip().strip("#").strip()
+        if s2 and "|" not in s2 and len(s2) <= 60 and _re.search(r'[A-Za-z]', s2):
+            if s2.isupper() or _re.match(r'^[A-Z0-9][\w &()/.\-,]+$', s2):
+                last_heading = s2
+        i += 1
+    return rows
+
+
 def extract_structured_tables_from_pdf(meta: Dict[str, Any],
                                         project_id: str = "default") -> List[Dict[str, Any]]:
     """
@@ -324,6 +375,13 @@ def extract_structured_tables_from_pdf(meta: Dict[str, Any],
                     "revision": meta.get("revision", ""),
                 })
 
+        # General tables from the clean vision transcription (preferred) or text layer.
+        _tbl_src = page.get("tables") or page.get("vision") or ""
+        if "|" not in _tbl_src:
+            _tbl_src = text if ("|" in text) else ""
+        if _tbl_src:
+            rows.extend(parse_generic_tables(_tbl_src, filename, page_num, meta.get("revision", "")))
+
         # Detect legend codes (e.g., LX-PT, 1 BED-A, etc.)
         legend_pattern = r'\b([A-Z]{1,3}-[A-Z]{1,3})\b'
         legends = re.findall(legend_pattern, text)
@@ -360,18 +418,29 @@ def index_structured_tables(project_id, filename: str,
     rows = extract_structured_tables_from_pdf(meta, project_id)
     count = 0
 
+    # Replace this document's previous rows so a re-read refreshes values and does
+    # not accumulate duplicates. Keyed by (project, doc).
+    _clr = db.SessionLocal()
+    try:
+        _clr.query(db.ScheduleRow).filter_by(project_id=project_id, doc=filename).delete()
+        _clr.commit()
+    except Exception:
+        _clr.rollback()
+    finally:
+        _clr.close()
+
     for row in rows:
-        # Store in schedule_rows table
         db_session = db.SessionLocal()
         try:
-            # Check if row already exists
+            # Dedup within this document by (page, table, row_key) so the same row
+            # label in different tables (e.g. "Ground Floor" in BUA vs NSA) is kept.
             existing = db_session.query(db.ScheduleRow).filter_by(
                 project_id=project_id,
                 doc=row["doc"],
                 page=row["page"],
+                table_name=row["table_name"],
                 row_key=row["row_key"],
             ).first()
-
             if not existing:
                 new_row = db.ScheduleRow(
                     project_id=project_id,
@@ -383,7 +452,7 @@ def index_structured_tables(project_id, filename: str,
                     revision=row["revision"],
                 )
                 db_session.add(new_row)
-                db_session.commit()   # Phase 2 fix: persist the row (was rolled back on close)
+                db_session.commit()
                 count += 1
         finally:
             db_session.close()

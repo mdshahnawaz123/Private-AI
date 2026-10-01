@@ -1318,6 +1318,7 @@ class QueryRequest(BaseModel):
     model: str = "qwen2.5vl:32b"
     mode: str = "chat"
     discipline: str = ""
+    focus_doc: str = ""
 
 class QueryResponse(BaseModel):
     answer: str
@@ -1348,7 +1349,7 @@ class LoginReq(BaseModel):
 
 # Phase 0: Simple in-memory rate limiter for login
 _login_attempts = {}
-_LOGIN_RATE_LIMIT = 5  # attempts
+_LOGIN_RATE_LIMIT = 10  # attempts
 _LOGIN_RATE_WINDOW = 300  # seconds (5 minutes)
 
 
@@ -1454,6 +1455,9 @@ def _units_from_meta(meta):
     if meta.get("pages"):  # PDF
         for pg in meta["pages"]:
             body = (pg.get("text") or "")
+            tbl = (pg.get("tables") or "")
+            if tbl:
+                body = (body + "\n\n[TABLES]\n" + tbl).strip()
             vis = (pg.get("vision") or "")
             if vis:
                 body = (body + "\n[DRAWING/VISION]\n" + vis).strip()
@@ -1508,6 +1512,46 @@ def index_structured(collection, meta, source, folder_id=None):
         vs.add_documents(all_chunks)
     save_vectorstore(collection)
     return len(all_chunks)
+
+_bm25_cache = {}
+
+def _get_bm25(project, vs):
+    """Build (and cache per vectorstore instance) a BM25 keyword index over the
+    project's FAISS chunks. Rebuilt automatically when the vectorstore is replaced
+    (re-index/re-extract swap the object)."""
+    try:
+        key = id(vs)
+        cached = _bm25_cache.get(project)
+        if cached and cached[0] == key:
+            return cached[1]
+        ds = getattr(vs, "docstore", None)
+        docs = list(ds._dict.values()) if ds is not None and hasattr(ds, "_dict") else []
+        if not docs:
+            return None
+        from intelligence.retrieval import BM25Index
+        idx = BM25Index()
+        idx.add_documents([{"content": d.page_content, "metadata": getattr(d, "metadata", {}) or {},
+                            "_doc": d} for d in docs])
+        _bm25_cache[project] = (key, idx)
+        logger.info("BM25 index built for {} ({} chunks)", project, len(docs))
+        return idx
+    except Exception as e:
+        logger.warning("BM25 build failed for {}: {}", project, e)
+        return None
+
+def _rrf_merge(vec_docs, bm_docs, limit, rrf_k=60):
+    """Reciprocal-rank-fuse two ranked Document lists into one (keyword + vector)."""
+    def _k(d):
+        m = getattr(d, "metadata", {}) or {}
+        return (m.get("source"), m.get("page"), (d.page_content or "")[:120])
+    fused, order = {}, {}
+    for rank, d in enumerate(vec_docs):
+        kk = _k(d); fused[kk] = fused.get(kk, 0.0) + 1.0 / (rrf_k + rank + 1); order.setdefault(kk, d)
+    for rank, d in enumerate(bm_docs):
+        kk = _k(d); fused[kk] = fused.get(kk, 0.0) + 1.0 / (rrf_k + rank + 1); order.setdefault(kk, d)
+    ranked = sorted(fused.items(), key=lambda x: -x[1])
+    return [order[kk] for kk, _ in ranked[:limit]]
+
 
 def retrieve_context(project: str, query: str, k: int, user=None):
     """Retrieve grounded context. Folder permissions are ENFORCED here: a chunk is
@@ -1577,6 +1621,21 @@ def retrieve_context(project: str, query: str, k: int, user=None):
         except Exception:
             search_query = query
         cand = vs.similarity_search(search_query, k=max(rerank_candidates, k))
+        # Hybrid retrieval: fuse BM25 keyword hits with the vector hits (RRF), so
+        # exact terms (drawing numbers, codes, legends like "TOS Tower 3") rank well.
+        try:
+            from config import get_settings as _gs_hy
+            if _gs_hy().enable_hybrid_bm25:
+                _bm = _get_bm25(project, vs)
+                if _bm is not None:
+                    _kk = max(rerank_candidates, k)
+                    _hits = _bm.search(search_query, k=_kk)
+                    _bm_docs = [_bm.documents[i]["_doc"] for i, _ in _hits
+                                if i < len(_bm.documents) and isinstance(_bm.documents[i], dict)]
+                    if _bm_docs:
+                        cand = _rrf_merge(cand, _bm_docs, limit=_kk)
+        except Exception as _he:
+            logger.warning("hybrid BM25 fusion skipped: {}", _he)
         permitted = [d for d in cand if _permitted(d)]
 
         # Wave 1.5 (Task D): Metadata pre-filter — restrict candidates BEFORE ranking
@@ -1782,6 +1841,49 @@ def retrieve_context(project: str, query: str, k: int, user=None):
                         if _structured_src:
                             srcs.insert(0, _structured_src)
                         logger.info("Injected structured data for lookup: {}", _lookup_key)
+
+                # General table lookup: match query terms against any captured table
+                # row (area / parking / lift / unit-mix, etc.), not just TOS/TOPR.
+                if _enable_tables and not _lookup_key:
+                    try:
+                        _sess2 = db.SessionLocal()
+                        try:
+                            _proj2 = _sess2.query(db.Project).filter_by(name=project).first()
+                            _toks = [w for w in _re_read.findall(r'[a-z0-9]+', _q_lower) if len(w) >= 3]
+                            if _proj2 and _toks:
+                                _allrows = _sess2.query(db.ScheduleRow).filter(
+                                    db.ScheduleRow.project_id == _proj2.id).all()
+                                _scored = []
+                                for _r in _allrows:
+                                    _rk = (_r.row_key or "").lower()
+                                    _tn = (_r.table_name or "").lower()
+                                    if not _rk:
+                                        continue
+                                    _rk_in_q = _rk in _q_lower
+                                    _rk_word_hit = any(w in _q_lower for w in _rk.split() if len(w) >= 3)
+                                    if not (_rk_in_q or _rk_word_hit):
+                                        continue
+                                    _sc = (3 if _rk_in_q else 1) + sum(1 for t in _toks if t in _tn)
+                                    _scored.append((_sc, _r))
+                                _scored.sort(key=lambda x: x[0], reverse=True)
+                                _gblocks, _gsrc = [], None
+                                for _sc, _r in _scored[:15]:
+                                    _rv = _r.row_values or {}
+                                    _b = "[STRUCTURED ROW: %s]\nRow Key: %s\n" % (_r.table_name, _r.row_key)
+                                    for _k, _v in _rv.items():
+                                        _b += "  %s: %s\n" % (_k, _v)
+                                    _gblocks.append(_b)
+                                    if _gsrc is None:
+                                        _gsrc = {"source": _r.doc, "page": _r.page, "revision": _r.revision}
+                                if _gblocks:
+                                    parts.insert(0, "STRUCTURED DATA (exact table rows matching the question - prefer these for numbers):\n" + "\n".join(_gblocks))
+                                    if _gsrc:
+                                        srcs.insert(0, _gsrc)
+                                    logger.info("Injected {} general structured rows", len(_gblocks))
+                        finally:
+                            _sess2.close()
+                    except Exception as _ge:
+                        logger.warning("general structured lookup failed: {}", _ge)
         except Exception as _e_read:
             logger.warning("Structured data read failed: {}", _e_read)
 
@@ -1925,8 +2027,13 @@ def process_document(project, save_path, filename, disc, category, folder_id=Non
         elif ext == ".pdf":
             def _cb(done, total):
                 PROGRESS[key] = {"stage": "reading pages", "done": done, "total": total}
+            from config import get_settings as _gs_pdf
+            _pv = _gs_pdf()
+            _smart = not getattr(_pv, "pdf_vision_all", True)  # vision on EVERY page unless disabled
+            _vmax = int(getattr(_pv, "vision_max_pages", 300) or 300)
             combined, meta = extract.extract_pdf(save_path, vision_fn=vision.describe_image,
-                                                 render_dir=save_path + "_pages", deep=True, progress_cb=_cb)
+                                                 render_dir=save_path + "_pages", deep=True,
+                                                 smart=_smart, max_pages=_vmax, progress_cb=_cb)
         elif ext in (".xlsx", ".xls"):
             PROGRESS[key] = {"stage": "reading spreadsheet", "done": 0, "total": 1}
             combined, meta = extract.extract_excel(save_path)
@@ -2156,17 +2263,18 @@ def get_llm(req: QueryRequest):
     # Direct /api/chat streamer (reliable + larger context) instead of ChatOllama.
     # Wave 1: Model tiering — when enabled, uses worker/author split.
     # When disabled, preserves existing behavior (single author model).
+    _DEFAULT = "qwen2.5vl:32b"
     try:
         from config import get_settings
         s = get_settings()
-        if s.enable_model_tiering:
-            # Use worker model for simple queries, author model for complex
-            # For now, default to author model (worker routing happens in orchestrator)
-            return local_chat.LocalChatOllama(model=s.author_model, temperature=0.1,
-                                              num_predict=3072, keep_alive="5m")
+        mdl = getattr(s, "chat_model", "qwen3:4b") or "qwen3:4b"
+        # honor an explicit per-request model choice; otherwise use the fast chat model
+        if getattr(req, "model", None) and req.model != _DEFAULT:
+            mdl = req.model
+        return local_chat.LocalChatOllama(model=mdl, temperature=0.1,
+                                          num_predict=3072, keep_alive="5m")
     except Exception:
         pass
-    # Fallback: existing behavior
     return local_chat.LocalChatOllama(model=req.model, temperature=0.1,
                                       num_predict=3072, keep_alive="5m")
 
@@ -2280,6 +2388,33 @@ async def ask_stream(req: QueryRequest, request: Request = None):
             logger.warning("Orchestrator failed, falling back to direct RAG: {}", e)
 
     srcs, ctx = retrieve_context(req.project, req.query, req.k, user)
+    # Focused-document grounding (additive): when the user is asking about a
+    # specific open document, include its FULL extracted text so the answer is not
+    # limited to whichever 800-char chunks vector search happened to return. This
+    # fixes tables whose heading and numbers land in different chunks.
+    if getattr(req, "focus_doc", ""):
+        try:
+            _base = os.path.abspath(os.path.join(DOCS_DIR, req.project))
+            _rel = (req.focus_doc or "").replace(chr(92), "/").lstrip("/")
+            _tgt = os.path.abspath(os.path.join(_base, _rel))
+            if _tgt == _base or _tgt.startswith(_base + os.sep):
+                _etp = _tgt + ".extracted.txt"
+                if os.path.isfile(_etp):
+                    with open(_etp, encoding="utf-8") as _ef:
+                        _ftext = _ef.read()
+                    if _ftext.strip():
+                        _fn = os.path.basename(_tgt)
+                        _ftext = _ftext[:16000]
+                        _blk = ("FOCUSED DOCUMENT (the document the user is currently viewing "
+                                "- answer from this first; it is the authoritative source):\n"
+                                "[SOURCE: %s | PAGE 1]\n%s" % (_fn, _ftext))
+                        ctx = _blk + "\n\n====\n\n" + ctx
+                        srcs = [{"source": _fn, "page": 1}] + [
+                            s for s in srcs
+                            if not (isinstance(s, dict) and s.get("source") == _fn and s.get("page") == 1)]
+                        logger.info("focus_doc injected: {} ({} chars)", _fn, len(_ftext))
+        except Exception as _fe:
+            logger.warning("focus_doc injection failed: {}", _fe)
     msgs = build_messages(req, ctx)
     current_llm = get_llm(req)
     
@@ -2432,7 +2567,13 @@ ANSWER RULES:
             msgs.append(AIMessage(content=m.content))
     msgs.append(HumanMessage(content=req.query))
 
-    current_llm = local_chat.LocalChatOllama(model=req.model, temperature=0.1,
+    try:
+        from config import get_settings as _gs_am
+        _cm = getattr(_gs_am(), "chat_model", "qwen3:4b") or "qwen3:4b"
+    except Exception:
+        _cm = "qwen3:4b"
+    _mdl_am = req.model if (getattr(req, "model", None) and req.model != "qwen2.5vl:32b") else _cm
+    current_llm = local_chat.LocalChatOllama(model=_mdl_am, temperature=0.1,
                                              num_predict=3072, keep_alive="5m")
 
     def gen():
@@ -2759,6 +2900,88 @@ async def reindex_document(project: str, request: Request):
         db.update_document_status(project, filename, 0, "extracted")
         return {"status": "error", "detail": "indexing failed - is the local model server running? (%s)" % e}
 
+@app.post("/projects/{project}/reextract")
+async def reextract_document(project: str, request: Request):
+    """Force a VISION re-read of a PDF even when it has a text layer, so complex
+    multi-table data sheets are transcribed with their row/column structure intact
+    (plain text extraction flattens such tables and loses which value belongs to
+    which row). Overwrites the saved extraction, then rebuilds the project index so
+    the improved text replaces the old jumbled chunks. Needs Ollama + the vision
+    model running; heavy, so trigger it per-document."""
+    user = auth.require_project(request, project)
+    if not auth.can_manage_project(user, project):
+        return {"status": "error", "detail": "not allowed"}
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    filename = (body or {}).get("filename")
+    if not filename:
+        return {"status": "error", "detail": "filename required"}
+    try:
+        max_pages = int((body or {}).get("max_pages") or 60)
+    except Exception:
+        max_pages = 60
+    doc = next((d for d in db.list_documents(project) if d["filename"] == filename), None)
+    if not doc or not doc.get("path"):
+        return {"status": "error", "detail": "document not found"}
+    path = doc["path"]
+    if os.path.splitext(path)[-1].lower() != ".pdf":
+        return {"status": "error", "detail": "vision re-read is for PDF documents only"}
+    if not os.path.isfile(path):
+        return {"status": "error", "detail": "original file missing - please re-upload"}
+    try:
+        def _work():
+            combined, meta = extract.extract_pdf(
+                path, vision_fn=vision.describe_image,
+                render_dir=path + "_pages", deep=True, smart=False, max_pages=max_pages)
+            meta["filename"] = filename
+            meta["category"] = doc.get("category") or meta.get("category") or ""
+            extract.save_json(path + ".index.json", meta)
+            try:
+                with open(path + ".extracted.txt", "w", encoding="utf-8") as tf:
+                    tf.write(combined or "")
+            except Exception:
+                pass
+            return meta
+        meta = await run_in_threadpool(_work)
+        # Rebuild the whole project index so the old jumbled chunks are replaced.
+        if project in vectorstores:
+            del vectorstores[project]
+        proj_idx = os.path.join(INDEX_DIR, project)
+        if os.path.exists(proj_idx):
+            shutil.rmtree(proj_idx)
+        total = 0
+        for d in db.list_documents(project):
+            fn = d.get("filename"); dp = d.get("path"); fid = d.get("folder_id")
+            if not dp:
+                continue
+            jp = dp + ".index.json"; tp = dp + ".extracted.txt"; n = 0
+            try:
+                if os.path.isfile(jp):
+                    with open(jp, "r", encoding="utf-8") as jf:
+                        m = json.load(jf)
+                    n = await run_in_threadpool(index_structured, project, m, fn, fid)
+                if n == 0 and os.path.isfile(tp):
+                    with open(tp, "r", encoding="utf-8") as tf:
+                        c = tf.read()
+                    if c.strip():
+                        n = await run_in_threadpool(index_text, project, c, fn, fid)
+                db.update_document_status(project, fn, n, "ready" if n > 0 else "extracted")
+                total += n
+            except Exception:
+                logger.exception("reextract rebuild failed for " + str(fn))
+        db.audit("document.reextract", project=project,
+                 detail={"filename": filename, "vision_pages": meta.get("vision_pages"),
+                         "chunks": total}, user=user, ip=_client_ip(request))
+        return {"status": "ready", "vision_pages": meta.get("vision_pages"),
+                "vision_errors": meta.get("vision_errors"),
+                "pages": meta.get("page_count"), "chunks": total}
+    except Exception as e:
+        logger.exception("reextract failed for " + str(filename))
+        return {"status": "error",
+                "detail": "vision re-read failed - is Ollama running with the vision model? (%s)" % e}
+
 @app.get("/projects/{project}/file")
 async def project_file(project: str, rel: str, request: Request):
     auth.require_project(request, project)
@@ -2909,16 +3132,28 @@ async def login(body: LoginReq, request: Request = None):
     client_ip = _client_ip(request)
     if not _check_rate_limit(client_ip):
         raise HTTPException(429, "Too many login attempts. Please try again later.")
-    u = auth.authenticate(body.username, body.password)
-    if not u:
-        db.audit("auth.fail", target=body.username, ip=_client_ip(request))
-        raise HTTPException(401, "Invalid username or password")
-    token = auth.make_token(u)
-    db.audit("auth.login", target=u["username"], user=u, ip=_client_ip(request))
-    projects = None if u["role"] == "admin" else db.user_projects(u["id"])
-    # Phase 0: Check if password change is required
-    must_change = auth.must_change_password(u)
-    return {"token": token, "user": u, "projects": projects, "must_change_password": must_change}
+    try:
+        u = auth.authenticate(body.username, body.password)
+        if not u:
+            db.audit("auth.fail", target=body.username, ip=_client_ip(request))
+            raise HTTPException(401, "Invalid username or password")
+        token = auth.make_token(u)
+        db.audit("auth.login", target=u["username"], user=u, ip=_client_ip(request))
+        projects = None if u["role"] == "admin" else db.user_projects(u["id"])
+        must_change = auth.must_change_password(u)
+        return {"token": str(token), "user": u, "projects": projects,
+                "must_change_password": bool(must_change)}
+    except HTTPException:
+        raise
+    except Exception as _le:
+        import traceback as _tb
+        try:
+            with open(os.path.join(DATA_DIR, "login_error.log"), "w", encoding="utf-8") as _f:
+                _f.write(_tb.format_exc())
+        except Exception:
+            pass
+        logger.exception("login failed")
+        raise
 
 @app.get("/auth/me")
 async def me(request: Request):

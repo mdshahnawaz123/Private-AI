@@ -278,9 +278,21 @@ body.has-fs #fsBar{display:flex}
     <div class="sb-h">Projects</div>
     <div class="projsel"><svg class="ico" viewBox="0 0 24 24"><path d="M3 7l9-4 9 4-9 4-9-4z"/><path d="M3 7v10l9 4 9-4V7"/></svg><select id="projSel"></select></div>
     <div class="tree" id="projTree"></div>
+    <div id="uploadBtn" style="display:none;padding:4px 12px"><button class="newchat" style="width:100%" onclick="toggleUploadMenu(event)"><svg class="ico" viewBox="0 0 24 24" style="width:14px;height:14px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg> Upload</button></div>
+    <div id="uploadMenu" style="display:none;padding:4px 12px;background:var(--panel);border:1px solid var(--border);border-radius:8px;margin:4px 12px">
+      <div class="sb-link" onclick="uploadToCategory('models')"><svg class="ico" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg> Model</div>
+      <div class="sb-link" onclick="uploadToCategory('drawings')"><svg class="ico" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg> Drawings</div>
+      <div class="sb-link" onclick="uploadToCategory('reports')"><svg class="ico" viewBox="0 0 24 24"><path d="M9 17V9M12 17v-5M15 17v-3"/><rect x="3" y="3" width="18" height="18" rx="2"/></svg> Reports</div>
+      <div class="sb-link" onclick="uploadToCategory('specifications')"><svg class="ico" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg> Specification</div>
+      <div class="sb-link" onclick="uploadToCategory('company_standards')"><svg class="ico" viewBox="0 0 24 24"><path d="M3 21h18M5 21V7l7-4 7 4v14"/><path d="M9 21v-6h6v6"/></svg> Company Standards</div>
+      <div class="sb-link" onclick="uploadToCategory('dubai_building_code')"><svg class="ico" viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg> Dubai Building Code</div>
+      <div class="sb-link" onclick="uploadToCategory('structural_engineering_code')"><svg class="ico" viewBox="0 0 24 24"><path d="M2 20h20M4 20V8l8-6 8 6v12"/><path d="M12 20v-8"/></svg> Structural Engineering Code</div>
+      <div class="sb-link" onclick="uploadToCategory('bim_guidelines')"><svg class="ico" viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg> BIM Guidelines</div>
+      <div class="sb-link" onclick="uploadToCategory('project_templates')"><svg class="ico" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/></svg> Project Templates</div>
+    </div>
     <div class="sb-h">Knowledge Base</div>
     <div class="tree kb" id="kbTree"></div>
-    <div style="padding:8px 12px"><button class="newchat" style="width:100%" onclick="kbUpload()"><svg class="ico" viewBox="0 0 24 24" style="width:14px;height:14px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg> Upload Code / Standard</button></div>
+    <div id="kbCodes" style="padding:4px 12px;font-size:11px;color:var(--muted)"></div>
     <div class="sb-h">Recent Chats</div>
     <div class="recent" id="recentList"><div style="color:var(--faint);font-size:11.5px;padding:4px 8px">No recent chats.</div></div>
     <div class="sb-foot"><button class="collapsebtn" onclick="document.body.classList.toggle('sb-collapsed')">« Collapse</button></div>
@@ -482,7 +494,13 @@ function vcmd(c){ try{ $('viewerFrame').contentWindow.postMessage({type:'expo:cm
 // ---- auth ----
 async function boot(){ buildNav();
   if(!authToken){ showLogin(); return; }
-  try{ const r=await fetch(`${API}/auth/me`); if(!r.ok){ showLogin(); return; } currentUser=await r.json(); onAuthed(); }catch(e){ showLogin(); }
+  try{ const r=await fetch(`${API}/auth/me`); if(!r.ok){ showLogin(); return; } currentUser=await r.json(); onAuthed(); loadKbCodes(); checkUploadVisibility(); }catch(e){ showLogin(); }
+}
+function checkUploadVisibility(){
+  const btn=$('uploadBtn');
+  if(!btn){return;}
+  if(currentUser&&currentUser.role==='admin'){btn.style.display='block';}
+  else{btn.style.display='none';}
 }
 function showLogin(){ $('login').classList.add('show'); $('luser').focus(); }
 $('lbtn').onclick=doLogin; $('lpass').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
@@ -610,6 +628,42 @@ async function sendAi(){ const t=$('aiIn'); const q=t.value.trim(); if(!q||!curr
   else { const prefix=aiScope==='standards'?'Using the codes/standards knowledge base, ':''; await stream(q,`${API}/ask_stream`,{project:currentProject,query:prefix+q,messages:aiHist.slice(-8),k:8}); } }
 function askStandards(name){ navTo('workspace'); document.querySelector('.ai-seg [data-scope="standards"]').click(); $('aiIn').value=`What does "${name}" require for this project?`; sendAi(); }
 
+function toggleUploadMenu(event){
+  event.stopPropagation();
+  const menu=$('uploadMenu');
+  if(menu){menu.style.display=menu.style.display==='none'?'block':'none';}
+}
+document.addEventListener('click',function(e){const menu=$('uploadMenu');if(menu&&!menu.contains(e.target)){menu.style.display='none';}});
+
+function uploadToCategory(category){
+  const input=document.createElement('input');
+  input.type='file';
+  if(category==='models'){input.accept='.ifc,.rvt,.nwd,.nwc,.skp,.fbx,.obj,.glb,.gltf,.step,.stp,.iges,.igs';}
+  else if(category==='drawings'){input.accept='.dwg,.dxf,.pdf';}
+  else{input.accept='.pdf,.docx,.xlsx,.xls';}
+  input.onchange=async function(){
+    const file=input.files[0];
+    if(!file){return;}
+    // Ask for folder
+    const folders=await (await fetch(API+'/projects/'+encodeURIComponent(currentProject)+'/folders',{headers:{'Authorization':'Bearer '+(authToken||'')}})).json();
+    const folderOpts=folders.folders.map(f=>f.id+': '+f.name).join('\n');
+    const folderInput=prompt('Enter folder ID for '+category+':\n'+folderOpts,'');
+    if(!folderInput){return;}
+    const folderId=parseInt(folderInput.split(':')[0]);
+    const fd=new FormData();
+    fd.append('file',file);
+    fd.append('folder_id',folderId);
+    fd.append('discipline',category);
+    try{
+      const r=await fetch(API+'/upload?project='+encodeURIComponent(currentProject),{method:'POST',body:fd,headers:{'Authorization':'Bearer '+(authToken||'')}});
+      const d=await r.json();
+      if(r.ok){toast('Uploaded: '+d.filename+' to '+category);loadKb();}
+      else{toast('Upload failed: '+(d.detail||'error'));}
+    }catch(e){toast('Upload error: '+e.message);}
+  };
+  input.click();
+}
+
 function kbUpload(){
   const input=document.createElement('input');
   input.type='file';
@@ -629,11 +683,24 @@ function kbUpload(){
     try{
       const r=await fetch(API+'/kb/upload',{method:'POST',body:fd,headers:{'Authorization':'Bearer '+(authToken||'')}});
       const d=await r.json();
-      if(r.ok){toast('Uploaded: '+d.filename+' ('+disc+(part?' Part '+part:'')+')');loadKb();}
+      if(r.ok){toast('Uploaded: '+d.filename+' ('+disc+(part?' Part '+part:'')+')');loadKb();loadKbCodes();}
       else{toast('Upload failed: '+(d.detail||'error'));}
     }catch(e){toast('Upload error: '+e.message);}
   };
   input.click();
+}
+
+function loadKbCodes(){
+  fetch(API+'/kb',{headers:{'Authorization':'Bearer '+(authToken||'')}})
+    .then(r=>r.json())
+    .then(d=>{
+      const docs=d.documents||[];
+      const el=$('kbCodes');
+      if(!docs.length){el.innerHTML='<span style="color:var(--faint)">No codes uploaded yet</span>';return;}
+      el.innerHTML='<div style="color:var(--text);font-weight:600;margin-bottom:4px">Uploaded Codes:</div>'+
+        docs.map(doc=>'<div style="padding:2px 0"><span style="color:var(--cyan)">'+esc(doc.filename)+'</span> <span style="color:var(--faint)">('+esc(doc.discipline||'code')+')</span></div>').join('');
+    })
+    .catch(()=>{});
 }
 function newChat(){ aiHist=[]; $('aiMsgs').innerHTML=''; toast('New chat'); }
 

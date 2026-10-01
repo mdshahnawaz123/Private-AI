@@ -21,7 +21,7 @@ const UI_FLAGS = {
 
 /* ---- state ---- */
 let authToken=null, currentUser=null, currentProject=null, projectsData={};
-let allDocs=[], lastSel=null, aiHist=[], lastSources=[];
+let allDocs=[], lastSel=null, aiHist=[], lastSources=[], lastUsedSources=[];
 let currentDest='design', currentRevision='';
 let viewerLoaded=false, on3D=false;
 
@@ -88,6 +88,7 @@ function wireTopbar(){
   $('sbToggle').onclick=()=>{ document.body.classList.toggle('sb-collapsed'); document.body.classList.toggle('show-sb'); };
   $('sbCollapse').onclick=()=>document.body.classList.add('sb-collapsed');
   $('aiCollapse').onclick=()=>document.body.classList.toggle('ai-collapsed');
+  initAppResizers();
   $('btnHelp').onclick=()=>toast('Expo Design AI — select a destination on the left, work in the center, ask the Copilot on the right.');
   $('btnSettings').onclick=()=>navigate('settings');
   $('btnNotif').onclick=()=>navigate('qa');
@@ -304,8 +305,10 @@ function renderSplitDocs(b, list, kind, emptyMsg){
   if(!list.length){ b.innerHTML=`<div class="ws-scroll">${state(emptyMsg)}</div>`; return; }
   b.innerHTML=`<div class="split">
     <div class="list-col" id="docList"></div>
+    <div class="gutter" title="Drag to resize"></div>
     <div class="view-col" id="docView">${state('Select a '+kind+' to preview.')}</div>
   </div>`;
+  initSplitter(b.querySelector('.split'));
   const lc=$('docList');
   lc.innerHTML=list.map((f,i)=>`<div class="li" data-i="${i}"><div class="fi">${fileTypeIcon(fileExt(f.filename))}</div>
     <div class="fn"><b>${esc(f.filename)}</b><span>${esc(f.category||'')}${f._rev?` · Rev ${esc(f._rev)}`:''}${f.chunks?` · ${f.chunks} chunks`:''}</span></div></div>`).join('');
@@ -388,7 +391,8 @@ async function renderCodes(b){
 
 /* ---------- QA & Issues ---------- */
 async function renderQA(b){
-  b.innerHTML=`<div class="split"><div class="list-col" id="qaList">${state('Loading findings…','load')}</div><div class="view-col" id="qaView">${state('Select an issue.')}</div></div>`;
+  b.innerHTML=`<div class="split"><div class="list-col" id="qaList">${state('Loading findings…','load')}</div><div class="gutter" title="Drag to resize"></div><div class="view-col" id="qaView">${state('Select an issue.')}</div></div>`;
+  initSplitter(b.querySelector('.split'));
   try{
     const r=await fetch(`${API}/api/v1/qa/findings?project=${encodeURIComponent(currentProject)}`);
     const d=await r.json(); const list=(d&&d.findings)||[];
@@ -560,8 +564,24 @@ function updateCtxActions(){
   } else {
     A('Ask Design AI','<circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>',()=>{ setAiTab('chat'); $('aiIn').focus(); });
   }
+  if(ctxDoc && ctxDoc.rel && /\.pdf$/i.test(ctxDoc.filename||'') && (currentDest==='drawings'||currentDest==='documents'||currentDest==='specifications')){
+    A('Re-read with vision (accurate tables)','<path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/>',()=>reextractDoc());
+  }
   wrap.innerHTML=`<div class="h">Suggested actions</div>`+acts.map((a,i)=>`<button class="act" data-i="${i}">${svg(a.icon)}${esc(a.label)}</button>`).join('');
   wrap.querySelectorAll('.act').forEach(btn=>btn.onclick=()=>acts[+btn.dataset.i].fn());
+}
+
+/* Force a vision re-read of the focused PDF so dense tables are captured accurately */
+async function reextractDoc(){
+  if(!ctxDoc||!ctxDoc.filename||!currentProject){ toast('Open a document first'); return; }
+  const name=ctxDoc.filename;
+  toast('Vision re-read of "'+name+'" started — reads each page as an image; this can take a while.');
+  try{
+    const r=await fetch(`${API}/projects/${encodeURIComponent(currentProject)}/reextract`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({filename:name})});
+    const d=await r.json();
+    if(d&&d.status==='ready'){ toast('Done — '+(d.vision_pages||0)+' page(s) read by vision, '+(d.chunks||0)+' chunks re-indexed. Ask your question again.'); }
+    else { toast('Re-read failed: '+((d&&d.detail)||'unknown')); }
+  }catch(e){ toast('Re-read failed: '+(e&&e.message||e)); }
 }
 
 /* --- AI actions --- */
@@ -608,27 +628,60 @@ async function stream(display,endpoint,body){ const bub=addMsg('a','<span class=
     while(true){ const {value,done}=await rd.read(); if(done)break; buf+=dec.decode(value,{stream:true}); let i;
       while((i=buf.indexOf('\n\n'))>=0){ const line=buf.slice(0,i); buf=buf.slice(i+2); const dl=line.split('\n').find(l=>l.startsWith('data:')); if(!dl)continue;
         let d; try{d=JSON.parse(dl.slice(5).trim());}catch(e){continue;}
-        if(d.type==='sources'){ lastSources=d.sources||[]; renderEvidence(bub,d.sources); }
+        if(d.type==='sources'){ lastSources=d.sources||[]; }
         else if(d.type==='token'){ ans+=d.text; bub.innerHTML=mdLite(ans)+(bub._ev||''); $('aiMsgs').scrollTop=$('aiMsgs').scrollHeight; }
         else if(d.type==='error'){ ans+='\n[error] '+d.message; bub.innerHTML=mdLite(ans); }
       } }
+    // Show only the sources the answer actually cited
+    { const hasCites=/\[SOURCE:/i.test(ans); const cited=citedSources(ans,lastSources);
+      const showSrc = hasCites ? cited : lastSources;
+      lastUsedSources = showSrc;
+      bub._ev = evHTML(showSrc);
+      bub.innerHTML = mdLite(ans)+bub._ev; }
     if(!ans&&!bub._ev) bub.innerHTML='<span class="faint">(no answer)</span>';
     aiHist.push({role:'user',content:body.query}); aiHist.push({role:'assistant',content:ans});
   }catch(e){ bub.innerHTML='<span style="color:var(--red)">Request failed: '+esc(e.message||e)+'</span>'; } }
 
-function renderEvidence(bub,sources){ if(!sources||!sources.length)return;
-  bub._ev='<div class="evd">'+sources.slice(0,6).map(s=>{
+/* Parse [SOURCE: name | PAGE n] citations from the answer and keep only those sources */
+function citedSources(ans,sources){
+  if(!sources||!sources.length) return [];
+  const re=/\[SOURCE:\s*([^\]|]+?)\s*(?:\|\s*PAGE\s*([0-9]+))?\s*\]/gi;
+  const cites=[]; let m;
+  while((m=re.exec(ans))) cites.push({name:(m[1]||'').trim().toLowerCase(), page:m[2]||null});
+  if(!cites.length) return [];
+  const base=x=>String(x||'').toLowerCase().split(/[\\/]/).pop();
+  const full=x=>String(x||'').toLowerCase();
+  const out=[], seen=new Set();
+  sources.forEach(s=>{
+    const sb=base(s.filename||s.source||s.rel), sf=full(s.filename||s.source||s.rel);
+    const hit=cites.some(c=>{
+      const cb=base(c.name);
+      const nameOk = sb===cb || (cb && (sf.indexOf(cb)>=0 || cb.indexOf(sb)>=0));
+      if(!nameOk) return false;
+      if(c.page!=null && s.page!=null) return String(s.page)===String(c.page);
+      return true;
+    });
+    if(hit){ const k=sf+'#'+(s.page!=null?s.page:''); if(!seen.has(k)){ seen.add(k); out.push(s); } }
+  });
+  return out;
+}
+/* Compact source chips (only the files actually used) */
+function evHTML(sources){
+  if(!sources||!sources.length) return '';
+  return '<div class="evd">'+sources.map(s=>{
     const name=s.filename||s.source||s.rel||'source';
-    const pg=(s.page!=null)?('Page '+s.page):'';
+    const b=String(name).split(/[\\/]/).pop();
     const rel=s.rel||s.source||'';
-    const ext=fileExt(name);
-    const rev=s.revision?`<span class="rev">${esc(s.revision)}</span>`:'';
-    const doctype=s.doctype||'';
-    return `<div class="er" onclick="openFile('${esc(rel)}')">
-      <div class="ic">${fileTypeIcon(ext)}</div>
-      <div class="txt"><b>${esc(name)}</b><div class="meta"><span>${esc(pg)}</span>${rev}${doctype?`<span class="rev">${esc(doctype)}</span>`:''}</div></div>
-      <div class="ext">${esc(ext)}</div></div>`; }).join('')+'</div>';
-  bub.innerHTML=bub.innerHTML+bub._ev; }
+    const ext=fileExt(b);
+    const pg=(s.page!=null)?('p.'+s.page):'';
+    const rev=s.revision?('Rev '+s.revision):'';
+    return `<button class="chip" title="${esc(name)}${pg?' · '+esc(pg):''}" onclick="openFile('${esc(rel)}')">`
+      +`<span class="ci">${fileTypeIcon(ext)}</span>`
+      +`<span class="cn">${esc(b)}</span>`
+      +(pg?`<span class="cp">${esc(pg)}</span>`:'')
+      +(rev?`<span class="cp">${esc(rev)}</span>`:'')
+      +`</button>`; }).join('')+'</div>';
+}
 
 async function sendAi(standards){ const t=$('aiIn'); const q=t.value.trim();
   if(!q){ return; } if(!currentProject){ toast('Select a project'); return; }
@@ -638,15 +691,17 @@ async function sendAi(standards){ const t=$('aiIn'); const q=t.value.trim();
     await stream(q,`${API}/ask_model`,{project:currentProject,query:q+revNote,context:ctx.context||'',selection:ctx.selection||(lastSel&&lastSel.text)||'',messages:aiHist.slice(-6)}); }
   else { const prefix=(standards||currentDest==='codes')?'Using the codes/standards knowledge base, ':'';
     let scoped=q+revNote;
-    if(ctxDoc&&(currentDest==='documents'||currentDest==='specifications'||currentDest==='drawings')) scoped=`Regarding "${ctxDoc.filename}": `+scoped;
-    await stream(q,`${API}/ask_stream`,{project:currentProject,query:prefix+scoped,messages:aiHist.slice(-8),k:8}); }
+    const _focus=(ctxDoc&&(currentDest==='documents'||currentDest==='specifications'||currentDest==='drawings'))?(ctxDoc.rel||''):'';
+    if(_focus) scoped=`Regarding "${ctxDoc.filename}": `+scoped;
+    await stream(q,`${API}/ask_stream`,{project:currentProject,query:prefix+scoped,messages:aiHist.slice(-8),k:8,focus_doc:_focus}); }
 }
 
 /* --- References pane --- */
 function renderReferencesPane(){
   const b=$('refBody');
-  if(!lastSources.length){ b.innerHTML=`<div class="state"><div class="muted">Ask a question — the sources behind the answer appear here with page and revision.</div></div>`; return; }
-  b.innerHTML=`<div class="dt-toolbar"><b>Sources from the last answer</b></div>`+lastSources.map(s=>{
+  const refs=(lastUsedSources&&lastUsedSources.length)?lastUsedSources:lastSources;
+  if(!refs.length){ b.innerHTML=`<div class="state"><div class="muted">Ask a question — the sources behind the answer appear here with page and revision.</div></div>`; return; }
+  b.innerHTML=`<div class="dt-toolbar"><b>Sources used in the last answer</b></div>`+refs.map(s=>{
     const name=s.filename||s.source||s.rel||'source'; const rel=s.rel||s.source||'';
     return `<div class="li" onclick="openFile('${esc(rel)}')"><div class="fi">${fileTypeIcon(fileExt(name))}</div>
       <div class="fn"><b>${esc(name)}</b><span>${s.page!=null?('Page '+s.page):''}${s.revision?(' · Rev '+esc(s.revision)):''}</span></div></div>`; }).join('');
@@ -687,3 +742,60 @@ async function renderInsightsPane(){
    START
    ============================================================ */
 boot();
+
+
+/* ---------- Resizable list column (all split workspaces) ---------- */
+let _splitDragEl=null;
+function initSplitter(splitEl){
+  if(!splitEl) return;
+  const saved=parseInt(localStorage.getItem('expo_list_w')||'',10);
+  if(saved>=200) splitEl.style.setProperty('--list-w', saved+'px');
+  let g=splitEl.querySelector('.gutter');
+  if(!g){ g=document.createElement('div'); g.className='gutter'; g.title='Drag to resize'; splitEl.appendChild(g); }
+  g.onmousedown=function(e){ e.preventDefault(); _splitDragEl=splitEl; g.classList.add('drag'); document.body.classList.add('col-resizing'); };
+  g.ondblclick=function(){ splitEl.style.setProperty('--list-w','320px'); try{localStorage.setItem('expo_list_w','320');}catch(_){} };
+}
+window.addEventListener('mousemove',function(e){
+  if(!_splitDragEl) return;
+  const r=_splitDragEl.getBoundingClientRect();
+  let w=e.clientX-r.left; w=Math.max(200, Math.min(r.width-320, w));
+  _splitDragEl.style.setProperty('--list-w', w+'px');
+});
+window.addEventListener('mouseup',function(){
+  if(!_splitDragEl) return;
+  const w=parseInt(getComputedStyle(_splitDragEl).getPropertyValue('--list-w'),10);
+  if(w){ try{localStorage.setItem('expo_list_w', String(w));}catch(_){} }
+  const g=_splitDragEl.querySelector('.gutter'); if(g) g.classList.remove('drag');
+  document.body.classList.remove('col-resizing');
+  _splitDragEl=null;
+});
+
+
+/* ---------- Resizable side panels: nav (--sb) and Copilot (--ai) ---------- */
+function initAppResizers(){
+  const root=document.documentElement;
+  try{
+    const sb=parseInt(localStorage.getItem('expo_sb_w')||'',10); if(sb>=170) root.style.setProperty('--sb',sb+'px');
+    const ai=parseInt(localStorage.getItem('expo_ai_w')||'',10); if(ai>=260) root.style.setProperty('--ai',ai+'px');
+  }catch(e){}
+  const sbH=document.getElementById('sbResize'), aiH=document.getElementById('aiResize');
+  let mode=null;
+  if(sbH) sbH.onmousedown=e=>{ e.preventDefault(); mode='sb'; sbH.classList.add('drag'); document.body.classList.add('col-resizing'); };
+  if(aiH) aiH.onmousedown=e=>{ e.preventDefault(); mode='ai'; aiH.classList.add('drag'); document.body.classList.add('col-resizing'); };
+  window.addEventListener('mousemove',e=>{
+    if(mode==='sb'){ const w=Math.max(170,Math.min(460,e.clientX)); root.style.setProperty('--sb',w+'px'); }
+    else if(mode==='ai'){ const w=Math.max(260,Math.min(560,window.innerWidth-e.clientX)); root.style.setProperty('--ai',w+'px'); }
+  });
+  window.addEventListener('mouseup',()=>{
+    if(!mode) return;
+    try{
+      if(mode==='sb') localStorage.setItem('expo_sb_w', String(parseInt(getComputedStyle(root).getPropertyValue('--sb'),10)||248));
+      if(mode==='ai') localStorage.setItem('expo_ai_w', String(parseInt(getComputedStyle(root).getPropertyValue('--ai'),10)||360));
+    }catch(e){}
+    if(sbH) sbH.classList.remove('drag'); if(aiH) aiH.classList.remove('drag');
+    document.body.classList.remove('col-resizing'); mode=null;
+  });
+  // double-click to reset to defaults
+  if(sbH) sbH.ondblclick=()=>{ root.style.setProperty('--sb','248px'); try{localStorage.setItem('expo_sb_w','248');}catch(_){ } };
+  if(aiH) aiH.ondblclick=()=>{ root.style.setProperty('--ai','360px'); try{localStorage.setItem('expo_ai_w','360');}catch(_){ } };
+}

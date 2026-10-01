@@ -60,7 +60,11 @@ def make_token(user):
     exp = datetime.datetime.utcnow() + datetime.timedelta(hours=TOKEN_TTL_HOURS)
     claims = {"sub": str(user["id"]), "username": user["username"],
               "role": user["role"], "exp": exp}
-    return jwt.encode(claims, secret(), algorithm=ALGO)
+    tok = jwt.encode(claims, secret(), algorithm=ALGO)
+    # Some jose/jwt backends return bytes; the JSON response needs a str.
+    if isinstance(tok, (bytes, bytearray)):
+        tok = tok.decode("utf-8")
+    return tok
 
 def decode_token(token):
     try:

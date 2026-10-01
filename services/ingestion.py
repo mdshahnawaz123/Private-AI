@@ -26,6 +26,50 @@ except Exception:
     logger = _Nop()
 
 
+class UploadTooLargeError(Exception):
+    """Raised by save_upload_capped() when a file exceeds the configured
+    max_upload_size_mb. Deliberately NOT a FastAPI HTTPException -- this
+    module has no framework dependency -- callers translate it (main.py
+    raises HTTPException(413, ...) on catching it)."""
+    pass
+
+
+def save_upload_capped(fileobj, save_path: str, max_bytes: int, chunk_size: int = 1024 * 1024) -> int:
+    """Stream `fileobj` (anything with a .read(n) method -- an UploadFile's
+    .file, or a plain file object in tests) to `save_path`, aborting and
+    deleting the partial file if the total written exceeds `max_bytes`.
+
+    Security fix: originally /upload and /chat/attachments wrote the whole
+    file with shutil.copyfileobj() and never checked size at all, even
+    though config.max_upload_size_mb existed -- any authenticated user could
+    fill the disk with one oversized request. Pulled out of main.py into its
+    own function here so it has no FastAPI coupling and can be unit-tested
+    directly (importing main.py as a module has real side effects -- it
+    initializes the live data/ directory at import time -- so it must never
+    be imported from a test).
+
+    Returns the number of bytes written. Raises UploadTooLargeError (and
+    removes the partial file) if the limit is exceeded.
+    """
+    written = 0
+    with open(save_path, "wb") as f:
+        while True:
+            chunk = fileobj.read(chunk_size)
+            if not chunk:
+                break
+            written += len(chunk)
+            if written > max_bytes:
+                f.close()
+                try:
+                    os.remove(save_path)
+                except Exception:
+                    pass
+                raise UploadTooLargeError(
+                    f"File exceeds the maximum upload size ({max_bytes // (1024 * 1024)} MB).")
+            f.write(chunk)
+    return written
+
+
 class DocumentState(str, Enum):
     UPLOADED = "uploaded"
     PROCESSING = "processing"

@@ -431,7 +431,16 @@ function showLogin(){
   const b = document.getElementById('authBar'); if (b) b.style.display = 'none';
 }
 function onAuthed(){
+  if (currentUser && currentUser.role === 'user') {
+    window.location.replace('/ui/app.html');
+    return;
+  }
   const o = document.getElementById('loginOverlay'); if (o) o.style.display = 'none';
+  if (window._mustChangePw) {
+    const pwo = document.getElementById('pwChangeOverlay'); if (pwo) pwo.style.display = 'flex';
+    const b0 = document.getElementById('authBar'); if (b0) b0.style.display = 'none';
+    return;
+  }
   const b = document.getElementById('authBar'); if (b) b.style.display = 'flex';
   const who = document.getElementById('authWho'); if (who) who.textContent = currentUser.username + ' (' + currentUser.role + ')';
   const ab = document.getElementById('adminBtn'); if (ab) ab.style.display = (currentUser.role === 'admin') ? '' : 'none';
@@ -448,7 +457,7 @@ async function initAuth(){
     const r = await _origFetch(`${API}/auth/me`, { headers: { 'Authorization': 'Bearer ' + authToken } });
     if (!r.ok) throw new Error('unauth');
     const d = await r.json();
-    currentUser = d.user; onAuthed();
+    currentUser = d.user; window._mustChangePw = !!d.must_change_password; onAuthed();
   } catch(e) { clearToken(); showLogin(); }
 }
 async function doLogin(){
@@ -459,10 +468,29 @@ async function doLogin(){
     const r = await _origFetch(`${API}/auth/login`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ username:user, password:pass }) });
     const d = await r.json();
     if (!r.ok) throw new Error(d.detail || 'Login failed');
-    saveToken(d.token); currentUser = d.user; onAuthed();
+    saveToken(d.token); currentUser = d.user; window._mustChangePw = !!d.must_change_password; onAuthed();
   } catch(e) { err.textContent = e.message || 'Login failed'; }
 }
-function logout(){ clearToken(); currentUser = null; location.reload(); }
+function logout(){ clearToken(); currentUser = null; window._mustChangePw = false; location.reload(); }
+
+async function doForcedPwChange(){
+  const oldPw = document.getElementById('pwcOld').value;
+  const newPw = document.getElementById('pwcNew').value;
+  const confirmPw = document.getElementById('pwcConfirm').value;
+  const err = document.getElementById('pwChangeErr'); err.textContent = '';
+  if (!oldPw || !newPw) { err.textContent = 'Enter your current and new password.'; return; }
+  if (newPw.length < 8) { err.textContent = 'New password must be at least 8 characters.'; return; }
+  if (newPw !== confirmPw) { err.textContent = 'New passwords do not match.'; return; }
+  if (newPw === oldPw) { err.textContent = 'New password must be different from the current one.'; return; }
+  try {
+    const r = await _origFetch(`${API}/auth/change-password`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ old_password: oldPw, new_password: newPw }) });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.detail || 'Password change failed');
+    window._mustChangePw = false;
+    const pwo = document.getElementById('pwChangeOverlay'); if (pwo) pwo.style.display = 'none';
+    onAuthed();
+  } catch(e) { err.textContent = e.message || 'Password change failed'; }
+}
 /* ===== Document library (upload button, documents tab, preview) ===== */
 let _toastTimer = null;
 function toast(msg, sticky){
@@ -821,11 +849,12 @@ function fillSelect(sel, items, placeholder){
   items.forEach(v => { const o=document.createElement('option'); o.value=v; o.textContent=v; if(v===prev) o.selected=true; sel.appendChild(o); });
 }
 function admTab(name){
-  ['users','perms','test'].forEach(t => {
+  ['users','perms','test','attachments'].forEach(t => {
     document.getElementById('pane-'+t).style.display = (t===name)?'':'none';
     document.getElementById('tab-'+t).classList.toggle('active', t===name);
   });
   if (name==='perms' || name==='test') admFillPickers();
+  if (name==='attachments') admRefreshAttachments();
 }
 function admProjects(){ return Object.keys(projectsData || {}).filter(n => n.indexOf('__') !== 0); }
 function fillUserSelect(sel, users, ph){
@@ -845,22 +874,53 @@ async function adminRefresh(){
   try {
     const r = await fetch(`${API}/admin/users`); const d = await r.json();
     const users = d.users || []; window._admUsers = users;
+    const cnt = document.getElementById('admUserCount');
+    if (cnt) cnt.textContent = users.length + (users.length===1?' user':' users');
     const rows = users.map(u => {
       const isSys = u.username==='system';
+      const initials = (u.username||'?').replace(/[^a-zA-Z0-9]/g,'').slice(0,2).toUpperCase() || '?';
+      const userCell = `<div class="adm-user-cell"><span class="adm-avatar">${escapeHtml(initials)}</span><span>${escapeHtml(u.username)}</span></div>`;
       const roleSel = isSys ? `<span class="role-pill role-${u.role}">${u.role}</span>` :
         `<select class="mini-sel" onchange="adminSetRole(${u.id}, this.value)">
            <option value="user"${u.role==='user'?' selected':''}>user</option>
            <option value="lead"${u.role==='lead'?' selected':''}>lead</option>
            <option value="admin"${u.role==='admin'?' selected':''}>admin</option>
          </select>`;
-      const status = isSys ? 'system' :
-        `<button class="fbtn ${u.is_active?'':'danger'}" onclick="adminToggleActive(${u.id}, ${u.is_active?0:1})">${u.is_active?'Active':'Inactive'}</button>`;
+      const status = isSys ? '<span class="status-pill system"><span class="status-dot2"></span>System</span>' :
+        `<span class="status-pill ${u.is_active?'active':'inactive'}"><span class="status-dot2"></span>${u.is_active?'Active':'Inactive'}</span>`;
+      const toggleBtn = isSys ? '' : `<button class="fbtn" onclick="adminToggleActive(${u.id}, ${u.is_active?0:1})">${u.is_active?'Deactivate':'Activate'}</button>`;
       const manage = isSys ? '' : `<button class="fbtn" onclick="pmOpen(${u.id})">Permissions</button>`;
-      return `<tr><td>${escapeHtml(u.username)}</td><td>${roleSel}</td><td>${status}</td><td style="text-align:right">${manage}</td></tr>`;
+      const actions = isSys ? '' : `<div class="adm-actions">${toggleBtn}${manage}</div>`;
+      return `<tr><td>${userCell}</td><td>${roleSel}</td><td>${status}</td><td style="text-align:right">${actions}</td></tr>`;
     }).join('');
-    document.getElementById('userRows').innerHTML = rows || '<tr><td colspan="4" style="color:var(--muted)">No users yet</td></tr>';
+    document.getElementById('userRows').innerHTML = rows || '<tr><td colspan="4"><div class="adm-empty">No users yet</div></td></tr>';
     admFillPickers();
   } catch(e) {}
+}
+function adminFilterUsers(){
+  const q = (document.getElementById('admUserSearch').value||'').trim().toLowerCase();
+  document.querySelectorAll('#userRows tr').forEach(tr => {
+    tr.style.display = !q || tr.textContent.toLowerCase().includes(q) ? '' : 'none';
+  });
+}
+async function admRefreshAttachments(){
+  const box = document.getElementById('attachRows');
+  const cnt = document.getElementById('admAttachCount');
+  box.innerHTML = '<tr><td colspan="5" style="color:var(--muted)">Loading…</td></tr>';
+  try {
+    const r = await fetch(`${API}/admin/chat-attachments`);
+    const d = await r.json();
+    const items = d.attachments || [];
+    if (cnt) cnt.textContent = items.length + (items.length===1?' upload':' uploads');
+    if (!items.length){ box.innerHTML = '<tr><td colspan="5"><div class="adm-empty">No private uploads yet.</div></td></tr>'; return; }
+    box.innerHTML = items.map(a => {
+      const statusPill = a.status==='ready' ? '<span class="status-pill active"><span class="status-dot2"></span>Ready</span>'
+        : a.status==='error' ? '<span class="status-pill inactive"><span class="status-dot2"></span>Failed</span>'
+        : '<span class="status-pill system"><span class="status-dot2"></span>Processing</span>';
+      const when = a.created_at ? new Date(a.created_at).toLocaleString() : '';
+      return `<tr><td>${escapeHtml(a.username)}</td><td>${escapeHtml(a.project)}</td><td>${escapeHtml(a.filename)}</td><td>${statusPill}</td><td>${escapeHtml(when)}</td></tr>`;
+    }).join('');
+  } catch(e) { box.innerHTML = '<tr><td colspan="5" style="color:var(--muted)">Could not load private uploads.</td></tr>'; }
 }
 async function adminSetRole(uid, role){
   const r = await fetch(`${API}/admin/users/${uid}/role`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ role }) });
@@ -1899,6 +1959,13 @@ function highlightCode(code, lang) {
  #loginCard input{width:100%;box-sizing:border-box;background:var(--panel,#1b1f26);border:1px solid var(--border,#2a2f37);border-radius:9px;padding:11px 12px;color:var(--text,#e8eaed);font-size:14px;margin-bottom:10px;outline:none}
  #loginCard button{width:100%;background:#3b82f6;color:#fff;border:none;border-radius:9px;padding:11px;font-size:14px;font-weight:600;cursor:pointer}
  #loginErr{color:#f87171;font-size:12px;min-height:15px;margin-bottom:4px}
+ #pwChangeOverlay{position:fixed;inset:0;background:#0b0d10;display:none;align-items:center;justify-content:center;z-index:1001;font-family:var(--font,system-ui)}
+ #pwChangeCard{background:var(--bg2,#15181d);border:1px solid var(--border,#2a2f37);border-radius:16px;padding:28px;width:360px;box-shadow:0 20px 60px rgba(0,0,0,.5)}
+ #pwChangeCard h2{margin:0 0 4px;font-size:20px;color:var(--text,#e8eaed)}
+ #pwChangeCard p{margin:0 0 16px;font-size:13px;color:var(--muted,#9aa0aa)}
+ #pwChangeCard input{width:100%;box-sizing:border-box;background:var(--panel,#1b1f26);border:1px solid var(--border,#2a2f37);border-radius:9px;padding:11px 12px;color:var(--text,#e8eaed);font-size:14px;margin-bottom:10px;outline:none}
+ #pwChangeCard button{width:100%;background:#3b82f6;color:#fff;border:none;border-radius:9px;padding:11px;font-size:14px;font-weight:600;cursor:pointer}
+ #pwChangeErr{color:#f87171;font-size:12px;min-height:15px;margin-bottom:4px}
  #authBar{position:fixed;top:9px;right:14px;z-index:200;display:none;gap:8px;align-items:center;font-size:12px;color:var(--muted,#9aa0aa);font-family:var(--font,system-ui)}
  #authBar .abtn{background:var(--panel,#1b1f26);border:1px solid var(--border,#2a2f37);color:var(--text,#e8eaed);border-radius:8px;padding:5px 10px;cursor:pointer;font-size:12px}
  .modal-back{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;z-index:900;font-family:var(--font,system-ui)}
@@ -1909,7 +1976,7 @@ function highlightCode(code, lang) {
  .modal button.go{background:#3b82f6;color:#fff;border:none;border-radius:8px;padding:8px 12px;cursor:pointer;font-size:13px}
  .modal .sec{border-top:1px solid var(--border,#2a2f37);margin-top:14px;padding-top:12px}
  .modal .muted{color:var(--muted,#9aa0aa);font-size:12px;margin-bottom:6px}
- .admin-modal{width:640px;padding:0;overflow:hidden}
+ .admin-modal{width:760px;padding:0;overflow:hidden}
  .modal-head{display:flex;align-items:center;justify-content:space-between;padding:18px 22px;border-bottom:1px solid var(--border,#2a2f37)}
  .modal-head h3{margin:0;font-size:17px;font-weight:650}
  .modal-head .x{background:transparent;border:none;color:var(--muted,#9aa0aa);font-size:15px;cursor:pointer;padding:4px 9px;border-radius:8px}
@@ -1963,6 +2030,27 @@ function highlightCode(code, lang) {
  .role-user{background:rgba(148,163,184,.18);color:#cbd5e1}
  .adm-foot{padding:14px 22px 20px;display:flex;justify-content:flex-end}
  @media(max-width:680px){.adm-grid{grid-template-columns:1fr}.admin-modal{width:94vw}}
+ .modal-head-text{display:flex;flex-direction:column;gap:3px}
+ .modal-head-sub{font-size:12px;font-weight:400;color:var(--muted,#9aa0aa)}
+ .modal-head-icon{width:34px;height:34px;border-radius:10px;background:linear-gradient(135deg,#4d7cfe,#8a6cff);display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 6px 16px -8px rgba(77,124,254,.7)}
+ .modal-head-row{display:flex;align-items:center;gap:12px}
+ .adm-card-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}
+ .adm-card-head .adm-title{margin-bottom:0}
+ .adm-count{font-size:11px;color:var(--muted,#9aa0aa);font-weight:600;background:var(--bg2,#15181d);border:1px solid var(--border,#2a2f37);border-radius:999px;padding:2px 9px;white-space:nowrap}
+ .adm-search{max-width:200px;margin:0}
+ .adm-field{display:flex;flex-direction:column;gap:5px}
+ .adm-field-label{font-size:11px;font-weight:600;color:var(--muted,#9aa0aa)}
+ .adm-user-cell{display:flex;align-items:center;gap:10px}
+ .adm-avatar{width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#4d7cfe,#8a6cff);display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:11px;color:#fff;flex-shrink:0;letter-spacing:.02em}
+ .status-pill{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:650;padding:3px 10px;border-radius:999px}
+ .status-pill.active{background:rgba(74,222,128,.12);color:#4ade80}
+ .status-pill.inactive{background:rgba(248,113,113,.12);color:#f87171}
+ .status-pill.system{background:rgba(148,163,184,.12);color:#cbd5e1}
+ .status-dot2{width:6px;height:6px;border-radius:50%;background:currentColor;flex-shrink:0}
+ .adm-table tbody tr{transition:background .12s}
+ .adm-table tbody tr:hover td{background:rgba(255,255,255,.025)}
+ .adm-actions{display:flex;gap:6px;justify-content:flex-end}
+ .adm-empty{padding:26px 10px;text-align:center;color:var(--muted,#9aa0aa);font-size:12.5px}
 </style>
 <div id="authBar">
  <span id="authWho"></span>
@@ -1980,35 +2068,59 @@ function highlightCode(code, lang) {
   <button onclick="doLogin()">Sign in</button>
  </div>
 </div>
+<div id="pwChangeOverlay">
+ <div id="pwChangeCard">
+  <h2>Change your password</h2>
+  <p>This account is still using its default/seeded password. Set a new password to continue.</p>
+  <div id="pwChangeErr"></div>
+  <input id="pwcOld" type="password" placeholder="Current password" autocomplete="current-password" />
+  <input id="pwcNew" type="password" placeholder="New password" autocomplete="new-password" />
+  <input id="pwcConfirm" type="password" placeholder="Confirm new password" autocomplete="new-password" onkeydown="if(event.key==='Enter')doForcedPwChange()" />
+  <button onclick="doForcedPwChange()">Set new password</button>
+ </div>
+</div>
 <div class="modal-back" id="adminModal">
  <div class="modal admin-modal">
   <div class="modal-head">
-   <h3>Administration</h3>
+   <div class="modal-head-row">
+    <span class="modal-head-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l8 4v6c0 5-3.4 8.4-8 10-4.6-1.6-8-5-8-10V6z"/><path d="M9.5 12.5l1.8 1.8L15 10.5"/></svg></span>
+    <div class="modal-head-text">
+     <h3>Administration</h3>
+     <span class="modal-head-sub">Manage users, roles and folder access for this workspace</span>
+    </div>
+   </div>
    <button class="x" onclick="closeAdmin()" title="Close">&#10005;</button>
   </div>
   <div class="adm-tabs">
    <button class="adm-tab active" id="tab-users" onclick="admTab('users')">Users &amp; Roles</button>
    <button class="adm-tab" id="tab-perms" onclick="admTab('perms')">Permissions</button>
    <button class="adm-tab" id="tab-test" onclick="admTab('test')">Permission Test</button>
+   <button class="adm-tab" id="tab-attachments" onclick="admTab('attachments')">Private Uploads</button>
   </div>
   <div class="adm-scroll">
    <div class="adm-pane" id="pane-users">
     <section class="adm-card">
      <div class="adm-title">Create user</div>
      <div class="adm-row3">
-      <input id="nuUser" class="adm-in" placeholder="Username" autocomplete="off">
-      <input id="nuPass" class="adm-in" type="password" placeholder="Temp password" autocomplete="new-password">
-      <select id="nuRole" class="adm-in">
+      <div class="adm-field"><span class="adm-field-label">Username</span><input id="nuUser" class="adm-in" placeholder="e.g. j.smith" autocomplete="off"></div>
+      <div class="adm-field"><span class="adm-field-label">Temporary password</span><input id="nuPass" class="adm-in" type="password" placeholder="Temp password" autocomplete="new-password"></div>
+      <div class="adm-field"><span class="adm-field-label">Role</span><select id="nuRole" class="adm-in">
        <option value="user">User &mdash; query only</option>
        <option value="lead">Lead &mdash; upload &amp; manage</option>
        <option value="admin">Admin &mdash; full access</option>
-      </select>
+      </select></div>
      </div>
      <button class="adm-btn" onclick="adminCreateUser()">Create user</button>
     </section>
     <section class="adm-card">
-     <div class="adm-title">Users &amp; roles</div>
-     <table class="adm-table"><thead><tr><th>User</th><th>Role</th><th>Status</th><th></th></tr></thead><tbody id="userRows"></tbody></table>
+     <div class="adm-card-head">
+      <div class="adm-title" style="margin-bottom:0">Users &amp; roles</div>
+      <div style="display:flex;align-items:center;gap:10px">
+       <span class="adm-count" id="admUserCount">&nbsp;</span>
+       <input id="admUserSearch" class="adm-in adm-search" placeholder="Search users…" oninput="adminFilterUsers()">
+      </div>
+     </div>
+     <table class="adm-table"><thead><tr><th>User</th><th>Role</th><th>Status</th><th style="text-align:right">Actions</th></tr></thead><tbody id="userRows"></tbody></table>
     </section>
    </div>
    <div class="adm-pane" id="pane-perms" style="display:none">
@@ -2035,6 +2147,16 @@ function highlightCode(code, lang) {
      <input id="ptQuery" class="adm-in" placeholder="Test query, e.g. tell me SBC for Tower-01" style="margin-top:8px">
      <button class="adm-btn" onclick="runPermTest()">Run test</button>
      <div id="ptResult" style="margin-top:12px"></div>
+    </section>
+   </div>
+   <div class="adm-pane" id="pane-attachments" style="display:none">
+    <section class="adm-card">
+     <div class="adm-card-head">
+      <div class="adm-title" style="margin-bottom:0">Private chat uploads</div>
+      <span class="adm-count" id="admAttachCount">&nbsp;</span>
+     </div>
+     <div class="adm-hint" style="margin-bottom:10px">Files users attached directly in Design AI chat. Visible to you for oversight only &mdash; these are never added to any project's shared Documents, Drawings or Schedules.</div>
+     <table class="adm-table"><thead><tr><th>User</th><th>Project</th><th>File</th><th>Status</th><th>Uploaded</th></tr></thead><tbody id="attachRows"></tbody></table>
     </section>
    </div>
   </div>

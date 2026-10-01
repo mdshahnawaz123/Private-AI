@@ -42,6 +42,16 @@ function mdLite(s){ let h=esc(s); h=h.replace(/```([\s\S]*?)```/g,(m,c)=>'<pre>'
   h=h.replace(/`([^`]+)`/g,'<code>$1</code>').replace(/\*\*([^*]+)\*\*/g,'<b>$1</b>').replace(/^[-•]\s+(.*)$/gm,'• $1').replace(/\n/g,'<br>'); return h; }
 function fmtBytes(n){ if(n==null)return ''; const u=['B','KB','MB','GB']; let i=0,v=n; while(v>=1024&&i<u.length-1){v/=1024;i++;} return v.toFixed(v<10&&i>0?1:0)+' '+u[i]; }
 const rx={ ifc:/\.ifc$/i, dwg:/\.(pdf|dwg|dxf)$/i, doc:/\.(pdf|docx?|txt|rtf)$/i, spec:/spec|requirement|criteria|specification/i, sched:/\.(xlsx|xls|csv)$/i };
+// Standard project folders (auto-created per project). When a document's
+// real `folder` is one of these, that folder is authoritative for which
+// workspace it belongs to; filename-extension matching is only a fallback
+// for documents that predate folders or sit in an unrecognized folder, so
+// nothing silently disappears. This fixes the same PDF showing up in both
+// Drawings and Documents just because both regexes match ".pdf".
+const STANDARD_FOLDERS=['models','drawings','documents','schedules','specifications','qa & issues','reports'];
+function folderName(f){ return String((f&&f.folder)||'').trim().toLowerCase(); }
+function hasKnownFolder(f){ return STANDARD_FOLDERS.includes(folderName(f)); }
+function byDest(name, fallbackTest){ return f => hasKnownFolder(f) ? folderName(f)===name : fallbackTest(f); }
 function fileExt(fn){ return (String(fn||'').split('.').pop()||'').toUpperCase(); }
 function fileTypeIcon(ext){ const i={PDF:'📄',DOCX:'📝',DOC:'📝',XLSX:'📊',XLS:'📊',CSV:'📊',DWG:'📐',DXF:'📐',IFC:'🏗️',RVT:'🏗️',PNG:'🖼️',JPG:'🖼️',JPEG:'🖼️',TXT:'📃',RTF:'📃'}; return i[ext]||'📄'; }
 function state(msg,kind){ return `<div class="state ${kind==='err'?'err':''}">${kind==='load'?'<div class="spinner"></div>':''}<div>${esc(msg)}</div></div>`; }
@@ -59,7 +69,7 @@ function parseRev(fn){ const s=String(fn||'');
 async function boot(){
   buildNav(); wireTopbar(); wireCopilot(); buildDesignWorkspace();
   if(!authToken){ showLogin(); return; }
-  try{ const r=await fetch(`${API}/auth/me`); if(!r.ok){ showLogin(); return; } currentUser=await r.json(); onAuthed(); }
+  try{ const r=await fetch(`${API}/auth/me`); if(!r.ok){ showLogin(); return; } const d=await r.json(); currentUser=(d&&d.user)?d.user:d; mustChangePw=!!(d&&d.must_change_password); onAuthed(); }
   catch(e){ showLogin(); }
 }
 function showLogin(){ $('login').classList.add('show'); $('luser').focus(); }
@@ -67,16 +77,39 @@ async function doLogin(){ $('lerr').textContent=''; const u=$('luser').value.tri
   if(!u||!p){$('lerr').textContent='Enter username and password.';return;}
   try{ const r=await _fetch(`${API}/auth/login`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:u,password:p})}); const d=await r.json();
     if(!r.ok){$('lerr').textContent=d.detail||'Login failed.';return;}
-    authToken=d.token; try{localStorage.setItem('expo_token',d.token);}catch(e){} currentUser=d.user; $('login').classList.remove('show'); onAuthed();
+    authToken=d.token; try{localStorage.setItem('expo_token',d.token);}catch(e){} currentUser=d.user; mustChangePw=!!d.must_change_password; $('login').classList.remove('show'); onAuthed();
   }catch(e){ $('lerr').textContent='Could not reach the server.'; } }
+
+let mustChangePw=false;
+async function doForcedPwChange(){
+  const err=$('pwcErr'); err.textContent='';
+  const oldPw=$('pwcOld').value, newPw=$('pwcNew').value, confirmPw=$('pwcConfirm').value;
+  if(!oldPw||!newPw){ err.textContent='Enter your current and new password.'; return; }
+  if(newPw.length<8){ err.textContent='New password must be at least 8 characters.'; return; }
+  if(newPw!==confirmPw){ err.textContent='New passwords do not match.'; return; }
+  if(newPw===oldPw){ err.textContent='New password must be different from the current one.'; return; }
+  try{
+    const r=await _fetch(`${API}/auth/change-password`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({old_password:oldPw,new_password:newPw})});
+    const d=await r.json();
+    if(!r.ok){ err.textContent=d.detail||'Password change failed.'; return; }
+    mustChangePw=false; $('pwchange').classList.remove('show'); onAuthed();
+  }catch(e){ err.textContent='Could not reach the server.'; }
+}
 function onAuthed(){
+  if(mustChangePw){ $('pwchange').classList.add('show'); return; }
   const nm=(currentUser&&(currentUser.username||currentUser.full_name))||'user';
   $('uav').textContent=nm.slice(0,2).toUpperCase();
   $('uname').textContent=(currentUser.full_name||nm);
   $('urole').textContent=((currentUser.role||'user').replace(/^\w/,c=>c.toUpperCase()));
+  const isAdmin=!!(currentUser&&currentUser.role==='admin');
+  const navSettings=$('navSettingsLink'); if(navSettings) navSettings.style.display=isAdmin?'':'none';
   loadProjects(); aiGreeting();
 }
 function logout(){ try{localStorage.removeItem('expo_token');}catch(e){} location.reload(); }
+// Matches the backend's /upload role check (admin + lead). Keep this in sync
+// with classic.html's uploadBtn/docsUploadBtn gating and main.py's
+// auth.require_roles(request, "admin", "lead") on /upload.
+function canUpload(){ return !!(currentUser && (currentUser.role==='admin' || currentUser.role==='lead')); }
 
 /* ============================================================
    TOP BAR
@@ -84,6 +117,8 @@ function logout(){ try{localStorage.removeItem('expo_token');}catch(e){} locatio
 function wireTopbar(){
   $('lbtn').onclick=doLogin;
   $('lpass').addEventListener('keydown',e=>{ if(e.key==='Enter')doLogin(); });
+  $('pwcBtn').onclick=doForcedPwChange;
+  $('pwcConfirm').addEventListener('keydown',e=>{ if(e.key==='Enter')doForcedPwChange(); });
   $('logoutBtn').onclick=logout;
   $('sbToggle').onclick=()=>{ document.body.classList.toggle('sb-collapsed'); document.body.classList.toggle('show-sb'); };
   $('sbCollapse').onclick=()=>document.body.classList.add('sb-collapsed');
@@ -111,6 +146,7 @@ async function loadProjects(){
   }catch(e){ toast('Could not load projects'); }
 }
 function selectProject(p){ currentProject=p; currentRevision=''; viewerLoaded=false; lastSel=null; ctxDoc=null; $('ctxCard').hidden=true;
+  currentAttachment=null; $('attachCard').hidden=true; $('attachMenu').hidden=true;
   $('pcName').textContent=p||'—';
   resetViewer();
   loadDocuments().then(()=>{ navigate(currentDest||'design'); });
@@ -128,11 +164,11 @@ async function loadDocuments(){
   refreshBadges();
 }
 function counts(){ return {
-  models:allDocs.filter(f=>rx.ifc.test(f.filename)).length,
-  drawings:allDocs.filter(f=>rx.dwg.test(f.filename)).length,
-  documents:allDocs.filter(f=>rx.doc.test(f.filename)).length,
-  specs:allDocs.filter(f=>rx.spec.test((f.folder||'')+' '+f.filename)).length,
-  schedules:allDocs.filter(f=>rx.sched.test(f.filename)).length,
+  models:allDocs.filter(byDest('models', f=>rx.ifc.test(f.filename))).length,
+  drawings:allDocs.filter(byDest('drawings', f=>rx.dwg.test(f.filename))).length,
+  documents:allDocs.filter(byDest('documents', f=>rx.doc.test(f.filename)&&!rx.spec.test((f.folder||'')+' '+f.filename))).length,
+  specs:allDocs.filter(byDest('specifications', f=>rx.spec.test((f.folder||'')+' '+f.filename))).length,
+  schedules:allDocs.filter(byDest('schedules', f=>rx.sched.test(f.filename))).length,
 }; }
 function buildRevSelect(){
   const revs=[...new Set(allDocs.map(f=>f._rev).filter(Boolean))].sort();
@@ -178,6 +214,7 @@ function setActiveNav(dest){ document.querySelectorAll('#app .nav a[data-dest]')
    WORKSPACE ROUTER
    ============================================================ */
 function navigate(dest){
+  if(dest==='settings' && !(currentUser&&currentUser.role==='admin')){ dest='overview'; }
   currentDest=dest; setActiveNav(dest);
   on3D=(dest==='design');
   const design=$('designWrap');
@@ -295,11 +332,11 @@ async function renderModels(b){
 }
 
 /* ---------- Drawings ---------- */
-function renderDrawings(b){ renderSplitDocs(b, docsBy(f=>rx.dwg.test(f.filename)), 'drawing', 'No drawings (PDF/DWG/DXF) in this project.'); }
+function renderDrawings(b){ renderSplitDocs(b, docsBy(byDest('drawings', f=>rx.dwg.test(f.filename))), 'drawing', 'No drawings (PDF/DWG/DXF) in this project.'); }
 /* ---------- Documents ---------- */
-function renderDocuments(b){ renderSplitDocs(b, docsBy(f=>rx.doc.test(f.filename)&&!rx.spec.test((f.folder||'')+' '+f.filename)), 'document', 'No documents in this project.'); }
+function renderDocuments(b){ renderSplitDocs(b, docsBy(byDest('documents', f=>rx.doc.test(f.filename)&&!rx.spec.test((f.folder||'')+' '+f.filename))), 'document', 'No documents in this project.'); }
 /* ---------- Specifications ---------- */
-function renderSpecifications(b){ renderSplitDocs(b, docsBy(f=>rx.spec.test((f.folder||'')+' '+f.filename)), 'specification', 'No specification documents detected. Specs are documents whose name/folder mentions spec / requirement / criteria.'); }
+function renderSpecifications(b){ renderSplitDocs(b, docsBy(byDest('specifications', f=>rx.spec.test((f.folder||'')+' '+f.filename))), 'specification', 'No specification documents detected. Specs are documents whose name/folder mentions spec / requirement / criteria.'); }
 
 function renderSplitDocs(b, list, kind, emptyMsg){
   if(!list.length){ b.innerHTML=`<div class="ws-scroll">${state(emptyMsg)}</div>`; return; }
@@ -329,38 +366,182 @@ function openInViewer(f){
 }
 
 /* ---------- Schedules (new endpoint) ---------- */
+/* Heuristic: does a row's values look like column headers (short, mostly
+   non-numeric labels like "NO.", "%", "INCL. BALCONY") rather than data? */
+function _looksLikeHeaderRow(vals){
+  const vs=Object.values(vals||{}).map(v=>String(v==null?'':v).trim()).filter(Boolean);
+  if(vs.length<2) return false;
+  const headerish=vs.filter(v=>v.length<=24 && !/^-?[\d.,]+%?$/.test(v)).length;
+  return headerish/vs.length >= 0.7;
+}
+function _colKeys(group){
+  const keys=new Set();
+  group.forEach(r=>Object.keys(r.row_values||{}).forEach(k=>keys.add(k)));
+  return [...keys].sort((a,b)=>{ const na=parseInt((a.match(/\d+/)||[0])[0],10), nb=parseInt((b.match(/\d+/)||[0])[0],10); return na-nb; });
+}
+
+/* ---------- Schedules: upload-your-own-data-file ---------- */
+async function _schedulesFolderId(){
+  // Reuse (or create) a single "Schedules" folder so uploaded data files land
+  // somewhere predictable and permission-scoped, same mechanism classic.html uses.
+  try{
+    const r=await fetch(`${API}/projects/${encodeURIComponent(currentProject)}/folders`);
+    const d=await r.json(); const folders=(d&&d.folders)||d||[];
+    const hit=(Array.isArray(folders)?folders:[]).find(f=>String(f.name||'').toLowerCase()==='schedules');
+    if(hit) return hit.id;
+    const cr=await fetch(`${API}/projects/${encodeURIComponent(currentProject)}/folders`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:'Schedules'})});
+    const cd=await cr.json();
+    if(!cr.ok) throw new Error((cd&&cd.detail)||'Could not create a Schedules folder');
+    return cd.folder&&cd.folder.id;
+  }catch(e){ toast('Could not prepare the Schedules folder: '+(e.message||e)); return null; }
+}
+/* Same upload mechanics as the Drawings / management screen (classic.html
+   uploadDirect): multi-file picker, same accepted types, one folder-scoped
+   POST to /upload per file, uploaded one after another. */
+function pickScheduleUpload(){
+  if(!currentProject){ toast('Select a project first'); return; }
+  let inp=$('schUploadInput');
+  if(!inp){
+    inp=document.createElement('input'); inp.type='file'; inp.id='schUploadInput'; inp.multiple=true;
+    inp.accept='.pdf,.docx,.xlsx,.xls,.csv,.png,.jpg,.jpeg,.webp,.bmp,.tif,.tiff,.dwg,.dxf';
+    inp.style.display='none'; document.body.appendChild(inp);
+  }
+  inp.value='';
+  inp.onchange=async()=>{
+    const files=[...inp.files]; inp.value='';
+    if(!files.length) return;
+    const folderId=await _schedulesFolderId(); if(!folderId) return;
+    let anyProcessing=false;
+    for(const f of files){
+      toast('Uploading '+f.name+' …', true);
+      const fd=new FormData(); fd.append('file',f); fd.append('project',currentProject); fd.append('folder_id',folderId);
+      try{
+        const r=await fetch(`${API}/upload`,{method:'POST',body:fd});
+        const j=await r.json().catch(()=>({}));
+        if(!r.ok) throw new Error(j.detail||('HTTP '+r.status));
+        toast(f.name+' — '+(j.status==='processing'?'processing in background':(j.message||'stored')));
+        if(j.status==='processing') anyProcessing=true;
+      }catch(err){ toast('Upload failed: '+f.name+' — '+(err.message||err)); }
+    }
+    await loadDocuments(); // refresh allDocs so the new file's folder is known to the Schedules filter
+    if(anyProcessing){ toast('Processing uploaded file(s) in background — this page will refresh automatically.'); _pollSchedulesAfterUpload(); }
+    else if($('genericWrap')) renderSchedules($('genericWrap'));
+  };
+  inp.click();
+}
+let _schPollTimer=null;
+function _pollSchedulesAfterUpload(){
+  if(_schPollTimer) clearInterval(_schPollTimer);
+  let tries=0, lastCount=-1;
+  _schPollTimer=setInterval(async()=>{
+    tries++;
+    try{
+      const r=await fetch(`${API}/api/v1/projects/${encodeURIComponent(currentProject)}/schedules`);
+      const d=await r.json(); const n=(d.rows||[]).length+(d.quantities||[]).length;
+      if(n!==lastCount){ lastCount=n; await loadDocuments(); if(currentDest==='schedules'&&$('genericWrap')) renderSchedules($('genericWrap')); }
+    }catch(e){}
+    if(tries>=20){ clearInterval(_schPollTimer); _schPollTimer=null; toast('Still processing — reopen Schedules in a moment if your data isn’t showing yet.'); }
+  }, 3000);
+}
+
+function _schedTableHTML(tname, group){
+  let headerRow=null, dataRows=group;
+  const cand=group.find(g=>_looksLikeHeaderRow(g.row_values));
+  if(cand){ headerRow=cand.row_values; dataRows=group.filter(g=>g!==cand); }
+  const cols=_colKeys(group);
+  const colLabel=(k,i)=> headerRow && headerRow[k] ? headerRow[k] : (k.replace(/^col/,'Col ')||('Col '+(i+1)));
+  return `<div class="dt-toolbar"><b>${esc(tname)}</b><span class="rr-sched-count" style="margin-left:4px">${dataRows.length} row${dataRows.length===1?'':'s'}</span>
+      <div class="dt-search" style="margin-left:auto"><svg class="ico" viewBox="0 0 24 24" style="width:14px;height:14px"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><input id="schTableFilter" placeholder="Filter this table…"></div></div>
+    <div class="rr-table-wrap">
+      <div class="rr-table-scroll"><table class="rr-table" id="schDetailTable">
+        <thead><tr><th>Key</th>${cols.map((c,i)=>`<th>${esc(colLabel(c,i))}</th>`).join('')}<th>Source</th><th>Page</th><th>Rev</th></tr></thead>
+        <tbody>${dataRows.map(row=>{
+          const rv=row.row_values||{};
+          return `<tr>
+            <td><b>${esc(row.row_key)}</b></td>
+            ${cols.map(c=>`<td>${esc(rv[c]!=null?rv[c]:'')}</td>`).join('')}
+            <td class="src" data-doc="${esc(row.doc)}" style="cursor:pointer;color:var(--accent2)">${esc(row.doc||'')}</td>
+            <td>${esc(row.page!=null?row.page:'')}</td><td>${esc(row.revision||'')}</td>
+          </tr>`;
+        }).join('')}</tbody>
+      </table></div>
+    </div>`;
+}
+function _schedQtyHTML(qty){
+  return `<div class="dt-toolbar"><b>Quantities</b><span class="rr-sched-count" style="margin-left:4px">${qty.length} rows</span>
+      <div class="dt-search" style="margin-left:auto"><svg class="ico" viewBox="0 0 24 24" style="width:14px;height:14px"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><input id="schTableFilter" placeholder="Filter this table…"></div></div>
+    <div class="rr-table-wrap"><div class="rr-table-scroll"><table class="rr-table" id="schDetailTable"><thead><tr><th>Building</th><th>Metric</th><th>Value</th><th>Unit</th><th>Source</th><th>Page</th><th>Rev</th></tr></thead><tbody>
+    ${qty.map(q=>`<tr><td>${esc(q.building)}</td><td><b>${esc(q.metric)}</b></td><td>${esc(q.value)}</td><td>${esc(q.unit)}</td>
+      <td class="src" data-doc="${esc(q.source_doc)}" style="cursor:pointer;color:var(--accent2)">${esc(q.source_doc)}</td><td>${esc(q.source_page!=null?q.source_page:'')}</td><td>${esc(q.revision||'')}</td></tr>`).join('')}</tbody></table></div></div>`;
+}
+
 async function renderSchedules(b){
   b.innerHTML=`<div class="ws-scroll" id="schBody">${state('Loading schedules…','load')}</div>`;
+  const canUp=canUpload();
+  const uploadBtn=canUp ? `<button class="primary" id="schUploadBtn">${svg('<path d="M12 3v12m0-12 5 5m-5-5-5 5M5 21h14"/>')} Upload data file</button>` : '';
   try{
     const r=await fetch(`${API}/api/v1/projects/${encodeURIComponent(currentProject)}/schedules`);
-    const d=await r.json(); const rows=d.rows||[], qty=d.quantities||[];
-    if(!rows.length && !qty.length){ $('schBody').innerHTML=state('No structured schedule rows or quantities extracted yet. Enable structured extraction (config: enable_structured_tables / enable_quantities_store) and re-index, then they appear here.'); return; }
-    let html='';
-    if(rows.length){
-      html+=`<div class="dt-toolbar"><b>Schedule rows (${rows.length})</b>
-        <div class="dt-search"><svg class="ico" viewBox="0 0 24 24" style="width:14px;height:14px"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><input id="schFilter" placeholder="Filter rows…"></div></div>
-        <table class="dt" id="schTable"><thead><tr>
-          <th data-k="table_name">Table</th><th data-k="row_key">Key</th><th data-k="values">Values</th><th data-k="doc">Source</th><th data-k="page">Page</th><th data-k="revision">Rev</th>
-        </tr></thead><tbody>
-        ${rows.map(r=>`<tr>
-          <td>${esc(r.table_name)}</td><td><b>${esc(r.row_key)}</b></td>
-          <td>${esc(Object.entries(r.row_values||{}).map(([k,v])=>`${k}: ${v}`).join(', '))}</td>
-          <td class="src" data-doc="${esc(r.doc)}">${esc(r.doc)}</td><td>${esc(r.page!=null?r.page:'')}</td><td>${esc(r.revision||'')}</td>
-        </tr>`).join('')}</tbody></table>`;
+    const d=await r.json();
+    // Scope Schedules to documents actually uploaded INTO the Schedules folder
+    // (via the Upload button here) — not every structured table extracted from
+    // any document anywhere in the project (that's what made unrelated rows,
+    // like ones pulled from a Documents-workspace upload, show up here).
+    const schedFiles=new Set(allDocs.filter(f=>String(f.folder||'').toLowerCase()==='schedules').map(f=>f.filename));
+    const rows=(d.rows||[]).filter(row=>schedFiles.has(row.doc));
+    const qty=(d.quantities||[]).filter(q=>schedFiles.has(q.source_doc));
+    if(!rows.length && !qty.length){
+      const emptyMsg=canUp
+        ? 'Nothing uploaded into Schedules yet. Click "Upload data file" above (Excel, CSV, PDF or Word) and it will be parsed into clean tables here automatically — pick a table from the list and view its data in detail. This view only shows files uploaded here, not every document in the project.'
+        : 'Nothing uploaded into Schedules yet. Ask an admin or project lead to upload a schedule file (Excel, CSV, PDF or Word) and it will appear here automatically.';
+      b.innerHTML=(canUp?`<div class="ws-scroll"><div class="dt-toolbar">${uploadBtn}</div>`:'<div class="ws-scroll">')+state(emptyMsg)+`</div>`;
+      const ub=$('schUploadBtn'); if(ub) ub.onclick=pickScheduleUpload;
+      return;
     }
-    if(qty.length){
-      html+=`<div class="dt-toolbar" style="margin-top:22px"><b>Quantities (${qty.length})</b></div>
-        <table class="dt"><thead><tr><th>Building</th><th>Metric</th><th>Value</th><th>Unit</th><th>Source</th><th>Page</th><th>Rev</th></tr></thead><tbody>
-        ${qty.map(q=>`<tr><td>${esc(q.building)}</td><td><b>${esc(q.metric)}</b></td><td>${esc(q.value)}</td><td>${esc(q.unit)}</td>
-          <td>${esc(q.source_doc)}</td><td>${esc(q.source_page!=null?q.source_page:'')}</td><td>${esc(q.revision||'')}</td></tr>`).join('')}</tbody></table>`;
+
+    // group rows by their source table, preserving first-seen order
+    const order=[], groups={};
+    rows.forEach(r=>{ const k=r.table_name||'(Table)'; if(!groups[k]){ groups[k]=[]; order.push(k); } groups[k].push(r); });
+
+    // List-then-detail split (same pattern as Documents / Drawings / QA): pick a
+    // schedule from the list on the left, see its full table on the right.
+    b.innerHTML=`<div class="split">
+      <div class="list-col" id="schList"></div>
+      <div class="gutter" title="Drag to resize"></div>
+      <div class="view-col" id="schView">${state('Select a schedule to view its data.')}</div>
+    </div>`;
+    initSplitter(b.querySelector('.split'));
+
+    const lc=$('schList');
+    lc.innerHTML=(uploadBtn?`<div style="padding:10px 10px 6px">${uploadBtn}</div>`:'')
+      + `<div class="dt-search" style="margin:0 10px 10px"><svg class="ico" viewBox="0 0 24 24" style="width:14px;height:14px"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><input id="schListFilter" placeholder="Filter schedules…"></div>`
+      + order.map((tname,i)=>`<div class="li" data-i="${i}"><div class="fn"><b>${esc(tname)}</b><span>${groups[tname].length} row${groups[tname].length===1?'':'s'}</span></div></div>`).join('')
+      + (qty.length?`<div class="li" data-qty="1"><div class="fn"><b>Quantities</b><span>${qty.length} row${qty.length===1?'':'s'}</span></div></div>`:'');
+
+    function wireDetail(){
+      const tf=$('schTableFilter');
+      if(tf) tf.oninput=()=>{
+        const q=tf.value.toLowerCase();
+        $('schDetailTable').querySelectorAll('tbody tr').forEach(tr=>{ tr.style.display=tr.textContent.toLowerCase().includes(q)?'':'none'; });
+      };
+      if($('schDetailTable')) enableSort($('schDetailTable'));
+      $('schView').querySelectorAll('td.src').forEach(td=>{ const doc=td.dataset.doc; const f=allDocs.find(x=>x.filename===doc); if(f){ td.onclick=()=>openFile(f.rel); } });
     }
-    $('schBody').innerHTML=html;
-    const flt=$('schFilter');
-    if(flt) flt.oninput=()=>{ const q=flt.value.toLowerCase(); $('schTable').querySelectorAll('tbody tr').forEach(tr=>{ tr.style.display=tr.textContent.toLowerCase().includes(q)?'':'none'; }); };
-    // sortable headers
-    if($('schTable')) enableSort($('schTable'));
-    $('schBody').querySelectorAll('td.src').forEach(td=>{ const doc=td.dataset.doc; const f=allDocs.find(x=>x.filename===doc); if(f){ td.style.cursor='pointer'; td.style.color='var(--accent2)'; td.onclick=()=>openFile(f.rel); } });
-  }catch(e){ $('schBody').innerHTML=state('Schedules endpoint unavailable.','err'); }
+    function showTable(i){ $('schView').innerHTML=_schedTableHTML(order[i], groups[order[i]]); wireDetail(); }
+    function showQty(){ $('schView').innerHTML=_schedQtyHTML(qty); wireDetail(); }
+
+    lc.querySelectorAll('.li').forEach(li=>li.onclick=()=>{
+      lc.querySelectorAll('.li').forEach(x=>x.classList.remove('on')); li.classList.add('on');
+      if(li.dataset.qty) showQty(); else showTable(+li.dataset.i);
+    });
+    const firstLi=lc.querySelector('.li'); if(firstLi) firstLi.click();
+
+    const ub2=$('schUploadBtn'); if(ub2) ub2.onclick=pickScheduleUpload;
+    const lf=$('schListFilter');
+    if(lf) lf.oninput=()=>{
+      const q=lf.value.toLowerCase();
+      lc.querySelectorAll('.li').forEach(li=>{ li.style.display=li.textContent.toLowerCase().includes(q)?'':'none'; });
+    };
+  }catch(e){ b.innerHTML=state('Schedules endpoint unavailable.','err'); }
 }
 function enableSort(table){
   table.querySelectorAll('th').forEach((th,idx)=>{ th.onclick=()=>{
@@ -458,14 +639,23 @@ function wireReportGen(){ const btn=$('repGen'); if(!btn)return;
 
 /* ---------- Settings ---------- */
 function renderSettings(b){
+  const role=(currentUser&&currentUser.role)||'user';
+  const isAdmin=role==='admin';
+  const canUp=canUpload();
+  const mgmtNote=isAdmin
+    ? 'Upload, folders, user accounts and admin tools remain in the existing management screen.'
+    : (canUp
+        ? 'Upload and folder access for your projects remain in the existing management screen.'
+        : 'You have query-only access. Folder access and uploads are managed by an admin or project lead — open the management screen below to view the documents you have access to.');
+  const mgmtBtnLabel=canUp ? 'Open management / upload screen' : 'Open documents screen';
   b.innerHTML=`<div class="ws-scroll">
     <h3 style="margin-top:0">Project Settings</h3>
     <div class="tiles">
       <div class="tile"><h4>Project</h4><div class="big" style="font-size:18px">${esc(currentProject||'—')}</div><p>${esc(counts().models)} models · ${esc(allDocs.length)} files</p></div>
-      <div class="tile"><h4>Signed in as</h4><div class="big" style="font-size:18px">${esc((currentUser&&(currentUser.full_name||currentUser.username))||'—')}</div><p>Role: ${esc((currentUser&&currentUser.role)||'—')}</p></div>
+      <div class="tile"><h4>Signed in as</h4><div class="big" style="font-size:18px">${esc((currentUser&&(currentUser.full_name||currentUser.username))||'—')}</div><p>Role: ${esc(role)}</p></div>
     </div>
-    <p class="muted" style="margin-top:18px">Upload, folders, members and admin tools remain in the existing management screen.</p>
-    <button class="ghost" onclick="window.open('/ui/classic.html','_blank')">Open management / upload screen</button>
+    <p class="muted" style="margin-top:18px">${esc(mgmtNote)}</p>
+    <button class="ghost" onclick="window.open('/ui/classic.html','_blank')">${esc(mgmtBtnLabel)}</button>
   </div>`;
 }
 
@@ -494,6 +684,14 @@ function wireCopilot(){
   $('aiSend').onclick=()=>sendAi();
   $('aiIn').addEventListener('keydown',e=>{ if(e.key==='Enter'&&!e.shiftKey){ e.preventDefault(); sendAi(); } });
   $('ctxClear').onclick=()=>{ lastSel=null; $('ctxCard').hidden=true; updateCtxActions(); };
+  $('aiAttachBtn').onclick=toggleAttachMenu;
+  $('attachMenuUpload').onclick=()=>{ hideAttachMenu(); pickChatAttachmentFile(); };
+  $('attachClear').onclick=clearAttachment;
+  document.addEventListener('click',e=>{
+    const m=$('attachMenu'); if(m.hidden) return;
+    if(e.target.closest('#attachMenu')||e.target.closest('#aiAttachBtn')) return;
+    hideAttachMenu();
+  });
 }
 function setAiTab(tab){
   $('aiTabs').querySelectorAll('.ai-tab').forEach(t=>t.classList.toggle('on',t.dataset.tab===tab));
@@ -525,6 +723,87 @@ let ctxDoc=null;
 function showCtx(kind, title, sub, icon, detail){
   $('ctxCard').hidden=false;
   $('ctxBody').innerHTML=`<div class="thumb">${icon||'▣'}</div><div style="min-width:0"><span class="muted" style="font-size:10.5px;text-transform:uppercase;letter-spacing:.4px">${esc(kind)}</span><b style="display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(title)}</b><span>${esc(sub||'')}</span></div>`;
+}
+
+/* --- private chat attachments: the Copilot "+" button. Uploaded here, these
+   are visible only to the uploading user (and to admins read-only) and are
+   never added to the project's shared Documents/Drawings/Schedules — see
+   /chat/attachments in main.py. Scoped to the current project; reset on
+   project switch in selectProject(). --- */
+let currentAttachment=null;   // {id, filename, status}
+let _attachPollTimer=null;
+function toggleAttachMenu(){ const m=$('attachMenu'); if(m.hidden) showAttachMenu(); else hideAttachMenu(); }
+function hideAttachMenu(){ $('attachMenu').hidden=true; }
+async function showAttachMenu(){
+  if(!currentProject){ toast('Select a project first'); return; }
+  const m=$('attachMenu'); m.hidden=false;
+  const list=$('attachMenuList'), sep=$('attachMenuSep');
+  list.innerHTML=`<div class="muted" style="padding:8px 9px;font-size:11.5px">Loading your uploads…</div>`;
+  try{
+    const r=await fetch(`${API}/chat/attachments?project=${encodeURIComponent(currentProject)}`);
+    const d=await r.json(); const items=d.attachments||[];
+    if(!items.length){ list.innerHTML=''; sep.hidden=true; return; }
+    sep.hidden=false;
+    list.innerHTML=items.map(a=>`<button class="attach-menu-item" data-id="${a.id}">
+        ${svg('<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/>',14)}
+        <span class="fn">${esc(a.filename)}</span><span class="st">${a.status==='ready'?'':(a.status==='error'?'failed':'processing…')}</span>
+      </button>`).join('');
+    list.querySelectorAll('.attach-menu-item').forEach(btn=>{
+      btn.onclick=()=>{ const a=items.find(x=>String(x.id)===btn.dataset.id); hideAttachMenu(); if(a) attachExisting(a); };
+    });
+  }catch(e){ list.innerHTML=`<div class="muted" style="padding:8px 9px;font-size:11.5px">Could not load your uploads.</div>`; sep.hidden=true; }
+}
+function pickChatAttachmentFile(){
+  if(!currentProject){ toast('Select a project first'); return; }
+  let inp=$('chatAttachInput');
+  if(!inp){
+    inp=document.createElement('input'); inp.type='file'; inp.id='chatAttachInput';
+    inp.accept='.pdf,.docx,.xlsx,.xls,.csv,.txt,.png,.jpg,.jpeg,.webp,.bmp,.tif,.tiff';
+    inp.style.display='none'; document.body.appendChild(inp);
+  }
+  inp.value='';
+  inp.onchange=async()=>{
+    const f=inp.files[0]; inp.value=''; if(!f) return;
+    toast('Uploading '+f.name+' …', true);
+    const fd=new FormData(); fd.append('file',f); fd.append('project',currentProject);
+    try{
+      const r=await fetch(`${API}/chat/attachments`,{method:'POST',body:fd});
+      const j=await r.json().catch(()=>({}));
+      if(!r.ok) throw new Error(j.detail||('HTTP '+r.status));
+      attachExisting(j);
+      toast(f.name+' attached — only you can see this.');
+    }catch(err){ toast('Attach failed: '+(err.message||err)); }
+  };
+  inp.click();
+}
+function attachExisting(att){
+  currentAttachment={id:att.id, filename:att.filename, status:att.status||'processing'};
+  showAttachChip(currentAttachment);
+  if(currentAttachment.status!=='ready' && currentAttachment.status!=='error') pollAttachment(currentAttachment.id);
+}
+function pollAttachment(id){
+  if(_attachPollTimer) clearInterval(_attachPollTimer);
+  let tries=0;
+  _attachPollTimer=setInterval(async()=>{
+    tries++;
+    try{
+      const r=await fetch(`${API}/chat/attachments/${id}`);
+      if(r.ok){ const a=await r.json();
+        if(currentAttachment && currentAttachment.id===id){ currentAttachment.status=a.status; showAttachChip(currentAttachment); }
+        if(a.status==='ready'||a.status==='error'){ clearInterval(_attachPollTimer); _attachPollTimer=null; return; }
+      }
+    }catch(e){}
+    if(tries>=20){ clearInterval(_attachPollTimer); _attachPollTimer=null; }
+  }, 2000);
+}
+function showAttachChip(att){
+  $('attachCard').hidden=false;
+  const statusTxt=att.status==='ready'?'Ready — Design AI will use this first':(att.status==='error'?'Could not read this file':'Processing…');
+  $('attachBody').innerHTML=`<div class="thumb">${fileTypeIcon(fileExt(att.filename))}</div><div style="min-width:0"><span class="muted" style="font-size:10.5px;text-transform:uppercase;letter-spacing:.4px">Private · only you</span><b style="display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(att.filename)}</b><span>${esc(statusTxt)}</span></div>`;
+}
+function clearAttachment(){
+  if(_attachPollTimer){ clearInterval(_attachPollTimer); _attachPollTimer=null; }
+  currentAttachment=null; $('attachCard').hidden=true;
 }
 
 /* --- contextual suggested actions (all real: AI query, navigation, or fetch) --- */
@@ -621,7 +900,7 @@ function updateAiCtx(){
 }
 
 /* --- streaming client (protected: reuse SSE contract verbatim) --- */
-async function stream(display,endpoint,body){ const bub=addMsg('a','<span class="faint">…</span>'); let ans='';
+async function stream(display,endpoint,body){ const bub=addMsg('a','<span class="faint">…</span>'); let ans=''; let structured=null;
   try{ const r=await fetch(endpoint,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
     if(!r.ok){ bub.innerHTML='<span style="color:var(--red)">Error '+r.status+'</span>'; return; }
     const rd=r.body.getReader(); const dec=new TextDecoder(); let buf='';
@@ -631,6 +910,7 @@ async function stream(display,endpoint,body){ const bub=addMsg('a','<span class=
         if(d.type==='sources'){ lastSources=d.sources||[]; }
         else if(d.type==='token'){ ans+=d.text; bub.innerHTML=mdLite(ans)+(bub._ev||''); $('aiMsgs').scrollTop=$('aiMsgs').scrollHeight; }
         else if(d.type==='error'){ ans+='\n[error] '+d.message; bub.innerHTML=mdLite(ans); }
+        else if(d.type==='structured'){ structured=d.data||null; }
       } }
     // Show only the sources the answer actually cited
     { const hasCites=/\[SOURCE:/i.test(ans); const cited=citedSources(ans,lastSources);
@@ -639,8 +919,36 @@ async function stream(display,endpoint,body){ const bub=addMsg('a','<span class=
       bub._ev = evHTML(showSrc);
       bub.innerHTML = mdLite(ans)+bub._ev; }
     if(!ans&&!bub._ev) bub.innerHTML='<span class="faint">(no answer)</span>';
+    // Response Rendering Engine (additive): for document analysis / tables / metrics /
+    // calculations / issues answers, replace the plain bubble with the trusted structured
+    // renderer. A plain conversational answer (type "simple_answer") renders null and the
+    // bubble above is left exactly as it was.
+    try{
+      if(structured && window.ExpoResponseRenderer){
+        const card=window.ExpoResponseRenderer.render(structured);
+        if(card){ bub.innerHTML=''; bub.appendChild(card); $('aiMsgs').scrollTop=$('aiMsgs').scrollHeight; }
+      }
+    }catch(e){ /* never let the renderer break the plain answer that already rendered */ }
     aiHist.push({role:'user',content:body.query}); aiHist.push({role:'assistant',content:ans});
   }catch(e){ bub.innerHTML='<span style="color:var(--red)">Request failed: '+esc(e.message||e)+'</span>'; } }
+
+/* Open a cited source at its page using the EXISTING document viewer (no second viewer). */
+function openSourceTile(rel, page){
+  if(!rel){ return; }
+  const base=String(rel).replace(/\\/g,'/').split('/').pop();
+  const f=allDocs.find(x=>x.rel===rel || x.filename===base || (x.rel&&x.rel.endsWith('/'+base)));
+  if(!f){ openFile(rel); return; }
+  const dest=/\.(pdf|dwg|dxf)$/i.test(f.filename)?'drawings':(/\.(xlsx|xls|csv)$/i.test(f.filename)?'schedules':'documents');
+  if(currentDest!==dest){ try{ navigate(dest); }catch(e){} }
+  setTimeout(()=>{
+    const isPdf=/\.pdf$/i.test(f.filename);
+    const v=$('docView');
+    if(v && isPdf){ const pg=page?('#page='+page):''; v.innerHTML=`<div class="docframe-wrap"><iframe class="docframe" src="${fileURL(f.rel)}${pg||'#toolbar=1'}"></iframe></div>`; setDocContext(f); }
+    else if(v){ openInViewer(f); }
+    else { openFile(f.rel); }
+  }, dest===currentDest?0:60);
+}
+window.openSourceTile = openSourceTile;
 
 /* Parse [SOURCE: name | PAGE n] citations from the answer and keep only those sources */
 function citedSources(ans,sources){
@@ -693,7 +1001,8 @@ async function sendAi(standards){ const t=$('aiIn'); const q=t.value.trim();
     let scoped=q+revNote;
     const _focus=(ctxDoc&&(currentDest==='documents'||currentDest==='specifications'||currentDest==='drawings'))?(ctxDoc.rel||''):'';
     if(_focus) scoped=`Regarding "${ctxDoc.filename}": `+scoped;
-    await stream(q,`${API}/ask_stream`,{project:currentProject,query:prefix+scoped,messages:aiHist.slice(-8),k:8,focus_doc:_focus}); }
+    const _attId=(currentAttachment&&currentAttachment.id)||null;
+    await stream(q,`${API}/ask_stream`,{project:currentProject,query:prefix+scoped,messages:aiHist.slice(-8),k:8,focus_doc:_focus,attachment_id:_attId}); }
 }
 
 /* --- References pane --- */

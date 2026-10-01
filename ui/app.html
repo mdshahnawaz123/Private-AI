@@ -230,11 +230,20 @@ table.dt tr:hover td{background:#0e1826}
 .ai-comp textarea:focus{outline:none;border-color:var(--accent)}
 .ai-comp .send{background:var(--accent);border:none;color:#fff;width:42px;height:42px;border-radius:11px;display:grid;place-items:center;flex:none}
 .ai-comp .send:hover{filter:brightness(1.08)}
+.attach-card{border-left:2px solid var(--violet)}
+.attach-menu{position:relative;margin:0 13px;background:var(--card);border:1px solid var(--border);border-radius:var(--r-lg);box-shadow:0 10px 28px -10px rgba(0,0,0,.5);max-height:220px;overflow:auto;padding:6px}
+.attach-menu-item{display:flex;align-items:center;gap:8px;width:100%;background:none;border:none;color:var(--text);text-align:left;padding:8px 9px;border-radius:9px;font-size:12px;cursor:pointer}
+.attach-menu-item:hover{background:var(--card2)}
+.attach-menu-sep{border-top:1px solid var(--border);margin:5px 2px}
+.attach-menu-list .attach-menu-item span.fn{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.attach-menu-list .attach-menu-item span.st{font-size:10px;color:var(--faint);flex:none}
 .ai-ctx{font-size:10.5px;color:var(--faint);padding:6px 14px 10px}.ai-ctx b{color:var(--cyan)}
 
 /* ---------- login ---------- */
 #login{position:fixed;inset:0;background:rgba(6,9,14,.94);display:none;place-items:center;z-index:100}
 #login.show{display:grid}
+#pwchange{position:fixed;inset:0;background:rgba(6,9,14,.94);display:none;place-items:center;z-index:101}
+#pwchange.show{display:grid}
 .lcard{background:var(--surface2);border:1px solid var(--border);border-radius:16px;padding:30px 28px;width:340px;box-shadow:var(--shadow-2)}
 .lcard .lg{width:44px;height:44px;border-radius:11px;background:linear-gradient(150deg,var(--accent),var(--violet));display:grid;place-items:center;font-weight:800;color:#fff;font-size:22px;margin-bottom:16px}
 .lcard h2{margin:0 0 3px;font-size:19px}.lcard p{margin:0 0 18px;color:var(--muted);font-size:12.5px}
@@ -262,6 +271,99 @@ table.dt tr:hover td{background:#0e1826}
   .list-col{border-right:none;border-bottom:1px solid var(--border)}
   .gutter{display:none}
 }
+
+/* ============================================================
+   RESPONSE RENDERING ENGINE — structured AI-answer cards
+   Exact color system per spec. Dark-on-dark by default (matches the
+   surrounding Copilot chat); .rr-light flips a single card to the
+   light engineering-document palette. Status colors never change
+   meaning between themes.
+   ============================================================ */
+:root{
+  /* Response Rendering Engine color tokens — usable by any .rr-* element,
+     not just inside a .rr-card (e.g. the Schedules workspace tables). */
+  --rrblue:#2563EB; --rrgreen:#16A34A; --rramber:#D97706; --rrred:#DC2626; --rrpurple:#7C3AED;
+  --rrbg:#111c30; --rrsurface:#16233b; --rrborder:#28395a; --rrtext:#e8eef7; --rrmuted:#8ea0ba;
+}
+.rr-light, .rr-card.rr-light{
+  --rrbg:#F4F7FB; --rrsurface:#FFFFFF; --rrborder:#E2E8F0; --rrtext:#172033; --rrmuted:#64748B;
+}
+.rr-card{
+  margin:10px 0; border:1px solid var(--rrborder); border-radius:var(--r-lg); background:var(--rrbg);
+  color:var(--rrtext); font-size:13px; overflow:hidden;
+}
+.rr-head{padding:14px 16px 10px;border-bottom:1px solid var(--rrborder)}
+.rr-head-top{display:flex;align-items:center;gap:8px;justify-content:space-between}
+.rr-type-badge{font-size:10px;letter-spacing:.04em;text-transform:uppercase;font-weight:700;color:var(--rrmuted)}
+.rr-title{font-size:16px;font-weight:700;margin-top:6px}
+.rr-subtitle{font-size:12px;color:var(--rrmuted);margin-top:2px}
+.rr-body{padding:14px 16px}
+.rr-summary{margin:0 0 12px;line-height:1.5}
+.rr-status{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:700;letter-spacing:.03em;
+  padding:3px 8px;border-radius:999px;text-transform:uppercase;white-space:nowrap}
+.rr-c-blue{background:rgba(37,99,235,.16);color:var(--rrblue)}
+.rr-c-green{background:rgba(22,163,74,.16);color:var(--rrgreen)}
+.rr-c-amber{background:rgba(217,119,6,.16);color:var(--rramber)}
+.rr-c-red{background:rgba(220,38,38,.16);color:var(--rrred)}
+.rr-c-purple{background:rgba(124,58,237,.16);color:var(--rrpurple)}
+.rr-c-gray{background:rgba(142,160,186,.16);color:var(--rrmuted)}
+.rr-conf{display:inline-flex;align-items:center;gap:5px;font-size:10px;font-weight:700;padding:3px 8px;border-radius:999px}
+.rr-dot{width:6px;height:6px;border-radius:50%;background:currentColor;display:inline-block}
+.rr-metrics{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin-bottom:14px}
+.rr-metric{background:var(--rrsurface);border:1px solid var(--rrborder);border-radius:var(--r-md);padding:10px 12px}
+.rr-metric-label{font-size:11px;color:var(--rrmuted);margin-bottom:4px}
+.rr-metric-value{font-size:18px;font-weight:700}
+.rr-metric-desc{font-size:11px;color:var(--rrmuted);margin-top:3px}
+.rr-metric-badge{margin-top:6px}
+.rr-section{margin:14px 0}
+.rr-section-h{font-size:11px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;color:var(--rrmuted);margin-bottom:8px}
+.rr-table-wrap{margin:10px 0 16px;border:1px solid var(--rrborder);border-radius:var(--r-md);overflow:hidden;background:var(--rrsurface)}
+.rr-table-toolbar{display:flex;align-items:center;gap:8px;padding:8px 10px;border-bottom:1px solid var(--rrborder);flex-wrap:wrap}
+.rr-table-search{flex:1;min-width:120px;background:var(--rrbg);border:1px solid var(--rrborder);border-radius:var(--r-sm);
+  color:var(--rrtext);padding:5px 8px;font-size:12px}
+.rr-table-scroll{max-height:360px;overflow:auto}
+.rr-table{width:100%;border-collapse:collapse;font-size:12.5px}
+.rr-table thead th{position:sticky;top:0;background:var(--rrsurface);border-bottom:1px solid var(--rrborder);
+  text-align:left;padding:7px 10px;cursor:pointer;white-space:nowrap;color:var(--rrmuted);font-weight:700}
+.rr-table td{padding:6px 10px;border-bottom:1px solid var(--rrborder)}
+.rr-calc{background:var(--rrsurface);border:1px solid var(--rrborder);border-radius:var(--r-md);padding:10px 12px;margin-bottom:8px}
+.rr-calc-row{display:flex;gap:10px;padding:3px 0;font-size:12.5px}
+.rr-calc-k{min-width:70px;color:var(--rrmuted);font-weight:600}
+.rr-mono{font-family:ui-monospace,Consolas,monospace}
+.rr-issue{display:flex;align-items:flex-start;gap:8px;padding:8px 10px;border-radius:var(--r-md);
+  background:var(--rrsurface);border-left:3px solid currentColor;margin-bottom:6px;font-size:12.5px}
+.rr-sources{display:flex;flex-direction:column;gap:6px}
+.rr-source{background:var(--rrsurface);border:1px solid var(--rrborder);border-radius:var(--r-md);
+  padding:8px 10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:12px}
+.rr-source-main{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.rr-source-doc{font-weight:700}
+.rr-source-pg,.rr-source-sec,.rr-source-rev{color:var(--rrmuted)}
+.rr-source-tile{color:var(--rrmuted);font-size:11px;font-family:ui-monospace,Consolas,monospace}
+.rr-btn,.rr-btn-sm{background:var(--rrsurface);border:1px solid var(--rrborder);color:var(--rrtext);
+  border-radius:var(--r-sm);padding:5px 10px;font-size:12px;cursor:pointer}
+.rr-btn-sm{padding:3px 8px;font-size:11px;margin-left:auto}
+.rr-btn:hover,.rr-btn-sm:hover,.rr-view-tile:hover{border-color:var(--rrblue);color:var(--rrblue)}
+.rr-view-tile{background:none;border:1px solid var(--rrborder);color:var(--rrblue);border-radius:var(--r-sm);
+  padding:4px 9px;font-size:11px;font-weight:700;cursor:pointer;letter-spacing:.02em}
+.rr-exports{display:flex;gap:6px;padding:10px 16px;border-top:1px solid var(--rrborder);flex-wrap:wrap}
+.rr-collapse{border-top:1px solid var(--rrborder);padding:4px 0}
+.rr-collapse:first-child{border-top:none}
+.rr-collapse-h{display:flex;align-items:center;gap:6px;padding:8px 2px;cursor:pointer;font-weight:700;font-size:12px;
+  text-transform:uppercase;letter-spacing:.03em;color:var(--rrmuted)}
+.rr-chev{transition:transform .15s}
+.rr-collapse.open .rr-chev{transform:rotate(90deg)}
+.rr-collapse-b{padding:2px 2px 8px}
+
+/* Schedules workspace — one real table per source table, grouped & collapsible */
+.rr-sched-groups{display:flex;flex-direction:column;gap:10px}
+.rr-sched-group{border:1px solid var(--rrborder);border-radius:var(--r-lg);background:var(--rrbg);overflow:hidden}
+.rr-sched-group summary{list-style:none;display:flex;align-items:center;gap:8px;padding:11px 14px;cursor:pointer;
+  color:var(--rrtext);font-size:13px;user-select:none}
+.rr-sched-group summary::-webkit-details-marker{display:none}
+.rr-sched-group .rr-chev{color:var(--rrmuted);transition:transform .15s}
+.rr-sched-group[open] .rr-chev{transform:rotate(90deg)}
+.rr-sched-count{margin-left:auto;color:var(--rrmuted);font-size:11px;font-weight:600}
+.rr-sched-group .rr-table-wrap{border:none;border-top:1px solid var(--rrborder);border-radius:0;margin:0}
 </style>
 </head>
 <body>
@@ -303,7 +405,7 @@ table.dt tr:hover td{background:#0e1826}
     <div class="nav-h">Project</div>
     <nav class="nav" id="navMain"></nav>
     <div class="sb-foot">
-      <div class="nav" style="padding:0"><a data-dest="settings"><svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8 2 2 0 1 1-2.8 2.8 1.6 1.6 0 0 0-2.8 1V21a2 2 0 0 1-4 0 1.6 1.6 0 0 0-2.8-1 2 2 0 1 1-2.8-2.8 1.6 1.6 0 0 0-1-2.8H3a2 2 0 0 1 0-4 1.6 1.6 0 0 0 1-2.8 2 2 0 1 1 2.8-2.8 1.6 1.6 0 0 0 2.8-1V3a2 2 0 0 1 4 0 1.6 1.6 0 0 0 2.8 1 2 2 0 1 1 2.8 2.8 1.6 1.6 0 0 0 1 2.8H21a2 2 0 0 1 0 4 1.6 1.6 0 0 0-1.6 1z"/></svg> Project Settings</a></div>
+      <div class="nav" style="padding:0"><a data-dest="settings" id="navSettingsLink"><svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8 2 2 0 1 1-2.8 2.8 1.6 1.6 0 0 0-2.8 1V21a2 2 0 0 1-4 0 1.6 1.6 0 0 0-2.8-1 2 2 0 1 1-2.8-2.8 1.6 1.6 0 0 0-1-2.8H3a2 2 0 0 1 0-4 1.6 1.6 0 0 0 1-2.8 2 2 0 1 1 2.8-2.8 1.6 1.6 0 0 0 2.8-1V3a2 2 0 0 1 4 0 1.6 1.6 0 0 0 2.8 1 2 2 0 1 1 2.8 2.8 1.6 1.6 0 0 0 1 2.8H21a2 2 0 0 1 0 4 1.6 1.6 0 0 0-1.6 1z"/></svg> Project Settings</a></div>
       <button class="collapsebtn" id="sbCollapse">« Collapse</button>
     </div>
   </aside>
@@ -340,9 +442,29 @@ table.dt tr:hover td{background:#0e1826}
         <div class="ctx-body" id="ctxBody"></div>
       </div>
       <div class="ctx-actions" id="ctxActions"></div>
+      <!-- Private attachment: a file this user attached themselves. Only they
+           (and admins, for oversight) can see it; it never joins the shared
+           project document list. -->
+      <div class="ctx-card attach-card" id="attachCard" hidden>
+        <div class="ch"><div class="t"><svg class="ico" viewBox="0 0 24 24" style="width:13px;height:13px"><path d="M21.44 11.05l-9.19 9.19a5 5 0 0 1-7.07-7.07l9.19-9.19a3.5 3.5 0 0 1 4.95 4.95L10.13 17.1a2 2 0 0 1-2.83-2.83l8.49-8.49"/></svg> Your private attachment</div><button class="x" id="attachClear">×</button></div>
+        <div class="ctx-body" id="attachBody"></div>
+      </div>
       <div class="ai-msgs" id="aiMsgs"></div>
       <div class="ai-ctx" id="aiCtx"></div>
+      <!-- Picker for private attachments: upload new, or reattach a past one.
+           Only ever lists THIS user's own uploads for THIS project. -->
+      <div class="attach-menu" id="attachMenu" hidden>
+        <button class="attach-menu-item attach-menu-upload" id="attachMenuUpload">
+          <svg class="ico" viewBox="0 0 24 24" style="width:14px;height:14px"><path d="M12 3v12m0-12 5 5m-5-5-5 5M5 21h14"/></svg>
+          Upload a new file…
+        </button>
+        <div class="attach-menu-sep" id="attachMenuSep" hidden></div>
+        <div class="attach-menu-list" id="attachMenuList"></div>
+      </div>
       <div class="ai-comp">
+        <button class="iconbtn" id="aiAttachBtn" title="Attach a file only you can see">
+          <svg class="ico" viewBox="0 0 24 24" style="width:17px;height:17px"><path d="M21.44 11.05l-9.19 9.19a5 5 0 0 1-7.07-7.07l9.19-9.19a3.5 3.5 0 0 1 4.95 4.95L10.13 17.1a2 2 0 0 1-2.83-2.83l8.49-8.49"/></svg>
+        </button>
         <textarea id="aiIn" rows="1" placeholder="Ask Design AI…"></textarea>
         <button class="send" id="aiSend"><svg class="ico" viewBox="0 0 24 24"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4z"/></svg></button>
       </div>
@@ -379,8 +501,22 @@ table.dt tr:hover td{background:#0e1826}
   </div>
 </div>
 
+<!-- FORCED PASSWORD CHANGE (default/seeded password still in use) -->
+<div id="pwchange">
+  <div class="lcard">
+    <div class="lg">E</div>
+    <h2>Change your password</h2><p>This account is still using its default/seeded password. Set a new one to continue.</p>
+    <label>Current password</label><input id="pwcOld" type="password" autocomplete="current-password">
+    <label>New password</label><input id="pwcNew" type="password" autocomplete="new-password">
+    <label>Confirm new password</label><input id="pwcConfirm" type="password" autocomplete="new-password">
+    <button id="pwcBtn">Set new password</button>
+    <div id="pwcErr"></div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
-<script src="/ui/app.js?v=6"></script>
+<script src="/ui/response_renderer.js?v=2"></script>
+<script src="/ui/app.js?v=17"></script>
 </body>
 </html>

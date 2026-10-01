@@ -398,6 +398,40 @@ def extract_structured_tables_from_pdf(meta: Dict[str, Any],
     return rows
 
 
+def extract_structured_tables_from_excel(meta: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """Structured tables from an uploaded .xlsx/.xls (extract.extract_excel's
+    meta shape: {"type":"excel","sheets":[{"sheet":name,"rows":[[cell,...],...]}]}).
+    Reuses parse_generic_tables by rendering each sheet as a pipe table, the same
+    row/column model already used for PDFs — so Schedules behaves identically
+    regardless of whether the data came from a drawing or a spreadsheet."""
+    filename = meta.get("filename", "")
+    revision = meta.get("revision", "")
+    rows: List[Dict[str, Any]] = []
+    for sheet in (meta.get("sheets") or []):
+        name = sheet.get("sheet") or "Sheet"
+        srows = sheet.get("rows") or []
+        if not srows:
+            continue
+        lines = [name] + ["| " + " | ".join(str(c) for c in r) + " |" for r in srows if any(str(c).strip() for c in r)]
+        rows.extend(parse_generic_tables("\n".join(lines), filename, None, revision))
+    return rows
+
+
+def extract_structured_tables_from_docx(meta: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """Structured tables from an uploaded .docx (extract.extract_docx's meta
+    shape: {"type":"docx","tables":[[[cell,...],...], ...]})."""
+    filename = meta.get("filename", "")
+    revision = meta.get("revision", "")
+    rows: List[Dict[str, Any]] = []
+    for idx, tbl in enumerate(meta.get("tables") or []):
+        if not tbl:
+            continue
+        name = "Table %d" % (idx + 1)
+        lines = [name] + ["| " + " | ".join(str(c) for c in r) + " |" for r in tbl if any(str(c).strip() for c in r)]
+        rows.extend(parse_generic_tables("\n".join(lines), filename, None, revision))
+    return rows
+
+
 def index_structured_tables(project_id, filename: str,
                             meta: Dict[str, Any]) -> int:
     """
@@ -415,7 +449,17 @@ def index_structured_tables(project_id, filename: str,
         logger.warning("index_structured_tables: unresolved project id for {} — skipping", filename)
         return 0
 
-    rows = extract_structured_tables_from_pdf(meta, project_id)
+    # Dispatch on the document type's metadata shape. Previously this always
+    # called the PDF extractor, which only reads meta["pages"] — so an uploaded
+    # .xlsx/.docx (meta shaped by extract_excel/extract_docx instead) silently
+    # produced zero ScheduleRow rows even though the upload itself succeeded.
+    _mtype = meta.get("type")
+    if _mtype == "excel":
+        rows = extract_structured_tables_from_excel(meta)
+    elif _mtype == "docx":
+        rows = extract_structured_tables_from_docx(meta)
+    else:
+        rows = extract_structured_tables_from_pdf(meta, project_id)
     count = 0
 
     # Replace this document's previous rows so a re-read refreshes values and does

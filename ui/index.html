@@ -107,7 +107,7 @@ body.sb-collapsed.ai-collapsed #app{grid-template-columns:0 1fr 0}
 .props-empty{color:var(--faint);font-size:12px;padding:16px 4px;line-height:1.6}
 
 /* lower zone */
-.lzone{display:grid;grid-template-columns:1fr 1.15fr 1.1fr;min-height:0;gap:0}
+.lzone{display:grid;grid-template-columns:1fr;min-height:0;gap:0}
 .lpanel{border-right:1px solid var(--border);display:flex;flex-direction:column;min-width:0;min-height:0;background:var(--bg)}
 .lpanel:last-child{border-right:none}
 .lp-h{display:flex;align-items:center;gap:9px;padding:9px 12px;border-bottom:1px solid var(--border);flex:none}
@@ -226,7 +226,7 @@ table.qa td{padding:6px 8px;border-bottom:1px solid #14203508;border-bottom:1px 
 .toast.show{opacity:1}
 
 @media (max-width:1600px){ :root{--sb:210px;--ai:312px;--props:230px} }
-@media (max-width:1300px){ .lzone{grid-template-columns:1fr 1fr} .lpanel:nth-child(3){display:none} }
+
 @media (max-width:1150px){ #app{grid-template-columns:0 1fr 0} #sb,#ai{position:absolute;top:var(--nav-h);bottom:0;width:280px;z-index:30} #sb{left:0}#ai{right:0} body:not(.show-sb) #sb{display:none} body:not(.show-ai) #ai{display:none} }
 
 /* ---- WorkspaceWindow (Expand / Restore, no remount) ---- */
@@ -351,65 +351,7 @@ body.has-fs #fsBar{display:flex}
           <div class="dwgprev" id="dwgPrev"><div class="ph">Select a drawing to preview it here.</div></div>
         </div>
       </div>
-      <!-- reports -->
-      <div class="lpanel ws-mod" id="wsReports">
-        <div class="lp-h"><svg class="ico" viewBox="0 0 24 24"><path d="M9 17V9M12 17v-5M15 17v-3"/><rect x="3" y="3" width="18" height="18" rx="2"/></svg><span class="t">Reports</span><span class="chip">Preview · Phase 8</span><button class="wsbtn" data-ws="reports" onclick="wsToggle('reports')"></button></div>
-        <div class="lp-b">
-          <div class="seg"><button class="on">Model QA</button><button>Compliance</button><button>Quantity Takeoff</button><button>Custom</button></div>
-          <table class="qa"><thead><tr><th>#</th><th>Issue</th><th>Category</th><th>Severity</th><th>Status</th></tr></thead>
-            <tbody>
-              <tr><td>1</td><td>Missing fire rating</td><td>Walls</td><td><span class="sev high"><span class="d"></span>High</span></td><td class="st open">Open</td></tr>
-              <tr><td>2</td><td>Wall thickness deviation</td><td>Walls</td><td><span class="sev med"><span class="d"></span>Medium</span></td><td class="st open">Open</td></tr>
-              <tr><td>3</td><td>Unclassified element</td><td>Doors</td><td><span class="sev med"><span class="d"></span>Medium</span></td><td class="st prog">In Progress</td></tr>
-              <tr><td>4</td><td>MEP clash</td><td>Walls</td><td><span class="sev high"><span class="d"></span>High</span></td><td class="st open">Open</td></tr>
-              <tr><td>5</td><td>Missing material</td><td>Slabs</td><td><span class="sev low"><span class="d"></span>Low</span></td><td class="st res">Resolved</td></tr>
-            </tbody></table>
-          <div class="qgrid">
-            <div style="text-align:center">
-              <svg width="104" height="104" viewBox="0 0 42 42">
-                <circle cx="21" cy="21" r="15.9" fill="none" stroke="#101c2f" stroke-width="7"/>
-                <circle cx="21" cy="21" r="15.9" fill="none" stroke="#f2585f" stroke-width="7" stroke-dasharray="43 57" stroke-dashoffset="25"/>
-                <circle cx="21" cy="21" r="15.9" fill="none" stroke="#f5b73d" stroke-width="7" stroke-dasharray="21 79" stroke-dashoffset="-18"/>
-                <circle cx="21" cy="21" r="15.9" fill="none" stroke="#31d0c5" stroke-width="7" stroke-dasharray="14 86" stroke-dashoffset="-39"/>
-                <circle cx="21" cy="21" r="15.9" fill="none" stroke="#8a6cff" stroke-width="7" stroke-dasharray="11 89" stroke-dashoffset="-53"/>
-                <text x="21" y="22" text-anchor="middle" fill="#e8eef7" font-size="7" font-weight="700">28</text>
-                <text x="21" y="28" text-anchor="middle" fill="#8ea0ba" font-size="3.4">Total</text>
-              </svg>
-              <div style="font-size:10.5px;color:var(--faint);margin-top:2px">Issues by Category</div>
-            </div>
-            <div class="legend">
-              <span><i style="background:#f2585f"></i>Walls · 12</span><span><i style="background:#f5b73d"></i>Doors · 6</span>
-              <span><i style="background:#31d0c5"></i>Slabs · 4</span><span><i style="background:#8a6cff"></i>Columns · 3</span><span><i style="background:#5f6f87"></i>Others · 3</span>
-            </div>
-          </div>
-          <div style="font-size:10px;letter-spacing:.6px;text-transform:uppercase;color:var(--faint);font-weight:700;margin:14px 0 7px">Severity</div>
-          <div class="bars">
-            <div class="bar"><span>High</span><div class="track"><div class="fill" style="width:33%;background:var(--red)"></div></div><span>6</span></div>
-            <div class="bar"><span>Medium</span><div class="track"><div class="fill" style="width:66%;background:var(--amber)"></div></div><span>12</span></div>
-            <div class="bar"><span>Low</span><div class="track"><div class="fill" style="width:40%;background:var(--cyan)"></div></div><span>7</span></div>
-            <div class="bar"><span>Info</span><div class="track"><div class="fill" style="width:18%;background:var(--accent2)"></div></div><span>3</span></div>
-          </div>
-        </div>
-        <div class="lp-foot"><button onclick="setTab('reports')">Open Reports</button><button class="accent">Generate Report</button></div>
-      </div>
-      <!-- schedule -->
-      <div class="lpanel ws-mod" id="wsSchedule">
-        <div class="lp-h"><svg class="ico" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/></svg><span class="t">Schedule / Quantities</span><span class="chip">Preview · Phase 4</span><button class="wsbtn" data-ws="schedule" onclick="wsToggle('schedule')"></button></div>
-        <div class="lp-b">
-          <div class="seg"><button class="on">Wall Schedule</button><button>Door Schedule</button><button>Window Schedule</button></div>
-          <table class="qa"><thead><tr><th>Mark</th><th>Type</th><th>Level</th><th>Length (m)</th><th>Height (m)</th><th>Thk (mm)</th><th>Area (m²)</th></tr></thead>
-            <tbody id="schedRows">
-              <tr><td>EX-200</td><td>Ext</td><td>L03</td><td>5.60</td><td>3.20</td><td>200</td><td>17.92</td></tr>
-              <tr><td>EX-201</td><td>Ext</td><td>L03</td><td>4.20</td><td>3.20</td><td>200</td><td>13.44</td></tr>
-              <tr><td>IN-100</td><td>Int</td><td>L03</td><td>3.80</td><td>3.20</td><td>150</td><td>12.16</td></tr>
-              <tr><td>IN-100</td><td>Int</td><td>L03</td><td>2.40</td><td>3.20</td><td>150</td><td>7.68</td></tr>
-              <tr><td>EX-200</td><td>Ext</td><td>L02</td><td>6.10</td><td>3.20</td><td>200</td><td>19.52</td></tr>
-              <tr><td>EX-200</td><td>Ext</td><td>L02</td><td>3.90</td><td>3.20</td><td>200</td><td>12.48</td></tr>
-            </tbody></table>
-        </div>
-        <div class="lp-foot"><button onclick="location.href='/ui/classic.html'">Export to Excel</button><button class="accent">Create BIM Report</button></div>
-      </div>
-    </div>
+
   </section>
 
   <!-- AI ASSISTANT -->
@@ -726,7 +668,7 @@ const ICON_EXPAND='<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="curr
 const ICON_RESTORE='<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 10V4h6M10 14v6H4M14 10l7-7M10 14l-7 7"/></svg>';
 function updateWsButtons(){ const fs=document.body.dataset.fs||''; document.querySelectorAll('.wsbtn').forEach(b=>{ const on=b.dataset.ws===fs; b.classList.toggle('on',on); b.innerHTML=(on?ICON_RESTORE:ICON_EXPAND)+'<span>'+(on?'Restore':'Expand')+'</span>'; b.title=on?'Restore to docked view (Esc)':'Expand to full workspace'; }); }
 function wsToggle(key){ if(document.body.dataset.fs===key) wsExit(); else wsFocus(key); }
-const WS={model:{id:'wsModel',title:'3D Model'},drawings:{id:'wsDrawings',title:'Drawings'},reports:{id:'wsReports',title:'Reports'},schedule:{id:'wsSchedule',title:'Schedule / Quantities'},chat:{id:'ai',title:'AI Assistant'}};
+const WS={model:{id:'wsModel',title:'3D Model'},drawings:{id:'wsDrawings',title:'Drawings'},chat:{id:'ai',title:'AI Assistant'}};
 function wsFocus(key){ const m=WS[key]; if(!m) return; const el=$(m.id); if(!el) return;
   document.querySelectorAll('.ws-focused').forEach(e=>{ if(e!==el) e.classList.remove('ws-focused'); });
   el.classList.add('ws-focused'); document.body.classList.add('has-fs'); document.body.dataset.fs=key;

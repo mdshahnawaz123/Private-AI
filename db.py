@@ -327,6 +327,26 @@ def set_project_discipline(project, discipline, user=None, ip=None):
     audit("project.discipline", project=project, detail={"discipline": discipline},
           user=user or SYSTEM_USER, ip=ip)
 
+def document_folder_id_for_path(project, abs_path):
+    """Return the folder_id of the Document in `project` whose stored path
+    resolves to `abs_path`, or None if no matching record exists.
+
+    Used by the file-serving routes (/projects/{project}/file and .../document)
+    to enforce folder-level access on a DIRECT path fetch, the same way
+    list_documents() already enforces it for listings. Without this, a
+    restricted user who knows (or guesses) a relative path could fetch a file
+    from a folder they are not assigned to, bypassing folder RBAC entirely.
+    """
+    with SessionLocal() as sess:
+        proj = sess.query(Project).filter_by(name=project).first()
+        if not proj:
+            return None
+        for d in sess.query(Document).filter_by(project_id=proj.id).all():
+            if d.path and os.path.abspath(d.path) == abs_path:
+                return d.folder_id
+        return None
+
+
 def list_documents(project, user=None):
     """List documents in a project. If `user` is given and is NOT full-access
     (admin, or lead who is a project member), only documents in folders the user
@@ -956,6 +976,97 @@ class EvalExample(Base):
     source = Column(String(400), default="")
     verification_status = Column(String(20), default="pending")
     created_at = Column(DateTime, default=_utcnow)
+
+
+class UserUpload(Base):
+    """A document a user attaches directly in the AI chat (the "+" button),
+    separate from the shared, admin/lead-managed project document corpus.
+    Private to the uploading user (and visible to admins for oversight only);
+    it is NEVER added to the project's folders/documents list, FAISS index,
+    or ScheduleRow table — grounding for it is injected ad hoc per question,
+    the same way focus_doc works for a project document."""
+    __tablename__ = "user_uploads"
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    project_id = Column(Integer, ForeignKey("projects.id"), nullable=False, index=True)
+    filename = Column(String(400), nullable=False)
+    path = Column(Text, default="")
+    status = Column(String(20), default="processing")  # processing | ready | error
+    size = Column(Integer, default=0)
+    created_at = Column(DateTime, default=_utcnow)
+
+
+def create_user_upload(user_id, project, filename, path, size=0):
+    with SessionLocal() as s:
+        proj = s.query(Project).filter_by(name=project).first()
+        if not proj:
+            raise ValueError("project not found")
+        row = UserUpload(user_id=user_id, project_id=proj.id, filename=filename,
+                         path=path, status="processing", size=size)
+        s.add(row); s.commit()
+        return {"id": row.id, "filename": row.filename, "status": row.status,
+                "size": row.size, "created_at": row.created_at.isoformat()}
+
+def update_user_upload_status(upload_id, status):
+    with SessionLocal() as s:
+        row = s.query(UserUpload).filter_by(id=upload_id).first()
+        if row:
+            row.status = status
+            s.commit()
+
+def get_user_upload(upload_id):
+    with SessionLocal() as s:
+        row = s.query(UserUpload).filter_by(id=upload_id).first()
+        if not row:
+            return None
+        proj = s.query(Project).filter_by(id=row.project_id).first()
+        return {"id": row.id, "user_id": row.user_id, "project": proj.name if proj else None,
+                "filename": row.filename, "path": row.path, "status": row.status,
+                "size": row.size, "created_at": row.created_at.isoformat()}
+
+def list_user_uploads(user_id, project):
+    with SessionLocal() as s:
+        proj = s.query(Project).filter_by(name=project).first()
+        if not proj:
+            return []
+        rows = (s.query(UserUpload)
+                .filter_by(user_id=user_id, project_id=proj.id)
+                .order_by(UserUpload.created_at.desc()).all())
+        return [{"id": r.id, "filename": r.filename, "status": r.status,
+                 "size": r.size, "created_at": r.created_at.isoformat()} for r in rows]
+
+def delete_user_upload(upload_id):
+    with SessionLocal() as s:
+        row = s.query(UserUpload).filter_by(id=upload_id).first()
+        if not row:
+            return False
+        path = row.path
+        s.delete(row); s.commit()
+    try:
+        if path and os.path.isfile(path):
+            os.remove(path)
+        if path and os.path.isfile(path + ".extracted.txt"):
+            os.remove(path + ".extracted.txt")
+    except Exception:
+        pass
+    return True
+
+def list_all_user_uploads(project=None):
+    """Admin oversight only — never merged into any project's shared document
+    listing. Read-only: who uploaded what, where, and when."""
+    with SessionLocal() as s:
+        q = (s.query(UserUpload, User.username, Project.name)
+             .join(User, User.id == UserUpload.user_id)
+             .join(Project, Project.id == UserUpload.project_id)
+             .order_by(UserUpload.created_at.desc()))
+        if project:
+            q = q.filter(Project.name == project)
+        out = []
+        for row, username, project_name in q.limit(2000).all():
+            out.append({"id": row.id, "username": username, "project": project_name,
+                        "filename": row.filename, "status": row.status, "size": row.size,
+                        "created_at": row.created_at.isoformat()})
+        return out
 
 
 def init_knowledge_tables():

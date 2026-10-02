@@ -364,7 +364,7 @@ const SEC={ on:false, axis:'z', sign:1, pos:0, lo:0, hi:1, group:null, quad:null
   // which is left fully intact as the "Fine controls" quick-axis snap). When freeNormal is set,
   // it -- not axis/pos -- is the source of truth for the clipping plane and its visual.
   placing:false, editing:false, freeNormal:null, freePoint:null, initialFree:null, gizmo:null,
-  _lastDragAngle:undefined, _dragAxisKey:null };
+  _lastDragAngle:undefined, _dragAxisKey:null, gizmoMode:'translate' };
 function _axisVec(a){ return new THREE.Vector3(a==='x'?1:0, a==='y'?1:0, a==='z'?1:0); }
 function secBuildVisual(){
   if(SEC.group) return;
@@ -384,11 +384,16 @@ function secBuildVisual(){
   // ringV: lies in the local YZ-plane (rotate 90deg about Y) -- tilts about the local X axis.
   const ringGeo = new THREE.TorusGeometry(1, 0.012, 8, 48);
   SEC.gizmo = {};
-  SEC.gizmo.ringU = new THREE.Mesh(ringGeo, new THREE.MeshBasicMaterial({color:0xf5b73d, side:THREE.DoubleSide, depthTest:false, transparent:true, opacity:0.95}));
+  // Colors follow the same X=red/Y=green convention as the translate arrows below: ringU tilts
+  // the normal about local Y, so it's the "Y rotation" control (green); ringV tilts about local
+  // X, so it's "X rotation" (red). (There is no blue/Z rotation ring: rotating a plane about its
+  // own normal leaves it unchanged -- a third ring there would be a dead control, not a
+  // simplification -- see the comment above on the two true rotational degrees of freedom.)
+  SEC.gizmo.ringU = new THREE.Mesh(ringGeo, new THREE.MeshBasicMaterial({color:0x2ecc71, side:THREE.DoubleSide, depthTest:false, transparent:true, opacity:0.95}));
   SEC.gizmo.ringU.rotation.set(Math.PI/2, 0, 0);
   SEC.gizmo.ringU.userData.sectionRing='U';
   SEC.gizmo.ringU.renderOrder = 998;
-  SEC.gizmo.ringV = new THREE.Mesh(ringGeo, new THREE.MeshBasicMaterial({color:0x31d0a5, side:THREE.DoubleSide, depthTest:false, transparent:true, opacity:0.95}));
+  SEC.gizmo.ringV = new THREE.Mesh(ringGeo, new THREE.MeshBasicMaterial({color:0xe74c3c, side:THREE.DoubleSide, depthTest:false, transparent:true, opacity:0.95}));
   SEC.gizmo.ringV.rotation.set(0, Math.PI/2, 0);
   SEC.gizmo.ringV.userData.sectionRing='V';
   SEC.gizmo.ringV.renderOrder = 998;
@@ -408,6 +413,41 @@ function secBuildVisual(){
   SEC.gizmo.ringU.visible = false; SEC.gizmo.ringV.visible = false;
   SEC.group.add(SEC.gizmo.ringU); SEC.group.add(SEC.gizmo.ringV);
   SEC.group.add(SEC.gizmo.ringUPick); SEC.group.add(SEC.gizmo.ringVPick);
+  // Compact RGB translate-arrow handles (standard DCC/BIM transform-gizmo convention: X=red,
+  // Y=green, Z=blue). Local +Z is this controller's normal direction (see secPlaceVisual's
+  // setFromUnitVectors(+Z, normal)), so the blue arrow alone reproduces the old normal-constrained
+  // quad-drag; red/green additionally let the pivot move within the plane itself -- that never
+  // changes the clip (an infinite cutting plane is invariant under in-plane translation) but
+  // matches the standard 3-axis gizmo users expect and repositions the visual frame/rotation
+  // pivot. Geometry is authored once pointing along +Z (baked via rotateX/translate on the shared
+  // shaft/head geometries) and reused per axis via a whole-handle rotation, exactly like ringU/V
+  // share one TorusGeometry.
+  const shaftGeo = new THREE.CylinderGeometry(0.035, 0.035, 0.7, 8);
+  shaftGeo.rotateX(Math.PI/2); shaftGeo.translate(0, 0, 0.35);
+  const headGeo = new THREE.ConeGeometry(0.09, 0.3, 10);
+  headGeo.rotateX(Math.PI/2); headGeo.translate(0, 0, 0.85);
+  const pickGeo = new THREE.CylinderGeometry(0.14, 0.14, 1.0, 8);
+  pickGeo.rotateX(Math.PI/2); pickGeo.translate(0, 0, 0.5);
+  function makeArrow(color){
+    const grp = new THREE.Group();
+    const mat = new THREE.MeshBasicMaterial({color, depthTest:false, transparent:true, opacity:0.95});
+    const shaft = new THREE.Mesh(shaftGeo, mat), head = new THREE.Mesh(headGeo, mat);
+    grp.add(shaft); grp.add(head); grp.renderOrder = 998;
+    return grp;
+  }
+  function makePick(){
+    const m = new THREE.Mesh(pickGeo, new THREE.MeshBasicMaterial()); m.visible = false; return m;
+  }
+  const AX_RED = 0xe74c3c, AX_GREEN = 0x2ecc71, AX_BLUE = 0x3498db;
+  SEC.gizmo.arrowZ = makeArrow(AX_BLUE);                              // local +Z = normal, no extra rotation
+  SEC.gizmo.arrowX = makeArrow(AX_RED);  SEC.gizmo.arrowX.rotation.y = Math.PI/2;   // +Z -> +X
+  SEC.gizmo.arrowY = makeArrow(AX_GREEN); SEC.gizmo.arrowY.rotation.x = -Math.PI/2; // +Z -> +Y
+  SEC.gizmo.arrowZPick = makePick();
+  SEC.gizmo.arrowXPick = makePick(); SEC.gizmo.arrowXPick.rotation.y = Math.PI/2;
+  SEC.gizmo.arrowYPick = makePick(); SEC.gizmo.arrowYPick.rotation.x = -Math.PI/2;
+  SEC.gizmo.arrowX.visible = SEC.gizmo.arrowY.visible = SEC.gizmo.arrowZ.visible = false;
+  SEC.group.add(SEC.gizmo.arrowX); SEC.group.add(SEC.gizmo.arrowY); SEC.group.add(SEC.gizmo.arrowZ);
+  SEC.group.add(SEC.gizmo.arrowXPick); SEC.group.add(SEC.gizmo.arrowYPick); SEC.group.add(SEC.gizmo.arrowZPick);
   SEC.group.visible=false; scene.add(SEC.group);
 }
 function secClamp(){ if(SEC.pos<SEC.lo)SEC.pos=SEC.lo; if(SEC.pos>SEC.hi)SEC.pos=SEC.hi; }
@@ -439,12 +479,16 @@ function secUpdate(){
   renderer.clippingPlanes=[SEC._plane];
   secPlaceVisual();
 }
-function secPositionGizmoRings(radius){
+function secPositionGizmo(radius){
   if(!SEC.gizmo) return;
   SEC.gizmo.ringU.scale.setScalar(radius);
   SEC.gizmo.ringV.scale.setScalar(radius);
   SEC.gizmo.ringUPick.scale.setScalar(radius);
   SEC.gizmo.ringVPick.scale.setScalar(radius);
+  const ar = radius*0.65; // arrows read as slightly more compact than the rotation rings
+  ['arrowX','arrowY','arrowZ','arrowXPick','arrowYPick','arrowZPick'].forEach(k=>{
+    SEC.gizmo[k].scale.setScalar(ar);
+  });
 }
 function secPlaceVisual(){
   if(!SEC.group) return; SEC.group.visible=true;
@@ -457,8 +501,8 @@ function secPlaceVisual(){
     SEC.quad.scale.set(w,h,1); SEC.edge.scale.set(w,h,1);
     SEC.group.position.copy(SEC.freePoint);
     const nrm = n.clone().multiplyScalar(SEC.sign);
-    SEC.arrow.setDirection(nrm); SEC.arrow.setLength(m*0.14, m*0.05, m*0.03); SEC.arrow.position.set(0,0,0);
-    secPositionGizmoRings(diag*0.28);
+    SEC.arrow.visible = false; // superseded by the blue Z translate-arrow in free mode
+    secPositionGizmo(diag*0.28);
   } else {
     const a=SEC.axis; let w,h;
     if(a==='z'){ w=sz.x*1.06; h=sz.y*1.06; SEC.group.quaternion.set(0,0,0,1); }
@@ -467,6 +511,7 @@ function secPlaceVisual(){
     SEC.quad.scale.set(w,h,1); SEC.edge.scale.set(w,h,1);
     SEC.group.position.copy(secCenter());
     const nrm=_axisVec(a).multiplyScalar(SEC.sign).normalize();
+    SEC.arrow.visible = $("secShowGizmo") ? $("secShowGizmo").checked : true;
     SEC.arrow.setDirection(nrm); SEC.arrow.setLength(m*0.14, m*0.05, m*0.03); SEC.arrow.position.set(0,0,0);
   }
 }
@@ -501,38 +546,73 @@ function secTryDrag(ev){
   const r=renderer.domElement.getBoundingClientRect();
   mouse.x=((ev.clientX-r.left)/r.width)*2-1; mouse.y=-((ev.clientY-r.top)/r.height)*2+1;
   ray.setFromCamera(mouse,camera);
-  if(SEC.freeNormal && SEC.gizmo && SEC.gizmo.ringU.visible){
-    // Hit-test against the fatter invisible proxy tori (see secBuildVisual), not the thin
-    // visible rings -- the visible ringU/ringV meshes are display-only.
-    if(ray.intersectObject(SEC.gizmo.ringUPick,false).length){
-      SEC.dragMode='rotateU'; SEC.dragging=true; controls.enabled=false; SEC._lastDragAngle=undefined; SEC._dragAxisKey='U'; return true;
-    }
-    if(ray.intersectObject(SEC.gizmo.ringVPick,false).length){
-      SEC.dragMode='rotateV'; SEC.dragging=true; controls.enabled=false; SEC._lastDragAngle=undefined; SEC._dragAxisKey='V'; return true;
+  if(SEC.freeNormal && SEC.gizmo && SEC.editing){
+    if(SEC.gizmoMode==='rotate' && SEC.gizmo.ringU.visible){
+      // Hit-test against the fatter invisible proxy tori (see secBuildVisual), not the thin
+      // visible rings -- the visible ringU/ringV meshes are display-only.
+      if(ray.intersectObject(SEC.gizmo.ringUPick,false).length){
+        SEC.dragMode='rotateU'; SEC.dragging=true; controls.enabled=false; SEC._lastDragAngle=undefined; SEC._dragAxisKey='U'; return true;
+      }
+      if(ray.intersectObject(SEC.gizmo.ringVPick,false).length){
+        SEC.dragMode='rotateV'; SEC.dragging=true; controls.enabled=false; SEC._lastDragAngle=undefined; SEC._dragAxisKey='V'; return true;
+      }
+    } else if(SEC.gizmoMode==='translate' && SEC.gizmo.arrowX.visible){
+      // Same fat-invisible-pick-proxy pattern as the rings, for the same reason: thin visible
+      // handles are unreliable raycast targets regardless of click precision.
+      if(ray.intersectObject(SEC.gizmo.arrowXPick,false).length){ SEC.dragMode='translateX'; SEC.dragging=true; controls.enabled=false; return true; }
+      if(ray.intersectObject(SEC.gizmo.arrowYPick,false).length){ SEC.dragMode='translateY'; SEC.dragging=true; controls.enabled=false; return true; }
+      if(ray.intersectObject(SEC.gizmo.arrowZPick,false).length){ SEC.dragMode='translateZ'; SEC.dragging=true; controls.enabled=false; return true; }
     }
   }
-  if(ray.intersectObject(SEC.quad,false).length){ SEC.dragMode='translate'; SEC.dragging=true; controls.enabled=false; return true; }
+  // Legacy axis-mode quad drag only -- in free mode the quad is a passive visual, not a
+  // manipulation control (the arrows above are primary, per spec).
+  if(!SEC.freeNormal && ray.intersectObject(SEC.quad,false).length){ SEC.dragMode='translate'; SEC.dragging=true; controls.enabled=false; return true; }
   return false;
 }
-function secDragTranslate(ev){
+// Project the current pointer ray onto the line through centerPt along axisV (via a
+// camera-facing drag plane containing that line) and return the resulting world point, or
+// null if the ray is parallel to the drag plane. Shared by every translate-handle drag --
+// the legacy axis-mode quad, the free-mode blue Z arrow (axisV = the plane's normal), and the
+// free-mode red/green X/Y arrows (axisV = the plane's own tangent axes).
+function secDragPointAlongAxis(ev, axisV, centerPt){
   const r=renderer.domElement.getBoundingClientRect();
   const ndc=new THREE.Vector2(((ev.clientX-r.left)/r.width)*2-1, -((ev.clientY-r.top)/r.height)*2+1);
   ray.setFromCamera(ndc,camera);
-  const axisV = SEC.freeNormal ? SEC.freeNormal.clone() : _axisVec(SEC.axis);
-  const centerPt = SEC.freeNormal ? SEC.freePoint : secCenter();
   const viewDir=new THREE.Vector3(); camera.getWorldDirection(viewDir);
   let pn=new THREE.Vector3().crossVectors(axisV,viewDir).cross(axisV);
   if(pn.lengthSq()<1e-8) pn.copy(viewDir);
   pn.normalize();
   const dp=new THREE.Plane().setFromNormalAndCoplanarPoint(pn, centerPt), hit=new THREE.Vector3();
-  if(!ray.ray.intersectPlane(dp,hit)) return;
+  if(!ray.ray.intersectPlane(dp,hit)) return null;
+  const d = new THREE.Vector3().subVectors(hit, centerPt).dot(axisV);
+  return centerPt.clone().addScaledVector(axisV, d);
+}
+function secDragTranslate(ev){
+  // Normal-axis translate: the legacy axis-mode quad drag, and (when freeNormal is set) the
+  // free-mode blue Z arrow -- local +Z IS the plane's normal, so this is the one translate axis
+  // that actually changes the clip.
+  const axisV = SEC.freeNormal ? SEC.freeNormal.clone() : _axisVec(SEC.axis);
+  const centerPt = SEC.freeNormal ? SEC.freePoint : secCenter();
+  const result = secDragPointAlongAxis(ev, axisV, centerPt);
+  if(!result) return;
   if(SEC.freeNormal){
-    const d = new THREE.Vector3().subVectors(hit, centerPt).dot(axisV);
-    SEC.freePoint.copy(centerPt).addScaledVector(axisV, d);
+    SEC.freePoint.copy(result);
     secUpdate(); secSyncUI(); secSyncFreePanel();
   } else {
-    SEC.pos = SEC.axis==='x'?hit.x:SEC.axis==='y'?hit.y:hit.z; secClamp(); secUpdate(); secSyncUI();
+    SEC.pos = SEC.axis==='x'?result.x:SEC.axis==='y'?result.y:result.z; secClamp(); secUpdate(); secSyncUI();
   }
+}
+// Free-mode only: drag along the plane controller's own local X or Y (in-plane). This never
+// changes the clip result -- an infinite cutting plane is invariant under in-plane translation
+// -- but it repositions the pivot (and so the visual frame and, if the user then rotates, the
+// rotation center), matching the standard 3-axis transform-gizmo feel the spec asks for.
+function secDragTranslateLocal(ev, which){
+  const {localX, localY} = secGetLocalAxes();
+  const axisV = which==='x' ? localX : localY;
+  const result = secDragPointAlongAxis(ev, axisV, SEC.freePoint);
+  if(!result) return;
+  SEC.freePoint.copy(result);
+  secUpdate(); secSyncUI(); secSyncFreePanel();
 }
 // Tangent basis matching SEC.group's own quaternion (setFromUnitVectors(+Z, normal)), so the
 // drag feels consistent with the rendered rings: ringU's plane normal is localY, ringV's is localX.
@@ -570,7 +650,9 @@ function secDragMove(ev){
   if(!SEC.dragging) return;
   if(SEC.dragMode==='rotateU') secDragRotate(ev,'U');
   else if(SEC.dragMode==='rotateV') secDragRotate(ev,'V');
-  else secDragTranslate(ev);
+  else if(SEC.dragMode==='translateX') secDragTranslateLocal(ev,'x');
+  else if(SEC.dragMode==='translateY') secDragTranslateLocal(ev,'y');
+  else secDragTranslate(ev); // legacy quad drag, and free-mode translateZ (blue arrow = normal)
 }
 function secDragEnd(){ if(SEC.dragging){ SEC.dragging=false; SEC.dragMode=null; SEC._lastDragAngle=undefined; SEC._dragAxisKey=null; controls.enabled=true; } }
 renderer.domElement.addEventListener("pointermove", secDragMove);
@@ -580,8 +662,15 @@ window.addEventListener("pointerup", secDragEnd);
 function secSetGizmoVisible(v){
   if(!SEC.gizmo) return;
   const pref = $("secShowGizmo") ? $("secShowGizmo").checked : true;
-  SEC.gizmo.ringU.visible = !!(v && pref);
-  SEC.gizmo.ringV.visible = !!(v && pref);
+  const show = !!(v && pref);
+  const rot = show && SEC.gizmoMode==='rotate', trans = show && SEC.gizmoMode==='translate';
+  SEC.gizmo.ringU.visible = rot; SEC.gizmo.ringV.visible = rot;
+  SEC.gizmo.arrowX.visible = trans; SEC.gizmo.arrowY.visible = trans; SEC.gizmo.arrowZ.visible = trans;
+}
+function secSetGizmoMode(mode){
+  SEC.gizmoMode = mode;
+  secSetGizmoVisible(SEC.editing);
+  document.querySelectorAll("[data-gizmo-mode]").forEach(b=>b.classList.toggle("on", b.dataset.gizmoMode===mode));
 }
 function secSyncPanelVisibility(){
   const edit=$("secEditBlock"); if(edit) edit.style.display = (SEC.on && SEC.freeNormal) ? "flex" : "none";
@@ -628,7 +717,7 @@ function secPlaceBegin(){
   secBuildVisual();
   if(typeof sbxOff==="function" && SBX && SBX.on) sbxOff();
   clip.plane = null;
-  SEC.placing = true; SEC.on = false; SEC.editing = false;
+  SEC.placing = true; SEC.on = false; SEC.editing = false; SEC.gizmoMode = 'translate';
   SEC.freeNormal = (SEC.freeNormal || new THREE.Vector3()).copy(secCameraNormal());
   SEC.freePoint = (SEC.freePoint || new THREE.Vector3()).copy(bboxAll().getCenter(new THREE.Vector3()));
   SEC._box = bboxAll();
@@ -1565,6 +1654,8 @@ if($("secResetBtn2")) $("secResetBtn2").onclick = ()=> secReset();
 if($("secDeleteBtn")) $("secDeleteBtn").onclick = ()=> secDelete();
 if($("secCancelBtn")) $("secCancelBtn").onclick = ()=>{ if(SEC.placing) secPlaceCancel(); else secCancelEditing(); };
 if($("secApplyBtn")) $("secApplyBtn").onclick = ()=> secApply();
+if($("secModeMove")) $("secModeMove").onclick = ()=> secSetGizmoMode("translate");
+if($("secModeRotate")) $("secModeRotate").onclick = ()=> secSetGizmoMode("rotate");
 ["secPosX","secPosY","secPosZ"].forEach(id=>{ if($(id)) $(id).oninput = secNumPosInput; });
 ["secRotX","secRotY","secRotZ"].forEach(id=>{ if($(id)) $(id).oninput = secNumRotInput; });
 if($("bxAddBtn")) $("bxAddBtn").onclick = ()=>{ if(!SBX.on) sbxStart(); stRenderBoxList(); };

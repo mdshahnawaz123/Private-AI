@@ -158,16 +158,28 @@
   .stAdvToggle:hover{color:#bcd0ff}
   .stAdv{display:flex;flex-direction:column;gap:9px;margin-top:6px;padding-top:9px;border-top:1px dashed var(--border)}
 
-  /* ---- Measurement dock (bottom-center floating pill) ---- */
+  /* ---- Measurement dock (icon-only, matches the main toolbar language) ---- */
   #measureDock{position:absolute;left:50%;bottom:20px;transform:translateX(-50%);display:none;align-items:center;gap:2px;background:rgba(19,27,38,.96);border:1px solid var(--border);border-radius:12px;padding:6px;z-index:8;box-shadow:0 12px 32px rgba(0,0,0,.5)}
   #measureDock.open{display:flex}
-  .mtBtn{background:none;border:none;color:var(--text);border-radius:8px;padding:8px 10px;font-size:15px;cursor:pointer;line-height:1;display:flex;flex-direction:column;align-items:center;gap:3px;min-width:44px}
-  .mtBtn .mtLbl{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.03em}
-  .mtBtn:hover{background:var(--panel2)}
+  .mtBtn{background:none;border:none;color:var(--text);border-radius:8px;width:36px;height:36px;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;padding:0;flex:none}
+  .mtBtn svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+  .mtBtn:hover{background:var(--panel2);color:#bcd0ff}
   .mtBtn.on{background:var(--accent);color:#fff}
-  .mtBtn.on .mtLbl{color:#fff}
   .mtDivider{width:1px;align-self:stretch;background:var(--border);margin:4px 3px}
-  .mtDone{background:var(--accent)!important;color:#fff;font-weight:600;font-size:12px!important;padding:8px 14px!important}
+  .mtDone{background:var(--accent)!important;color:#fff;font-weight:600;font-size:12px;width:auto!important;padding:0 14px!important}
+
+  /* ---- Measurement settings popup ---- */
+  #measureSettingsPanel{position:absolute;left:50%;bottom:74px;transform:translateX(-50%);width:264px;display:none;flex-direction:column;background:var(--panel);border:1px solid var(--border);border-radius:12px;z-index:9;box-shadow:0 12px 44px rgba(0,0,0,.55)}
+  #measureSettingsPanel.open{display:flex}
+  #measureSettingsPanel .msHead{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-bottom:1px solid var(--border);font-size:12.5px;font-weight:700}
+  #measureSettingsPanel .msHead span.x{cursor:pointer;color:var(--muted);font-weight:400;font-size:16px;line-height:1}
+  #measureSettingsPanel .msHead span.x:hover{color:var(--text)}
+  #measureSettingsPanel .msBody{display:flex;flex-direction:column;gap:10px;padding:11px 12px}
+  .msRow{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:12px}
+  .msRow select{background:var(--panel2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:4px 6px;font-size:12px;font-family:inherit;max-width:132px}
+
+  /* ---- Floating measurement coordinate label (spot-coordinate readout) ---- */
+  .mLabel{position:absolute;pointer-events:none;background:rgba(19,27,38,.95);border:1px solid var(--accent);color:var(--text);border-radius:7px;padding:6px 9px;font-size:11px;line-height:1.5;white-space:nowrap;z-index:10;box-shadow:0 6px 18px rgba(0,0,0,.45)}
 
   /* ---- Navigation cube + compass (replaces the old Camera View button grid) ---- */
   #navDock{position:absolute;right:16px;top:66px;z-index:7;display:flex;flex-direction:column;align-items:center;gap:6px;user-select:none}
@@ -262,12 +274,51 @@
     <div id="err"></div>
     <button id="aiFab"><span class="fabdot"></span>Ask AI</button>
     <div id="measureDock">
-      <button class="mtBtn" id="btnLen" title="Measure a distance"><span>&#128207;</span><span class="mtLbl">Length</span></button>
-      <button class="mtBtn" id="btnArea" title="Measure an area"><span>&#9633;</span><span class="mtLbl">Area</span></button>
+      <button class="mtBtn" id="btnLen" title="Length"><svg viewBox="0 0 24 24"><circle cx="5" cy="19" r="2"/><circle cx="19" cy="5" r="2"/><line x1="6.4" y1="17.6" x2="17.6" y2="6.4"/></svg></button>
+      <button class="mtBtn" id="btnAngle" title="Angle"><svg viewBox="0 0 24 24"><path d="M4 20V4"/><path d="M4 20h16"/><path d="M8 20a8 8 0 0 1 2-7"/></svg></button>
+      <button class="mtBtn" id="btnPoint" title="Point coordinates"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="1"/><line x1="12" y1="2" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="2" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="22" y2="12"/></svg></button>
+      <button class="mtBtn" id="btnArea" title="Area"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="1.5"/></svg></button>
       <div class="mtDivider"></div>
-      <button class="mtBtn" id="btnMclr" title="Clear all measurements"><span>&#128465;</span><span class="mtLbl">Clear</span></button>
+      <button class="mtBtn" id="btnMclr" title="Clear all measurements"><svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
+      <button class="mtBtn" id="btnMeasureSettings" title="Measurement settings"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
       <div class="mtDivider"></div>
       <button class="mtBtn mtDone" id="btnMeasureDone">Done</button>
+    </div>
+    <div id="measureSettingsPanel">
+      <div class="msHead"><span>Measurement settings</span><span class="x" id="measSetClose">&times;</span></div>
+      <div class="msBody">
+        <div class="msRow"><span>Unit type</span>
+          <select id="measUnit">
+            <option value="mm" selected>Millimeters</option>
+            <option value="cm">Centimeters</option>
+            <option value="m">Meters</option>
+            <option value="in">Inches</option>
+            <option value="ft">Feet</option>
+            <option value="ftdec">Decimal feet</option>
+          </select>
+        </div>
+        <div class="msRow"><span>Secondary unit</span>
+          <select id="measUnit2">
+            <option value="none" selected>None</option>
+            <option value="mm">Millimeters</option>
+            <option value="cm">Centimeters</option>
+            <option value="m">Meters</option>
+            <option value="in">Inches</option>
+            <option value="ft">Feet</option>
+            <option value="ftdec">Decimal feet</option>
+          </select>
+        </div>
+        <div class="msRow"><span>Precision</span>
+          <select id="measPrecision">
+            <option value="0">0</option>
+            <option value="1" selected>0.1</option>
+            <option value="2">0.01</option>
+            <option value="3">0.001</option>
+          </select>
+        </div>
+        <div class="sttoggle"><span>Isolate measurement</span><label class="swi"><input type="checkbox" id="measIsolate"><span class="swislider"></span></label></div>
+        <div class="sttoggle" title="On: measure anywhere on the model surface (default). Off: snap to the nearest vertex of the clicked element."><span>Enable free measure</span><label class="swi"><input type="checkbox" id="measFree" checked><span class="swislider"></span></label></div>
+      </div>
     </div>
     <div id="secToolsPanel">
       <div id="stHead"><span>Sectioning Tools</span>
@@ -365,6 +416,6 @@
 <script type="importmap">
 { "imports": { "three": "/ui/vendor/three.module.js" } }
 </script>
-<script type="module" src="/ui/viewer.js?v=8"></script>
+<script type="module" src="/ui/viewer.js?v=10"></script>
 </body>
 </html>

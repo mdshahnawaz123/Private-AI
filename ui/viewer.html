@@ -331,6 +331,26 @@
         <div class="stPane on" id="stPanePlane">
           <div class="stSecHd">Controls</div>
           <button class="stAdd" id="secAddBtn">&#43; Add plane</button>
+          <div class="sechint" id="secPlaceHint" style="display:none">Move over the model and click to place the section plane.
+            <button class="tb" id="secPlaceCancelBtn" style="margin-top:6px;padding:3px 9px">Cancel placement (Esc)</button></div>
+          <div id="secEditBlock" style="display:none">
+            <div class="stSecHd" style="margin-top:10px">Section Plane · Position</div>
+            <div class="secrow"><span>X</span><input type="number" id="secPosX" step="0.01"><span class="secu">world</span></div>
+            <div class="secrow"><span>Y</span><input type="number" id="secPosY" step="0.01"><span class="secu">world</span></div>
+            <div class="secrow"><span>Z</span><input type="number" id="secPosZ" step="0.01"><span class="secu">world</span></div>
+            <div class="stSecHd">Rotation</div>
+            <div class="secrow"><span>X</span><input type="number" id="secRotX" step="1"><span class="secu">&deg;</span></div>
+            <div class="secrow"><span>Y</span><input type="number" id="secRotY" step="1"><span class="secu">&deg;</span></div>
+            <div class="secrow"><span>Z</span><input type="number" id="secRotZ" step="1"><span class="secu">&deg;</span></div>
+            <div class="stSecHd">Direction</div>
+            <div class="secrow secbtns"><button class="tb" id="secInvert2">Reverse</button></div>
+            <div class="stSecHd">Controls</div>
+            <div class="secrow secbtns"><button class="tb" id="secResetBtn2">Reset</button><button class="tb" id="secDeleteBtn">Delete</button></div>
+            <div class="secrow secbtns" style="justify-content:space-between;margin-top:6px">
+              <button class="tb" id="secCancelBtn">Cancel</button><button class="tb on" id="secApplyBtn">Apply</button>
+            </div>
+            <div class="sechint">Drag the blue plane to move it along its normal, or drag the amber / mint rings to tilt it. Numeric fields and the gizmo stay in sync.</div>
+          </div>
           <div class="stSecHd">Planes</div>
           <div id="stPlaneList" class="stList"><div class="stEmpty">Nothing to display. Add a plane.</div></div>
           <div class="stSecHd">Options</div>
@@ -416,6 +436,6 @@
 <script type="importmap">
 { "imports": { "three": "/ui/vendor/three.module.js" } }
 </script>
-<script type="module" src="/ui/viewer.js?v=10"></script>
+<script type="module" src="/ui/viewer.js?v=25"></script>
 </body>
 </html>

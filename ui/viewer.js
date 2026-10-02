@@ -327,7 +327,7 @@ $("btnColSel").onclick = () => {
   selection.forEach(m=>{ m.material.color.copy(c); m.material.needsUpdate=true; });
 };
 function resetColors(){ allMeshes.forEach(m=>{ m.material.color.copy(m.userData.origColor); m.material.opacity=m.userData.origOpacity; m.material.transparent=m.userData.origOpacity<0.999; m.material.needsUpdate=true; }); }
-$("btnColReset").onclick = resetColors;
+// btnColReset removed -- the main Reset button (btnReset) already calls resetColors()
 
 // ---- Realistic-palette toggle: styled type colors vs. the model's own raw IFC colors ----
 function applyRealisticToggle(){
@@ -700,7 +700,7 @@ async function askAI(){
     aiHistory.push({role:"assistant", content:answer});
   }catch(e){ bubble.textContent = "Request failed: " + (e && e.message ? e.message : e); }
 }
-if($("btnAI")) $("btnAI").onclick = ()=> aiOpen();
+// btnAI (toolbar) removed -- aiFab (the floating pill over the viewport) remains the entry point
 if($("aiFab")) $("aiFab").onclick = ()=> aiOpen(true);
 if($("aiClose")) $("aiClose").onclick = ()=> aiOpen(false);
 if($("aiSend")) $("aiSend").onclick = askAI;

@@ -41,7 +41,11 @@ function resize(){ const w=viewEl.clientWidth, h=viewEl.clientHeight; renderer.s
   else { camera.aspect=w/h; }
   camera.updateProjectionMatrix(); }
 window.addEventListener("resize", resize);
-(function loop(){ requestAnimationFrame(loop); controls.update(); renderer.render(scene, camera); updateNavGizmo(); })();
+// Declared here (ahead of the measurement block further down) because the render
+// loop below calls updateMeasureLabels() on its very first synchronous invocation --
+// a `let` further down would still be in its temporal dead zone at that point.
+let mLabels = [];
+(function loop(){ requestAnimationFrame(loop); controls.update(); renderer.render(scene, camera); updateNavGizmo(); updateMeasureLabels(); })();
 
 // ---- state ----
 const HL = new THREE.Color(0x4d7cfe);
@@ -529,25 +533,146 @@ $("storeySel").onchange = (e)=>{
 };
 
 // ---- measurement ----
-let measureMode = null; // 'len' | 'area'
-let mPts = []; let mObjs = [];
+let measureMode = null; // 'len' | 'area' | 'angle' | 'point'
+let mPts = []; let mHitMeshes = []; let mObjs = [];
+// mLabels (floating coordinate-label DOM elements for the "point" tool) is declared near the top of this file, above the render loop.
+
+const UNIT_DEFS = {
+  mm:    { label:"Millimeters",  suffix:"mm", factor:1000 },
+  cm:    { label:"Centimeters",  suffix:"cm",  factor:100 },
+  m:     { label:"Meters",       suffix:"m",   factor:1 },
+  in:    { label:"Inches",       suffix:"in",  factor:39.3700787 },
+  ft:    { label:"Feet",         suffix:"ft",  factor:3.2808399 },
+  ftdec: { label:"Decimal feet", suffix:"ft",  factor:3.2808399 },
+};
+// Default unit is Millimeters (kept this way deliberately, rather than matching
+// the reference screenshot's "Decimal feet", per explicit instruction).
+const measSettings = { unit:"mm", unit2:"none", precision:1, isolate:false, free:true };
+
 function hint(t){ $("modeHint").textContent = t; }
-function clearMeasure(){ mObjs.forEach(o=>scene.remove(o)); mObjs=[]; mPts=[]; $("measureOut").textContent="—"; }
+
+function fmtLen(meters){
+  const u = UNIT_DEFS[measSettings.unit];
+  let out = (meters*u.factor).toFixed(measSettings.precision) + " " + u.suffix;
+  if(measSettings.unit2!=="none" && measSettings.unit2!==measSettings.unit){
+    const u2 = UNIT_DEFS[measSettings.unit2];
+    out += "  (" + (meters*u2.factor).toFixed(measSettings.precision) + " " + u2.suffix + ")";
+  }
+  return out;
+}
+function fmtArea(m2){
+  const u = UNIT_DEFS[measSettings.unit];
+  let out = (m2*u.factor*u.factor).toFixed(measSettings.precision) + " " + u.suffix + "²";
+  if(measSettings.unit2!=="none" && measSettings.unit2!==measSettings.unit){
+    const u2 = UNIT_DEFS[measSettings.unit2];
+    out += "  (" + (m2*u2.factor*u2.factor).toFixed(measSettings.precision) + " " + u2.suffix + "²)";
+  }
+  return out;
+}
+function fmtCoord(v){ const u = UNIT_DEFS[measSettings.unit]; return (v*u.factor).toFixed(measSettings.precision) + " " + u.suffix; }
+
+function clearMeasureLabels(){ mLabels.forEach(L=>L.el.remove()); mLabels=[]; }
+function clearMeasure(){ mObjs.forEach(o=>scene.remove(o)); mObjs=[]; mPts=[]; mHitMeshes=[]; clearMeasureLabels(); $("measureOut").textContent="—"; showAll(); }
 $("btnMclr").onclick = ()=>{ clearMeasure(); };
-$("btnLen").onclick = ()=>{ measureMode = measureMode==="len"?null:"len"; mPts=[]; toggleMeasureBtns(); hint(measureMode?"Click two points to measure length":""); };
-$("btnArea").onclick = ()=>{ measureMode = measureMode==="area"?null:"area"; mPts=[]; toggleMeasureBtns(); hint(measureMode?"Click points, then click Area again to finish":""); };
-function toggleMeasureBtns(){ $("btnLen").classList.toggle("on", measureMode==="len"); $("btnArea").classList.toggle("on", measureMode==="area"); }
+
+function setMeasureMode(mode){
+  measureMode = measureMode===mode ? null : mode;
+  mPts=[]; mHitMeshes=[];
+  toggleMeasureBtns();
+  const hints = { len:"Click two points to measure length", area:"Click points, then click Area again to finish", angle:"Click three points: start, vertex, end", point:"Click a point on the model to read its coordinates" };
+  hint(measureMode ? hints[measureMode] : "");
+}
+$("btnLen").onclick = ()=> setMeasureMode("len");
+$("btnArea").onclick = ()=> setMeasureMode("area");
+if($("btnAngle")) $("btnAngle").onclick = ()=> setMeasureMode("angle");
+if($("btnPoint")) $("btnPoint").onclick = ()=> setMeasureMode("point");
+
+function toggleMeasureBtns(){
+  const map = { len:"btnLen", area:"btnArea", angle:"btnAngle", point:"btnPoint" };
+  Object.values(map).forEach(id=>{ const b=$(id); if(b) b.classList.remove("on"); });
+  if(measureMode && $(map[measureMode])) $(map[measureMode]).classList.add("on");
+}
+
 function dot(p, col){ const s=new THREE.Mesh(new THREE.SphereGeometry(0.06,10,10), new THREE.MeshBasicMaterial({color:col})); s.position.copy(p); s.scale.setScalar(sceneScale()); scene.add(s); mObjs.push(s); return s; }
 function sceneScale(){ const b=bboxAll(); const sz=b.getSize(new THREE.Vector3()); return Math.max(0.3, Math.max(sz.x,sz.y,sz.z)/120); }
 function line(a,b,col){ const g=new THREE.BufferGeometry().setFromPoints([a,b]); const l=new THREE.Line(g,new THREE.LineBasicMaterial({color:col})); scene.add(l); mObjs.push(l); }
+
+// Used when "Enable free measure" is switched off: snaps the clicked point to the
+// nearest vertex of the hit mesh (within a small screen-scaled tolerance) instead of
+// the raw raycast hit on the triangle surface. Work is capped on very dense meshes.
+function snapToNearestVertex(p, mesh){
+  const geo = mesh && mesh.geometry; const posAttr = geo && geo.attributes && geo.attributes.position;
+  if(!posAttr) return p;
+  const tol = sceneScale()*2.5;
+  let best=null, bestD=tol;
+  const v = new THREE.Vector3();
+  const step = posAttr.count > 20000 ? Math.ceil(posAttr.count/20000) : 1;
+  for(let i=0;i<posAttr.count;i+=step){
+    v.fromBufferAttribute(posAttr, i).applyMatrix4(mesh.matrixWorld);
+    const d = v.distanceTo(p);
+    if(d<bestD){ bestD=d; best=v.clone(); }
+  }
+  return best || p;
+}
+
+function addCoordLabel(p){
+  const el = document.createElement("div");
+  el.className = "mLabel";
+  el.innerHTML = "~ X: " + fmtCoord(p.x) + "<br>~ Y: " + fmtCoord(p.y) + "<br>~ Z: " + fmtCoord(p.z);
+  $("view").appendChild(el);
+  mLabels.push({ el, pt: p.clone() });
+}
+function updateMeasureLabels(){
+  if(!mLabels.length) return;
+  const r = renderer.domElement.getBoundingClientRect();
+  const v = new THREE.Vector3();
+  mLabels.forEach(L=>{
+    v.copy(L.pt).project(camera);
+    const x = (v.x*0.5+0.5)*r.width, y = (1-(v.y*0.5+0.5))*r.height;
+    L.el.style.display = v.z < 1 ? "block" : "none";
+    L.el.style.left = (x+12) + "px";
+    L.el.style.top = (y-14) + "px";
+  });
+}
+
+function finishMeasureIfIsolating(){
+  if(!measSettings.isolate || !mHitMeshes.length) return;
+  const set = new Set(mHitMeshes);
+  allMeshes.forEach(m=> m.visible = set.has(m));
+}
+
 function handleMeasureClick(ev){
   const hit = pick(ev); if(!hit) return;
-  const p = hit.point.clone(); mPts.push(p); dot(p, 0xf5b73d);
+  let p = hit.point.clone();
+  if(!measSettings.free) p = snapToNearestVertex(p, hit.object);
+  mPts.push(p); mHitMeshes.push(hit.object);
+  dot(p, measureMode==="point" ? 0x4d7cfe : 0xf5b73d);
+
   if(measureMode==="len"){
-    if(mPts.length>=2){ const a=mPts[mPts.length-2], b=mPts[mPts.length-1]; line(a,b,0xf5b73d); const d=a.distanceTo(b); $("measureOut").textContent = "Length: " + d.toFixed(3) + " m"; }
+    if(mPts.length>=2){
+      const a=mPts[mPts.length-2], b=mPts[mPts.length-1];
+      line(a,b,0xf5b73d);
+      $("measureOut").textContent = "Length: " + fmtLen(a.distanceTo(b));
+      finishMeasureIfIsolating();
+    }
   } else if(measureMode==="area"){
-    if(mPts.length>=2){ line(mPts[mPts.length-2], mPts[mPts.length-1], 0x31d0a5); }
-    if(mPts.length>=3){ $("measureOut").textContent = "Area: " + polyArea(mPts).toFixed(3) + " m²  (" + mPts.length + " pts)"; }
+    if(mPts.length>=2) line(mPts[mPts.length-2], mPts[mPts.length-1], 0x31d0a5);
+    if(mPts.length>=3){ $("measureOut").textContent = "Area: " + fmtArea(polyArea(mPts)) + "  (" + mPts.length + " pts)"; }
+  } else if(measureMode==="angle"){
+    if(mPts.length>=2) line(mPts[mPts.length-2], mPts[mPts.length-1], 0x31d0a5);
+    if(mPts.length>=3){
+      const a=mPts[0], vtx=mPts[1], b=mPts[2];
+      const v1=new THREE.Vector3().subVectors(a,vtx), v2=new THREE.Vector3().subVectors(b,vtx);
+      const deg = v1.angleTo(v2) * 180/Math.PI;
+      $("measureOut").textContent = "Angle: " + deg.toFixed(measSettings.precision) + "°";
+      finishMeasureIfIsolating();
+      mPts=[]; mHitMeshes=[];
+    }
+  } else if(measureMode==="point"){
+    addCoordLabel(p);
+    $("measureOut").textContent = "Point: X " + fmtCoord(p.x) + " · Y " + fmtCoord(p.y) + " · Z " + fmtCoord(p.z);
+    finishMeasureIfIsolating();
+    mPts=[]; mHitMeshes=[];
   }
 }
 function polyArea(pts){ // Newell's method (planar polygon area in 3D)
@@ -1165,12 +1290,31 @@ if($("bxShowGizmo")) $("bxShowGizmo").onchange = (e)=>{ (SBX.faces||[]).forEach(
 if($("btnMeasureTool")) $("btnMeasureTool").onclick = ()=>{
   const d=$("measureDock"); if(!d) return; const open=!d.classList.contains("open");
   d.classList.toggle("open", open); $("btnMeasureTool").classList.toggle("on", open);
+  if(!open){ const sp=$("measureSettingsPanel"); if(sp) sp.classList.remove("open"); }
 };
 if($("btnMeasureDone")) $("btnMeasureDone").onclick = ()=>{
   measureMode = null; toggleMeasureBtns();
   const d=$("measureDock"); if(d) d.classList.remove("open");
   const t=$("btnMeasureTool"); if(t) t.classList.remove("on");
+  const sp=$("measureSettingsPanel"); if(sp) sp.classList.remove("open");
 };
+
+// ---- Measurement settings popup (unit type, secondary unit, precision, isolate, free-measure) ----
+if($("btnMeasureSettings")) $("btnMeasureSettings").onclick = (ev)=>{
+  ev.stopPropagation();
+  const p=$("measureSettingsPanel"); if(p) p.classList.toggle("open");
+};
+if($("measSetClose")) $("measSetClose").onclick = ()=>{ const p=$("measureSettingsPanel"); if(p) p.classList.remove("open"); };
+if($("measUnit")) $("measUnit").onchange = (e)=>{ measSettings.unit = e.target.value; };
+if($("measUnit2")) $("measUnit2").onchange = (e)=>{ measSettings.unit2 = e.target.value; };
+if($("measPrecision")) $("measPrecision").onchange = (e)=>{ measSettings.precision = parseInt(e.target.value, 10); };
+if($("measIsolate")) $("measIsolate").onchange = (e)=>{ measSettings.isolate = e.target.checked; if(!e.target.checked) showAll(); };
+if($("measFree")) $("measFree").onchange = (e)=>{ measSettings.free = e.target.checked; };
+document.addEventListener("click", (ev)=>{
+  const btn=$("btnMeasureSettings"), panel=$("measureSettingsPanel");
+  if(!btn || !panel || !panel.classList.contains("open")) return;
+  if(!panel.contains(ev.target) && !btn.contains(ev.target)) panel.classList.remove("open");
+});
 
 // ---- Toolbar: Section tool launcher + "More" overflow menu ----
 if($("btnSectionTool")) $("btnSectionTool").onclick = ()=> stShow(undefined, SBX.on ? "box" : "plane");

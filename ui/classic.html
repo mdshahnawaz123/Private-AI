@@ -582,7 +582,7 @@ function openSelectedModels(){
   const rels = [...document.querySelectorAll('.v3cb:checked')].map(c=>c.value);
   if(!rels.length){ toast('Tick at least one model'); return; }
   const relParams = rels.map(r => 'rel=' + r).join('&');  // already encoded
-  const url = `/ui/viewer.html?v=2&project=${encodeURIComponent(currentProject)}&token=${encodeURIComponent(authToken||'')}&${relParams}`;
+  const url = `/ui/viewer.html?v=6&project=${encodeURIComponent(currentProject)}&token=${encodeURIComponent(authToken||'')}&${relParams}`;
   document.getElementById('viewerFrame').src = url;
 }
 function closeViewer(){ document.getElementById('viewerPanel').classList.remove('open'); document.getElementById('viewerFrame').src='about:blank'; }

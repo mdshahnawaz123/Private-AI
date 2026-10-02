@@ -260,22 +260,14 @@ function buildDesignWorkspace(){
   $('loadBtn').onclick=loadModels;
 }
 function renderDesignTools(){
-  $('wsTools').innerHTML=`
-    <button class="tb" data-cmd="fit">Fit</button>
-    <button class="tb" data-cmd="reset">Reset</button>
-    <button class="tb" id="viewCycle">View ▾</button>
-    <span class="tbsep"></span>
-    <button class="tb axis" data-cmd="secX">X</button>
-    <button class="tb axis" data-cmd="secY">Y</button>
-    <button class="tb axis" data-cmd="secZ">Z</button>
-    <button class="tb" data-cmd="secOff">Section off</button>
-    <span class="tbsep"></span>
-    <button class="tb" data-cmd="hide">Hide</button>
-    <button class="tb" data-cmd="iso">Isolate</button>
-    <button class="tb" data-cmd="showall">Show all</button>
-    <button class="tb" data-cmd="measure">Measure</button>`;
-  $('wsTools').querySelectorAll('[data-cmd]').forEach(btn=>btn.onclick=()=>vcmd(btn.dataset.cmd));
-  const vc=$('viewCycle'); if(vc) vc.onclick=()=>{ const views=['top','front','right','back','left','bottom']; const i=(window._vi=(window._vi||0)+1)%views.length; vcmd('view:'+views[i]); toast('View: '+views[i]); };
+  // The 3D viewer (ui/viewer.js) now ships its own complete toolbar
+  // (Fit/Reset/Orbit/Pan/Zoom/Section/Hide/Isolate/Show all/Measure/
+  // Display modes/Camera/etc.), so this outer duplicate bar -- which
+  // only ever forwarded postMessage commands into the iframe via
+  // vcmd() -- has been removed to avoid showing the same controls
+  // twice. vcmd() is kept (harmless, unused) in case something else
+  // starts forwarding viewer commands from outside the iframe later.
+  $('wsTools').innerHTML='';
 }
 function refreshDesignEmpty(){
   const models=allDocs.filter(f=>rx.ifc.test(f.filename));

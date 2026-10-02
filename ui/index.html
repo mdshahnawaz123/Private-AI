@@ -306,24 +306,14 @@ body.has-fs #fsBar{display:flex}
     <div class="vrow">
       <div class="viewport ws-mod" id="wsModel">
         <div class="vp-tools" id="vpTools">
-          <button class="tb" data-cmd="fit">Fit</button>
-          <button class="tb" data-cmd="reset">Reset</button>
-          <span class="tbsep"></span>
-          <button class="tb on" data-cmd="planN">Plan North</button>
-          <button class="tb" data-cmd="trueN">True North</button>
-          <span class="tbsep"></span>
-          <button class="tb" data-cmd="secX">Section</button>
-          <button class="tb axis" data-cmd="secX">X</button>
-          <button class="tb axis" data-cmd="secY">Y</button>
-          <button class="tb axis" data-cmd="secZ">Z</button>
-          <button class="tb" data-cmd="secOff">Off</button>
-          <span class="tbsep"></span>
-          <button class="tb" data-cmd="hide">Hide</button>
-          <button class="tb" data-cmd="iso">Isolate</button>
-          <button class="tb" data-cmd="showall">Show all</button>
-          <span class="tbsep"></span>
-          <button class="tb" data-cmd="measure">Measure</button>
-          <button class="tb" data-view-menu>View ▾</button><button class="wsbtn" data-ws="model" onclick="wsToggle('model')" style="margin-left:auto"></button>
+          <!-- The 3D viewer (ui/viewer.js) now ships its own complete toolbar
+               (Fit/Reset/Orbit/Pan/Zoom/Plan North/Section/Hide/Isolate/Show
+               all/Measure/Display modes/Camera/etc.), so the duplicate
+               Fit/Reset/Plan North/Section/Hide/Isolate/Show all/Measure/View
+               buttons that used to live here (forwarding postMessage commands
+               into the iframe via vcmd()) have been removed. Only the
+               Expand/Restore control -- a different feature -- stays. -->
+          <button class="wsbtn" data-ws="model" onclick="wsToggle('model')" style="margin-left:auto"></button>
         </div>
         <div class="vp-body">
           <div class="vp-empty" id="vpEmpty">
@@ -425,12 +415,10 @@ function setTab(t){
   $('ctabs').querySelectorAll('.ctab').forEach(b=>b.classList.toggle('on',b.dataset.t===t));
   on3D=(t==='model'); updateAiCtx();
 }
-// viewport toolbar -> forward to viewer
-const CMD={fit:'fit',reset:'reset',planN:'planN',trueN:'trueN',secX:'secX',secY:'secY',secZ:'secZ',secOff:'secOff',hide:'hide',iso:'iso',showall:'showall',measure:'measure'};
-$('vpTools').querySelectorAll('[data-cmd]').forEach(b=>b.onclick=()=>{ vcmd(b.dataset.cmd);
-  if(b.dataset.cmd==='planN'){b.classList.add('on');$('vpTools').querySelector('[data-cmd="trueN"]').classList.remove('on');}
-  if(b.dataset.cmd==='trueN'){b.classList.add('on');$('vpTools').querySelector('[data-cmd="planN"]').classList.remove('on');} });
-$('vpTools').querySelector('[data-view-menu]').onclick=()=>{ const views=['top','front','right','back','left','bottom']; const i=(window._vi=(window._vi||0)+1)%views.length; vcmd('view:'+views[i]); toast('View: '+views[i]); };
+// The duplicate Fit/Reset/Plan North/Section/Hide/Isolate/Show all/Measure/
+// View buttons that used to live in #vpTools (and this wiring for them) were
+// removed -- the 3D viewer now ships its own complete toolbar. vcmd() is
+// kept since wsNudge() still forwards a 'resize' command through it.
 function vcmd(c){ try{ $('viewerFrame').contentWindow.postMessage({type:'expo:cmd',cmd:c},'*'); }catch(e){} }
 
 // ---- auth ----

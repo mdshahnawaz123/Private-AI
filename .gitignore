@@ -47,3 +47,4 @@ htmlcov/
 # Temporary files
 *.tmp
 *.temp
+_poc_data/

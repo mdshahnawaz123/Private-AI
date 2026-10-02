@@ -479,7 +479,7 @@ function refreshLoadState(){ const models=allDocs.filter(f=>rx.ifc.test(f.filena
 $('loadBtn').onclick=loadModels;
 function loadModels(){ const models=allDocs.filter(f=>rx.ifc.test(f.filename)); if(!models.length){toast('No IFC models');return;}
   const rels=models.slice(0,4).map(f=>'rel='+encodeURIComponent(f.rel)).join('&');
-  const url=`/ui/viewer.html?v=9&embed=1&project=${encodeURIComponent(currentProject)}&token=${encodeURIComponent(authToken||'')}&${rels}`;
+  const url=`/ui/viewer.html?v=11&embed=1&project=${encodeURIComponent(currentProject)}&token=${encodeURIComponent(authToken||'')}&${rels}`;
   $('vpEmpty').style.display='none'; $('viewerFrame').style.display='block'; $('viewerFrame').src=url; }
 
 // viewer bridge

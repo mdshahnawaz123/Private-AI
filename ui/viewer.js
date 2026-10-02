@@ -266,6 +266,7 @@ function pick(ev){
 }
 renderer.domElement.addEventListener("pointerdown", (ev) => {
   if(ev.button!==0) return;
+  if(SEC.placing){ secPlaceConfirm(ev); return; }
   if(measureMode){ handleMeasureClick(ev); return; }
   if(ev.button===0 && typeof SBX!=="undefined" && SBX.on && sbxTryDrag(ev)) return;  // section-box face drag preempts selection
   const hit = pick(ev);
@@ -358,7 +359,12 @@ if($("btnRealistic")) $("btnRealistic").onclick = () => {
 // ================= Interactive Section (Three.js clipping plane) =================
 // Render-only. Never modifies IFC geometry. Owns renderer.clippingPlanes while active;
 // hands control back to the storey-plan `clip` when off.
-const SEC={ on:false, axis:'z', sign:1, pos:0, lo:0, hi:1, group:null, quad:null, edge:null, arrow:null, dragging:false, _box:null, _plane:new THREE.Plane() };
+const SEC={ on:false, axis:'z', sign:1, pos:0, lo:0, hi:1, group:null, quad:null, edge:null, arrow:null, dragging:false, dragMode:null, _box:null, _plane:new THREE.Plane(),
+  // Free-orientation plane placement (added on top of the legacy axis-aligned system below,
+  // which is left fully intact as the "Fine controls" quick-axis snap). When freeNormal is set,
+  // it -- not axis/pos -- is the source of truth for the clipping plane and its visual.
+  placing:false, editing:false, freeNormal:null, freePoint:null, initialFree:null, gizmo:null,
+  _lastDragAngle:undefined, _dragAxisKey:null };
 function _axisVec(a){ return new THREE.Vector3(a==='x'?1:0, a==='y'?1:0, a==='z'?1:0); }
 function secBuildVisual(){
   if(SEC.group) return;
@@ -369,74 +375,337 @@ function secBuildVisual(){
   SEC.edge=new THREE.LineSegments(new THREE.EdgesGeometry(g), new THREE.LineBasicMaterial({color:0x8ab4ff}));
   SEC.arrow=new THREE.ArrowHelper(new THREE.Vector3(0,0,1), new THREE.Vector3(0,0,0), 1, 0x31d0a5, 0.4, 0.25);
   SEC.group.add(SEC.quad); SEC.group.add(SEC.edge); SEC.group.add(SEC.arrow);
+  // Rotation-ring gizmo for the free-orientation plane. A plane's orientation has exactly two
+  // rotational degrees of freedom (a "roll" about its own normal leaves the plane unchanged),
+  // so two perpendicular ring handles (each a ~288deg arc, for an easy drag target) are a
+  // complete, not simplified, control set.
+  // ringU: lies in the local XZ-plane (default torus is XY -- rotate 90deg about X) -- dragging
+  // it tilts the normal about the local Y axis.
+  // ringV: lies in the local YZ-plane (rotate 90deg about Y) -- tilts about the local X axis.
+  const ringGeo = new THREE.TorusGeometry(1, 0.012, 8, 48);
+  SEC.gizmo = {};
+  SEC.gizmo.ringU = new THREE.Mesh(ringGeo, new THREE.MeshBasicMaterial({color:0xf5b73d, side:THREE.DoubleSide, depthTest:false, transparent:true, opacity:0.95}));
+  SEC.gizmo.ringU.rotation.set(Math.PI/2, 0, 0);
+  SEC.gizmo.ringU.userData.sectionRing='U';
+  SEC.gizmo.ringU.renderOrder = 998;
+  SEC.gizmo.ringV = new THREE.Mesh(ringGeo, new THREE.MeshBasicMaterial({color:0x31d0a5, side:THREE.DoubleSide, depthTest:false, transparent:true, opacity:0.95}));
+  SEC.gizmo.ringV.rotation.set(0, Math.PI/2, 0);
+  SEC.gizmo.ringV.userData.sectionRing='V';
+  SEC.gizmo.ringV.renderOrder = 998;
+  // Separate, much fatter invisible "picker" tori used ONLY for raycasting. A ring thin enough
+  // to read as a clean handle on screen is too thin to reliably raycast-hit with a mouse pointer
+  // (the true geometric tube can project to under a screen pixel) -- this is the same reason
+  // three.js's own TransformControls/gizmo helpers always hit-test against an oversized invisible
+  // proxy rather than the visible mesh. These never render and are kept scale/rotation-synced
+  // with ringU/ringV in secPositionGizmoRings.
+  const ringPickGeo = new THREE.TorusGeometry(1, 0.09, 8, 48);
+  SEC.gizmo.ringUPick = new THREE.Mesh(ringPickGeo, new THREE.MeshBasicMaterial());
+  SEC.gizmo.ringUPick.rotation.copy(SEC.gizmo.ringU.rotation);
+  SEC.gizmo.ringUPick.visible = false;
+  SEC.gizmo.ringVPick = new THREE.Mesh(ringPickGeo, new THREE.MeshBasicMaterial());
+  SEC.gizmo.ringVPick.rotation.copy(SEC.gizmo.ringV.rotation);
+  SEC.gizmo.ringVPick.visible = false;
+  SEC.gizmo.ringU.visible = false; SEC.gizmo.ringV.visible = false;
+  SEC.group.add(SEC.gizmo.ringU); SEC.group.add(SEC.gizmo.ringV);
+  SEC.group.add(SEC.gizmo.ringUPick); SEC.group.add(SEC.gizmo.ringVPick);
   SEC.group.visible=false; scene.add(SEC.group);
 }
 function secClamp(){ if(SEC.pos<SEC.lo)SEC.pos=SEC.lo; if(SEC.pos>SEC.hi)SEC.pos=SEC.hi; }
 function secStart(axis){
   if(typeof sbxOff==="function" && SBX && SBX.on) sbxOff();   // box and plane are mutually exclusive
   clip.plane=null;                 // stop any storey-plan cut
+  SEC.placing=false; SEC.editing=false; SEC.freeNormal=null; SEC.freePoint=null; SEC.initialFree=null;
+  const ph=$("secPlaceHint"); if(ph) ph.style.display="none";
+  secSetGizmoVisible(false);
   const b=bboxAll(); SEC._box=b; SEC.on=true; if(axis) SEC.axis=axis;
   const a=SEC.axis;
   SEC.lo=a==='x'?b.min.x:a==='y'?b.min.y:b.min.z;
   SEC.hi=a==='x'?b.max.x:a==='y'?b.max.y:b.max.z;
   if(!(SEC.pos>SEC.lo && SEC.pos<SEC.hi)) SEC.pos=(SEC.lo+SEC.hi)/2;
-  secBuildVisual(); secUpdate(); secSyncUI(); showSecPanel(true);
+  secBuildVisual(); secUpdate(); secSyncUI(); showSecPanel(true); secSyncPanelVisibility();
 }
 function secCenter(){ const c=(SEC._box||bboxAll()).getCenter(new THREE.Vector3()); if(SEC.axis==='x')c.x=SEC.pos; else if(SEC.axis==='y')c.y=SEC.pos; else c.z=SEC.pos; return c; }
+// Unified for both the legacy axis-snap mode and the free-orientation plane: resolves to a
+// (direction, point-on-plane) pair either way, then the plane equation is the same dot-product
+// in both cases -- this is a superset of the old two-line axis-only calc, not a behavior change
+// for axis mode (secCenter() already returns the axis-locked point the old code used).
 function secUpdate(){
   if(!SEC.on){ renderer.clippingPlanes = clip.plane?[clip.plane]:[]; if(SEC.group)SEC.group.visible=false; return; }
-  const n=_axisVec(SEC.axis).multiplyScalar(SEC.sign);
-  SEC._plane.normal.copy(n); SEC._plane.constant=-SEC.sign*SEC.pos;
+  const dir = SEC.freeNormal ? SEC.freeNormal : _axisVec(SEC.axis);
+  const point = SEC.freeNormal ? SEC.freePoint : secCenter();
+  const n = dir.clone().multiplyScalar(SEC.sign);
+  SEC._plane.normal.copy(n);
+  SEC._plane.constant = -n.dot(point);
   renderer.clippingPlanes=[SEC._plane];
   secPlaceVisual();
 }
+function secPositionGizmoRings(radius){
+  if(!SEC.gizmo) return;
+  SEC.gizmo.ringU.scale.setScalar(radius);
+  SEC.gizmo.ringV.scale.setScalar(radius);
+  SEC.gizmo.ringUPick.scale.setScalar(radius);
+  SEC.gizmo.ringVPick.scale.setScalar(radius);
+}
 function secPlaceVisual(){
   if(!SEC.group) return; SEC.group.visible=true;
-  const b=SEC._box||bboxAll(), sz=b.getSize(new THREE.Vector3()), a=SEC.axis, m=Math.max(sz.x,sz.y,sz.z)||10;
-  let w,h;
-  if(a==='z'){ w=sz.x*1.06; h=sz.y*1.06; SEC.group.quaternion.set(0,0,0,1); }
-  else if(a==='x'){ w=sz.y*1.06; h=sz.z*1.06; SEC.group.quaternion.setFromEuler(new THREE.Euler(0,Math.PI/2,0)); }
-  else { w=sz.x*1.06; h=sz.z*1.06; SEC.group.quaternion.setFromEuler(new THREE.Euler(-Math.PI/2,0,0)); }
-  SEC.quad.scale.set(w,h,1); SEC.edge.scale.set(w,h,1);
-  SEC.group.position.copy(secCenter());
-  const nrm=_axisVec(a).multiplyScalar(SEC.sign).normalize();
-  SEC.arrow.setDirection(nrm); SEC.arrow.setLength(m*0.14, m*0.05, m*0.03); SEC.arrow.position.set(0,0,0);
+  const b=SEC._box||bboxAll(), sz=b.getSize(new THREE.Vector3()), m=Math.max(sz.x,sz.y,sz.z)||10;
+  if(SEC.freeNormal){
+    const n = SEC.freeNormal.clone().normalize();
+    SEC.group.quaternion.setFromUnitVectors(new THREE.Vector3(0,0,1), n);
+    const diag = Math.sqrt(sz.x*sz.x+sz.y*sz.y+sz.z*sz.z) || m;
+    const w = diag*0.95, h = diag*0.95;
+    SEC.quad.scale.set(w,h,1); SEC.edge.scale.set(w,h,1);
+    SEC.group.position.copy(SEC.freePoint);
+    const nrm = n.clone().multiplyScalar(SEC.sign);
+    SEC.arrow.setDirection(nrm); SEC.arrow.setLength(m*0.14, m*0.05, m*0.03); SEC.arrow.position.set(0,0,0);
+    secPositionGizmoRings(diag*0.28);
+  } else {
+    const a=SEC.axis; let w,h;
+    if(a==='z'){ w=sz.x*1.06; h=sz.y*1.06; SEC.group.quaternion.set(0,0,0,1); }
+    else if(a==='x'){ w=sz.y*1.06; h=sz.z*1.06; SEC.group.quaternion.setFromEuler(new THREE.Euler(0,Math.PI/2,0)); }
+    else { w=sz.x*1.06; h=sz.z*1.06; SEC.group.quaternion.setFromEuler(new THREE.Euler(-Math.PI/2,0,0)); }
+    SEC.quad.scale.set(w,h,1); SEC.edge.scale.set(w,h,1);
+    SEC.group.position.copy(secCenter());
+    const nrm=_axisVec(a).multiplyScalar(SEC.sign).normalize();
+    SEC.arrow.setDirection(nrm); SEC.arrow.setLength(m*0.14, m*0.05, m*0.03); SEC.arrow.position.set(0,0,0);
+  }
 }
 function secPct(){ return SEC.hi>SEC.lo ? ((SEC.pos-SEC.lo)/(SEC.hi-SEC.lo))*100 : 50; }
-function secSyncUI(){ const s=$("secSlide"); if(s) s.value=secPct(); const nu=$("secNum"); if(nu && document.activeElement!==nu) nu.value=SEC.pos.toFixed(3);
-  document.querySelectorAll("[data-ax]").forEach(b=>b.classList.toggle("on", SEC.on && b.dataset.ax===SEC.axis));
-  const bs=$("btnSection"); if(bs) bs.classList.toggle("on", SEC.on); }
+function secSyncUI(){
+  const s=$("secSlide"), nu=$("secNum");
+  if(!SEC.freeNormal){
+    if(s) s.value=secPct();
+    if(nu && document.activeElement!==nu) nu.value=SEC.pos.toFixed(3);
+  }
+  document.querySelectorAll("[data-ax]").forEach(b=>b.classList.toggle("on", SEC.on && !SEC.freeNormal && b.dataset.ax===SEC.axis));
+  const bs=$("btnSection"); if(bs) bs.classList.toggle("on", SEC.on);
+}
 function secSetPct(p){ SEC.pos=SEC.lo+(SEC.hi-SEC.lo)*(p/100); secClamp(); secUpdate(); secSyncUI(); }
 function secSetNum(v){ const x=parseFloat(v); if(!isNaN(x)){ SEC.pos=x; secClamp(); secUpdate(); secSyncUI(); } }
 function secReverse(){ SEC.sign*=-1; secUpdate(); }
-function secReset(){ SEC.pos=(SEC.lo+SEC.hi)/2; SEC.sign=1; secUpdate(); secSyncUI(); }
+function secReset(){
+  if(SEC.freeNormal && SEC.initialFree){
+    SEC.freeNormal.copy(SEC.initialFree.normal); SEC.freePoint.copy(SEC.initialFree.point); SEC.sign=1;
+    secUpdate(); secSyncUI(); secSyncFreePanel();
+    return;
+  }
+  SEC.pos=(SEC.lo+SEC.hi)/2; SEC.sign=1; secUpdate(); secSyncUI();
+}
 function secOff(){ SEC.on=false; if(SEC.group)SEC.group.visible=false; renderer.clippingPlanes = clip.plane?[clip.plane]:[];
   document.querySelectorAll("[data-ax]").forEach(b=>b.classList.remove("on")); const bs=$("btnSection"); if(bs) bs.classList.remove("on"); showSecPanel(false); }
 function showSecPanel(v){ stShow(v, "plane"); }
-// drag the section plane along its axis (camera + geometry untouched)
+// Drag the section plane: along its normal (quad handle, both modes), or -- free mode only --
+// tilt it via one of the two rotation rings. Camera and IFC geometry are never touched.
 function secTryDrag(ev){
   if(!SEC.on || !SEC.group || !SEC.group.visible) return false;
   const r=renderer.domElement.getBoundingClientRect();
   mouse.x=((ev.clientX-r.left)/r.width)*2-1; mouse.y=-((ev.clientY-r.top)/r.height)*2+1;
   ray.setFromCamera(mouse,camera);
-  if(ray.intersectObject(SEC.quad,false).length){ SEC.dragging=true; controls.enabled=false; return true; }
+  if(SEC.freeNormal && SEC.gizmo && SEC.gizmo.ringU.visible){
+    // Hit-test against the fatter invisible proxy tori (see secBuildVisual), not the thin
+    // visible rings -- the visible ringU/ringV meshes are display-only.
+    if(ray.intersectObject(SEC.gizmo.ringUPick,false).length){
+      SEC.dragMode='rotateU'; SEC.dragging=true; controls.enabled=false; SEC._lastDragAngle=undefined; SEC._dragAxisKey='U'; return true;
+    }
+    if(ray.intersectObject(SEC.gizmo.ringVPick,false).length){
+      SEC.dragMode='rotateV'; SEC.dragging=true; controls.enabled=false; SEC._lastDragAngle=undefined; SEC._dragAxisKey='V'; return true;
+    }
+  }
+  if(ray.intersectObject(SEC.quad,false).length){ SEC.dragMode='translate'; SEC.dragging=true; controls.enabled=false; return true; }
   return false;
 }
-function secDragMove(ev){
-  if(!SEC.dragging) return;
+function secDragTranslate(ev){
   const r=renderer.domElement.getBoundingClientRect();
   const ndc=new THREE.Vector2(((ev.clientX-r.left)/r.width)*2-1, -((ev.clientY-r.top)/r.height)*2+1);
   ray.setFromCamera(ndc,camera);
-  const axisV=_axisVec(SEC.axis), viewDir=new THREE.Vector3(); camera.getWorldDirection(viewDir);
+  const axisV = SEC.freeNormal ? SEC.freeNormal.clone() : _axisVec(SEC.axis);
+  const centerPt = SEC.freeNormal ? SEC.freePoint : secCenter();
+  const viewDir=new THREE.Vector3(); camera.getWorldDirection(viewDir);
   let pn=new THREE.Vector3().crossVectors(axisV,viewDir).cross(axisV);
   if(pn.lengthSq()<1e-8) pn.copy(viewDir);
   pn.normalize();
-  const dp=new THREE.Plane().setFromNormalAndCoplanarPoint(pn, secCenter()), hit=new THREE.Vector3();
-  if(ray.ray.intersectPlane(dp,hit)){ SEC.pos = SEC.axis==='x'?hit.x:SEC.axis==='y'?hit.y:hit.z; secClamp(); secUpdate(); secSyncUI(); }
+  const dp=new THREE.Plane().setFromNormalAndCoplanarPoint(pn, centerPt), hit=new THREE.Vector3();
+  if(!ray.ray.intersectPlane(dp,hit)) return;
+  if(SEC.freeNormal){
+    const d = new THREE.Vector3().subVectors(hit, centerPt).dot(axisV);
+    SEC.freePoint.copy(centerPt).addScaledVector(axisV, d);
+    secUpdate(); secSyncUI(); secSyncFreePanel();
+  } else {
+    SEC.pos = SEC.axis==='x'?hit.x:SEC.axis==='y'?hit.y:hit.z; secClamp(); secUpdate(); secSyncUI();
+  }
 }
-function secDragEnd(){ if(SEC.dragging){ SEC.dragging=false; controls.enabled=true; } }
+// Tangent basis matching SEC.group's own quaternion (setFromUnitVectors(+Z, normal)), so the
+// drag feels consistent with the rendered rings: ringU's plane normal is localY, ringV's is localX.
+function secGetLocalAxes(){
+  const n = SEC.freeNormal.clone().normalize();
+  const q = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,0,1), n);
+  return { localX:new THREE.Vector3(1,0,0).applyQuaternion(q), localY:new THREE.Vector3(0,1,0).applyQuaternion(q), n };
+}
+function secDragRotate(ev, which){
+  const {localX, localY, n} = secGetLocalAxes();
+  const rotAxis = which==='U' ? localY : localX;
+  const r=renderer.domElement.getBoundingClientRect();
+  const ndc=new THREE.Vector2(((ev.clientX-r.left)/r.width)*2-1, -((ev.clientY-r.top)/r.height)*2+1);
+  ray.setFromCamera(ndc,camera);
+  const center = SEC.freePoint;
+  const dragPlane = new THREE.Plane().setFromNormalAndCoplanarPoint(rotAxis, center);
+  const hit = new THREE.Vector3();
+  if(!ray.ray.intersectPlane(dragPlane, hit)) return;
+  const v = new THREE.Vector3().subVectors(hit, center);
+  if(v.lengthSq() < 1e-9) return;
+  v.normalize();
+  const refDir = n.clone().projectOnPlane(rotAxis);
+  if(refDir.lengthSq() < 1e-9) return;
+  refDir.normalize();
+  let angle = refDir.angleTo(v);
+  const cross = new THREE.Vector3().crossVectors(refDir, v);
+  if(cross.dot(rotAxis) < 0) angle = -angle;
+  if(SEC._lastDragAngle === undefined || SEC._dragAxisKey !== which){ SEC._lastDragAngle = angle; SEC._dragAxisKey = which; return; }
+  const delta = angle - SEC._lastDragAngle;
+  SEC._lastDragAngle = angle;
+  SEC.freeNormal.applyAxisAngle(rotAxis, delta).normalize();
+  secUpdate(); secSyncUI(); secSyncFreePanel();
+}
+function secDragMove(ev){
+  if(!SEC.dragging) return;
+  if(SEC.dragMode==='rotateU') secDragRotate(ev,'U');
+  else if(SEC.dragMode==='rotateV') secDragRotate(ev,'V');
+  else secDragTranslate(ev);
+}
+function secDragEnd(){ if(SEC.dragging){ SEC.dragging=false; SEC.dragMode=null; SEC._lastDragAngle=undefined; SEC._dragAxisKey=null; controls.enabled=true; } }
 renderer.domElement.addEventListener("pointermove", secDragMove);
 window.addEventListener("pointerup", secDragEnd);
+
+// ================= Section-plane placement workflow (camera-aware, click-to-place) =================
+function secSetGizmoVisible(v){
+  if(!SEC.gizmo) return;
+  const pref = $("secShowGizmo") ? $("secShowGizmo").checked : true;
+  SEC.gizmo.ringU.visible = !!(v && pref);
+  SEC.gizmo.ringV.visible = !!(v && pref);
+}
+function secSyncPanelVisibility(){
+  const edit=$("secEditBlock"); if(edit) edit.style.display = (SEC.on && SEC.freeNormal) ? "flex" : "none";
+  const ph=$("secPlaceHint"); if(ph) ph.style.display = SEC.placing ? "block" : "none";
+  const addBtn=$("secAddBtn"); if(addBtn) addBtn.style.display = SEC.placing ? "none" : "flex";
+}
+function secSyncFreePanel(){
+  if(!SEC.freeNormal) return;
+  const setVal=(id,val)=>{ const e=$(id); if(e && document.activeElement!==e) e.value = val; };
+  setVal("secPosX", SEC.freePoint.x.toFixed(2));
+  setVal("secPosY", SEC.freePoint.y.toFixed(2));
+  setVal("secPosZ", SEC.freePoint.z.toFixed(2));
+  const q = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,0,1), SEC.freeNormal);
+  const e = new THREE.Euler().setFromQuaternion(q, "XYZ");
+  setVal("secRotX", (e.x*180/Math.PI).toFixed(1));
+  setVal("secRotY", (e.y*180/Math.PI).toFixed(1));
+  setVal("secRotZ", (e.z*180/Math.PI).toFixed(1));
+}
+function secNumPosInput(){
+  if(!SEC.freeNormal) return;
+  const x=parseFloat($("secPosX").value), y=parseFloat($("secPosY").value), z=parseFloat($("secPosZ").value);
+  if(isNaN(x)||isNaN(y)||isNaN(z)) return;
+  SEC.freePoint.set(x,y,z); secUpdate(); secSyncUI();
+}
+function secNumRotInput(){
+  if(!SEC.freeNormal) return;
+  const rx=parseFloat($("secRotX").value), ry=parseFloat($("secRotY").value), rz=parseFloat($("secRotZ").value);
+  if(isNaN(rx)||isNaN(ry)||isNaN(rz)) return;
+  const eu = new THREE.Euler(rx*Math.PI/180, ry*Math.PI/180, rz*Math.PI/180, "XYZ");
+  SEC.freeNormal.copy(new THREE.Vector3(0,0,1).applyEuler(eu).normalize());
+  secUpdate(); secSyncUI();
+}
+// Camera-aware initial orientation: top/bottom view -> horizontal plane (world is Y-up in this
+// viewer, see the storey-plan code above); front/back or left/right -> a vertical plane facing
+// the camera. The user can always rotate away from this afterward.
+function secCameraNormal(){
+  const d=new THREE.Vector3(); camera.getWorldDirection(d);
+  const ax=Math.abs(d.x), ay=Math.abs(d.y), az=Math.abs(d.z);
+  if(ay>=ax && ay>=az) return new THREE.Vector3(0, d.y>=0?1:-1, 0);
+  if(ax>=az) return new THREE.Vector3(d.x>=0?1:-1, 0, 0);
+  return new THREE.Vector3(0,0, d.z>=0?1:-1);
+}
+function secPlaceBegin(){
+  secBuildVisual();
+  if(typeof sbxOff==="function" && SBX && SBX.on) sbxOff();
+  clip.plane = null;
+  SEC.placing = true; SEC.on = false; SEC.editing = false;
+  SEC.freeNormal = (SEC.freeNormal || new THREE.Vector3()).copy(secCameraNormal());
+  SEC.freePoint = (SEC.freePoint || new THREE.Vector3()).copy(bboxAll().getCenter(new THREE.Vector3()));
+  SEC._box = bboxAll();
+  SEC.group.visible = true;
+  secSetGizmoVisible(false);
+  secPlaceVisual();
+  hint("Move over the model and click to place the section plane. Esc to cancel.");
+  stShow(true, "plane");
+  secSyncPanelVisibility();
+}
+function secPlaceMove(ev){
+  if(!SEC.placing) return;
+  const r=renderer.domElement.getBoundingClientRect();
+  mouse.x=((ev.clientX-r.left)/r.width)*2-1; mouse.y=-((ev.clientY-r.top)/r.height)*2+1;
+  ray.setFromCamera(mouse,camera);
+  const hits = ray.intersectObjects(allMeshes.filter(m=>m.visible), false);
+  if(hits.length && hits[0].face){
+    // Snap the preview (and, on click, the placed plane) flush to the actual surface under the
+    // cursor -- e.g. hovering the top face of a slab/roof previews a horizontal cut coincident
+    // with that face, not just a camera-aligned guess. The face normal from the raycast hit is
+    // in the mesh's local space; transformDirection() by its world matrix gives the real-world
+    // orientation of that surface (IFC meshes here carry no non-uniform scale, so this is exact,
+    // not an approximation). Falls back to the camera-aware guess only off-model (TEST 01/08).
+    const n = hits[0].face.normal.clone().transformDirection(hits[0].object.matrixWorld).normalize();
+    SEC.freeNormal.copy(n);
+    SEC.freePoint.copy(hits[0].point);
+  } else {
+    SEC.freeNormal.copy(secCameraNormal());
+    SEC.freePoint.copy(bboxAll().getCenter(new THREE.Vector3()));
+  }
+  secPlaceVisual();
+}
+function secPlaceConfirm(ev){
+  SEC.placing = false; SEC.on = true; SEC.sign = 1; SEC.editing = true;
+  SEC._box = bboxAll();
+  SEC.initialFree = { normal: SEC.freeNormal.clone(), point: SEC.freePoint.clone() };
+  secUpdate(); secSyncUI(); secSyncFreePanel();
+  secSetGizmoVisible(true);
+  hint("");
+  secSyncPanelVisibility();
+  stRenderPlaneList();
+}
+function secPlaceCancel(){
+  SEC.placing = false;
+  if(SEC.group) SEC.group.visible = false;
+  hint("");
+  secSyncPanelVisibility();
+}
+function secApply(){ SEC.editing = false; secSetGizmoVisible(false); }
+function secCancelEditing(){
+  if(SEC.freeNormal && SEC.initialFree){
+    SEC.freeNormal.copy(SEC.initialFree.normal); SEC.freePoint.copy(SEC.initialFree.point); SEC.sign=1;
+    secUpdate(); secSyncUI(); secSyncFreePanel();
+  }
+  secApply();
+}
+// Removes the active plane entirely and restores the model -- distinct from the legacy secOff()
+// (still used unchanged by the hidden #secOff button and the storey-plan switch) in that it does
+// NOT also close the whole Sectioning Tools panel, and it clears the free-orientation state.
+function secDelete(){
+  SEC.on=false; SEC.placing=false; SEC.editing=false;
+  SEC.freeNormal=null; SEC.freePoint=null; SEC.initialFree=null;
+  if(SEC.group) SEC.group.visible=false;
+  secSetGizmoVisible(false);
+  renderer.clippingPlanes = clip.plane?[clip.plane]:[];
+  document.querySelectorAll("[data-ax]").forEach(b=>b.classList.remove("on"));
+  const bs=$("btnSection"); if(bs) bs.classList.remove("on");
+  hint("");
+  secSyncPanelVisibility();
+  stRenderPlaneList();
+}
+renderer.domElement.addEventListener("pointermove", secPlaceMove);
+window.addEventListener("keydown", (ev)=>{
+  if(ev.key !== "Escape") return;
+  if(SEC.placing) secPlaceCancel();
+  else if(SEC.on && SEC.freeNormal && SEC.editing) secApply();
+});
 
 // ================= Camera navigation modes (camera only) =================
 function setNavMode(m){
@@ -760,6 +1029,10 @@ function buildModelContext(){
         + "X[" + b.min.x.toFixed(2) + ".." + b.max.x.toFixed(2) + "] "
         + "Y[" + b.min.y.toFixed(2) + ".." + b.max.y.toFixed(2) + "] "
         + "Z[" + b.min.z.toFixed(2) + ".." + b.max.z.toFixed(2) + "]");
+    } else if(SEC.on && SEC.freeNormal){
+      L.push(""); L.push("ACTIVE SECTION PLANE: custom orientation, normal ["
+        + (SEC.freeNormal.x*SEC.sign).toFixed(3) + ", " + (SEC.freeNormal.y*SEC.sign).toFixed(3) + ", " + (SEC.freeNormal.z*SEC.sign).toFixed(3)
+        + "] through point [" + SEC.freePoint.x.toFixed(2) + ", " + SEC.freePoint.y.toFixed(2) + ", " + SEC.freePoint.z.toFixed(2) + "] (view clip)");
     } else if(SEC.on){ L.push(""); L.push("ACTIVE SECTION PLANE: axis " + SEC.axis.toUpperCase() + " at " + SEC.pos.toFixed(2) + " (view clip)"); }
     if(typeof displayMode!=="undefined" && displayMode!=="shaded") L.push("DISPLAY MODE: " + displayMode);
   }catch(e){}
@@ -1246,8 +1519,9 @@ function buildSpatialTree(){
 function stRenderPlaneList(){
   const host = $("stPlaneList"); if(!host) return;
   if(SEC.on){
-    host.innerHTML = '<div class="stRow"><span class="stRowIco"></span><span class="stRowLbl">Plane \u00b7 ' + SEC.axis.toUpperCase() + ' axis</span><button class="stDel" title="Remove">\u00d7</button></div>';
-    const del = host.querySelector(".stDel"); if(del) del.onclick = ()=>{ const b=$("secOff"); if(b) b.click(); };
+    const label = SEC.freeNormal ? "Plane \u00b7 custom orientation" : "Plane \u00b7 " + SEC.axis.toUpperCase() + " axis";
+    host.innerHTML = '<div class="stRow"><span class="stRowIco"></span><span class="stRowLbl">' + label + '</span><button class="stDel" title="Remove">\u00d7</button></div>';
+    const del = host.querySelector(".stDel"); if(del) del.onclick = ()=> secDelete();
   } else { host.innerHTML = '<div class="stEmpty">Nothing to display. Add a plane.</div>'; }
 }
 function stRenderBoxList(){
@@ -1271,6 +1545,7 @@ function stShow(v, tab){
   p.classList.toggle("open", open);
   if(open){ p.classList.remove("min"); if(tab) stSetTab(tab); }
   stRenderPlaneList(); stRenderBoxList();
+  if(typeof secSyncPanelVisibility==="function") secSyncPanelVisibility();
   const launcher=$("btnSectionTool"); if(launcher) launcher.classList.toggle("on", open);
 }
 if($("stTabPlane")) $("stTabPlane").onclick = ()=> stSetTab("plane");
@@ -1279,10 +1554,25 @@ if($("stClose")) $("stClose").onclick = ()=> stShow(false);
 if($("stMin")) $("stMin").onclick = ()=>{ const p=$("secToolsPanel"); if(p) p.classList.toggle("min"); };
 if($("stPlaneAdvToggle")) $("stPlaneAdvToggle").onclick = ()=>{ const e=$("stPlaneAdv"); if(!e) return; const open=e.style.display==="none"; e.style.display=open?"flex":"none"; $("stPlaneAdvToggle").innerHTML = "Fine controls " + (open?"&#9652;":"&#9662;"); };
 if($("stBoxAdvToggle")) $("stBoxAdvToggle").onclick = ()=>{ const e=$("stBoxAdv"); if(!e) return; const open=e.style.display==="none"; e.style.display=open?"flex":"none"; $("stBoxAdvToggle").innerHTML = "Fine controls " + (open?"&#9652;":"&#9662;"); };
-if($("secAddBtn")) $("secAddBtn").onclick = ()=>{ if(!SEC.on) secStart(SEC.axis); stRenderPlaneList(); };
+if($("secAddBtn")) $("secAddBtn").onclick = ()=>{
+  if(SEC.placing) return;
+  if(SEC.on){ SEC.editing=true; secSetGizmoVisible(true); secSyncPanelVisibility(); return; }
+  secPlaceBegin();
+};
+if($("secPlaceCancelBtn")) $("secPlaceCancelBtn").onclick = (ev)=>{ ev.stopPropagation(); secPlaceCancel(); };
+if($("secInvert2")) $("secInvert2").onclick = ()=> secReverse();
+if($("secResetBtn2")) $("secResetBtn2").onclick = ()=> secReset();
+if($("secDeleteBtn")) $("secDeleteBtn").onclick = ()=> secDelete();
+if($("secCancelBtn")) $("secCancelBtn").onclick = ()=>{ if(SEC.placing) secPlaceCancel(); else secCancelEditing(); };
+if($("secApplyBtn")) $("secApplyBtn").onclick = ()=> secApply();
+["secPosX","secPosY","secPosZ"].forEach(id=>{ if($(id)) $(id).oninput = secNumPosInput; });
+["secRotX","secRotY","secRotZ"].forEach(id=>{ if($(id)) $(id).oninput = secNumRotInput; });
 if($("bxAddBtn")) $("bxAddBtn").onclick = ()=>{ if(!SBX.on) sbxStart(); stRenderBoxList(); };
 if($("secShowFrame")) $("secShowFrame").onchange = (e)=>{ if(SEC.quad) SEC.quad.visible = e.target.checked; if(SEC.edge) SEC.edge.visible = e.target.checked; };
-if($("secShowGizmo")) $("secShowGizmo").onchange = (e)=>{ if(SEC.arrow) SEC.arrow.visible = e.target.checked; };
+if($("secShowGizmo")) $("secShowGizmo").onchange = (e)=>{
+  if(SEC.arrow) SEC.arrow.visible = e.target.checked;
+  secSetGizmoVisible(SEC.editing);
+};
 if($("bxShowFrame")) $("bxShowFrame").onchange = (e)=>{ if(SBX.helper) SBX.helper.visible = e.target.checked; };
 if($("bxShowGizmo")) $("bxShowGizmo").onchange = (e)=>{ (SBX.faces||[]).forEach(f=> f.visible = e.target.checked); };
 

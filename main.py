@@ -4,6 +4,17 @@ try:
 except Exception:
     pass
 import os, shutil, json, time, re
+import mimetypes as _mimetypes
+# Static .mjs/.wasm files (vendored for the Fragments 3D engine migration, served
+# under /ui/vendor_fragments/) need correct MIME types for strict ES-module loading
+# in the browser -- Python's mimetypes DB doesn't know either extension by default,
+# which makes StaticFiles fall back to text/plain and the browser refuses to execute
+# the module. Registered globally, once, at process start; affects only how these
+# two extensions are served, nothing else.
+_mimetypes.add_type("application/javascript", ".mjs")
+_mimetypes.add_type("application/wasm", ".wasm")
+
+_FRAGMENTS_POC_MARKER = "poc-marker-20261002-A"
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Request, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -191,6 +202,28 @@ def _client_ip(request):
     except Exception:
         return None
 
+# Explicit route for the vendored Fragments engine files (3D engine migration PoC).
+# Registered BEFORE the generic /ui StaticFiles mount below so it takes precedence for
+# this one subpath. Needed because strict ES-module loading requires an exact
+# application/javascript (.mjs) / application/wasm (.wasm) Content-Type, and relying on
+# the process-global `mimetypes` module proved fragile (something imported elsewhere in
+# this app appears to reset its type map after our own mimetypes.add_type() calls ran,
+# so StaticFiles' default guess_type() kept falling back to text/plain). This route sets
+# the Content-Type explicitly per-extension instead of depending on that global state.
+_VENDOR_FRAGMENTS_MIME = {".mjs": "application/javascript", ".wasm": "application/wasm",
+                           ".js": "application/javascript"}
+@app.get("/ui/vendor_fragments/{rel_path:path}")
+async def _vendor_fragments_file(rel_path: str):
+    base = os.path.abspath(os.path.join("ui", "vendor_fragments"))
+    target = os.path.abspath(os.path.join(base, rel_path))
+    if target != base and not target.startswith(base + os.sep):
+        raise HTTPException(400, "Invalid path")
+    if not os.path.isfile(target):
+        raise HTTPException(404, "Not found")
+    ext = os.path.splitext(target)[1].lower()
+    media_type = _VENDOR_FRAGMENTS_MIME.get(ext)
+    return FileResponse(target, media_type=media_type, headers={"X-Poc-Route": "hit", "X-Poc-Ext": ext, "X-Poc-Media": str(media_type)})
+
 if os.path.isdir("ui"):
     app.mount("/ui", StaticFiles(directory="ui", html=True), name="ui")
 
@@ -211,6 +244,10 @@ async def root():
 # ============================================================
 # Phase 0: Health endpoints
 # ============================================================
+
+@app.get("/_poc_whoami")
+async def _poc_whoami():
+    return {"marker": _FRAGMENTS_POC_MARKER, "mjs_mime": __import__("mimetypes").guess_type("x.mjs")[0]}
 
 @app.get("/health")
 async def health_check():

@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { OrbitControls } from "/ui/vendor/OrbitControls.js";
 import * as WebIFC from "/ui/vendor/web-ifc-api.js";
+import { worldBox, worldBoxForMeshes, buildPlacementInfo, computePlacementTransform, PLACEMENT_MODES, applyDeterministicAnchor, extractIfcInfo } from "/ui/coordinate_transform.js";
 
 const $ = (id) => document.getElementById(id);
 const viewEl = $("view"), loadingEl = $("loading"), errEl = $("err");
@@ -97,25 +98,26 @@ function looksLikeRealMaterial(c){
   return true;
 }
 
-let coordMatrix = null;   // shared origin-shift from the FIRST model (common world frame)
+// Geometry is loaded RAW -- COORDINATE_TO_ORIGIN:false for every model, no
+// exceptions. web-ifc's COORDINATE_TO_ORIGIN:true auto-origin was found (see
+// OPENCOMPANY_FRAGMENTS_TRANSFORM_INVESTIGATION.md) to be stream-order
+// dependent rather than file-absolute -- unsafe to build a coordinate system
+// on. Each model's own OpenCompany Model Transform (applyPlacementMode,
+// below) is now the ONLY thing that ever repositions a model; multiple
+// models are aligned by placing each one in Shared-Coordinates mode, not by
+// sharing an implicit import-time shift.
+let coordMatrix = null;   // kept only so existing debug-panel rows have something to report; always null now
 async function loadModel(rel, isFirst){
   setLoading("Reading " + rel.split("/").pop() + " …");
   const res = await fetch(fileURL(rel));
   if(!res.ok) throw new Error("Could not fetch " + rel + " (" + res.status + ")");
-  const data = new Uint8Array(await res.arrayBuffer());
-  // Items 6 & 8: normalise large survey coordinates for float precision AND keep every
-  // model in ONE common world frame. The first model defines the origin shift (its
-  // coordination matrix); later models reuse the SAME shift so they stay aligned to it.
-  let modelID;
-  if(isFirst){
-    modelID = ifcAPI.OpenModel(data, { COORDINATE_TO_ORIGIN:true });
-    try { coordMatrix = ifcAPI.GetCoordinationMatrix(modelID); } catch(e){ coordMatrix = null; }
-  } else if(coordMatrix){
-    modelID = ifcAPI.OpenModel(data, { COORDINATE_TO_ORIGIN:false });
-    try { ifcAPI.SetGeometryTransformation(modelID, coordMatrix); } catch(e){}
-  } else {
-    modelID = ifcAPI.OpenModel(data, { COORDINATE_TO_ORIGIN:true });
-  }
+  const origBuffer = await res.arrayBuffer();
+  const patchResult = applyDeterministicAnchor(origBuffer);
+  const data = new Uint8Array(patchResult.patchedBuffer);
+  const modelID = ifcAPI.OpenModel(data, { COORDINATE_TO_ORIGIN:false });
+  
+
+
   const group = new THREE.Group(); group.name = rel;
   const meshes = [];
   ifcAPI.StreamAllMeshes(modelID, (flatMesh) => {
@@ -155,8 +157,78 @@ async function loadModel(rel, isFirst){
     }
   });
   root.add(group);
-  models.push({ name: rel, modelID, group, meshes });
+  // Detect coordinate/placement info (Easting/Northing/Elevation, True North,
+  // IfcSite, IfcMapConversion/ProjectedCRS, Survey Point / Project Base Point
+  // when present) and cache this model's OWN untransformed bounding box, all
+  // while `group` is still guaranteed to be at identity -- required so
+  // Center-to-Center always measures the true local box, never one taken
+  // mid-way through some other placement mode's offset.
+  const localBox = worldBoxForMeshes(meshes);
+  // Resolves a Survey Point / Project Base Point marker's TRUE position, if
+  // this file carries one with its own geometry -- a single-element stream
+  // against this SAME (already COORDINATE_TO_ORIGIN:false) model, so it is
+  // automatically in the same frame as everything else, no cross-check needed.
+  async function getTruePosition(expressID){
+    let t = null;
+    try{
+      ifcAPI.StreamMeshes(modelID, [expressID], (fm)=>{
+        const g = fm.geometries && fm.geometries.get(0);
+        if(g){ const ft=g.flatTransformation; t=new THREE.Vector3(ft[12],ft[13],ft[14]); }
+      });
+    }catch(e){}
+    return t;
+  }
+  let ifcInfo = null;
+  try{
+    ifcInfo = await buildPlacementInfo({ ifcAPI, WebIFC, modelID, getTruePosition });
+    ifcInfo.deterministicAnchor = patchResult.anchor;
+  }catch(e){ console.warn("[coord] placement detection failed for", rel, e); }
+  // Default view: Shared Coordinates -- the IFC/Revit-authoritative frame,
+  // shown immediately rather than requiring the user to open the panel.
+  models.push({ name: rel, modelID, group, meshes, ifcInfo, mode: "sharedCoordinates", localBox });
+  if(ifcInfo){
+    const { position } = computePlacementTransform("sharedCoordinates", ifcInfo, null);
+    group.position.copy(position);
+    group.updateMatrixWorld(true);
+  }
   return { modelID, meshes };
+}
+
+// ---- OpenCompany Model Transform: per-model placement mode switching ----
+// Applies ONLY to this model's own wrapper group (`m.group`, already the
+// Object3D every one of its meshes sits under) -- never to geometry, never
+// to any other model. Every mode currently returns an identity rotation (see
+// coordinate_transform.js), so re-anchoring sectioning/measurements only
+// ever needs a plain translation, never a rotation.
+function applyPlacementMode(m, mode){
+  if(!m || !m.ifcInfo) return;
+  const box = (mode === "centerToCenter") ? m.localBox : null;
+  const { position } = computePlacementTransform(mode, m.ifcInfo, box);
+  const deltaPos = position.clone().sub(m.group.position);
+  m.group.position.copy(position);
+  m.group.updateMatrixWorld(true);
+  m.mode = mode;
+  if(deltaPos.lengthSq() > 0){
+    try{ if(clip.plane) clip.plane.constant -= clip.plane.normal.dot(deltaPos); }catch(e){}
+    try{ if(clip.box) clip.box.translate(deltaPos); }catch(e){}
+    try{ if(typeof SEC!=="undefined" && SEC._plane) SEC._plane.constant -= SEC._plane.normal.dot(deltaPos); }catch(e){}
+    try{ if(typeof SEC!=="undefined" && SEC.group) SEC.group.position.add(deltaPos); }catch(e){}
+    try{
+      if(typeof SBX!=="undefined" && SBX.box) SBX.box.translate(deltaPos);
+      if(typeof SBX!=="undefined" && SBX.full) SBX.full.translate(deltaPos);
+      if(typeof SBX!=="undefined" && SBX.planes) SBX.planes.forEach(p=>{ p.constant -= p.normal.dot(deltaPos); });
+      if(typeof SBX!=="undefined" && SBX.on && typeof sbxBuildVisual==="function") sbxBuildVisual();
+      if(typeof SBX!=="undefined" && SBX.on && typeof sbxApply==="function") sbxApply();
+    }catch(e){}
+    try{ mPts.forEach(p=>p.add(deltaPos)); }catch(e){}
+    try{ mObjs.forEach(o=>o.position.add(deltaPos)); }catch(e){}
+    try{ mLabels.forEach(L=>{ if(L.pt) L.pt.add(deltaPos); }); }catch(e){}
+    renderer.clippingPlanes = (typeof SEC!=="undefined" && SEC.on) ? [SEC._plane] : (clip.plane ? [clip.plane] : []);
+  }
+  try{ renderModelList(); }catch(e){}
+  try{ buildDebug(); }catch(e){}
+  try{ if(typeof renderPositionPanel==="function") renderPositionPanel(); }catch(e){}
+  fit();
 }
 
 function bboxAll(){
@@ -164,8 +236,8 @@ function bboxAll(){
   // slivers) so Fit does not zoom out. Never moves geometry — outliers still exist,
   // they are only left out of framing (and hidden by classifyStrays unless shown).
   const box = new THREE.Box3();
-  allMeshes.forEach(m => { if(m.userData && m.userData.outlier) return; m.geometry.computeBoundingBox(); box.union(m.geometry.boundingBox); });
-  if(box.isEmpty()){ allMeshes.forEach(m => { m.geometry.computeBoundingBox(); box.union(m.geometry.boundingBox); }); }
+  allMeshes.forEach(m => { if(m.userData && m.userData.outlier) return; box.union(worldBox(m)); });
+  if(box.isEmpty()){ allMeshes.forEach(m => { box.union(worldBox(m)); }); }
   return box;
 }
 let showOutliers=false, outlierCount=0;
@@ -176,7 +248,7 @@ function classifyStrays(){
   // km-scale / scene-spanning strays are caught — never real, tightly-clustered elements.
   outlierCount=0; if(allMeshes.length<10){ return 0; }
   const cx=[],cy=[],cz=[],dg=[];
-  allMeshes.forEach(m=>{ m.geometry.computeBoundingBox(); const bb=m.geometry.boundingBox; const c=bb.getCenter(new THREE.Vector3()); const d=bb.getSize(new THREE.Vector3()).length(); m.userData._c=c; m.userData._d=d; cx.push(c.x);cy.push(c.y);cz.push(c.z);dg.push(d); });
+  allMeshes.forEach(m=>{ const bb=worldBox(m); const c=bb.getCenter(new THREE.Vector3()); const d=bb.getSize(new THREE.Vector3()).length(); m.userData._c=c; m.userData._d=d; cx.push(c.x);cy.push(c.y);cz.push(c.z);dg.push(d); });
   const coreMin=new THREE.Vector3(_pct(cx,0.05),_pct(cy,0.05),_pct(cz,0.05));
   const coreMax=new THREE.Vector3(_pct(cx,0.95),_pct(cy,0.95),_pct(cz,0.95));
   const coreSize=Math.max(coreMax.x-coreMin.x, coreMax.y-coreMin.y, coreMax.z-coreMin.z, 1);
@@ -286,11 +358,11 @@ function showProps(mesh, catName){
   // Dimensions from the element's world bounding box (what the geometry actually spans).
   let dimHtml = "";
   try {
-    mesh.geometry.computeBoundingBox();
-    const s = mesh.geometry.boundingBox.getSize(new THREE.Vector3());
+    const __wb = worldBox(mesh);
+    const s = __wb.getSize(new THREE.Vector3());
     dimHtml = `<div class="sec" style="margin-top:12px">Geometry</div>` +
       `<div class="prop"><b>Size (x,y,z)</b>${s.x.toFixed(3)} × ${s.y.toFixed(3)} × ${s.z.toFixed(3)} m</div>`;
-    const wc = mesh.geometry.boundingBox.getCenter(new THREE.Vector3());
+    const wc = __wb.getCenter(new THREE.Vector3());
     const st = _nearStorey(wc.y);
     if (st && st !== "—") dimHtml += `<div class="prop"><b>Nearest storey</b>${st}</div>`;
   } catch(e){}
@@ -808,8 +880,7 @@ function _nearStorey(z){ if(!storeys.length) return "—"; let best=storeys[0], 
 function elementDiag(mesh){
   if(!mesh) return null;
   const {modelID, expressID, typeName}=mesh.userData;
-  mesh.geometry.computeBoundingBox();
-  const wc=mesh.geometry.boundingBox.getCenter(new THREE.Vector3());   // FINAL world center (baked)
+  const wc=worldBox(mesh).getCenter(new THREE.Vector3());   // FINAL world center (after any placement transform)
   let orig=wc.clone();
   if(coordMatrix){ const M=new THREE.Matrix4().fromArray(Array.from(coordMatrix)); orig=wc.clone().applyMatrix4(new THREE.Matrix4().copy(M).invert()); }
   let gid="", place=null;
@@ -1291,7 +1362,7 @@ function buildDebug(){
   const f = (a,n=2)=> a ? "["+a.map(v=>(+v).toFixed(n)).join(", ")+"]" : "—";
   const big = Math.max(sz.x,sz.y,sz.z) > 400;
   const rows = [
-    ["Models in world frame", rels.length + (coordMatrix?"  (shared origin)":"")],
+    ["Models in world frame", rels.length + "  (raw geometry; aligned via Position & Coordinates)"],
     ["IFC length unit", unit.label + "  →  " + unit.metres + " m/unit"],
     ["World geometry scale", big ? "file units ≈ mm (large)" : "metres (web-ifc scaled)"],
     ["True North (context)", tn===null ? "identity 0°" : tn.toFixed(3)+"° from +Y"],
@@ -1299,7 +1370,7 @@ function buildDebug(){
     ["IfcSite RefDirection", f(sp.refDir,4)],
     ["Site rotation applied to view", (northAngle*180/Math.PI).toFixed(3)+"°"],
     ["IfcMapConversion / CRS", hasMap ? (hasMap+" present") : "none (IFC2x3)"],
-    ["Origin shift (coord. matrix t)", cm ? f([cm[12],cm[13],cm[14]],2) : "per-model"],
+    ["Origin shift (coord. matrix t)", cm ? f([cm[12],cm[13],cm[14]],2) : "none -- COORDINATE_TO_ORIGIN:false"],
     ["World bbox min", f([mn.x,mn.y,mn.z],2)],
     ["World bbox max", f([mx.x,mx.y,mx.z],2)],
     ["World size (x,y,z)", f([sz.x,sz.y,sz.z],2)],
@@ -1316,7 +1387,7 @@ function buildDebug(){
   }
   rows.push(["Stray elements hidden", (window._outlierCount||0) + (showOutliers?" (shown)":"") ]);
   rows.push(["Storeys (name : elev)", storeys.map(s=>s.name+":"+s.elev.toFixed(2)).join("  |  ") || "—"]);
-  if(models.length>1){ const pm=models.map(m=>{ const bb=new THREE.Box3(); m.meshes.forEach(me=>{me.geometry.computeBoundingBox(); bb.union(me.geometry.boundingBox);}); const s=bb.getSize(new THREE.Vector3()); return m.name.split("/").pop()+"  Z["+bb.min.z.toFixed(1)+".."+bb.max.z.toFixed(1)+"] size("+s.x.toFixed(1)+","+s.y.toFixed(1)+","+s.z.toFixed(1)+")"; });
+  if(models.length>1){ const pm=models.map(m=>{ const bb=worldBoxForMeshes(m.meshes); const s=bb.getSize(new THREE.Vector3()); return m.name.split("/").pop()+"  Z["+bb.min.z.toFixed(1)+".."+bb.max.z.toFixed(1)+"] size("+s.x.toFixed(1)+","+s.y.toFixed(1)+","+s.z.toFixed(1)+")"; });
     rows.push(["Per-model world bbox (multi)", pm.join("  ||  ")]); }
   try{ console.log("[Expo3D] IFC transform audit:", Object.fromEntries(rows.filter(r=>r[0]&&r[1]!==""))); }catch(e){}
   const body = $("dbgBody");
@@ -1324,6 +1395,45 @@ function buildDebug(){
 }
 if($("btnDebug")) $("btnDebug").onclick = ()=>{ const p=$("dbgPanel"); if(p){ const open=!p.classList.contains("open"); p.classList.toggle("open",open); if(open) buildDebug(); } };
 if($("dbgClose")) $("dbgClose").onclick = ()=>{ const p=$("dbgPanel"); if(p) p.classList.remove("open"); };
+
+// ---- Model -> Position & Coordinates ----
+// Per-model detected IFC coordinate info + a placement-mode selector. Reuses
+// the same detected-info rendering language as the debug audit above. Each
+// model keeps its OWN mode (requirement: multiple IFCs, independent
+// settings) -- nothing here is shared state across models.
+function _fmt3(v){ return v==null ? "—" : "["+v.map(x=>(+x).toFixed(2)).join(", ")+"]"; }
+function renderPositionPanel(){
+  const body = $("posBody"); if(!body) return;
+  if(!models.length){ body.innerHTML = `<div class="hint">No model loaded.</div>`; return; }
+  body.innerHTML = models.map((m,i) => {
+    const info = m.ifcInfo;
+    if(!info){
+      return `<div class="poscard"><div class="pcname">${_esc(m.name.split("/").pop())}</div>`+
+        `<div class="pchint">Coordinate detection unavailable for this model.</div></div>`;
+    }
+    const opts = PLACEMENT_MODES.map(pm => `<option value="${pm.id}" ${pm.id===m.mode?"selected":""}>${_esc(pm.label)}${pm.authoritative?"  (authoritative)":""}</option>`).join("");
+    const rows = [
+      ["IFC length unit", info.lengthUnit.label + "  →  " + info.lengthUnit.metres + " m/unit"],
+      ["True North (context)", info.trueNorthDeg==null ? "identity 0°" : info.trueNorthDeg.toFixed(3)+"° from +Y"],
+      ["IfcSite placement", _fmt3(info.site.origin, 1)],
+      ["IfcMapConversion", info.mapConversion ? ("Eastings "+info.mapConversion.eastings+", Northings "+info.mapConversion.northings+", Height "+(info.mapConversion.orthogonalHeight||0)+(info.mapConversion.xAxisAbscissa!=null?"  (rotation/scale detected, not applied)":"")) : "none"],
+      ["IfcProjectedCRS", info.projectedCRS ? (info.projectedCRS.name || "present") : "none"],
+      ["Survey Point", info.markers.surveyPoint.found ? "detected marker" : (info.markers.surveyPoint.offset ? "not distinguished in this export — using Shared-Coordinates origin" : "unavailable")],
+      ["Project Base Point", info.markers.projectBasePoint.found ? "detected marker" : (info.markers.projectBasePoint.offset ? "not distinguished in this export — using Shared-Coordinates origin" : "unavailable")],
+      ["Geometry", "loaded raw (COORDINATE_TO_ORIGIN:false) -- no import-time shift to resolve"],
+    ];
+    return `<div class="poscard">`+
+      `<div class="pcname">${_esc(m.name.split("/").pop())}</div>`+
+      `<select data-model-idx="${i}">${opts}</select>`+
+      rows.map(([k,v])=>`<div class="drow"><span>${k}</span><b>${v}</b></div>`).join("")+
+      `</div>`;
+  }).join("");
+  body.querySelectorAll("select[data-model-idx]").forEach(sel => {
+    sel.onchange = () => applyPlacementMode(models[+sel.dataset.modelIdx], sel.value);
+  });
+}
+if($("btnPosCoord")) $("btnPosCoord").onclick = ()=>{ const p=$("posPanel"); if(p){ const open=!p.classList.contains("open"); p.classList.toggle("open",open); if(open) renderPositionPanel(); } };
+if($("posClose")) $("posClose").onclick = ()=>{ const p=$("posPanel"); if(p) p.classList.remove("open"); };
 
 // ---- Navigation gizmo (CAMERA ONLY — never rotates IFC geometry) ----
 function setView(dir){
@@ -1717,6 +1827,7 @@ document.addEventListener("click", (ev)=>{
     try{ buildSpatialTree(); }catch(e){ console.warn("spatial tree:", e); }
     classifyStrays();
     buildDebug();
+    try{ renderPositionPanel(); }catch(e){}
     resize(); fit(); injectGizmo(); setLoading(null);
     if($("btnStray")) $("btnStray").onclick = ()=> setStrays(!showOutliers);
     try{ parent.postMessage({ source:"expo-viewer", type:"ready", project }, "*"); }catch(e){}

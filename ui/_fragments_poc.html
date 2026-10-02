@@ -1,0 +1,174 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Fragments PoC</title>
+<style>body{font:13px/1.4 monospace;background:#111;color:#ddd;padding:12px} #log{white-space:pre-wrap} canvas{border:1px solid #444}</style>
+<div id="log">loading…</div>
+<select id="placementSel" style="display:none;margin:6px 0;font:13px monospace;background:#222;color:#ddd;border:1px solid #555;padding:4px"></select>
+<div id="canvasHost"></div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "./vendor_fragments/three.module.js?b=5",
+    "three/examples/jsm/lines/Line2.js": "./vendor_fragments/examples/jsm/lines/Line2.js",
+    "three/examples/jsm/lines/LineMaterial.js": "./vendor_fragments/examples/jsm/lines/LineMaterial.js",
+    "three/examples/jsm/lines/LineGeometry.js": "./vendor_fragments/examples/jsm/lines/LineGeometry.js",
+    "web-ifc": "./vendor_fragments/web-ifc-api.js?b=5"
+  }
+}
+</script>
+<script type="module">
+import * as THREE from "three";
+import { OrbitControls } from "./vendor_fragments/OrbitControls.js?b=5";
+import * as FRAGS from "./vendor_fragments/fragments/index.mjs?b=5";
+import * as WebIFC from "web-ifc";
+import * as CoordXform from "/ui/coordinate_transform.js";
+
+const logEl = document.getElementById('log');
+const log = (...a) => { const s = a.join(" "); console.log(s); logEl.textContent += "\n" + s; };
+window.__pocLogs = [];
+const origLog = log;
+
+async function main(){
+  const t0 = performance.now();
+  log("Three REVISION:", THREE.REVISION);
+
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(60, (window.innerWidth-20)/600, 0.1, 100000);
+  const renderer = new THREE.WebGLRenderer({antialias:true});
+  renderer.setSize(window.innerWidth-20, 600);
+  renderer.localClippingEnabled = true;
+  document.getElementById('canvasHost').appendChild(renderer.domElement);
+  const controls = new OrbitControls(camera, renderer.domElement);
+  const grid = new THREE.GridHelper(200,40); scene.add(grid);
+  const dir = new THREE.DirectionalLight(0xffffff,1); dir.position.set(1,1,1); scene.add(dir);
+  scene.add(new THREE.AmbientLight(0xffffff,0.4));
+
+  const tFetch0 = performance.now();
+  const res = await fetch("/ui/_poc_data/model.ifc");
+  if(!res.ok) throw new Error("fetch failed " + res.status);
+  const bytes = new Uint8Array(await res.arrayBuffer());
+  const tFetch = performance.now()-tFetch0;
+  log("IFC bytes fetched:", bytes.length, "in", tFetch.toFixed(0), "ms");
+
+  const importer = new FRAGS.IfcImporter();
+  importer.wasm.path = "/ui/vendor_fragments/";
+  importer.wasm.absolute = true;
+  // Raw geometry -- no stream-order-dependent auto-origin (see
+  // OPENCOMPANY_FRAGMENTS_TRANSFORM_INVESTIGATION.md). The OpenCompany Model
+  // Transform group below is the only thing that ever repositions this model.
+  importer.webIfcSettings = { COORDINATE_TO_ORIGIN: false };
+  const tConv0 = performance.now();
+  const fragBytes = await importer.process({ bytes });
+  const tConv = performance.now()-tConv0;
+  log("IFC->Fragments conversion:", fragBytes.length, "bytes in", tConv.toFixed(0), "ms");
+
+  const workerUrl = new URL("./vendor_fragments/fragments/Worker/worker.mjs", location.href).toString();
+  const fragments = new FRAGS.FragmentsModels(workerUrl);
+  const tLoad0 = performance.now();
+  const model = await fragments.load(fragBytes, { modelId: "poc-model", camera });
+  const tLoad = performance.now()-tLoad0;
+  log("FragmentsModel loaded in", tLoad.toFixed(0), "ms");
+
+  // ---- OpenCompany Model Transform: per-model wrapper group ----
+  // model.object is Fragments' own, untouched root object. We place it by
+  // moving THIS group only -- never model.object's own matrix, never its
+  // geometry buffers. This is the whole "OpenCompany Model Transform" layer.
+  const modelGroup = new THREE.Group(); modelGroup.name = "model:poc-model";
+  modelGroup.add(model.object);
+  scene.add(modelGroup);
+
+  renderer.clippingPlanes = [];
+  model.getClippingPlanesEvent = () => renderer.clippingPlanes;
+
+  await fragments.update(true);
+  const box = model.box;
+  log("Model bbox min:", box.min.toArray().map(v=>v.toFixed(2)).join(","), " max:", box.max.toArray().map(v=>v.toFixed(2)).join(","));
+  const size = box.getSize(new THREE.Vector3());
+  const center = box.getCenter(new THREE.Vector3());
+  const r = Math.max(size.x,size.y,size.z) || 10;
+  camera.position.set(center.x + r, center.y + r*0.6, center.z + r);
+  camera.near = r/1000; camera.far = r*50; camera.updateProjectionMatrix();
+  controls.target.copy(center);
+  controls.update();
+
+  const cats = await model.getCategories();
+  log("Categories (" + cats.length + "):", cats.slice(0,25).join(", "));
+
+  const idsWithGeom = await model.getItemsIdsWithGeometry();
+  log("Items with geometry:", idsWithGeom.length);
+
+  const sampleIds = idsWithGeom.slice(0,5);
+  const guids = await model.getGuidsByLocalIds(sampleIds);
+  log("Sample localId->GUID:", sampleIds.map((id,i)=>id+"->"+guids[i]).join(" | "));
+
+  const itemsData = await model.getItemsData(sampleIds, { attributesDefault:true });
+  log("First item data:", JSON.stringify(itemsData[0]).slice(0,600));
+
+  let spatialOk = true, spatialErr = null, spatial = null;
+  try { spatial = await model.getSpatialStructure(); } catch(e){ spatialOk=false; spatialErr = e.message; }
+  log("Spatial structure ok:", spatialOk, spatialErr||"", spatial?JSON.stringify(spatial).slice(0,300):"");
+
+  // ---- Coordinate / placement detection + mode switching ----
+  // Captured ONCE, right now, while modelGroup is still guaranteed to be at
+  // identity (nothing has called applyPlacementMode yet) -- Center-to-Center
+  // must always measure the model's own untransformed box, never a box taken
+  // mid-way through some other mode's offset.
+  const modelLocalBox = new THREE.Box3().setFromObject(model.object);
+  function getModelLocalBox(){ return modelLocalBox; }
+
+  // Fragments' own model is ALSO raw (COORDINATE_TO_ORIGIN:false) now, so
+  // model.getPositions() already returns the true, un-shifted IFC position
+  // directly -- no separate throwaway pass or anchor/shift math needed.
+  async function getTruePosition(expressID){
+    try{ const arr = await model.getPositions([expressID]); return (arr && arr[0]) ? arr[0] : null; }
+    catch(e){ return null; }
+  }
+  const metaApi = new WebIFC.IfcAPI();
+  metaApi.SetWasmPath("/ui/vendor_fragments/");
+  await metaApi.Init();
+  const metaModelID = metaApi.OpenModel(bytes, { COORDINATE_TO_ORIGIN: false });
+  const placementInfo = await CoordXform.buildPlacementInfo({
+    ifcAPI: metaApi, WebIFC, modelID: metaModelID, getTruePosition,
+  });
+  try { metaApi.CloseModel(metaModelID); } catch (e) {}
+  let placementMode = "sharedCoordinates"; // default view: IFC/Revit-authoritative frame
+  function applyPlacementMode(newMode){
+    const b = (newMode === "centerToCenter") ? getModelLocalBox() : null;
+    const { position, quaternion } = CoordXform.computePlacementTransform(newMode, placementInfo, b);
+    modelGroup.position.copy(position);
+    modelGroup.quaternion.copy(quaternion);
+    modelGroup.updateMatrixWorld(true);
+    placementMode = newMode;
+    log("[coord] placement mode ->", newMode, "group position:", position.toArray().map(v=>v.toFixed(3)).join(","));
+  }
+  applyPlacementMode("sharedCoordinates");
+
+  window.__ocCoord = { info: placementInfo, modelGroup, applyPlacementMode, getMode: ()=>placementMode, PLACEMENT_MODES: CoordXform.PLACEMENT_MODES };
+  log("[coord] detected:", JSON.stringify({
+    lengthUnit: placementInfo.lengthUnit, trueNorthDeg: placementInfo.trueNorthDeg,
+    site: placementInfo.site, mapConversion: placementInfo.mapConversion, projectedCRS: placementInfo.projectedCRS,
+    originShiftOk: placementInfo.originShiftOk,
+    originShift: placementInfo.originShift ? placementInfo.originShift.toArray().map(v=>+v.toFixed(4)) : null,
+    surveyPoint: placementInfo.markers.surveyPoint, projectBasePoint: placementInfo.markers.projectBasePoint,
+  }));
+
+  window.__poc = { THREE, scene, camera, renderer, controls, fragments, model, box,
+    timings: { tFetch, tConv, tLoad, total: performance.now()-t0 } };
+  log("TOTAL time:", (performance.now()-t0).toFixed(0), "ms");
+  log("READY");
+
+  const sel = document.getElementById("placementSel");
+  CoordXform.PLACEMENT_MODES.forEach(m => {
+    const o = document.createElement("option"); o.value = m.id; o.textContent = m.label + (m.authoritative ? "  (authoritative)" : ""); o.title = m.hint;
+    sel.appendChild(o);
+  });
+  sel.value = placementMode;
+  sel.style.display = "inline-block";
+  sel.onchange = () => applyPlacementMode(sel.value);
+
+  function animate(){ requestAnimationFrame(animate); fragments.update(); renderer.render(scene,camera); }
+  animate();
+}
+main().catch(e => { log("ERROR:", e.message); console.error(e); window.__pocError = e.message + "\n" + e.stack; });
+</script>

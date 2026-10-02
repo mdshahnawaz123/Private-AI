@@ -29,9 +29,10 @@ renderer.localClippingEnabled = true;
 viewEl.appendChild(renderer.domElement);
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true; controls.dampingFactor = 0.08;
-scene.add(new THREE.HemisphereLight(0xffffff, 0x30363f, 1.05));
-const dir = new THREE.DirectionalLight(0xffffff, 0.8); dir.position.set(1,1,2); scene.add(dir);
-const dir2 = new THREE.DirectionalLight(0xffffff, 0.4); dir2.position.set(-1,-1,1); scene.add(dir2);
+scene.add(new THREE.HemisphereLight(0xdfe8ff, 0x30363f, 1.15));
+scene.add(new THREE.AmbientLight(0xffffff, 0.35));
+const dir = new THREE.DirectionalLight(0xfff6e8, 0.95); dir.position.set(1,1.4,2); scene.add(dir);
+const dir2 = new THREE.DirectionalLight(0xdbe6ff, 0.35); dir2.position.set(-1,-0.6,-1); scene.add(dir2);
 const grid = new THREE.GridHelper(200, 40, 0x2a3a50, 0x18222f); scene.add(grid); // Y-up: default GridHelper lies in the horizontal X-Z plane
 const root = new THREE.Group(); scene.add(root); // holds all models; rotated for True/Project North
 
@@ -40,7 +41,7 @@ function resize(){ const w=viewEl.clientWidth, h=viewEl.clientHeight; renderer.s
   else { camera.aspect=w/h; }
   camera.updateProjectionMatrix(); }
 window.addEventListener("resize", resize);
-(function loop(){ requestAnimationFrame(loop); controls.update(); renderer.render(scene, camera); })();
+(function loop(){ requestAnimationFrame(loop); controls.update(); renderer.render(scene, camera); updateNavGizmo(); })();
 
 // ---- state ----
 const HL = new THREE.Color(0x4d7cfe);
@@ -57,6 +58,39 @@ ifcAPI.SetWasmPath("/ui/vendor/");
 function typeName(code){
   try { if (ifcAPI.GetNameFromTypeCode) return ifcAPI.GetNameFromTypeCode(code); } catch(e){}
   return "Type " + code;
+}
+
+// ---- Category appearance palette (fallback "realistic" styling) ----
+// Real IFC material colours (IfcStyledItem/IfcSurfaceStyle, pulled from
+// web-ifc's StreamAllMeshes) are still honoured when the source file
+// actually defines them -- see styleFor() below.
+const CATEGORY_STYLE = {
+  WALL:         { color:0xd8d2c4, roughness:0.85, metalness:0.0  },
+  WINDOW:       { color:0x6fa9d8, roughness:0.08, metalness:0.15, opacity:0.38 },
+  DOOR:         { color:0x8a5a35, roughness:0.65, metalness:0.0  },
+  SLAB:         { color:0x9b9a92, roughness:0.9,  metalness:0.0  },
+  ROOF:         { color:0x53565d, roughness:0.75, metalness:0.05 },
+  RAILING:      { color:0x383d46, roughness:0.35, metalness:0.65 },
+  STAIRFLIGHT:  { color:0xb7b6ad, roughness:0.8,  metalness:0.0  },
+  MEMBER:       { color:0x8d8d85, roughness:0.6,  metalness:0.2  },
+  PLATE:        { color:0x7b808a, roughness:0.45, metalness:0.45 },
+  FLOWTERMINAL: { color:0xb23b3b, roughness:0.4,  metalness:0.3  },
+  BUILDINGELEMENTPROXY: { color:0xc9c2d6, roughness:0.75, metalness:0.0 },
+  CURTAINWALL:  { color:0x6fa9d8, roughness:0.08, metalness:0.15, opacity:0.38 },
+  DEFAULT:      { color:0xaba99f, roughness:0.8,  metalness:0.0  },
+};
+const REALISTIC_PALETTE = { on: true };  // toggled by the "Realistic" / "IFC colors" button
+function styleFor(tName){
+  const up = (tName||"").toUpperCase();
+  for (const key in CATEGORY_STYLE){ if (up.indexOf(key) !== -1) return CATEGORY_STYLE[key]; }
+  return CATEGORY_STYLE.DEFAULT;
+}
+// A source colour counts as "real" (keep it) only if it isn't the flat
+// IFC default grey (~0.6,0.6,0.6, fully opaque) that untextured exports fall back to.
+function looksLikeRealMaterial(c){
+  const near06 = (v)=> Math.abs(v-0.6) < 0.03;
+  if (c.w >= 0.999 && near06(c.x) && near06(c.y) && near06(c.z)) return false;
+  return true;
 }
 
 let coordMatrix = null;   // shared origin-shift from the FIRST model (common world frame)
@@ -99,10 +133,18 @@ async function loadModel(rel, isFirst){
       bg.setIndex(new THREE.BufferAttribute(new Uint32Array(iArr),1));
       bg.applyMatrix4(new THREE.Matrix4().fromArray(pg.flatTransformation));
       const c = pg.color;
-      const baseCol = new THREE.Color(c.x, c.y, c.z);
-      const mat = new THREE.MeshLambertMaterial({ color: baseCol, side: THREE.DoubleSide, transparent: c.w<0.999, opacity: c.w });
+      const rawCol = new THREE.Color(c.x, c.y, c.z), rawOpacity = c.w, rawIsReal = looksLikeRealMaterial(c);
+      const st = styleFor(tName);
+      const styledCol = new THREE.Color(st.color), styledOpacity = (st.opacity!==undefined ? st.opacity : 1);
+      const useRealColor = !REALISTIC_PALETTE.on || rawIsReal;
+      const baseCol = useRealColor ? rawCol : styledCol;
+      const baseOpacity = useRealColor ? rawOpacity : styledOpacity;
+      const rough = useRealColor ? 0.85 : st.roughness, metal = useRealColor ? 0.0 : st.metalness;
+      const mat = new THREE.MeshStandardMaterial({ color: baseCol, roughness: rough, metalness: metal,
+        side: THREE.DoubleSide, transparent: baseOpacity<0.999, opacity: baseOpacity });
       const mesh = new THREE.Mesh(bg, mat);
-      mesh.userData = { modelID, expressID: eid, typeName: tName, origColor: baseCol.clone(), origOpacity: c.w };
+      mesh.userData = { modelID, expressID: eid, typeName: tName, origColor: baseCol.clone(), origOpacity: baseOpacity, origRough: rough, origMetal: metal,
+        rawColor: rawCol, rawOpacity: rawOpacity, rawIsReal: rawIsReal, styledColor: styledCol, styledOpacity: styledOpacity, styledRough: st.roughness, styledMetal: st.metalness };
       group.add(mesh); meshes.push(mesh); allMeshes.push(mesh);
       if(!catMap.has(tName)) catMap.set(tName, []);
       catMap.get(tName).push(mesh);
@@ -287,6 +329,27 @@ $("btnColSel").onclick = () => {
 function resetColors(){ allMeshes.forEach(m=>{ m.material.color.copy(m.userData.origColor); m.material.opacity=m.userData.origOpacity; m.material.transparent=m.userData.origOpacity<0.999; m.material.needsUpdate=true; }); }
 $("btnColReset").onclick = resetColors;
 
+// ---- Realistic-palette toggle: styled type colors vs. the model's own raw IFC colors ----
+function applyRealisticToggle(){
+  allMeshes.forEach(m=>{
+    const ud = m.userData;
+    const useReal = !REALISTIC_PALETTE.on || ud.rawIsReal;
+    ud.origColor = (useReal ? ud.rawColor : ud.styledColor).clone();
+    ud.origOpacity = useReal ? ud.rawOpacity : ud.styledOpacity;
+    ud.origRough = useReal ? 0.85 : ud.styledRough;
+    ud.origMetal = useReal ? 0.0 : ud.styledMetal;
+    if (m.material.roughness!==undefined) m.material.roughness = ud.origRough;
+    if (m.material.metalness!==undefined) m.material.metalness = ud.origMetal;
+  });
+  setDisplayMode(displayMode);  // reapplies origColor/origOpacity under the current display mode (shaded/wire/trans/xray)
+}
+if($("btnRealistic")) $("btnRealistic").onclick = () => {
+  REALISTIC_PALETTE.on = !REALISTIC_PALETTE.on;
+  $("btnRealistic").classList.toggle("on", REALISTIC_PALETTE.on);
+  $("btnRealistic").textContent = REALISTIC_PALETTE.on ? "Realistic" : "IFC colors";
+  applyRealisticToggle();
+};
+
 // ---- section / clipping ----
 // ================= Interactive Section (Three.js clipping plane) =================
 // Render-only. Never modifies IFC geometry. Owns renderer.clippingPlanes while active;
@@ -345,7 +408,7 @@ function secReverse(){ SEC.sign*=-1; secUpdate(); }
 function secReset(){ SEC.pos=(SEC.lo+SEC.hi)/2; SEC.sign=1; secUpdate(); secSyncUI(); }
 function secOff(){ SEC.on=false; if(SEC.group)SEC.group.visible=false; renderer.clippingPlanes = clip.plane?[clip.plane]:[];
   document.querySelectorAll("[data-ax]").forEach(b=>b.classList.remove("on")); const bs=$("btnSection"); if(bs) bs.classList.remove("on"); showSecPanel(false); }
-function showSecPanel(v){ const p=$("secPanel"); if(!p) return; p.classList.toggle("open", v===undefined?!p.classList.contains("open"):v); }
+function showSecPanel(v){ stShow(v, "plane"); }
 // drag the section plane along its axis (camera + geometry untouched)
 function secTryDrag(ev){
   if(!SEC.on || !SEC.group || !SEC.group.visible) return false;
@@ -792,19 +855,40 @@ function setView(dir){
   controls.update();
 }
 function injectGizmo(){
-  if(document.getElementById("navGizmo")) return;
-  const g = document.createElement("div"); g.id = "navGizmo";
-  const faces = [["Top","top"],["Front","front"],["Right","right"],["Bottom","bottom"],["Back","back"],["Left","left"]];
-  g.innerHTML = '<div class="gzt">CAMERA VIEW</div>' + faces.map(f=>`<button data-v="${f[1]}">${f[0]}</button>`).join("") + '<button class="gzfit" data-v="fit">Fit</button>';
-  document.getElementById("view").appendChild(g);
-  g.querySelectorAll("button").forEach(b => b.onclick = () => { const v=b.dataset.v; if(v==="fit") fit(); else setView(v); });
-  const st = document.createElement("style");
-  st.textContent = "#navGizmo{position:absolute;left:16px;top:16px;z-index:7;display:grid;grid-template-columns:repeat(3,1fr);gap:4px;background:rgba(19,27,38,.92);border:1px solid #213042;border-radius:10px;padding:8px;width:198px;box-shadow:0 8px 24px rgba(0,0,0,.42)}"
-    + "#navGizmo .gzt{grid-column:1/4;font-size:9px;letter-spacing:1.4px;color:#8797ac;font-weight:700;margin-bottom:2px}"
-    + "#navGizmo button{background:#1b2533;border:1px solid #213042;color:#eaf0f7;border-radius:6px;padding:7px 4px;font-size:11px;font-family:inherit;cursor:pointer}"
-    + "#navGizmo button:hover{border-color:#4d7cfe;color:#bcd0ff}"
-    + "#navGizmo .gzfit{grid-column:1/4;background:#4d7cfe;border-color:#4d7cfe;color:#fff;font-weight:600}";
-  document.head.appendChild(st);
+  if(document.getElementById("navDock")) return;
+  const dock = document.createElement("div"); dock.id = "navDock";
+  dock.innerHTML =
+    '<button id="navHome" title="Fit the whole model">&#8962;</button>' +
+    '<div id="navCubeWrap">' +
+      '<div id="navCompass">' +
+        '<span style="left:50%;top:1px;transform:translateX(-50%)">N</span>' +
+        '<span style="left:50%;bottom:1px;transform:translateX(-50%)">S</span>' +
+        '<span style="right:1px;top:50%;transform:translateY(-50%)">E</span>' +
+        '<span style="left:1px;top:50%;transform:translateY(-50%)">W</span>' +
+      '</div>' +
+      '<div id="navScene"><div id="navCube">' +
+        '<div class="face f-front" data-v="front">FRONT</div>' +
+        '<div class="face f-back" data-v="back">BACK</div>' +
+        '<div class="face f-right" data-v="right">RIGHT</div>' +
+        '<div class="face f-left" data-v="left">LEFT</div>' +
+        '<div class="face f-top" data-v="top">TOP</div>' +
+        '<div class="face f-bottom" data-v="bottom">BOTTOM</div>' +
+      '</div></div>' +
+    '</div>';
+  document.getElementById("view").appendChild(dock);
+  dock.querySelectorAll(".face").forEach(f => f.onclick = (ev)=>{ ev.stopPropagation(); setView(f.dataset.v); });
+  const home = dock.querySelector("#navHome"); if(home) home.onclick = ()=> fit();
+}
+// Rotates the CSS 3D cube + compass ring to mirror the camera's current
+// orientation each frame (view-only -- the IFC geometry/world frame never moves).
+function updateNavGizmo(){
+  const cube = document.getElementById("navCube"); if(!cube) return;
+  const dir = new THREE.Vector3(); camera.getWorldDirection(dir);
+  const yaw = Math.atan2(dir.x, dir.z) * 180/Math.PI;
+  const pitch = Math.asin(Math.max(-1,Math.min(1,dir.y))) * 180/Math.PI;
+  cube.style.transform = "rotateX(" + pitch + "deg) rotateY(" + (-yaw) + "deg)";
+  const compass = document.getElementById("navCompass");
+  if(compass) compass.style.transform = "rotate(" + yaw + "deg)";
 }
 
 // ---- Workspace bridge: report selection + serve model context to the parent shell ----
@@ -911,7 +995,7 @@ function sbxOff(){ SBX.on=false; if(SBX.group)SBX.group.visible=false; applyClip
 function sbxReset(){ if(!SBX.full)return; SBX.box.copy(SBX.full); SBX.outside=false; sbxApply(); sbxSyncSliders(); }
 function sbxReverse(){ SBX.outside=!SBX.outside; sbxApply(); }
 function sbxSyncBtn(){ const b=$("btnSecBox"); if(b) b.classList.toggle("on", SBX.on); }
-function showBoxPanel(v){ const p=$("secBoxPanel"); if(p) p.classList.toggle("open", v===undefined?!p.classList.contains("open"):v); }
+function showBoxPanel(v){ stShow(v, "box"); }
 function sbxPct(axis,side){ const f=SBX.full,b=SBX.box; const lo=f.min[axis],hi=f.max[axis]; return hi>lo?((b[side][axis]-lo)/(hi-lo))*100:(side==="min"?0:100); }
 function sbxSyncSliders(){ if(!SBX.full)return; const set=(id,val)=>{const e=$(id); if(e&&document.activeElement!==e)e.value=val;};
   set("bxXmin",sbxPct("x","min")); set("bxXmax",sbxPct("x","max"));
@@ -1032,6 +1116,60 @@ function buildSpatialTree(){
         host.querySelectorAll(".trow").forEach(r=>r.classList.remove("on")); row.classList.add("on"); }; }
     host.appendChild(row); });
 }
+
+// ---- Unified Sectioning Tools panel (Plane / Box tabs) ----
+function stRenderPlaneList(){
+  const host = $("stPlaneList"); if(!host) return;
+  if(SEC.on){
+    host.innerHTML = '<div class="stRow"><span class="stRowIco"></span><span class="stRowLbl">Plane \u00b7 ' + SEC.axis.toUpperCase() + ' axis</span><button class="stDel" title="Remove">\u00d7</button></div>';
+    const del = host.querySelector(".stDel"); if(del) del.onclick = ()=>{ const b=$("secOff"); if(b) b.click(); };
+  } else { host.innerHTML = '<div class="stEmpty">Nothing to display. Add a plane.</div>'; }
+}
+function stRenderBoxList(){
+  const host = $("stBoxList"); if(!host) return;
+  if(SBX.on){
+    host.innerHTML = '<div class="stRow"><span class="stRowIco"></span><span class="stRowLbl">Section box</span><button class="stDel" title="Remove">\u00d7</button></div>';
+    const del = host.querySelector(".stDel"); if(del) del.onclick = ()=>{ const b=$("bxOff"); if(b) b.click(); };
+  } else { host.innerHTML = '<div class="stEmpty">Nothing to display. Add a box.</div>'; }
+}
+function stSetTab(tab){
+  const isPlane = tab==="plane";
+  const tp=$("stTabPlane"), tb=$("stTabBox"), pp=$("stPanePlane"), pb=$("stPaneBox");
+  if(tp) tp.classList.toggle("on", isPlane);
+  if(tb) tb.classList.toggle("on", !isPlane);
+  if(pp) pp.classList.toggle("on", isPlane);
+  if(pb) pb.classList.toggle("on", !isPlane);
+}
+function stShow(v, tab){
+  const p = $("secToolsPanel"); if(!p) return;
+  const open = v===undefined ? !p.classList.contains("open") : v;
+  p.classList.toggle("open", open);
+  if(open){ p.classList.remove("min"); if(tab) stSetTab(tab); }
+  stRenderPlaneList(); stRenderBoxList();
+}
+if($("stTabPlane")) $("stTabPlane").onclick = ()=> stSetTab("plane");
+if($("stTabBox")) $("stTabBox").onclick = ()=> stSetTab("box");
+if($("stClose")) $("stClose").onclick = ()=> stShow(false);
+if($("stMin")) $("stMin").onclick = ()=>{ const p=$("secToolsPanel"); if(p) p.classList.toggle("min"); };
+if($("stPlaneAdvToggle")) $("stPlaneAdvToggle").onclick = ()=>{ const e=$("stPlaneAdv"); if(!e) return; const open=e.style.display==="none"; e.style.display=open?"flex":"none"; $("stPlaneAdvToggle").innerHTML = "Fine controls " + (open?"&#9652;":"&#9662;"); };
+if($("stBoxAdvToggle")) $("stBoxAdvToggle").onclick = ()=>{ const e=$("stBoxAdv"); if(!e) return; const open=e.style.display==="none"; e.style.display=open?"flex":"none"; $("stBoxAdvToggle").innerHTML = "Fine controls " + (open?"&#9652;":"&#9662;"); };
+if($("secAddBtn")) $("secAddBtn").onclick = ()=>{ if(!SEC.on) secStart(SEC.axis); stRenderPlaneList(); };
+if($("bxAddBtn")) $("bxAddBtn").onclick = ()=>{ if(!SBX.on) sbxStart(); stRenderBoxList(); };
+if($("secShowFrame")) $("secShowFrame").onchange = (e)=>{ if(SEC.quad) SEC.quad.visible = e.target.checked; if(SEC.edge) SEC.edge.visible = e.target.checked; };
+if($("secShowGizmo")) $("secShowGizmo").onchange = (e)=>{ if(SEC.arrow) SEC.arrow.visible = e.target.checked; };
+if($("bxShowFrame")) $("bxShowFrame").onchange = (e)=>{ if(SBX.helper) SBX.helper.visible = e.target.checked; };
+if($("bxShowGizmo")) $("bxShowGizmo").onchange = (e)=>{ (SBX.faces||[]).forEach(f=> f.visible = e.target.checked); };
+
+// ---- Measurement dock (floating bottom-center pill) ----
+if($("btnMeasureTool")) $("btnMeasureTool").onclick = ()=>{
+  const d=$("measureDock"); if(!d) return; const open=!d.classList.contains("open");
+  d.classList.toggle("open", open); $("btnMeasureTool").classList.toggle("on", open);
+};
+if($("btnMeasureDone")) $("btnMeasureDone").onclick = ()=>{
+  measureMode = null; toggleMeasureBtns();
+  const d=$("measureDock"); if(d) d.classList.remove("open");
+  const t=$("btnMeasureTool"); if(t) t.classList.remove("on");
+};
 
 // ---- boot ----
 (async () => {

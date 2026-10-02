@@ -100,6 +100,75 @@
   .sbx{display:grid;grid-template-columns:52px 1fr 1fr;align-items:center;gap:8px;font-size:11.5px;color:var(--muted)}
   .sbx input[type=range]{width:100%}
   .sbxbtns{display:flex;gap:6px;margin-top:4px}
+
+  /* ---- Unified Sectioning Tools panel (Plane / Box tabs) ---- */
+  #secToolsPanel{position:absolute;left:16px;bottom:16px;width:290px;display:none;flex-direction:column;background:var(--panel);border:1px solid var(--border);border-radius:12px;z-index:8;box-shadow:0 12px 44px rgba(0,0,0,.55)}
+  #secToolsPanel.open{display:flex}
+  #secToolsPanel.min #stBody{display:none}
+  #stHead{padding:10px 12px;font-weight:700;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;font-size:12.5px}
+  #stHeadBtns{display:flex;gap:4px}
+  #stHeadBtns button{background:none;border:none;color:var(--muted);cursor:pointer;font-size:14px;line-height:1;padding:2px 4px;border-radius:4px}
+  #stHeadBtns button:hover{color:var(--text);background:var(--panel2)}
+  #stTabs{display:flex;border-bottom:1px solid var(--border)}
+  .sttab{flex:1;background:none;border:none;color:var(--muted);padding:9px 6px;font-size:12px;font-family:inherit;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;border-bottom:2px solid transparent}
+  .sttab .sticon{font-size:13px}
+  .sttab:hover{color:var(--text)}
+  .sttab.on{color:var(--accent);border-bottom-color:var(--accent);font-weight:600}
+  #stBody{padding:12px;display:flex;flex-direction:column;gap:4px}
+  .stPane{display:none;flex-direction:column;gap:4px}
+  .stPane.on{display:flex}
+  .stSecHd{font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:700;margin:8px 0 2px}
+  .stSecHd:first-child{margin-top:0}
+  .stAdd{width:100%;text-align:left;background:var(--panel2);border:1px dashed var(--border);border-radius:8px;padding:8px 10px;font-size:12px;color:var(--text);cursor:pointer;font-family:inherit}
+  .stAdd:hover{border-color:var(--accent);color:#bcd0ff;border-style:solid}
+  .stList{display:flex;flex-direction:column;gap:6px}
+  .stEmpty{font-size:11.5px;color:var(--muted);padding:10px 2px;text-align:center;border:1px dashed var(--border);border-radius:8px}
+  .stRow{display:flex;align-items:center;gap:8px;padding:7px 9px;border:1px solid var(--border);border-radius:8px;background:var(--panel2);font-size:12px}
+  .stRow .stRowIco{width:8px;height:8px;border-radius:2px;background:var(--accent);flex:none}
+  .stRow .stRowLbl{flex:1}
+  .stRow .stDel{background:none;border:none;color:var(--muted);cursor:pointer;font-size:13px;padding:2px 4px}
+  .stRow .stDel:hover{color:var(--red)}
+  .sttoggle{display:flex;align-items:center;justify-content:space-between;padding:4px 1px;font-size:12px;color:var(--text)}
+  .sttoggle.disabled{opacity:.45}
+  .swi{position:relative;display:inline-block;width:32px;height:18px;flex:none}
+  .swi input{opacity:0;width:0;height:0}
+  .swislider{position:absolute;inset:0;background:var(--border);border-radius:18px;cursor:pointer;transition:background .15s}
+  .swislider:before{content:"";position:absolute;width:14px;height:14px;left:2px;top:2px;background:#fff;border-radius:50%;transition:transform .15s}
+  .swi input:checked + .swislider{background:var(--accent)}
+  .swi input:checked + .swislider:before{transform:translateX(14px)}
+  .swi input:disabled + .swislider{cursor:not-allowed}
+  .stAdvToggle{font-size:11px;color:var(--accent);cursor:pointer;margin-top:8px;user-select:none}
+  .stAdvToggle:hover{color:#bcd0ff}
+  .stAdv{display:flex;flex-direction:column;gap:9px;margin-top:6px;padding-top:9px;border-top:1px dashed var(--border)}
+
+  /* ---- Measurement dock (bottom-center floating pill) ---- */
+  #measureDock{position:absolute;left:50%;bottom:20px;transform:translateX(-50%);display:none;align-items:center;gap:2px;background:rgba(19,27,38,.96);border:1px solid var(--border);border-radius:12px;padding:6px;z-index:8;box-shadow:0 12px 32px rgba(0,0,0,.5)}
+  #measureDock.open{display:flex}
+  .mtBtn{background:none;border:none;color:var(--text);border-radius:8px;padding:8px 10px;font-size:15px;cursor:pointer;line-height:1;display:flex;flex-direction:column;align-items:center;gap:3px;min-width:44px}
+  .mtBtn .mtLbl{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.03em}
+  .mtBtn:hover{background:var(--panel2)}
+  .mtBtn.on{background:var(--accent);color:#fff}
+  .mtBtn.on .mtLbl{color:#fff}
+  .mtDivider{width:1px;align-self:stretch;background:var(--border);margin:4px 3px}
+  .mtDone{background:var(--accent)!important;color:#fff;font-weight:600;font-size:12px!important;padding:8px 14px!important}
+
+  /* ---- Navigation cube + compass (replaces the old Camera View button grid) ---- */
+  #navDock{position:absolute;right:16px;top:66px;z-index:7;display:flex;flex-direction:column;align-items:center;gap:6px;user-select:none}
+  #navHome{background:rgba(19,27,38,.85);border:1px solid var(--border);color:var(--muted);border-radius:8px;width:28px;height:28px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px}
+  #navHome:hover{color:var(--text);border-color:var(--accent)}
+  #navCubeWrap{position:relative;width:104px;height:104px;display:flex;align-items:center;justify-content:center}
+  #navCompass{position:absolute;width:104px;height:104px;border-radius:50%;background:radial-gradient(circle,rgba(19,27,38,.35),rgba(19,27,38,.05) 70%);pointer-events:none}
+  #navCompass span{position:absolute;font-size:9px;font-weight:700;color:var(--muted);letter-spacing:.05em}
+  #navScene{width:60px;height:60px;perspective:340px}
+  #navCube{position:relative;width:100%;height:100%;transform-style:preserve-3d}
+  #navCube .face{position:absolute;width:60px;height:60px;background:rgba(27,37,51,.92);border:1px solid #324258;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;letter-spacing:.06em;color:#9fb3cc;cursor:pointer}
+  #navCube .face:hover{background:rgba(77,124,254,.3);color:#fff;border-color:var(--accent)}
+  #navCube .f-front{transform:translateZ(30px)}
+  #navCube .f-back{transform:rotateY(180deg) translateZ(30px)}
+  #navCube .f-right{transform:rotateY(90deg) translateZ(30px)}
+  #navCube .f-left{transform:rotateY(-90deg) translateZ(30px)}
+  #navCube .f-top{transform:rotateX(90deg) translateZ(30px)}
+  #navCube .f-bottom{transform:rotateX(-90deg) translateZ(30px)}
 </style>
 </head>
 <body>
@@ -118,12 +187,15 @@
     <div class="grp"><span class="glbl">Visibility</span>
       <button class="tb" id="btnHide">Hide</button><button class="tb" id="btnIso">Isolate</button><button class="tb" id="btnShowAll">Show all</button>
     </div>
+    <div class="grp"><span class="glbl">Appearance</span>
+      <button class="tb on" id="btnRealistic" title="Styled material colors by element type vs. the raw IFC source colors">Realistic</button>
+    </div>
     <div class="grp"><span class="glbl">Color</span>
       <input type="color" id="colPick" value="#f5b73d">
       <button class="tb" id="btnColSel">Selection</button><button class="tb" id="btnColReset">Reset</button>
     </div>
     <div class="grp"><span class="glbl">Measure</span>
-      <button class="tb" id="btnLen">Length</button><button class="tb" id="btnArea">Area</button><button class="tb" id="btnMclr">Clear</button>
+      <button class="tb" id="btnMeasureTool" title="Open the measurement toolbar">Measure</button>
     </div>
     <div class="grp"><span class="glbl">Display</span>
       <button class="tb on" id="dmShaded" data-dm="shaded">Shaded</button><button class="tb" id="dmWire" data-dm="wire">Wireframe</button><button class="tb" id="dmTrans" data-dm="trans">Transparent</button><button class="tb" id="dmXray" data-dm="xray">X-Ray</button>
@@ -154,25 +226,60 @@
     <div id="loading">Loading engine…</div>
     <div id="err"></div>
     <button id="aiFab"><span class="fabdot"></span>Ask AI</button>
-    <div id="secPanel">
-      <div id="secHead"><span>Section plane</span><button id="secClose">✕</button></div>
-      <div id="secBody">
-        <div class="secrow"><span>Orientation</span>
-          <span class="secseg"><button class="tb" data-ax="x">X</button><button class="tb" data-ax="y">Y</button><button class="tb" data-ax="z">Z</button></span></div>
-        <div class="secrow"><span>Position</span><input type="range" id="secSlide" min="0" max="100" value="50"></div>
-        <div class="secrow"><span>Value</span><input type="number" id="secNum" step="0.01"><span class="secu">world</span></div>
-        <div class="secrow secbtns"><button class="tb" id="secInvert">Reverse</button><button class="tb" id="secReset">Reset</button><button class="tb" id="secOff">Off</button></div>
-        <div class="sechint">Drag the blue plane in the model, or use the slider / value — all stay in sync. The green arrow marks the visible side. Selection, properties, measure and Ask AI keep working while a section is active.</div>
-      </div>
+    <div id="measureDock">
+      <button class="mtBtn" id="btnLen" title="Measure a distance"><span>&#128207;</span><span class="mtLbl">Length</span></button>
+      <button class="mtBtn" id="btnArea" title="Measure an area"><span>&#9633;</span><span class="mtLbl">Area</span></button>
+      <div class="mtDivider"></div>
+      <button class="mtBtn" id="btnMclr" title="Clear all measurements"><span>&#128465;</span><span class="mtLbl">Clear</span></button>
+      <div class="mtDivider"></div>
+      <button class="mtBtn mtDone" id="btnMeasureDone">Done</button>
     </div>
-    <div id="secBoxPanel">
-      <div class="hd"><span>Section box</span><button id="secBoxClose">✕</button></div>
-      <div class="bd">
-        <div class="sbx"><span>X min</span><input type="range" id="bxXmin" min="0" max="100" value="0"><input type="range" id="bxXmax" min="0" max="100" value="100"></div>
-        <div class="sbx"><span>Y min</span><input type="range" id="bxYmin" min="0" max="100" value="0"><input type="range" id="bxYmax" min="0" max="100" value="100"></div>
-        <div class="sbx"><span>Z min</span><input type="range" id="bxZmin" min="0" max="100" value="0"><input type="range" id="bxZmax" min="0" max="100" value="100"></div>
-        <div class="sbxbtns"><button class="tb" id="bxReverse" title="Flip which side is kept">Reverse</button><button class="tb" id="bxReset">Reset</button><button class="tb" id="bxOff">Off</button></div>
-        <div class="sechint">Drag a box face in the model, or use the sliders. Clipping is view-only — IFC geometry is never changed. Selection, properties, measure and Ask AI keep working.</div>
+    <div id="secToolsPanel">
+      <div id="stHead"><span>Sectioning Tools</span>
+        <span id="stHeadBtns"><button id="stMin" title="Minimize">&#8211;</button><button id="stClose" title="Close">&times;</button></span></div>
+      <div id="stTabs">
+        <button class="sttab on" id="stTabPlane" data-tab="plane"><span class="sticon">&#9636;</span>Plane</button>
+        <button class="sttab" id="stTabBox" data-tab="box"><span class="sticon">&#9723;</span>Box</button>
+      </div>
+      <div id="stBody">
+        <div class="stPane on" id="stPanePlane">
+          <div class="stSecHd">Controls</div>
+          <button class="stAdd" id="secAddBtn">&#43; Add plane</button>
+          <div class="stSecHd">Planes</div>
+          <div id="stPlaneList" class="stList"><div class="stEmpty">Nothing to display. Add a plane.</div></div>
+          <div class="stSecHd">Options</div>
+          <div class="sttoggle"><span>Show frame</span><label class="swi"><input type="checkbox" id="secShowFrame" checked><span class="swislider"></span></label></div>
+          <div class="sttoggle"><span>Show gizmo</span><label class="swi"><input type="checkbox" id="secShowGizmo" checked><span class="swislider"></span></label></div>
+          <div class="stAdvToggle" id="stPlaneAdvToggle">Fine controls &#9662;</div>
+          <div class="stAdv" id="stPlaneAdv" style="display:none">
+            <div class="secrow"><span>Orientation</span>
+              <span class="secseg"><button class="tb" data-ax="x">X</button><button class="tb" data-ax="y">Y</button><button class="tb" data-ax="z">Z</button></span></div>
+            <div class="secrow"><span>Position</span><input type="range" id="secSlide" min="0" max="100" value="50"></div>
+            <div class="secrow"><span>Value</span><input type="number" id="secNum" step="0.01"><span class="secu">world</span></div>
+            <div class="secrow secbtns"><button class="tb" id="secInvert">Reverse</button><button class="tb" id="secReset">Reset</button></div>
+            <div class="sechint">Drag the blue plane in the model, or use the slider / value. Selection, properties, measure and Ask AI keep working while a section is active.</div>
+          </div>
+          <button id="secOff" style="display:none"></button>
+        </div>
+        <div class="stPane" id="stPaneBox">
+          <div class="stSecHd">Controls</div>
+          <button class="stAdd" id="bxAddBtn">&#43; Add box</button>
+          <div class="stSecHd">Planes</div>
+          <div id="stBoxList" class="stList"><div class="stEmpty">Nothing to display. Add a box.</div></div>
+          <div class="stSecHd">Options</div>
+          <div class="sttoggle"><span>Show frame</span><label class="swi"><input type="checkbox" id="bxShowFrame" checked><span class="swislider"></span></label></div>
+          <div class="sttoggle"><span>Show gizmo</span><label class="swi"><input type="checkbox" id="bxShowGizmo" checked><span class="swislider"></span></label></div>
+          <div class="sttoggle disabled" title="This model's sections are axis-aligned -- a free-rotate gizmo isn't available"><span>Rotate gizmo</span><label class="swi"><input type="checkbox" disabled><span class="swislider"></span></label></div>
+          <div class="stAdvToggle" id="stBoxAdvToggle">Fine controls &#9662;</div>
+          <div class="stAdv" id="stBoxAdv" style="display:none">
+            <div class="sbx"><span>X min</span><input type="range" id="bxXmin" min="0" max="100" value="0"><input type="range" id="bxXmax" min="0" max="100" value="100"></div>
+            <div class="sbx"><span>Y min</span><input type="range" id="bxYmin" min="0" max="100" value="0"><input type="range" id="bxYmax" min="0" max="100" value="100"></div>
+            <div class="sbx"><span>Z min</span><input type="range" id="bxZmin" min="0" max="100" value="0"><input type="range" id="bxZmax" min="0" max="100" value="100"></div>
+            <div class="sbxbtns"><button class="tb" id="bxReverse" title="Flip which side is kept">Reverse</button><button class="tb" id="bxReset">Reset</button></div>
+            <div class="sechint">Drag a box face in the model, or use the sliders. Clipping is view-only -- IFC geometry is never changed.</div>
+          </div>
+          <button id="bxOff" style="display:none"></button>
+        </div>
       </div>
     </div>
     <div id="dbgPanel">
@@ -223,6 +330,6 @@
 <script type="importmap">
 { "imports": { "three": "/ui/vendor/three.module.js" } }
 </script>
-<script type="module" src="/ui/viewer.js?v=2"></script>
+<script type="module" src="/ui/viewer.js?v=6"></script>
 </body>
 </html>

@@ -186,7 +186,7 @@ function classifyStrays(){
   return outlierCount;
 }
 function setStrays(show){ showOutliers=!!show; allMeshes.forEach(m=>{ if(m.userData.outlier) m.visible=showOutliers; });
-  const b=$("btnStray"); if(b){ b.textContent = "Strays: "+(showOutliers?"on":"off"); b.classList.toggle("on",showOutliers); } fit(); }
+  const b=$("btnStray"); if(b){ b.textContent = "Hide stray geometry: "+(showOutliers?"on":"off"); b.classList.toggle("on",showOutliers); } fit(); }
 function fit(){
   if(!allMeshes.length) return;
   const box = bboxAll(); const c = box.getCenter(new THREE.Vector3()); const s = box.getSize(new THREE.Vector3());
@@ -1146,6 +1146,7 @@ function stShow(v, tab){
   p.classList.toggle("open", open);
   if(open){ p.classList.remove("min"); if(tab) stSetTab(tab); }
   stRenderPlaneList(); stRenderBoxList();
+  const launcher=$("btnSectionTool"); if(launcher) launcher.classList.toggle("on", open);
 }
 if($("stTabPlane")) $("stTabPlane").onclick = ()=> stSetTab("plane");
 if($("stTabBox")) $("stTabBox").onclick = ()=> stSetTab("box");
@@ -1170,6 +1171,14 @@ if($("btnMeasureDone")) $("btnMeasureDone").onclick = ()=>{
   const d=$("measureDock"); if(d) d.classList.remove("open");
   const t=$("btnMeasureTool"); if(t) t.classList.remove("on");
 };
+
+// ---- Toolbar: Section tool launcher + "More" overflow menu ----
+if($("btnSectionTool")) $("btnSectionTool").onclick = ()=> stShow(undefined, SBX.on ? "box" : "plane");
+if($("btnMore")) $("btnMore").onclick = (ev)=>{ ev.stopPropagation(); const m=$("moreMenu"); if(m) m.classList.toggle("open"); };
+document.addEventListener("click", (ev)=>{
+  const wrap=$("moreWrap"), menu=$("moreMenu");
+  if(wrap && menu && menu.classList.contains("open") && !wrap.contains(ev.target)) menu.classList.remove("open");
+});
 
 // ---- boot ----
 (async () => {

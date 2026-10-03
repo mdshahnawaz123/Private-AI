@@ -21,6 +21,12 @@ const project = q.get("project") || "default";
 const token = q.get("token") || "";
 const rels = q.getAll("rel");
 
+// Diagnostics bridge to the inline capture in viewer_frag.html (also mirrors to
+// /diagnostics/viewer). Safe no-ops if the inline script didn't load.
+const dlog = (s, e) => { try { if (window.__dlog) window.__dlog(s, e); } catch (x) {} };
+const derr = (w, e) => { try { if (window.__derr) window.__derr(w, e); } catch (x) {} };
+dlog("module-loaded", { three: (typeof THREE !== "undefined" && THREE.REVISION) || "?", rels: rels.length });
+
 function fileURL(rel) {
   return `${location.origin}/projects/${encodeURIComponent(project)}/file?rel=${encodeURIComponent(rel)}&token=${encodeURIComponent(token)}`;
 }
@@ -51,22 +57,29 @@ function resize() {
 window.addEventListener("resize", resize);
 
 // ---- Fragments engine ----
-const workerUrl = new URL("/ui/vendor_fragments/fragments/Worker/worker.mjs?v=1", location.href).toString();
+const workerUrl = new URL("/ui/vendor_fragments/fragments/Worker/worker.mjs?v=2", location.href).toString();
+dlog("fragments-worker", workerUrl);
 const fragments = new FRAGS.FragmentsModels(workerUrl);
+dlog("fragments-engine-created");
 
 const loaded = []; // { rel, model }
 
 async function getFragBytes(rel) {
   // Prefer the pre-built .frag; fall back to converting the raw .ifc in-browser.
   try {
+    dlog("frag-fetch", rel + ".frag");
     const r = await fetch(fileURL(rel + ".frag"));
     if (r.ok) {
       const buf = new Uint8Array(await r.arrayBuffer());
-      if (buf.length > 0) return buf;
+      if (buf.length > 0) { dlog("frag-fetched", { bytes: buf.length }); return buf; }
+      dlog("frag-empty", "0 bytes — will convert from IFC");
+    } else {
+      dlog("frag-miss", { status: r.status });
     }
-  } catch (e) { /* fall through to IFC conversion */ }
+  } catch (e) { derr("frag-fetch", e); }
 
   setLoading("No .frag yet — converting IFC (one-time)…");
+  dlog("ifc-convert-start", rel);
   const ri = await fetch(fileURL(rel));
   if (!ri.ok) throw new Error("Could not fetch model (" + ri.status + ")");
   const ifcBytes = new Uint8Array(await ri.arrayBuffer());
@@ -82,7 +95,9 @@ async function getFragBytes(rel) {
 async function loadModel(rel) {
   setLoading("Loading " + rel.split("/").pop() + " …");
   const bytes = await getFragBytes(rel);
+  dlog("fragments-load", { bytes: bytes && bytes.length });
   const model = await fragments.load(bytes, { modelId: rel, camera });
+  dlog("fragments-loaded");
   scene.add(model.object);
   model.getClippingPlanesEvent = () => renderer.clippingPlanes;
   loaded.push({ rel, model });
@@ -179,20 +194,26 @@ function animate() {
 // ---- boot ----
 (async () => {
   try {
+    dlog("boot-start");
     resize();
-    if (!rels.length) { showErr("No model selected."); return; }
+    if (!rels.length) { showErr("No model selected."); dlog("boot-no-model"); return; }
     // 2a: single model. Multi-model federation is Phase 2b.
     const first = rels[0];
     const model = await loadModel(first);
+    dlog("fragments-update");
     await fragments.update(true);
     fitTo(model);
+    dlog("fit-done");
     $("title").textContent = first.split("/").pop() + (rels.length > 1 ? "  (1 of " + rels.length + " — multi-model is next)" : "");
     setLoading(null);
     animate();
+    try { window.__ready = true; } catch (e) {}
+    dlog("READY");
     try { parent.postMessage({ source: "expo-viewer", type: "ready", project, engine: "fragments" }, "*"); } catch (e) {}
     try { parent.postMessage({ source: "expo-viewer", type: "loaded", rels: loaded.map((l) => l.rel) }, "*"); } catch (e) {}
   } catch (e) {
     console.error(e);
-    showErr((e && e.message ? e.message : String(e)) + "  — if this mentions web-ifc/worker, the vendor bundle may be incomplete.");
+    derr("boot", e);
+    showErr((e && e.message ? e.message : String(e)) + "  — see the diagnostics panel (bottom-left) for the step that failed.");
   }
 })();

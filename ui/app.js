@@ -276,12 +276,40 @@ function refreshDesignEmpty(){
   if(!models.length){ msg.textContent='No IFC models in this project. Upload one in Models / Documents.'; if(lb)lb.style.display='none'; }
   else { msg.textContent=`${models.length} IFC model(s) available. Load the 3D engine.`; if(lb)lb.style.display=''; }
 }
-function loadModels(){
-  const models=allDocs.filter(f=>rx.ifc.test(f.filename));
-  if(!models.length){ toast('No IFC models in this project'); return; }
-  const rels=models.slice(0,4).map(f=>'rel='+encodeURIComponent(f.rel)).join('&');
+// Rels currently loaded in the viewer iframe, kept in sync via the viewer's
+// "loaded" postMessage so the "+ Link" action knows what is already in view.
+let loadedRels = new Set();
+// Load a set of models into the viewer. relList (optional): the exact models to
+// open; when omitted/empty, every IFC in the project is loaded. The old 4-model
+// cap is gone -- the floating-origin federation keeps a shared-coordinate set
+// aligned and precise regardless of count. A soft confirm guards very heavy sets.
+function loadModels(relList){
+  const ifc=allDocs.filter(f=>rx.ifc.test(f.filename));
+  if(!ifc.length){ toast('No IFC models in this project'); return; }
+  let chosen = (relList && relList.length) ? relList.slice() : ifc.map(f=>f.rel);
+  if(chosen.length>8 && !confirm(`Open ${chosen.length} models together? Large federated sets can be slow to parse and memory-heavy. Continue?`)) return;
+  loadedRels = new Set(chosen);
+  const rels=chosen.map(r=>'rel='+encodeURIComponent(r)).join('&');
   const url=`/ui/viewer.html?embed=1&project=${encodeURIComponent(currentProject)}&token=${encodeURIComponent(authToken||'')}&${rels}`;
   $('vpEmpty').style.display='none'; $('viewerFrame').style.display='block'; $('viewerFrame').src=url; viewerLoaded=true;
+}
+// Open exactly the models ticked in the Models table.
+function openSelectedModels(){
+  const checked=[...document.querySelectorAll('.mdlChk:checked')].map(c=>c.value);
+  if(!checked.length){ toast('Tick one or more models first'); return; }
+  navigate('design'); loadModels(checked);
+}
+// Open just one model (per-row "Open").
+function openOneModel(btn){ navigate('design'); loadModels([btn.dataset.rel]); }
+// Link another model INTO the already-open scene without reloading. Falls back
+// to a fresh load when the viewer is not running yet.
+function addModelToView(rel){
+  if(!viewerLoaded){ navigate('design'); loadModels([rel]); return; }
+  if(loadedRels.has(rel)){ toast('That model is already in the view'); return; }
+  loadedRels.add(rel);
+  navigate('design');
+  try{ $('viewerFrame').contentWindow.postMessage({type:'expo:addModel', rel}, '*'); toast('Linking model…'); }
+  catch(e){ loadedRels.delete(rel); toast('Could not link model'); }
 }
 
 /* ---------- Overview ---------- */
@@ -312,10 +340,12 @@ async function renderModels(b){
   let bimModels=[];
   try{ const r=await fetch(`${API}/api/v1/bim/models?project=${encodeURIComponent(currentProject)}`); const d=await r.json(); bimModels=(d&&d.models)||[]; }catch(e){}
   b.innerHTML=`<div class="ws-scroll">
-    <div class="dt-toolbar"><b>IFC / 3D models in project</b><button class="primary" style="margin-left:auto" onclick="navigate('design');loadModels()">Open in 3D</button></div>
-    ${ifc.length?`<table class="dt"><thead><tr><th>Model</th><th>Revision</th><th>Status</th><th>Size</th><th></th></tr></thead><tbody>
-      ${ifc.map(f=>`<tr><td>🏗️ ${esc(f.filename)}</td><td>${esc(f._rev||'—')}</td><td>${esc(f.status||'ready')}</td><td>${fmtBytes(f.size)}</td>
-        <td><button class="tb" onclick="navigate('design');loadModels()">Open</button></td></tr>`).join('')}
+    <div class="dt-toolbar"><b>IFC / 3D models in project</b>
+      <button class="primary" style="margin-left:auto" onclick="openSelectedModels()">Open selected in 3D</button>
+      <button class="tb" style="margin-left:8px" onclick="navigate('design');loadModels()">Open all</button></div>
+    ${ifc.length?`<table class="dt"><thead><tr><th style="width:34px"><input type="checkbox" onclick="document.querySelectorAll('.mdlChk').forEach(c=>c.checked=this.checked)" title="Select all"></th><th>Model</th><th>Revision</th><th>Status</th><th>Size</th><th></th></tr></thead><tbody>
+      ${ifc.map(f=>`<tr><td><input type="checkbox" class="mdlChk" value="${esc(f.rel)}"></td><td>🏗️ ${esc(f.filename)}</td><td>${esc(f._rev||'—')}</td><td>${esc(f.status||'ready')}</td><td>${fmtBytes(f.size)}</td>
+        <td><button class="tb" data-rel="${esc(f.rel)}" onclick="openOneModel(this)">Open</button><button class="tb" style="margin-left:6px" data-rel="${esc(f.rel)}" onclick="addModelToView(this.dataset.rel)">＋ Link</button></td></tr>`).join('')}
     </tbody></table>`:state('No IFC models uploaded to this project.')}
     ${bimModels.length?`<div class="dt-toolbar" style="margin-top:22px"><b>Registered BIM element models</b></div>
       <table class="dt"><thead><tr><th>Model</th><th>Elements</th></tr></thead><tbody>
@@ -657,7 +687,8 @@ function renderSettings(b){
 function vcmd(c){ try{ $('viewerFrame').contentWindow.postMessage({type:'expo:cmd',cmd:c},'*'); }catch(e){} }
 window.addEventListener('message',ev=>{ const d=ev.data||{}; if(d.source!=='expo-viewer')return;
   if(d.type==='selection'){ lastSel=d.payload; setElementContext(d.payload); }
-  else if(d.type==='ready'){ refreshDesignEmpty(); } });
+  else if(d.type==='ready'){ refreshDesignEmpty(); }
+  else if(d.type==='loaded'){ if(Array.isArray(d.rels)) loadedRels=new Set(d.rels); if(d.added) toast('Model linked into the view'); } });
 function getViewerCtx(){ return new Promise(res=>{ let done=false;
   const h=e=>{const d=e.data||{}; if(d.source==='expo-viewer'&&d.type==='context'){done=true;window.removeEventListener('message',h);res({context:d.context,selection:d.selection});}};
   window.addEventListener('message',h);

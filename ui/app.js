@@ -257,7 +257,7 @@ function buildDesignWorkspace(){
     </div>
     <div id="genericWrap" style="display:none"></div>`);
   $('wsBody').appendChild(wrap);
-  $('loadBtn').onclick=loadModels;
+  $('loadBtn').onclick=()=>openFragments();
 }
 function renderDesignTools(){
   // The 3D viewer (ui/viewer.js) now ships its own complete toolbar
@@ -293,35 +293,37 @@ function loadModels(relList){
   const url=`/ui/viewer.html?embed=1&project=${encodeURIComponent(currentProject)}&token=${encodeURIComponent(authToken||'')}&${rels}`;
   $('vpEmpty').style.display='none'; $('viewerFrame').style.display='block'; $('viewerFrame').src=url; viewerLoaded=true;
 }
-// Open exactly the models ticked in the Models table.
-function openSelectedModels(){
-  const checked=[...document.querySelectorAll('.mdlChk:checked')].map(c=>c.value);
-  if(!checked.length){ toast('Tick one or more models first'); return; }
-  navigate('design'); loadModels(checked);
-}
-// Open just one model (per-row "Open").
-function openOneModel(btn){ navigate('design'); loadModels([btn.dataset.rel]); }
-// Open the Fragments (beta) viewer -- lightweight .frag loading. Phase 2a:
-// single model (uses the first ticked model, else the first IFC in the project).
-function openFragmentsBeta(){
-  const checked=[...document.querySelectorAll('.mdlChk:checked')].map(c=>c.value);
+// PRIMARY engine: the Fragments viewer (fast .frag loading + federation). This
+// is now what "Open in 3D" uses. relList optional; empty/omitted = all IFCs.
+function openFragments(relList){
   const ifc=allDocs.filter(f=>rx.ifc.test(f.filename));
-  const chosen = checked.length ? checked : (ifc[0] ? [ifc[0].rel] : []);
-  if(!chosen.length){ toast('No IFC models in this project'); return; }
+  if(!ifc.length){ toast('No IFC models in this project'); return; }
+  let chosen = (relList && relList.length) ? relList.slice() : ifc.map(f=>f.rel);
+  if(chosen.length>8 && !confirm(`Open ${chosen.length} models together? Large sets can be memory-heavy. Continue?`)) return;
+  loadedRels = new Set(chosen);
   navigate('design');
   const rels=chosen.map(r=>'rel='+encodeURIComponent(r)).join('&');
   const url=`/ui/viewer_frag.html?v=13&embed=1&project=${encodeURIComponent(currentProject)}&token=${encodeURIComponent(authToken||'')}&${rels}`;
   $('vpEmpty').style.display='none'; $('viewerFrame').style.display='block'; $('viewerFrame').src=url; viewerLoaded=true;
 }
+// Open exactly the models ticked in the Models table (Fragments engine).
+function openSelectedModels(){
+  const checked=[...document.querySelectorAll('.mdlChk:checked')].map(c=>c.value);
+  if(!checked.length){ toast('Tick one or more models first'); return; }
+  openFragments(checked);
+}
+// Open just one model (per-row "Open").
+function openOneModel(btn){ openFragments([btn.dataset.rel]); }
+// Back-compat alias.
+function openFragmentsBeta(){ openFragments(); }
 // Link another model INTO the already-open scene without reloading. Falls back
 // to a fresh load when the viewer is not running yet.
+// Add a model to the current Fragments scene by reopening with the combined set
+// (the Fragments viewer federates all rels at load).
 function addModelToView(rel){
-  if(!viewerLoaded){ navigate('design'); loadModels([rel]); return; }
   if(loadedRels.has(rel)){ toast('That model is already in the view'); return; }
-  loadedRels.add(rel);
-  navigate('design');
-  try{ $('viewerFrame').contentWindow.postMessage({type:'expo:addModel', rel}, '*'); toast('Linking model…'); }
-  catch(e){ loadedRels.delete(rel); toast('Could not link model'); }
+  const set = new Set(loadedRels); set.add(rel);
+  openFragments([...set]);
 }
 
 /* ---------- Overview ---------- */
@@ -353,9 +355,9 @@ async function renderModels(b){
   try{ const r=await fetch(`${API}/api/v1/bim/models?project=${encodeURIComponent(currentProject)}`); const d=await r.json(); bimModels=(d&&d.models)||[]; }catch(e){}
   b.innerHTML=`<div class="ws-scroll">
     <div class="dt-toolbar"><b>IFC / 3D models in project</b>
-      <button class="primary" style="margin-left:auto" onclick="openSelectedModels()">Open selected in 3D</button>
-      <button class="tb" style="margin-left:8px" onclick="navigate('design');loadModels()">Open all</button>
-      <button class="tb" style="margin-left:8px" title="Lightweight Fragments engine (experimental)" onclick="openFragmentsBeta()">⚡ Fragments (beta)</button></div>
+      <button class="primary" style="margin-left:auto" title="Fast Fragments engine" onclick="openSelectedModels()">⚡ Open selected in 3D</button>
+      <button class="tb" style="margin-left:8px" onclick="openFragments()">Open all</button>
+      <button class="tb" style="margin-left:8px" title="Original web-ifc viewer (raw IFC, slower)" onclick="navigate('design');loadModels()">Classic viewer</button></div>
     ${ifc.length?`<table class="dt"><thead><tr><th style="width:34px"><input type="checkbox" onclick="document.querySelectorAll('.mdlChk').forEach(c=>c.checked=this.checked)" title="Select all"></th><th>Model</th><th>Revision</th><th>Status</th><th>Size</th><th></th></tr></thead><tbody>
       ${ifc.map(f=>`<tr><td><input type="checkbox" class="mdlChk" value="${esc(f.rel)}"></td><td>🏗️ ${esc(f.filename)}</td><td>${esc(f._rev||'—')}</td><td>${esc(f.status||'ready')}</td><td>${fmtBytes(f.size)}</td>
         <td><button class="tb" data-rel="${esc(f.rel)}" onclick="openOneModel(this)">Open</button><button class="tb" style="margin-left:6px" data-rel="${esc(f.rel)}" onclick="addModelToView(this.dataset.rel)">＋ Link</button></td></tr>`).join('')}

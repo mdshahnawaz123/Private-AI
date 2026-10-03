@@ -32,7 +32,10 @@ Thumbs.db
 
 # Backup files (no longer needed with git)
 *.bak
-*.bak-*
+*.bak*
+
+# Node dependencies
+node_modules/
 
 # Test artifacts
 .pytest_cache/

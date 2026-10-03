@@ -81,7 +81,13 @@ try {
   const importer = new FRAGS.IfcImporter();
   importer.wasm.path = webIfcDir.endsWith(path.sep) ? webIfcDir : webIfcDir + path.sep;
   importer.wasm.absolute = true;
-  importer.webIfcSettings = { COORDINATE_TO_ORIGIN: false };
+  // COORDINATE_TO_ORIGIN:true recenters geometry near (0,0,0) at parse time.
+  // These models are georeferenced at survey scale (~2,700 km from origin);
+  // Fragments skips any object more than 100 km from origin, so WITHOUT this
+  // the .frag comes out nearly empty ("... is more than 100000 meters away ...
+  // will be skipped"). Recentering keeps all geometry and renders precisely.
+  // (Multi-model federation alignment is handled in the viewer at Phase 2b.)
+  importer.webIfcSettings = { COORDINATE_TO_ORIGIN: true };
 
   const fragBytes = await importer.process({ bytes });
   await writeFile(outPath, Buffer.from(fragBytes));

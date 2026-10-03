@@ -14,7 +14,10 @@ import process from "node:process";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const converter = path.join(here, "convert_ifc_to_frag.mjs");
-const root = process.argv[2] ? path.resolve(process.argv[2]) : path.join(here, "..", "..", "data", "docs");
+const args = process.argv.slice(2);
+const force = args.includes("--force");           // re-convert even if a .frag already exists
+const posArg = args.find((a) => !a.startsWith("--"));
+const root = posArg ? path.resolve(posArg) : path.join(here, "..", "..", "data", "docs");
 
 async function exists(p) { try { await access(p); return true; } catch (e) { return false; } }
 async function* walk(dir) {
@@ -36,7 +39,7 @@ let done = 0, skip = 0, fail = 0, total = 0;
 for await (const f of walk(root)) {
   if (!f.toLowerCase().endsWith(".ifc")) continue;
   total++;
-  if (await exists(f + ".frag")) { skip++; continue; }
+  if (!force && await exists(f + ".frag")) { skip++; continue; }
   console.error("\n[" + (done + fail + 1) + "] Converting: " + path.basename(f));
   const code = await run(f);
   if (code === 0) done++; else { fail++; console.error("  -> FAILED (see error above)"); }

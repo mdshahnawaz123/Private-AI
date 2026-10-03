@@ -46,6 +46,8 @@ node backfill.mjs
 
 Walks `data/docs/` and converts every `.ifc` that doesn't already have a `.frag`
 sibling. Pass a directory to limit scope: `node backfill.mjs "../../data/docs/<project>"`.
+Add `--force` to re-convert and overwrite existing `.frag` files (e.g. after a
+converter change): `node backfill.mjs --force`.
 
 ## Backend controls (environment variables)
 

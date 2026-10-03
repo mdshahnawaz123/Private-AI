@@ -26,6 +26,10 @@
   .spin{width:34px;height:34px;border:3px solid var(--line);border-top-color:var(--accent);border-radius:50%;animation:s 1s linear infinite}
   @keyframes s{to{transform:rotate(360deg)}}
   .hint{color:var(--faint)}
+  #dbg{position:absolute;left:10px;bottom:10px;z-index:9;display:none;max-width:60vw;max-height:40vh;overflow:auto;
+       background:rgba(0,0,0,.82);border:1px solid var(--line);border-radius:8px;padding:8px 10px;
+       font:11px/1.4 ui-monospace,Consolas,monospace;color:#cdd9e5}
+  #dbg div{white-space:pre-wrap;word-break:break-word}
 </style>
 </head>
 <body>
@@ -42,14 +46,57 @@
   <div id="loading"><div class="spin"></div><div id="loadMsg">Starting…</div></div>
   <div id="err"><div><b>Viewer error</b><br><span id="errMsg"></span></div></div>
 
+  <div id="dbg"></div>
+
   <script type="importmap">
   {
     "imports": {
-      "three": "/ui/vendor_fragments/three.module.js?v=1",
-      "web-ifc": "/ui/vendor_fragments/web-ifc-api.js?v=1"
+      "three": "/ui/vendor_fragments/three.module.js?v=2",
+      "web-ifc": "/ui/vendor_fragments/web-ifc-api.js?v=2",
+      "three/examples/jsm/lines/Line2.js": "/ui/vendor_fragments/examples/jsm/lines/Line2.js",
+      "three/examples/jsm/lines/LineGeometry.js": "/ui/vendor_fragments/examples/jsm/lines/LineGeometry.js",
+      "three/examples/jsm/lines/LineMaterial.js": "/ui/vendor_fragments/examples/jsm/lines/LineMaterial.js",
+      "three/examples/jsm/lines/LineSegments2.js": "/ui/vendor_fragments/examples/jsm/lines/LineSegments2.js",
+      "three/examples/jsm/lines/LineSegmentsGeometry.js": "/ui/vendor_fragments/examples/jsm/lines/LineSegmentsGeometry.js",
+      "three/examples/jsm/lines/Wireframe.js": "/ui/vendor_fragments/examples/jsm/lines/Wireframe.js",
+      "three/examples/jsm/lines/WireframeGeometry2.js": "/ui/vendor_fragments/examples/jsm/lines/WireframeGeometry2.js"
     }
   }
   </script>
-  <script type="module" src="/ui/viewer_frag.js?v=1"></script>
+
+  <!-- Diagnostics: capture EVERYTHING, including module-import failures that
+       happen before the module code (and its try/catch) ever runs. Must be a
+       plain (non-module) script so it is registered first. Shows an on-screen
+       log and mirrors each event to /diagnostics/viewer so it can be shared. -->
+  <script>
+  (function(){
+    var logs = [];
+    var q = new URLSearchParams(location.search);
+    var project = q.get("project") || "";
+    function esc(s){ return String(s).replace(/[&<>]/g, function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;"}[c];}); }
+    function render(){ var el=document.getElementById("dbg"); if(!el) return; el.style.display="block"; el.innerHTML = logs.slice(-40).join(""); el.scrollTop = el.scrollHeight; }
+    function post(evt){ try{ fetch("/diagnostics/viewer", {method:"POST", credentials:"same-origin", headers:{"Content-Type":"application/json"}, body: JSON.stringify(Object.assign({project:project}, evt))}); }catch(e){} }
+    window.__dlog = function(step, extra){
+      var t = new Date().toLocaleTimeString();
+      logs.push('<div>['+t+'] '+esc(step)+(extra!=null?' <span style="color:#8b949e">'+esc(typeof extra==="string"?extra:JSON.stringify(extra))+'</span>':'')+'</div>');
+      try{ console.log("[frag]", step, extra||""); }catch(e){}
+      render(); post({stage:step, status:"info", detail:(extra!=null?(typeof extra==="string"?extra:JSON.stringify(extra)).slice(0,500):null)});
+    };
+    window.__derr = function(where, err){
+      var msg = (err && err.message) || String(err);
+      var stack = (err && err.stack) || "";
+      logs.push('<div style="color:#ff9a9a"><b>ERROR @ '+esc(where)+':</b> '+esc(msg)+'</div>');
+      if(stack) logs.push('<div style="color:#8b949e;font-size:11px">'+esc(String(stack).split("\n").slice(0,5).join("  |  "))+'</div>');
+      render(); post({stage:where, status:"error", error:String(msg).slice(0,600), stack:String(stack).slice(0,1000)});
+    };
+    window.addEventListener("error", function(e){ window.__derr("window.error", (e && (e.error||e.message)) || "script/import error: " + (e && e.filename||"")); });
+    window.addEventListener("unhandledrejection", function(e){ window.__derr("unhandledrejection", (e && e.reason) || e); });
+    window.__ready = false;
+    setTimeout(function(){ if(!window.__ready){ window.__dlog("watchdog", "still not ready after 25s — likely a module import or worker-load failure; check the errors above"); } }, 25000);
+    window.__dlog("inline-init", "diagnostics armed");
+  })();
+  </script>
+
+  <script type="module" src="/ui/viewer_frag.js?v=2"></script>
 </body>
 </html>

@@ -330,6 +330,66 @@ async def diagnostics_ifc_raw(request: Request):
     return ""
 
 
+VIEWER_DIAG_PATH = os.path.join(DATA_DIR, "diagnostics", "viewer.jsonl")
+
+@app.post("/diagnostics/viewer")
+async def diagnostics_viewer_post(request: Request):
+    """Receive a client-side diagnostics event from the Fragments beta viewer
+    (boot steps + errors, including module-import failures). Best-effort append;
+    always returns ok. Admin/lead only."""
+    auth.require_roles(request, "admin", "lead")
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    evt = {"ts": time.strftime("%Y-%m-%dT%H:%M:%S")}
+    if isinstance(body, dict):
+        for k in ("project", "stage", "status", "error", "detail", "stack"):
+            v = body.get(k)
+            if v is not None:
+                if isinstance(v, str) and len(v) > 1200:
+                    v = v[:1200] + "…"
+                evt[k] = v
+    try:
+        os.makedirs(os.path.dirname(VIEWER_DIAG_PATH), exist_ok=True)
+        with _IFC_DIAG_LOCK:
+            with open(VIEWER_DIAG_PATH, "a", encoding="utf-8") as f:
+                f.write(json.dumps(evt, ensure_ascii=False) + "\n")
+            try:
+                with open(VIEWER_DIAG_PATH, "r", encoding="utf-8") as f:
+                    lines = f.readlines()
+                if len(lines) > IFC_DIAG_MAX_LINES:
+                    with open(VIEWER_DIAG_PATH, "w", encoding="utf-8") as f:
+                        f.writelines(lines[-IFC_DIAG_MAX_LINES:])
+            except Exception:
+                pass
+    except Exception:
+        pass
+    return {"ok": True}
+
+@app.get("/diagnostics/viewer")
+async def diagnostics_viewer_get(request: Request, limit: int = 200):
+    """Recent Fragments beta-viewer diagnostics events. Admin/lead only."""
+    auth.require_roles(request, "admin", "lead")
+    events = []
+    try:
+        if os.path.exists(VIEWER_DIAG_PATH):
+            with open(VIEWER_DIAG_PATH, "r", encoding="utf-8") as f:
+                for ln in f.readlines():
+                    ln = ln.strip()
+                    if not ln:
+                        continue
+                    try:
+                        events.append(json.loads(ln))
+                    except Exception:
+                        pass
+    except Exception as e:
+        return {"events": [], "error": str(e)}
+    if limit and limit > 0:
+        events = events[-limit:]
+    return {"count": len(events), "events": events}
+
+
 # ── Phase 9: Observability endpoints ───────────────────────
 
 @app.get("/metrics")

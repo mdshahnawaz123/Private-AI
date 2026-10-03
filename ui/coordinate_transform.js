@@ -279,14 +279,26 @@ export async function buildPlacementInfo({ ifcAPI, WebIFC, modelID, getTruePosit
 export function computePlacementTransform(mode, info, localBox) {
   const identity = { position: new THREE.Vector3(0, 0, 0), quaternion: new THREE.Quaternion() };
 
-  // Calculate the deterministic anchor translation
-  let anchorPos = identity.position;
+  // Calculate the deterministic anchor translation: the true survey origin of
+  // THIS model, in metres, three.js Y-up convention.
+  let anchorPos = new THREE.Vector3(0, 0, 0);
   if (info && info.deterministicAnchor) {
     const metres = info.lengthUnit ? info.lengthUnit.metres : 1.0;
     const arr = info.deterministicAnchor;
     // Apply Y-up three.js mapping: (X, Y, Z) -> (X, Z, -Y)
     anchorPos = new THREE.Vector3(arr[0] * metres, arr[2] * metres, -arr[1] * metres);
   }
+
+  // Multi-model federation: every model is rebased by ONE common scene origin
+  // (SCENE_ANCHOR -- the first georeferenced model's survey anchor, set in
+  // viewer.js and passed in as info.sceneAnchor). Because models that share a
+  // coordinate system differ only by small offsets, subtracting the SAME anchor
+  // from all of them keeps them mutually aligned yet places every model near
+  // the three.js origin, where float32 keeps full precision. SCENE_ANCHOR is
+  // already in metres, three.js convention. Absolute survey coordinates are
+  // reconstructed for readouts by adding it back (see trueCoord() in viewer.js).
+  const sceneAnchor = (info && info.sceneAnchor) ? info.sceneAnchor : new THREE.Vector3(0, 0, 0);
+  const rebased = () => anchorPos.clone().sub(sceneAnchor);
 
   switch (mode) {
     case "internalOrigin":
@@ -295,18 +307,21 @@ export function computePlacementTransform(mode, info, localBox) {
 
     case "ifcLocalOrigin":
     case "sharedCoordinates": {
-      return { position: anchorPos, quaternion: new THREE.Quaternion() };
+      return { position: rebased(), quaternion: new THREE.Quaternion() };
     }
 
     case "surveyPoint": {
       const m = info.markers.surveyPoint;
-      if (!m || !m.offset) return { position: anchorPos, quaternion: new THREE.Quaternion() };
+      // Fallback (no distinct marker) behaves like Shared Coordinates, so it
+      // must rebase too; the marker-found branch deliberately pins this model's
+      // own survey point to the world origin (a single-model alignment mode).
+      if (!m || !m.offset) return { position: rebased(), quaternion: new THREE.Quaternion() };
       return { position: m.offset.clone(), quaternion: new THREE.Quaternion() };
     }
 
     case "projectBasePoint": {
       const m = info.markers.projectBasePoint;
-      if (!m || !m.offset) return { position: anchorPos, quaternion: new THREE.Quaternion() };
+      if (!m || !m.offset) return { position: rebased(), quaternion: new THREE.Quaternion() };
       return { position: m.offset.clone(), quaternion: new THREE.Quaternion() };
     }
 

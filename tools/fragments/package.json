@@ -8,7 +8,8 @@
     "ifc2frag": "./convert_ifc_to_frag.mjs"
   },
   "scripts": {
-    "convert": "node convert_ifc_to_frag.mjs"
+    "convert": "node convert_ifc_to_frag.mjs",
+    "backfill": "node backfill.mjs"
   },
   "dependencies": {
     "@thatopen/fragments": "3.4.7",

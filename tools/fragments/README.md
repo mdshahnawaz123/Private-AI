@@ -35,6 +35,18 @@ stderr and exits non-zero. The backend treats any failure as "skip" — the orig
 is kept and the viewer falls back to parsing it directly, so a missing/broken converter
 never blocks uploads.
 
+## Backfill existing models
+
+To convert models that were uploaded before conversion worked (no re-upload needed):
+
+```bash
+cd tools/fragments
+node backfill.mjs
+```
+
+Walks `data/docs/` and converts every `.ifc` that doesn't already have a `.frag`
+sibling. Pass a directory to limit scope: `node backfill.mjs "../../data/docs/<project>"`.
+
 ## Backend controls (environment variables)
 
 | Var | Default | Meaning |

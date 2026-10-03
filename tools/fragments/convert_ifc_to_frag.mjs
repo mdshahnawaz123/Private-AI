@@ -20,7 +20,9 @@
 //          so STDOUT carries only the JSON result the caller parses.
 
 import { readFile, writeFile } from "node:fs/promises";
+import { existsSync } from "node:fs";
 import { createRequire } from "node:module";
+import { fileURLToPath } from "node:url";
 import path from "node:path";
 import process from "node:process";
 
@@ -46,14 +48,26 @@ try {
   fail(1, "fragments-module-not-found: run `npm install` in tools/fragments/ (" + (e && e.message ? e.message : e) + ")");
 }
 
-// web-ifc ships its wasm next to its own package.json; point the importer there
-// so it uses the same pinned web-ifc (0.0.77) the viewer bundle uses.
-let webIfcDir;
+// Locate the web-ifc package directory (which contains web-ifc.wasm) so the
+// importer points at the same pinned web-ifc (0.0.77) the viewer bundle uses.
+// NOTE: web-ifc's package.json "exports" does NOT expose "./package.json", so
+// require.resolve("web-ifc/package.json") throws ERR_PACKAGE_PATH_NOT_EXPORTED.
+// Resolve the package's main entry instead (always exported) and take its dir;
+// fall back to this script's own node_modules. Verify web-ifc.wasm is there.
+const dirHasWasm = (d) => !!d && existsSync(path.join(d, "web-ifc.wasm"));
+let webIfcDir = null;
 try {
   const require = createRequire(import.meta.url);
-  webIfcDir = path.dirname(require.resolve("web-ifc/package.json"));
-} catch (e) {
-  fail(1, "web-ifc-not-found: run `npm install` in tools/fragments/ (" + (e && e.message ? e.message : e) + ")");
+  const cand = path.dirname(require.resolve("web-ifc"));
+  if (dirHasWasm(cand)) webIfcDir = cand;
+} catch (e) { /* fall through to the filesystem guess */ }
+if (!webIfcDir) {
+  const here = path.dirname(fileURLToPath(import.meta.url));
+  const cand = path.join(here, "node_modules", "web-ifc");
+  if (dirHasWasm(cand)) webIfcDir = cand;
+}
+if (!webIfcDir) {
+  fail(1, "web-ifc-wasm-not-found: run `npm install` in tools/fragments/ (could not locate web-ifc.wasm)");
 }
 
 let bytes;

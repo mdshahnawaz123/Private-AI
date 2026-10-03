@@ -100,7 +100,11 @@ async function loadModel(rel) {
   dlog("fragments-load", { bytes: bytes && bytes.length });
   const model = await fragments.load(bytes, { modelId: rel, camera });
   dlog("fragments-loaded");
-  scene.add(model.object);
+  // Each model gets its own wrapper group. Federation sets the group's matrix;
+  // Fragments never touches the group, only model.object inside it.
+  const group = new THREE.Group(); group.name = "model:" + rel;
+  group.add(model.object);
+  scene.add(group);
   // Reveal the real model API so we stop guessing method names across versions.
   try {
     const proto = Object.getPrototypeOf(model) || {};
@@ -111,8 +115,61 @@ async function loadModel(rel) {
   // Tell the model which camera to stream geometry for, if that API exists.
   try { if (typeof model.useCamera === "function") { model.useCamera(camera); dlog("use-camera-ok"); } else { dlog("use-camera-absent"); } } catch (e) { derr("useCamera", e); }
   model.getClippingPlanesEvent = () => renderer.clippingPlanes;
-  loaded.push({ rel, model });
-  return model;
+  const entry = { rel, model, group };
+  loaded.push(entry);
+  return entry;
+}
+
+// Multi-model federation: place model 0 at identity (its own 0,0,0) and every
+// other model by M0^-1 * Mi, where Mi is the model's coordination matrix (its
+// real-world placement). Shared-coordinate models then line up correctly while
+// the scene stays near the origin.
+async function federate() {
+  if (loaded.length < 2) return;
+  const mats = [];
+  for (const L of loaded) {
+    let m = null;
+    try { if (typeof L.model.getCoordinationMatrix === "function") m = await L.model.getCoordinationMatrix(); } catch (e) { derr("coordMatrix", e); }
+    mats.push(m);
+    dlog("coord", { m: L.rel.split("/").pop(), t: m ? [+m.elements[12].toFixed(1), +m.elements[13].toFixed(1), +m.elements[14].toFixed(1)] : null });
+  }
+  const ref = mats[0];
+  if (!ref) { dlog("federate-skip", "no reference coordination matrix"); return; }
+  const refInv = ref.clone().invert();
+  for (let i = 0; i < loaded.length; i++) {
+    const m = mats[i]; if (!m) continue;
+    const relMat = refInv.clone().multiply(m);
+    loaded[i].group.matrixAutoUpdate = false;
+    loaded[i].group.matrix.copy(relMat);
+    loaded[i].group.updateMatrixWorld(true);
+  }
+  dlog("federated", { models: loaded.length });
+}
+
+// Frame the camera to the union of all loaded models' world bounding boxes.
+async function fitAll() {
+  const union = new THREE.Box3();
+  for (const L of loaded) {
+    let local = null;
+    try {
+      if (typeof L.model.getItemsIdsWithGeometry === "function" && typeof L.model.getMergedBox === "function") {
+        const ids = await L.model.getItemsIdsWithGeometry();
+        if (ids && ids.length) local = asBox3(await L.model.getMergedBox(ids));
+      }
+    } catch (e) {}
+    L.group.updateMatrixWorld(true);
+    if (local && !local.isEmpty()) { union.union(local.clone().applyMatrix4(L.group.matrixWorld)); }
+    else { try { const b = new THREE.Box3().setFromObject(L.group); if (!b.isEmpty()) union.union(b); } catch (e) {} }
+  }
+  if (union.isEmpty()) { dlog("fitall-no-box"); return false; }
+  const size = union.getSize(new THREE.Vector3());
+  const center = union.getCenter(new THREE.Vector3());
+  dlog("union-box", { size: size.toArray().map((n) => +n.toFixed(1)), center: center.toArray().map((n) => +n.toFixed(1)) });
+  const r = Math.max(size.x, size.y, size.z) || 10;
+  camera.near = Math.max(0.01, r / 1000); camera.far = r * 100; camera.updateProjectionMatrix();
+  camera.position.set(center.x + r, center.y + r * 0.7, center.z + r);
+  controls.target.copy(center); controls.update();
+  return true;
 }
 
 function asBox3(b) {
@@ -219,7 +276,7 @@ function setWire(on) {
   $("btnShaded").classList.toggle("on", !on);
   $("btnWire").classList.toggle("on", on);
 }
-$("btnFit").onclick = () => { if (loaded[0]) fitTo(loaded[0].model); };  // fire-and-forget
+$("btnFit").onclick = () => { if (loaded.length) fitAll(); };  // fire-and-forget
 $("btnShaded").onclick = () => setWire(false);
 $("btnWire").onclick = () => setWire(true);
 
@@ -239,26 +296,29 @@ function animate() {
     // Default framing so the grid is always visible even before/without a fit.
     camera.position.set(30, 22, 30); controls.target.set(0, 0, 0); controls.update();
     if (!rels.length) { showErr("No model selected."); dlog("boot-no-model"); return; }
-    // 2a: single model. Multi-model federation is Phase 2b.
-    const first = rels[0];
-    const model = await loadModel(first);
-    dlog("fragments-update");
+    // Phase 2b: load ALL selected models, then federate them.
+    for (const rel of rels) {
+      setLoading("Loading " + rel.split("/").pop() + " …");
+      try { await loadModel(rel); } catch (e) { derr("load:" + rel.split("/").pop(), e); }
+    }
+    dlog("all-loaded", { models: loaded.length });
     await fragments.update(true);
-    const framed = await fitTo(model);
-    dlog("fit-done", { framed });
+    await federate();
+    await fragments.update(true);
+    const framed = await fitAll();
+    dlog("fit-done", { framed, models: loaded.length });
     if (!framed) {
-      // Fragments may still be streaming geometry; retry a couple of times.
       let tries = 0;
       const retry = async () => {
         tries++;
         try { await fragments.update(true); } catch (e) {}
-        if (await fitTo(model)) { dlog("fit-retry-ok", { tries }); }
+        if (await fitAll()) { dlog("fit-retry-ok", { tries }); }
         else if (tries < 6) { setTimeout(retry, 600); }
         else { dlog("fit-gave-up", "box still empty after retries — paste this log"); }
       };
       setTimeout(retry, 500);
     }
-    $("title").textContent = first.split("/").pop() + (rels.length > 1 ? "  (1 of " + rels.length + " — multi-model is next)" : "");
+    $("title").textContent = loaded.length === 1 ? loaded[0].rel.split("/").pop() : (loaded.length + " models federated");
     setLoading(null);
     animate();
     try { window.__ready = true; } catch (e) {}

@@ -10,7 +10,7 @@
   html,body{margin:0;height:100%;background:var(--bg);color:var(--txt);font:13px/1.45 system-ui,Segoe UI,Roboto,sans-serif;overflow:hidden}
   #view{position:absolute;inset:0}
   canvas{display:block}
-  #bar{position:absolute;top:10px;left:10px;right:10px;display:flex;gap:8px;align-items:center;z-index:5;pointer-events:none}
+  #bar{position:absolute;top:10px;left:10px;right:10px;display:flex;flex-wrap:wrap;gap:8px;align-items:flex-start;z-index:5;pointer-events:none}
   #bar .grp{display:flex;gap:6px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:5px;pointer-events:auto;box-shadow:0 4px 18px rgba(0,0,0,.35)}
   #bar button{background:transparent;color:var(--txt);border:1px solid transparent;border-radius:7px;padding:6px 10px;cursor:pointer;font:inherit}
   #bar button:hover{background:#222a35}
@@ -71,6 +71,14 @@
       <button id="btnMeasure" title="Measure distance">Measure</button>
       <button id="btnPoint" title="Read a point's coordinates">Point</button>
       <button id="btnMclr" title="Clear measurements">Clear</button>
+    </div>
+    <div class="grp">
+      <button id="btnIso" class="on" title="3D isometric">3D</button>
+      <button id="btnTop" title="Plan (top)">Plan</button>
+      <button id="btnFront" title="Elevation — front">Front</button>
+      <button id="btnBack" title="Elevation — back">Back</button>
+      <button id="btnLeft" title="Elevation — left">Left</button>
+      <button id="btnRight" title="Elevation — right">Right</button>
     </div>
     <div id="title">Fragments viewer (beta)</div>
   </div>
@@ -135,6 +143,6 @@
   })();
   </script>
 
-  <script type="module" src="/ui/viewer_frag.js?v=10"></script>
+  <script type="module" src="/ui/viewer_frag.js?v=11"></script>
 </body>
 </html>

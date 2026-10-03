@@ -41,7 +41,9 @@ function showErr(msg) { setLoading(null); const e = $("err"); if (e) { e.style.d
 const viewEl = $("view");
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x0e1116);
-const camera = new THREE.PerspectiveCamera(60, 1, 0.01, 1e7);
+const camera = new THREE.PerspectiveCamera(60, 1, 0.01, 1e7);       // 3D (perspective)
+const ortho = new THREE.OrthographicCamera(-1, 1, 1, -1, -1e6, 1e6); // 2D (Plan/Section/Elevation)
+let activeCam = camera;
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.localClippingEnabled = true;
 viewEl.appendChild(renderer.domElement);
@@ -57,6 +59,15 @@ function resize() {
   renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
   renderer.setSize(w, h, false);
   camera.aspect = w / Math.max(1, h); camera.updateProjectionMatrix();
+  if (activeCam === ortho) orthoFrustum();
+}
+// Size the orthographic frustum to the current view extent and aspect.
+let orthoHalf = 50;
+function orthoFrustum() {
+  const aspect = (viewEl.clientWidth || 1) / Math.max(1, viewEl.clientHeight || 1);
+  ortho.left = -orthoHalf * aspect; ortho.right = orthoHalf * aspect;
+  ortho.top = orthoHalf; ortho.bottom = -orthoHalf;
+  ortho.updateProjectionMatrix();
 }
 window.addEventListener("resize", resize);
 
@@ -179,8 +190,9 @@ async function fitAll() {
   const center = union.getCenter(new THREE.Vector3());
   dlog("union-box", { size_WxDxH: [+size.x.toFixed(1), +size.z.toFixed(1), +size.y.toFixed(1)], center_ENZ: [+center.x.toFixed(1), +center.z.toFixed(1), +center.y.toFixed(1)] });
   const r = Math.max(size.x, size.y, size.z) || 10;
-  camera.near = Math.max(0.01, r / 1000); camera.far = r * 100; camera.updateProjectionMatrix();
-  camera.position.set(center.x + r, center.y + r * 0.7, center.z + r);
+  if (activeCam === ortho) { orthoHalf = r * 0.62; orthoFrustum(); }
+  else { activeCam.near = Math.max(0.01, r / 1000); activeCam.far = r * 100; activeCam.updateProjectionMatrix(); }
+  activeCam.position.set(center.x + r, center.y + r * 0.7, center.z + r);
   controls.target.copy(center); controls.update();
   return true;
 }
@@ -243,7 +255,7 @@ async function pickAt(ev) {
   let hit = null, hitModel = null;
   for (const { model } of loaded) {
     let res = null;
-    try { res = await model.raycast({ camera, mouse, dom }); } catch (e) { res = null; }
+    try { res = await model.raycast({ camera: activeCam, mouse, dom }); } catch (e) { res = null; }
     if (res && (res.localId != null || res.itemId != null)) { hit = res; hitModel = model; break; }
   }
   // clear previous highlight
@@ -413,13 +425,13 @@ function addLabel(p, text) { const el = document.createElement("div"); el.classN
 function updateLabels() {
   if (!mLabels.length) return;
   const w = viewEl.clientWidth, h = viewEl.clientHeight;
-  for (const L of mLabels) { const v = L.pt.clone().project(camera); const vis = v.z < 1; L.el.style.display = vis ? "block" : "none"; if (vis) { L.el.style.left = ((v.x * 0.5 + 0.5) * w) + "px"; L.el.style.top = ((-v.y * 0.5 + 0.5) * h) + "px"; } }
+  for (const L of mLabels) { const v = L.pt.clone().project(activeCam); const vis = v.z < 1; L.el.style.display = vis ? "block" : "none"; if (vis) { L.el.style.left = ((v.x * 0.5 + 0.5) * w) + "px"; L.el.style.top = ((-v.y * 0.5 + 0.5) * h) + "px"; } }
 }
 async function measureClick(ev) {
   const dom = renderer.domElement; const rect = dom.getBoundingClientRect();
   const mouse = new THREE.Vector2(ev.clientX - rect.left, ev.clientY - rect.top);
   let hit = null;
-  for (const L of loaded) { if (!L.group.visible) continue; let r = null; try { r = await L.model.raycast({ camera, mouse, dom }); } catch (e) {} if (r && r.point) { hit = r; break; } }
+  for (const L of loaded) { if (!L.group.visible) continue; let r = null; try { r = await L.model.raycast({ camera: activeCam, mouse, dom }); } catch (e) {} if (r && r.point) { hit = r; break; } }
   if (!hit || !hit.point) { dlog("measure-miss"); return; }
   const p = new THREE.Vector3(hit.point.x, hit.point.y, hit.point.z);
   addMarker(p); mPts.push(p);
@@ -444,12 +456,49 @@ if ($("btnMeasure")) $("btnMeasure").onclick = () => setMeasure("len");
 if ($("btnPoint")) $("btnPoint").onclick = () => setMeasure("point");
 if ($("btnMclr")) $("btnMclr").onclick = () => clearMeasure();
 
+// ---- 2D / 3D views (Plan / Section / Elevation) ----
+// Iso = perspective 3D. Top = plan, Front/Back/Left/Right = elevations, all in
+// an orthographic 2D camera (rotation locked). Combine Top + the section slider
+// for a storey plan cut.
+function setProjection(is2d) {
+  activeCam = is2d ? ortho : camera;
+  controls.object = activeCam;
+  controls.enableRotate = !is2d;
+  for (const L of loaded) { try { if (typeof L.model.useCamera === "function") L.model.useCamera(activeCam); } catch (e) {} }
+}
+function setViewBtns(view) { [["btnIso", "iso"], ["btnTop", "top"], ["btnFront", "front"], ["btnBack", "back"], ["btnLeft", "left"], ["btnRight", "right"]].forEach(([id, v]) => { const b = $(id); if (b) b.classList.toggle("on", view === v); }); }
+async function frameView(view) {
+  const box = await unionBox(); if (!box) { dlog("view-no-box"); return; }
+  const c = box.getCenter(new THREE.Vector3());
+  const size = box.getSize(new THREE.Vector3());
+  const r = Math.max(size.x, size.y, size.z) || 10;
+  let dir, up = new THREE.Vector3(0, 1, 0);
+  switch (view) {
+    case "top": dir = new THREE.Vector3(0, -1, 0); up = new THREE.Vector3(0, 0, -1); break;  // plan
+    case "front": dir = new THREE.Vector3(0, 0, -1); break;
+    case "back": dir = new THREE.Vector3(0, 0, 1); break;
+    case "left": dir = new THREE.Vector3(1, 0, 0); break;
+    case "right": dir = new THREE.Vector3(-1, 0, 0); break;
+    default: dir = new THREE.Vector3(1, 0.7, 1).normalize();  // iso
+  }
+  const dist = r * 2.2;
+  activeCam.up.copy(up);
+  activeCam.position.copy(c).sub(dir.clone().multiplyScalar(dist));
+  controls.target.copy(c);
+  if (activeCam === ortho) { orthoHalf = r * 0.6; orthoFrustum(); ortho.near = -r * 20; ortho.far = r * 20; ortho.updateProjectionMatrix(); }
+  else { activeCam.near = Math.max(0.01, r / 1000); activeCam.far = r * 100; activeCam.updateProjectionMatrix(); }
+  controls.update();
+  dlog("view", view);
+}
+async function setView(view) { setProjection(view !== "iso"); await frameView(view); setViewBtns(view); }
+[["btnIso", "iso"], ["btnTop", "top"], ["btnFront", "front"], ["btnBack", "back"], ["btnLeft", "left"], ["btnRight", "right"]].forEach(([id, v]) => { const b = $(id); if (b) b.onclick = () => setView(v); });
+
 // ---- render loop ----
 function animate() {
   requestAnimationFrame(animate);
   controls.update();
   try { fragments.update(); } catch (e) {}
-  renderer.render(scene, camera);
+  renderer.render(scene, activeCam);
   updateLabels();
 }
 

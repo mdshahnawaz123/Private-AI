@@ -104,15 +104,23 @@ async function loadModel(rel) {
   return model;
 }
 
+function computeBox(model) {
+  let box = null;
+  try { if (model.box && !model.box.isEmpty()) box = model.box; } catch (e) {}
+  if (!box) { try { const b = new THREE.Box3().setFromObject(model.object); if (!b.isEmpty()) box = b; } catch (e) {} }
+  return box;
+}
 function fitTo(model) {
-  const box = model.box || new THREE.Box3().setFromObject(model.object);
-  if (!box || box.isEmpty()) return;
+  const box = computeBox(model);
+  if (!box) { dlog("fit-no-box", "bounding box empty / geometry not ready yet"); return false; }
   const size = box.getSize(new THREE.Vector3());
   const center = box.getCenter(new THREE.Vector3());
+  dlog("box", { min: box.min.toArray().map((n) => +n.toFixed(1)), max: box.max.toArray().map((n) => +n.toFixed(1)), size: size.toArray().map((n) => +n.toFixed(1)) });
   const r = Math.max(size.x, size.y, size.z) || 10;
   camera.near = Math.max(0.01, r / 1000); camera.far = r * 100; camera.updateProjectionMatrix();
   camera.position.set(center.x + r, center.y + r * 0.7, center.z + r);
   controls.target.copy(center); controls.update();
+  return true;
 }
 
 // ---- Selection: click -> raycast -> highlight + properties + parent bridge ----
@@ -196,14 +204,28 @@ function animate() {
   try {
     dlog("boot-start");
     resize();
+    // Default framing so the grid is always visible even before/without a fit.
+    camera.position.set(30, 22, 30); controls.target.set(0, 0, 0); controls.update();
     if (!rels.length) { showErr("No model selected."); dlog("boot-no-model"); return; }
     // 2a: single model. Multi-model federation is Phase 2b.
     const first = rels[0];
     const model = await loadModel(first);
     dlog("fragments-update");
     await fragments.update(true);
-    fitTo(model);
-    dlog("fit-done");
+    const framed = fitTo(model);
+    dlog("fit-done", { framed });
+    if (!framed) {
+      // Fragments may still be streaming geometry; retry a couple of times.
+      let tries = 0;
+      const retry = async () => {
+        tries++;
+        try { await fragments.update(true); } catch (e) {}
+        if (fitTo(model)) { dlog("fit-retry-ok", { tries }); }
+        else if (tries < 5) { setTimeout(retry, 500); }
+        else { dlog("fit-gave-up", "box still empty after retries — paste this log"); }
+      };
+      setTimeout(retry, 400);
+    }
     $("title").textContent = first.split("/").pop() + (rels.length > 1 ? "  (1 of " + rels.length + " — multi-model is next)" : "");
     setLoading(null);
     animate();

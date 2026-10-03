@@ -310,7 +310,7 @@ function openFragmentsBeta(){
   if(!chosen.length){ toast('No IFC models in this project'); return; }
   navigate('design');
   const rels=chosen.map(r=>'rel='+encodeURIComponent(r)).join('&');
-  const url=`/ui/viewer_frag.html?v=11&embed=1&project=${encodeURIComponent(currentProject)}&token=${encodeURIComponent(authToken||'')}&${rels}`;
+  const url=`/ui/viewer_frag.html?v=12&embed=1&project=${encodeURIComponent(currentProject)}&token=${encodeURIComponent(authToken||'')}&${rels}`;
   $('vpEmpty').style.display='none'; $('viewerFrame').style.display='block'; $('viewerFrame').src=url; viewerLoaded=true;
 }
 // Link another model INTO the already-open scene without reloading. Falls back

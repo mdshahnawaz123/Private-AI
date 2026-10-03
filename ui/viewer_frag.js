@@ -361,6 +361,53 @@ async function renderCategoriesPanel() {
     el.appendChild(row);
   });
 }
+// ---- Sheets / 2D detection ----
+// IFC has no standard "sheet" entity; 2D drawings appear as IfcAnnotation,
+// grids, or external document references. Detect and list whatever is present;
+// otherwise point to the generated Plan/Elevation views.
+const SHEET_CATS = [/ANNOTATION/i, /DOCUMENT/i, /DRAWING/i, /SHEET/i, /GRID/i];
+async function isolateItems(L, ids) {
+  for (const o of loaded) { o.group.visible = (o === L); }
+  try {
+    if (typeof L.model.getItemsIdsWithGeometry === "function" && typeof L.model.setVisible === "function") {
+      const all = await L.model.getItemsIdsWithGeometry();
+      if (all && all.length) await L.model.setVisible(all, false);
+      await L.model.setVisible(ids, true);
+    }
+  } catch (e) { derr("isolateItems", e); }
+  try { await fragments.update(true); } catch (e) {}
+  await setView("top");
+}
+async function renderSheetsPanel() {
+  const el = $("sheetList"); if (!el) return;
+  el.innerHTML = "";
+  const found = [];
+  for (const L of loaded) {
+    let cats = [];
+    try { if (typeof L.model.getCategories === "function") cats = (await L.model.getCategories()) || []; } catch (e) {}
+    for (const cat of cats) {
+      if (SHEET_CATS.some((rx) => rx.test(cat))) {
+        let ids = [];
+        try { ids = flattenIds(await L.model.getItemsOfCategories([new RegExp("^" + cat + "$")])); } catch (e) {}
+        if (ids.length) found.push({ model: L, cat, ids });
+      }
+    }
+  }
+  dlog("sheets", { groups: found.length });
+  if (!found.length) {
+    el.innerHTML = '<div class="hint" style="padding:4px;font-size:12px">No embedded 2D sheets/annotations in these models. Use <b>Plan</b> / <b>Front</b> / <b>Left</b> for generated 2D views.</div>';
+    return;
+  }
+  found.forEach((f) => {
+    const row = document.createElement("div"); row.className = "item";
+    row.innerHTML = '<span class="nm"></span><span class="ct"></span>';
+    row.querySelector(".nm").textContent = f.cat.replace(/^IFC/, "") + " · " + f.model.rel.split("/").pop();
+    row.querySelector(".ct").textContent = f.ids.length;
+    row.style.cursor = "pointer";
+    row.onclick = () => isolateItems(f.model, f.ids);
+    el.appendChild(row);
+  });
+}
 async function showAll() {
   loaded.forEach((L) => { L.group.visible = true; });
   for (const L of loaded) {
@@ -536,6 +583,7 @@ function animate() {
     $("title").textContent = loaded.length === 1 ? loaded[0].rel.split("/").pop() : (loaded.length + " models federated");
     try { renderModelsPanel(); } catch (e) { derr("modelsPanel", e); }
     try { renderCategoriesPanel(); } catch (e) { derr("categoriesPanel", e); }
+    try { renderSheetsPanel(); } catch (e) { derr("sheetsPanel", e); }
     setLoading(null);
     animate();
     try { window.__ready = true; } catch (e) {}

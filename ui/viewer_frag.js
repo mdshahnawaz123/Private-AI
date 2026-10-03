@@ -408,6 +408,56 @@ async function renderSheetsPanel() {
     el.appendChild(row);
   });
 }
+// ---- Levels (storeys): cut a plan at any floor and read its info ----
+let LEVELS = [];
+async function renderLevelsPanel() {
+  const el = $("lvlList"); if (!el) return;
+  const all = [];
+  for (const L of loaded) {
+    try {
+      if (typeof L.model.getItemsOfCategories === "function" && typeof L.model.getItemsData === "function") {
+        const ids = flattenIds(await L.model.getItemsOfCategories([/^IFCBUILDINGSTOREY$/]));
+        if (ids.length) {
+          const data = await L.model.getItemsData(ids, { attributesDefault: true });
+          (data || []).forEach((d) => { const name = flatAttr(d.Name) || "Level"; const elev = parseFloat(flatAttr(d.Elevation)); all.push({ name: String(name), elev: isFinite(elev) ? elev : null }); });
+        }
+      }
+    } catch (e) { derr("levels", e); }
+  }
+  const seen = new Set(); const uniq = [];
+  all.forEach((l) => { const k = l.name + "|" + l.elev; if (!seen.has(k)) { seen.add(k); uniq.push(l); } });
+  uniq.sort((a, b) => (a.elev == null ? 0 : a.elev) - (b.elev == null ? 0 : b.elev));
+  LEVELS = uniq;
+  dlog("levels", { count: uniq.length });
+  el.innerHTML = "";
+  if (!uniq.length) { el.innerHTML = '<div class="hint" style="padding:4px;font-size:12px">No storeys found in these models.</div>'; return; }
+  uniq.forEach((lv) => {
+    const row = document.createElement("div"); row.className = "item"; row.style.cursor = "pointer";
+    row.innerHTML = '<span class="nm"></span><span class="ct"></span>';
+    row.querySelector(".nm").textContent = lv.name;
+    row.querySelector(".ct").textContent = (lv.elev != null ? lv.elev : "—");
+    row.onclick = () => gotoLevel(lv);
+    el.appendChild(row);
+  });
+}
+async function gotoLevel(lv) {
+  const box = await unionBox(); if (!box) return;
+  await setView("top");       // plan
+  await setSection("y");      // horizontal cut (floor plan)
+  const h = box.max.y - box.min.y;
+  const elevs = LEVELS.map((l) => l.elev).filter((e) => e != null);
+  let cutY;
+  if (lv.elev != null && elevs.length >= 2) {
+    const mn = Math.min.apply(null, elevs), mx = Math.max.apply(null, elevs);
+    const t = (mx > mn) ? (lv.elev - mn) / (mx - mn) : 0.5;
+    cutY = box.min.y + t * h + h * 0.04;  // just above the floor slab
+  } else {
+    const i = Math.max(0, LEVELS.indexOf(lv)); const t = (LEVELS.length > 1) ? (i + 0.5) / LEVELS.length : 0.5; cutY = box.min.y + t * h;
+  }
+  const sl = $("secSlider"); if (sl) sl.value = cutY;
+  moveSection(cutY);
+  const o = $("measureOut"); if (o) { o.style.display = "block"; o.textContent = "Plan @ " + lv.name + (lv.elev != null ? "  (elev " + lv.elev + ")" : ""); }
+}
 async function showAll() {
   loaded.forEach((L) => { L.group.visible = true; });
   for (const L of loaded) {
@@ -443,7 +493,12 @@ async function setSection(axis) {
   setSecBtns(axis);
   dlog("section", { axis, sign: SEC.sign });
 }
-function moveSection(val) { if (SEC.plane) SEC.plane.constant = -SEC.sign * parseFloat(val); }
+function moveSection(val) {
+  if (!SEC.plane) return;
+  const v = parseFloat(val);
+  SEC.plane.constant = -SEC.sign * v;
+  const o = $("measureOut"); if (o && SEC.axis) { o.style.display = "block"; o.textContent = (SEC.axis === "y" ? "Cut elevation" : "Cut " + SEC.axis.toUpperCase()) + ": " + v.toFixed(2) + " m"; }
+}
 function flipSection() { SEC.sign *= -1; if (SEC.axis) setSection(SEC.axis); }
 function clearSection() { SEC.plane = null; SEC.axis = null; renderer.clippingPlanes = []; const sl = $("secSlider"); if (sl) sl.style.display = "none"; setSecBtns(null); }
 if ($("btnSecX")) $("btnSecX").onclick = () => setSection("x");
@@ -583,6 +638,7 @@ function animate() {
     $("title").textContent = loaded.length === 1 ? loaded[0].rel.split("/").pop() : (loaded.length + " models federated");
     try { renderModelsPanel(); } catch (e) { derr("modelsPanel", e); }
     try { renderCategoriesPanel(); } catch (e) { derr("categoriesPanel", e); }
+    try { renderLevelsPanel(); } catch (e) { derr("levelsPanel", e); }
     try { renderSheetsPanel(); } catch (e) { derr("sheetsPanel", e); }
     setLoading(null);
     animate();

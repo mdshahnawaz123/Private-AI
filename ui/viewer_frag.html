@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fragments Viewer (beta)</title>
+<style>
+  :root{ --bg:#0e1116; --panel:#161b22; --line:#2a313c; --txt:#e6edf3; --faint:#8b949e; --accent:#4d7cfe; }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--txt);font:13px/1.45 system-ui,Segoe UI,Roboto,sans-serif;overflow:hidden}
+  #view{position:absolute;inset:0}
+  canvas{display:block}
+  #bar{position:absolute;top:10px;left:10px;right:10px;display:flex;gap:8px;align-items:center;z-index:5;pointer-events:none}
+  #bar .grp{display:flex;gap:6px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:5px;pointer-events:auto;box-shadow:0 4px 18px rgba(0,0,0,.35)}
+  #bar button{background:transparent;color:var(--txt);border:1px solid transparent;border-radius:7px;padding:6px 10px;cursor:pointer;font:inherit}
+  #bar button:hover{background:#222a35}
+  #bar button.on{background:var(--accent);border-color:var(--accent);color:#fff}
+  #title{margin-left:auto;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:6px 12px;pointer-events:auto;color:var(--faint);max-width:40vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  #props{position:absolute;top:60px;right:10px;width:300px;max-height:calc(100% - 80px);overflow:auto;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px;z-index:5;display:none}
+  #props h3{margin:0 0 8px;font-size:13px}
+  #props .row{display:flex;justify-content:space-between;gap:10px;padding:3px 0;border-bottom:1px solid var(--line)}
+  #props .row b{color:var(--faint);font-weight:500}
+  #props .row span{text-align:right;word-break:break-word}
+  #loading,#err{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:10px;z-index:8;background:rgba(14,17,22,.86);text-align:center;padding:24px}
+  #err{display:none;color:#ff9a9a}
+  .spin{width:34px;height:34px;border:3px solid var(--line);border-top-color:var(--accent);border-radius:50%;animation:s 1s linear infinite}
+  @keyframes s{to{transform:rotate(360deg)}}
+  .hint{color:var(--faint)}
+</style>
+</head>
+<body>
+  <div id="view"></div>
+  <div id="bar">
+    <div class="grp">
+      <button id="btnFit" title="Fit to view">Fit</button>
+      <button id="btnShaded" class="on" title="Shaded">Shaded</button>
+      <button id="btnWire" title="Wireframe">Wire</button>
+    </div>
+    <div id="title">Fragments viewer (beta)</div>
+  </div>
+  <div id="props"><h3 id="propTitle">Element</h3><div id="propBody"></div></div>
+  <div id="loading"><div class="spin"></div><div id="loadMsg">Starting…</div></div>
+  <div id="err"><div><b>Viewer error</b><br><span id="errMsg"></span></div></div>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "/ui/vendor_fragments/three.module.js?v=1",
+      "web-ifc": "/ui/vendor_fragments/web-ifc-api.js?v=1"
+    }
+  }
+  </script>
+  <script type="module" src="/ui/viewer_frag.js?v=1"></script>
+</body>
+</html>

@@ -25,6 +25,10 @@ const rels = q.getAll("rel");
 // /diagnostics/viewer). Safe no-ops if the inline script didn't load.
 const dlog = (s, e) => { try { if (window.__dlog) window.__dlog(s, e); } catch (x) {} };
 const derr = (w, e) => { try { if (window.__derr) window.__derr(w, e); } catch (x) {} };
+// three.js is Y-up (Y = height); survey/BIM is Z-up (Z = height). Map a three.js
+// point to survey convention so coordinate readouts read as Easting/Northing/
+// Elevation rather than the engine's X/Y/Z. Reused by the spot-coordinate tool.
+const toSurvey = (x, y, z) => ({ E: x, N: z, Z: y });
 dlog("module-loaded", { three: (typeof THREE !== "undefined" && THREE.REVISION) || "?", rels: rels.length });
 
 function fileURL(rel) {
@@ -131,7 +135,10 @@ async function federate() {
     let m = null;
     try { if (typeof L.model.getCoordinationMatrix === "function") m = await L.model.getCoordinationMatrix(); } catch (e) { derr("coordMatrix", e); }
     mats.push(m);
-    dlog("coord", { m: L.rel.split("/").pop(), t: m ? [+m.elements[12].toFixed(1), +m.elements[13].toFixed(1), +m.elements[14].toFixed(1)] : null });
+    // Report in survey convention: three.js is Y-up (Y = height), survey is
+    // Z-up. So three.js translation (x=Easting, y=Elevation, z=Northing) maps to
+    // Easting=elements[12], Northing=elements[14], Elevation=elements[13].
+    dlog("coord", m ? { m: L.rel.split("/").pop(), E: +m.elements[12].toFixed(1), N: +m.elements[14].toFixed(1), Elev: +m.elements[13].toFixed(1) } : { m: L.rel.split("/").pop(), t: null });
   }
   const ref = mats[0];
   if (!ref) { dlog("federate-skip", "no reference coordination matrix"); return; }
@@ -164,7 +171,7 @@ async function fitAll() {
   if (union.isEmpty()) { dlog("fitall-no-box"); return false; }
   const size = union.getSize(new THREE.Vector3());
   const center = union.getCenter(new THREE.Vector3());
-  dlog("union-box", { size: size.toArray().map((n) => +n.toFixed(1)), center: center.toArray().map((n) => +n.toFixed(1)) });
+  dlog("union-box", { size_WxDxH: [+size.x.toFixed(1), +size.z.toFixed(1), +size.y.toFixed(1)], center_ENZ: [+center.x.toFixed(1), +center.z.toFixed(1), +center.y.toFixed(1)] });
   const r = Math.max(size.x, size.y, size.z) || 10;
   camera.near = Math.max(0.01, r / 1000); camera.far = r * 100; camera.updateProjectionMatrix();
   camera.position.set(center.x + r, center.y + r * 0.7, center.z + r);

@@ -99,9 +99,15 @@ async function loadModel(rel) {
   const model = await fragments.load(bytes, { modelId: rel, camera });
   dlog("fragments-loaded");
   scene.add(model.object);
-  // Critical: tell the model which camera to stream geometry for. Without this,
-  // Fragments never materializes geometry (empty box, blank view).
-  try { model.useCamera(camera); dlog("use-camera-ok"); } catch (e) { derr("useCamera", e); }
+  // Reveal the real model API so we stop guessing method names across versions.
+  try {
+    const proto = Object.getPrototypeOf(model) || {};
+    const methods = Object.getOwnPropertyNames(proto).filter((n) => { try { return typeof model[n] === "function"; } catch (e) { return false; } });
+    dlog("model-api", methods.join(","));
+    dlog("model-props", { box: typeof model.box, getBox: typeof model.getBox, boundingBox: typeof model.boundingBox, useCamera: typeof model.useCamera, object: !!model.object, children: (model.object && model.object.children && model.object.children.length) || 0 });
+  } catch (e) { derr("api-dump", e); }
+  // Tell the model which camera to stream geometry for, if that API exists.
+  try { if (typeof model.useCamera === "function") { model.useCamera(camera); dlog("use-camera-ok"); } else { dlog("use-camera-absent"); } } catch (e) { derr("useCamera", e); }
   model.getClippingPlanesEvent = () => renderer.clippingPlanes;
   loaded.push({ rel, model });
   return model;
@@ -119,10 +125,19 @@ function asBox3(b) {
   return null;
 }
 async function computeBox(model) {
-  // The authoritative source in Fragments v3 is the async model.getBox().
-  try { const b = asBox3(await model.getBox()); if (b && !b.isEmpty()) return b; } catch (e) { derr("getBox", e); }
-  try { if (model.box && !model.box.isEmpty()) return model.box; } catch (e) {}
-  try { const b = new THREE.Box3().setFromObject(model.object); if (!b.isEmpty()) return b; } catch (e) {}
+  // Preferred: ask the worker for the merged bounding box of all geometry items
+  // (works even before anything has streamed into the visible scene).
+  try {
+    if (typeof model.getItemsIdsWithGeometry === "function" && typeof model.getMergedBox === "function") {
+      const ids = await model.getItemsIdsWithGeometry();
+      if (ids && ids.length) {
+        const b = asBox3(await model.getMergedBox(ids));
+        if (b && !b.isEmpty()) { dlog("box-src", "getMergedBox(" + ids.length + " ids)"); return b; }
+      } else { dlog("geom-ids", { count: (ids && ids.length) || 0 }); }
+    }
+  } catch (e) { derr("getMergedBox", e); }
+  try { if (model.box) { const b = asBox3(model.box); if (b && !b.isEmpty()) { dlog("box-src", "model.box"); return b; } } } catch (e) {}
+  try { const b = new THREE.Box3().setFromObject(model.object); if (!b.isEmpty()) { dlog("box-src", "setFromObject"); return b; } } catch (e) {}
   return null;
 }
 async function fitTo(model) {

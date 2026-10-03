@@ -2051,6 +2051,64 @@ PROGRESS = {}
 def _pkey(project, filename):
     return project + "||" + filename
 
+def convert_ifc_to_fragments(save_path):
+    """Best-effort: convert an uploaded .ifc to a lightweight Fragments (.frag)
+    sibling via the Node converter in tools/fragments/. Runs in a background
+    task. NEVER raises -- any failure (disabled, Node or deps missing, timeout,
+    converter error) is logged and the original .ifc is kept, so the viewer
+    simply falls back to parsing the IFC directly. Produces <save_path>.frag on
+    success. See tools/fragments/README.md and OPENCOMPANY_FRAGMENTS_POC_RESULTS.md."""
+    import subprocess
+    if os.getenv("EXPO_FRAGMENTS_CONVERT", "1").lower() not in ("1", "true", "yes", "on"):
+        return
+    if not save_path.lower().endswith(".ifc"):
+        return
+    app_dir = os.path.dirname(os.path.abspath(__file__))
+    script = os.path.join(app_dir, "tools", "fragments", "convert_ifc_to_frag.mjs")
+    deps = os.path.join(app_dir, "tools", "fragments", "node_modules")
+    if not os.path.exists(script):
+        logger.warning("[fragments] converter script missing, skipping: " + script)
+        return
+    if not os.path.isdir(deps):
+        logger.warning("[fragments] tools/fragments/node_modules not installed -- run `npm install` there to enable .frag compression. Keeping raw IFC.")
+        return
+    node_bin = os.getenv("EXPO_NODE_BIN", "node")
+    out_path = save_path + ".frag"
+    try:
+        timeout_s = int(os.getenv("EXPO_FRAGMENTS_TIMEOUT", "900"))
+    except ValueError:
+        timeout_s = 900
+
+    def _cleanup_partial():
+        try:
+            if os.path.exists(out_path):
+                os.remove(out_path)
+        except Exception:
+            pass
+
+    try:
+        logger.info("[fragments] converting " + os.path.basename(save_path) + " -> .frag")
+        proc = subprocess.run([node_bin, script, save_path, out_path],
+                              capture_output=True, text=True, timeout=timeout_s)
+        if proc.returncode == 0:
+            try:
+                info = json.loads((proc.stdout or "").strip().splitlines()[-1])
+                logger.info("[fragments] done: {in_mb:.1f} MB IFC -> {out_mb:.1f} MB frag ({ratio}x) in {ms} ms".format(
+                    in_mb=info.get("inBytes", 0) / 1e6, out_mb=info.get("outBytes", 0) / 1e6,
+                    ratio=info.get("ratio", "?"), ms=info.get("ms", "?")))
+            except Exception:
+                logger.info("[fragments] conversion succeeded for " + os.path.basename(save_path))
+        else:
+            _cleanup_partial()
+            logger.warning("[fragments] conversion failed (rc=" + str(proc.returncode) + "): " + (proc.stderr or "").strip()[:500])
+    except subprocess.TimeoutExpired:
+        _cleanup_partial()
+        logger.warning("[fragments] conversion timed out after " + str(timeout_s) + "s for " + os.path.basename(save_path))
+    except FileNotFoundError:
+        logger.warning("[fragments] Node not found (set EXPO_NODE_BIN to the node binary). Keeping raw IFC.")
+    except Exception as e:
+        logger.warning("[fragments] conversion error: " + str(e))
+
 def process_document(project, save_path, filename, disc, category, folder_id=None):
     """Runs in a background thread. Deep-extracts, writes JSON, indexes, sets status.
     Live progress is kept in PROGRESS so the documents endpoint can report it."""
@@ -2265,6 +2323,10 @@ async def upload_document(request: Request, background: BackgroundTasks, project
                        folder_id=folder_id, user=user, ip=_client_ip(request))
     if needs:
         background.add_task(process_document, project, save_path, file.filename, disc, category, folder_id)
+    # Compress uploaded IFC models to a lightweight Fragments (.frag) sibling in
+    # the background (best-effort; keeps the raw .ifc either way).
+    if ext == ".ifc":
+        background.add_task(convert_ifc_to_fragments, save_path)
     return {"message": ("Processing started" if needs else "Stored (original kept, not AI-indexed)"),
             "filename": file.filename, "category": category, "folder": folder_name, "status": status}
 

@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import { OrbitControls } from "/ui/vendor/OrbitControls.js";
 import * as WebIFC from "/ui/vendor/web-ifc-api.js";
-import { worldBox, worldBoxForMeshes, buildPlacementInfo, computePlacementTransform, PLACEMENT_MODES, applyDeterministicAnchor, extractIfcInfo } from "/ui/coordinate_transform.js?v=30";
+import { worldBox, worldBoxForMeshes, buildPlacementInfo, computePlacementTransform, PLACEMENT_MODES, applyDeterministicAnchor, extractIfcInfo } from "/ui/coordinate_transform.js?v=31";
 
 const $ = (id) => document.getElementById(id);
 const viewEl = $("view"), loadingEl = $("loading"), errEl = $("err");
@@ -1536,6 +1536,31 @@ window.addEventListener("message", (ev)=>{
     try{ selText = selectedElementContext(); }catch(e){}
     try{ (ev.source || parent).postMessage({ source:"expo-viewer", type:"context", context, selection:selText }, "*"); }catch(e){}
   } else if(d.type === "expo:setView"){ try{ setView(d.view); }catch(e){} }
+  else if(d.type === "expo:addModel"){
+    // Link one more model INTO the current scene. It federates automatically:
+    // SCENE_ANCHOR is already set from the first model, so a new shared-
+    // coordinate model rebases to the same origin and lines up in place.
+    const rel = d.rel;
+    const reply = (extra)=>{ try{ (ev.source||parent).postMessage(Object.assign({ source:"expo-viewer", type:"loaded", rels: models.map(m=>m.name) }, extra||{}), "*"); }catch(e){} };
+    if(!rel) return;
+    if(models.some(m=>m.name===rel)){ reply({ added:false, dup:true }); return; }
+    (async ()=>{
+      try{
+        setLoading("Linking " + rel.split("/").pop() + " …");
+        await loadModel(rel, models.length===0);
+        try{ renderModelList(); }catch(e){}
+        try{ renderCatList(); }catch(e){}
+        try{ loadStoreys(); }catch(e){}
+        try{ buildSpatialTree(); }catch(e){}
+        try{ classifyStrays(); }catch(e){}
+        try{ buildDebug(); }catch(e){}
+        try{ if(typeof renderPositionPanel==="function") renderPositionPanel(); }catch(e){}
+        fit();
+        reply({ added:true });
+      }catch(e){ try{ showErr("Could not link model: " + (e && e.message ? e.message : e)); }catch(_){} reply({ added:false, error:true }); }
+      finally{ setLoading(null); }
+    })();
+  }
   else if(d.type === "expo:cmd"){
     const c = d.cmd || "";
     try{
@@ -1858,6 +1883,7 @@ document.addEventListener("click", (ev)=>{
     resize(); fit(); injectGizmo(); setLoading(null);
     if($("btnStray")) $("btnStray").onclick = ()=> setStrays(!showOutliers);
     try{ parent.postMessage({ source:"expo-viewer", type:"ready", project }, "*"); }catch(e){}
+    try{ parent.postMessage({ source:"expo-viewer", type:"loaded", rels: models.map(m=>m.name) }, "*"); }catch(e){}
   } catch(e){
     setLoading(null);
     showErr("<b>Viewer failed to start.</b><br>" + (e && e.message ? e.message : e) +

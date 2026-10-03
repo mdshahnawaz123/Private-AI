@@ -153,8 +153,9 @@ async function federate() {
   dlog("federated", { models: loaded.length });
 }
 
-// Frame the camera to the union of all loaded models' world bounding boxes.
-async function fitAll() {
+// Union of all loaded models' world bounding boxes (null if empty). Shared by
+// fit and sectioning.
+async function unionBox() {
   const union = new THREE.Box3();
   for (const L of loaded) {
     let local = null;
@@ -168,7 +169,12 @@ async function fitAll() {
     if (local && !local.isEmpty()) { union.union(local.clone().applyMatrix4(L.group.matrixWorld)); }
     else { try { const b = new THREE.Box3().setFromObject(L.group); if (!b.isEmpty()) union.union(b); } catch (e) {} }
   }
-  if (union.isEmpty()) { dlog("fitall-no-box"); return false; }
+  return union.isEmpty() ? null : union;
+}
+// Frame the camera to the union of all loaded models' world bounding boxes.
+async function fitAll() {
+  const union = await unionBox();
+  if (!union) { dlog("fitall-no-box"); return false; }
   const size = union.getSize(new THREE.Vector3());
   const center = union.getCenter(new THREE.Vector3());
   dlog("union-box", { size_WxDxH: [+size.x.toFixed(1), +size.z.toFixed(1), +size.y.toFixed(1)], center_ENZ: [+center.x.toFixed(1), +center.z.toFixed(1), +center.y.toFixed(1)] });
@@ -273,7 +279,7 @@ function emitSel(payload) {
   try { parent.postMessage({ source: "expo-viewer", type: "selection", payload: payload || { kind: "none" } }, "*"); } catch (e) {}
 }
 
-renderer.domElement.addEventListener("pointerdown", (ev) => { if (ev.button === 0) pickAt(ev); });
+renderer.domElement.addEventListener("pointerdown", (ev) => { if (ev.button !== 0) return; if (measureMode) measureClick(ev); else pickAt(ev); });
 
 // ---- Display mode ----
 function setWire(on) {
@@ -354,12 +360,97 @@ async function showAll() {
 if ($("btnPanel")) $("btnPanel").onclick = () => { const s = $("side"); if (s) s.classList.toggle("open"); };
 if ($("btnShowAll")) $("btnShowAll").onclick = () => showAll();
 
+// Reference coordination matrix (model 0, local->absolute), for true survey
+// coordinates in the point tool. Set in boot.
+let REF = null;
+
+// ---- Section plane (global clipping) ----
+const SEC = { plane: null, axis: null, sign: 1, box: null };
+function setSecBtns(axis) { [["btnSecX", "x"], ["btnSecY", "y"], ["btnSecZ", "z"]].forEach(([id, a]) => { const b = $(id); if (b) b.classList.toggle("on", axis === a); }); }
+async function setSection(axis) {
+  const box = await unionBox();
+  if (!box) { dlog("section-no-box"); return; }
+  SEC.box = box; SEC.axis = axis;
+  const c = box.getCenter(new THREE.Vector3());
+  const n = axis === "x" ? new THREE.Vector3(1, 0, 0) : axis === "y" ? new THREE.Vector3(0, 1, 0) : new THREE.Vector3(0, 0, 1);
+  n.multiplyScalar(SEC.sign);
+  SEC.plane = new THREE.Plane(n.clone(), -n.dot(c));
+  renderer.clippingPlanes = [SEC.plane];
+  const lo = axis === "x" ? box.min.x : axis === "y" ? box.min.y : box.min.z;
+  const hi = axis === "x" ? box.max.x : axis === "y" ? box.max.y : box.max.z;
+  const mid = axis === "x" ? c.x : axis === "y" ? c.y : c.z;
+  const sl = $("secSlider");
+  if (sl) { sl.min = lo; sl.max = hi; sl.step = Math.max(0.01, (hi - lo) / 500); sl.value = mid; sl.style.display = "block"; }
+  setSecBtns(axis);
+  dlog("section", { axis, sign: SEC.sign });
+}
+function moveSection(val) { if (SEC.plane) SEC.plane.constant = -SEC.sign * parseFloat(val); }
+function flipSection() { SEC.sign *= -1; if (SEC.axis) setSection(SEC.axis); }
+function clearSection() { SEC.plane = null; SEC.axis = null; renderer.clippingPlanes = []; const sl = $("secSlider"); if (sl) sl.style.display = "none"; setSecBtns(null); }
+if ($("btnSecX")) $("btnSecX").onclick = () => setSection("x");
+if ($("btnSecY")) $("btnSecY").onclick = () => setSection("y");
+if ($("btnSecZ")) $("btnSecZ").onclick = () => setSection("z");
+if ($("btnSecOff")) $("btnSecOff").onclick = () => clearSection();
+if ($("btnSecFlip")) $("btnSecFlip").onclick = () => flipSection();
+if ($("secSlider")) $("secSlider").oninput = (e) => moveSection(e.target.value);
+
+// ---- Measurement + annotations ----
+let measureMode = null; // 'len' | 'point'
+let mPts = [];
+const mObjs = [];
+let mLabels = []; // {el, pt}
+function markerR() { const b = SEC.box; if (b) { const s = b.getSize(new THREE.Vector3()); return Math.max(0.15, Math.max(s.x, s.y, s.z) / 400); } return 0.3; }
+function clearMeasure() { mObjs.forEach((o) => scene.remove(o)); mObjs.length = 0; mPts = []; mLabels.forEach((l) => l.el.remove()); mLabels = []; const o = $("measureOut"); if (o) o.textContent = "—"; }
+function setMeasure(mode) {
+  measureMode = (measureMode === mode) ? null : mode;
+  [["btnMeasure", "len"], ["btnPoint", "point"]].forEach(([id, m]) => { const b = $(id); if (b) b.classList.toggle("on", measureMode === m); });
+  mPts = [];
+  const o = $("measureOut"); if (o) { o.textContent = measureMode === "len" ? "Click two points…" : measureMode === "point" ? "Click a point…" : "—"; o.style.display = measureMode ? "block" : "none"; }
+}
+function addMarker(p) { const s = new THREE.Mesh(new THREE.SphereGeometry(markerR(), 12, 12), new THREE.MeshBasicMaterial({ color: 0xf5b73d, depthTest: false })); s.position.copy(p); s.renderOrder = 999; scene.add(s); mObjs.push(s); }
+function addLine(a, b) { const g = new THREE.BufferGeometry().setFromPoints([a, b]); const l = new THREE.Line(g, new THREE.LineBasicMaterial({ color: 0xf5b73d, depthTest: false })); l.renderOrder = 999; scene.add(l); mObjs.push(l); }
+function addLabel(p, text) { const el = document.createElement("div"); el.className = "mlabel"; el.textContent = text; viewEl.appendChild(el); mLabels.push({ el, pt: p.clone() }); }
+function updateLabels() {
+  if (!mLabels.length) return;
+  const w = viewEl.clientWidth, h = viewEl.clientHeight;
+  for (const L of mLabels) { const v = L.pt.clone().project(camera); const vis = v.z < 1; L.el.style.display = vis ? "block" : "none"; if (vis) { L.el.style.left = ((v.x * 0.5 + 0.5) * w) + "px"; L.el.style.top = ((-v.y * 0.5 + 0.5) * h) + "px"; } }
+}
+async function measureClick(ev) {
+  const dom = renderer.domElement; const rect = dom.getBoundingClientRect();
+  const mouse = new THREE.Vector2(ev.clientX - rect.left, ev.clientY - rect.top);
+  let hit = null;
+  for (const L of loaded) { if (!L.group.visible) continue; let r = null; try { r = await L.model.raycast({ camera, mouse, dom }); } catch (e) {} if (r && r.point) { hit = r; break; } }
+  if (!hit || !hit.point) { dlog("measure-miss"); return; }
+  const p = new THREE.Vector3(hit.point.x, hit.point.y, hit.point.z);
+  addMarker(p); mPts.push(p);
+  if (measureMode === "len") {
+    if (mPts.length >= 2) {
+      const a = mPts[mPts.length - 2], b = mPts[mPts.length - 1];
+      addLine(a, b); const d = a.distanceTo(b);
+      addLabel(a.clone().lerp(b, 0.5), d.toFixed(2) + " m");
+      const o = $("measureOut"); if (o) o.textContent = "Length: " + d.toFixed(3) + " m";
+      mPts = [];
+    }
+  } else if (measureMode === "point") {
+    const w = REF ? p.clone().applyMatrix4(REF) : p;  // true survey coords when REF known
+    const s = toSurvey(w.x, w.y, w.z);
+    const txt = "E " + s.E.toFixed(2) + "  N " + s.N.toFixed(2) + "  Z " + s.Z.toFixed(2);
+    addLabel(p, txt);
+    const o = $("measureOut"); if (o) o.textContent = txt;
+    mPts = [];
+  }
+}
+if ($("btnMeasure")) $("btnMeasure").onclick = () => setMeasure("len");
+if ($("btnPoint")) $("btnPoint").onclick = () => setMeasure("point");
+if ($("btnMclr")) $("btnMclr").onclick = () => clearMeasure();
+
 // ---- render loop ----
 function animate() {
   requestAnimationFrame(animate);
   controls.update();
   try { fragments.update(); } catch (e) {}
   renderer.render(scene, camera);
+  updateLabels();
 }
 
 // ---- boot ----
@@ -377,6 +468,7 @@ function animate() {
     }
     dlog("all-loaded", { models: loaded.length });
     await fragments.update(true);
+    try { if (loaded[0] && typeof loaded[0].model.getCoordinationMatrix === "function") REF = await loaded[0].model.getCoordinationMatrix(); } catch (e) { derr("ref-matrix", e); }
     await federate();
     await fragments.update(true);
     const framed = await fitAll();

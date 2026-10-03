@@ -43,6 +43,11 @@
   #side .item .ct{color:var(--faint);font-size:11px}
   #side .item .iso{opacity:0;border:none;background:transparent;color:var(--accent);cursor:pointer;font-size:11px}
   #side .item:hover .iso{opacity:1}
+  .mlabel{position:absolute;transform:translate(-50%,-130%);background:#f5b73d;color:#1a1200;font:11px/1.2 ui-monospace,monospace;
+          padding:2px 6px;border-radius:5px;pointer-events:none;white-space:nowrap;z-index:7;box-shadow:0 2px 6px rgba(0,0,0,.4)}
+  #secSlider{position:absolute;left:50%;bottom:54px;transform:translateX(-50%);width:40vw;max-width:520px;z-index:6;display:none;accent-color:var(--accent)}
+  #measureOut{position:absolute;left:50%;bottom:18px;transform:translateX(-50%);z-index:6;display:none;background:var(--panel);
+              border:1px solid var(--line);border-radius:8px;padding:6px 12px;color:var(--txt);font:12px ui-monospace,monospace}
 </style>
 </head>
 <body>
@@ -55,8 +60,22 @@
       <button id="btnWire" title="Wireframe">Wire</button>
       <button id="btnShowAll" title="Show everything">Show all</button>
     </div>
+    <div class="grp">
+      <button id="btnSecX" title="Section on X">Sec X</button>
+      <button id="btnSecY" title="Section on Y">Sec Y</button>
+      <button id="btnSecZ" title="Section on Z">Sec Z</button>
+      <button id="btnSecFlip" title="Flip section side">Flip</button>
+      <button id="btnSecOff" title="Clear section">Sec Off</button>
+    </div>
+    <div class="grp">
+      <button id="btnMeasure" title="Measure distance">Measure</button>
+      <button id="btnPoint" title="Read a point's coordinates">Point</button>
+      <button id="btnMclr" title="Clear measurements">Clear</button>
+    </div>
     <div id="title">Fragments viewer (beta)</div>
   </div>
+  <input type="range" id="secSlider">
+  <div id="measureOut">—</div>
   <div id="side">
     <div class="sec"><h4>Models <span id="mdlCount" class="ct"></span></h4><div id="mdlList"></div></div>
     <div class="sec"><h4>Categories</h4><div id="catList"></div></div>
@@ -116,6 +135,6 @@
   })();
   </script>
 
-  <script type="module" src="/ui/viewer_frag.js?v=9"></script>
+  <script type="module" src="/ui/viewer_frag.js?v=10"></script>
 </body>
 </html>

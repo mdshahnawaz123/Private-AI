@@ -86,9 +86,11 @@ async function getFragBytes(rel) {
   const importer = new FRAGS.IfcImporter();
   importer.wasm.path = "/ui/vendor_fragments/";
   importer.wasm.absolute = true;
-  // Recenter geometry near origin so survey-scale models aren't skipped by
-  // Fragments' 100 km cull (matches tools/fragments/convert_ifc_to_frag.mjs).
+  // Recenter geometry near origin, and disable Fragments' 100 km distance cull
+  // (these IFCs use absolute survey coordinates; the cull would otherwise drop
+  // ALL geometry). Matches tools/fragments/convert_ifc_to_frag.mjs.
   importer.webIfcSettings = { COORDINATE_TO_ORIGIN: true };
+  importer.distanceThreshold = null;
   return await importer.process({ bytes: ifcBytes });
 }
 

@@ -88,6 +88,12 @@ try {
   // will be skipped"). Recentering keeps all geometry and renders precisely.
   // (Multi-model federation alignment is handled in the viewer at Phase 2b.)
   importer.webIfcSettings = { COORDINATE_TO_ORIGIN: true };
+  // Disable Fragments' 100 km distance cull. These IFCs use absolute (survey)
+  // coordinates, so objects sit far from the origin and Fragments would skip
+  // ALL of them ("... more than 100000 meters away ... will be skipped"),
+  // producing a .frag with zero geometry. null turns the cull off entirely
+  // (the geometry processor checks `if (distanceThreshold !== null)`).
+  importer.distanceThreshold = null;
 
   const fragBytes = await importer.process({ bytes });
   await writeFile(outPath, Buffer.from(fragBytes));

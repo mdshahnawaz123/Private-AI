@@ -30,17 +30,36 @@
        background:rgba(0,0,0,.82);border:1px solid var(--line);border-radius:8px;padding:8px 10px;
        font:11px/1.4 ui-monospace,Consolas,monospace;color:#cdd9e5}
   #dbg div{white-space:pre-wrap;word-break:break-word}
+  #side{position:absolute;top:60px;left:10px;width:260px;max-height:calc(100% - 80px);overflow:auto;z-index:6;
+        background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px;display:none}
+  #side.open{display:block}
+  #side .sec{margin-bottom:12px}
+  #side .sec h4{margin:0 0 6px;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--faint)}
+  #side .item{display:flex;align-items:center;gap:8px;padding:3px 4px;border-radius:6px;cursor:default}
+  #side .item:hover{background:#1d2530}
+  #side .item input{accent-color:var(--accent)}
+  #side .item .dot{width:9px;height:9px;border-radius:50%;flex:0 0 auto}
+  #side .item .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  #side .item .ct{color:var(--faint);font-size:11px}
+  #side .item .iso{opacity:0;border:none;background:transparent;color:var(--accent);cursor:pointer;font-size:11px}
+  #side .item:hover .iso{opacity:1}
 </style>
 </head>
 <body>
   <div id="view"></div>
   <div id="bar">
     <div class="grp">
+      <button id="btnPanel" title="Models &amp; categories">☰ Models</button>
       <button id="btnFit" title="Fit to view">Fit</button>
       <button id="btnShaded" class="on" title="Shaded">Shaded</button>
       <button id="btnWire" title="Wireframe">Wire</button>
+      <button id="btnShowAll" title="Show everything">Show all</button>
     </div>
     <div id="title">Fragments viewer (beta)</div>
+  </div>
+  <div id="side">
+    <div class="sec"><h4>Models <span id="mdlCount" class="ct"></span></h4><div id="mdlList"></div></div>
+    <div class="sec"><h4>Categories</h4><div id="catList"></div></div>
   </div>
   <div id="props"><h3 id="propTitle">Element</h3><div id="propBody"></div></div>
   <div id="loading"><div class="spin"></div><div id="loadMsg">Starting…</div></div>
@@ -97,6 +116,6 @@
   })();
   </script>
 
-  <script type="module" src="/ui/viewer_frag.js?v=8"></script>
+  <script type="module" src="/ui/viewer_frag.js?v=9"></script>
 </body>
 </html>

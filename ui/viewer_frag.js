@@ -287,6 +287,73 @@ $("btnFit").onclick = () => { if (loaded.length) fitAll(); };  // fire-and-forge
 $("btnShaded").onclick = () => setWire(false);
 $("btnWire").onclick = () => setWire(true);
 
+// ---- Models + Categories panel ----
+const MODEL_COLORS = [0x4d7cfe, 0x31d0a5, 0xf5b73d, 0xb07cff, 0xff6b6b, 0x4dd2ff, 0xffd24d, 0x7cffb0];
+function renderModelsPanel() {
+  const el = $("mdlList"); if (!el) return;
+  const cnt = $("mdlCount"); if (cnt) cnt.textContent = "(" + loaded.length + ")";
+  el.innerHTML = "";
+  loaded.forEach((L, i) => {
+    const row = document.createElement("div"); row.className = "item";
+    const col = "#" + new THREE.Color(MODEL_COLORS[i % MODEL_COLORS.length]).getHexString();
+    row.innerHTML = '<input type="checkbox" checked><span class="dot" style="background:' + col + '"></span><span class="nm"></span><button class="iso">isolate</button>';
+    row.querySelector(".nm").textContent = L.rel.split("/").pop();
+    row.querySelector(".nm").title = L.rel;
+    const cb = row.querySelector("input");
+    cb.onchange = () => { L.group.visible = cb.checked; };
+    row.querySelector(".iso").onclick = () => {
+      loaded.forEach((o, j) => { o.group.visible = (j === i); const c = el.children[j] && el.children[j].querySelector("input"); if (c) c.checked = (j === i); });
+    };
+    el.appendChild(row);
+  });
+}
+function flattenIds(res) {
+  if (!res) return [];
+  if (Array.isArray(res)) return res;
+  if (typeof res === "object") { let out = []; for (const k in res) { if (Array.isArray(res[k])) out = out.concat(res[k]); } return out; }
+  return [];
+}
+async function setCategoryVisible(cat, vis) {
+  for (const L of loaded) {
+    try {
+      if (typeof L.model.getItemsOfCategories === "function" && typeof L.model.setVisible === "function") {
+        const ids = flattenIds(await L.model.getItemsOfCategories([new RegExp("^" + cat + "$")]));
+        if (ids.length) await L.model.setVisible(ids, vis);
+      }
+    } catch (e) { derr("setCategoryVisible:" + cat, e); }
+  }
+  try { await fragments.update(true); } catch (e) {}
+}
+async function renderCategoriesPanel() {
+  const el = $("catList"); if (!el) return;
+  const set = new Set();
+  for (const L of loaded) {
+    try { if (typeof L.model.getCategories === "function") { (await L.model.getCategories() || []).forEach((c) => set.add(c)); } } catch (e) { derr("getCategories", e); }
+  }
+  const cats = [...set].sort();
+  dlog("categories", { count: cats.length });
+  el.innerHTML = "";
+  cats.forEach((cat) => {
+    const row = document.createElement("div"); row.className = "item";
+    row.innerHTML = '<input type="checkbox" checked><span class="nm"></span>';
+    row.querySelector(".nm").textContent = cat.replace(/^IFC/, "");
+    row.querySelector(".nm").title = cat;
+    const cb = row.querySelector("input");
+    cb.onchange = () => setCategoryVisible(cat, cb.checked);
+    el.appendChild(row);
+  });
+}
+async function showAll() {
+  loaded.forEach((L) => { L.group.visible = true; });
+  for (const L of loaded) {
+    try { if (typeof L.model.getItemsIdsWithGeometry === "function" && typeof L.model.setVisible === "function") { const ids = await L.model.getItemsIdsWithGeometry(); if (ids && ids.length) await L.model.setVisible(ids, true); } } catch (e) {}
+  }
+  try { await fragments.update(true); } catch (e) {}
+  renderModelsPanel(); renderCategoriesPanel();
+}
+if ($("btnPanel")) $("btnPanel").onclick = () => { const s = $("side"); if (s) s.classList.toggle("open"); };
+if ($("btnShowAll")) $("btnShowAll").onclick = () => showAll();
+
 // ---- render loop ----
 function animate() {
   requestAnimationFrame(animate);
@@ -326,6 +393,8 @@ function animate() {
       setTimeout(retry, 500);
     }
     $("title").textContent = loaded.length === 1 ? loaded[0].rel.split("/").pop() : (loaded.length + " models federated");
+    try { renderModelsPanel(); } catch (e) { derr("modelsPanel", e); }
+    try { renderCategoriesPanel(); } catch (e) { derr("categoriesPanel", e); }
     setLoading(null);
     animate();
     try { window.__ready = true; } catch (e) {}

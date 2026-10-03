@@ -54,6 +54,24 @@ if errorlevel 1 (
 )
 echo  [OK] Packages installed.
 
+REM ---------- 4b. Fragments converter deps (optional, best-effort) ----------
+REM Enables lightweight .frag compression of uploaded IFC models. Never fatal:
+REM if Node/npm is missing or install fails, uploads still work (raw IFC kept).
+if exist "tools\fragments\node_modules" (
+    echo  [OK] Fragments converter ready.
+) else (
+    where node >nul 2>&1 && where npm >nul 2>&1
+    if errorlevel 1 (
+        echo  [..] Node/npm not found - skipping IFC compression setup ^(optional^).
+    ) else (
+        echo  [..] Installing Fragments converter ^(one-time, enables IFC compression^)...
+        pushd tools\fragments
+        call npm install --no-audit --no-fund >nul 2>&1
+        if errorlevel 1 ( echo  [..] Fragments converter install skipped ^(optional^). ) else ( echo  [OK] Fragments converter installed. )
+        popd
+    )
+)
+
 REM ---------- 5. Check models ----------
 echo  [..] Checking models...
 ollama list | findstr /C:"bge-m3" >nul

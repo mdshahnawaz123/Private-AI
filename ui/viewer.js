@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import { OrbitControls } from "/ui/vendor/OrbitControls.js";
 import * as WebIFC from "/ui/vendor/web-ifc-api.js";
-import { worldBox, worldBoxForMeshes, buildPlacementInfo, computePlacementTransform, PLACEMENT_MODES, applyDeterministicAnchor, extractIfcInfo } from "/ui/coordinate_transform.js";
+import { worldBox, worldBoxForMeshes, buildPlacementInfo, computePlacementTransform, PLACEMENT_MODES, applyDeterministicAnchor, extractIfcInfo } from "/ui/coordinate_transform.js?v=30";
 
 const $ = (id) => document.getElementById(id);
 const viewEl = $("view"), loadingEl = $("loading"), errEl = $("err");
@@ -52,6 +52,14 @@ let mLabels = [];
 const HL = new THREE.Color(0x4d7cfe);
 let allMeshes = [];                 // every mesh
 const models = [];                  // {name, modelID, group, meshes}
+// SCENE_ANCHOR: the ONE common floating origin shared by every loaded model.
+// Set from the first georeferenced model's survey anchor (metres, three.js
+// Y-up). All models are placed relative to it so a federated, shared-coordinate
+// set stays mutually aligned while rendering near the three.js origin (float32
+// precision). Absolute survey coordinates are restored via trueCoord(). Reset
+// to null on every fresh viewer load (module scope), so the first model of each
+// new set re-establishes it.
+let SCENE_ANCHOR = null;
 const catMap = new Map();           // typeName -> [meshes]
 let selection = [];                 // current selection set (meshes)
 const clip = { plane:null, axis:null, sign:1, box:null };
@@ -183,6 +191,16 @@ async function loadModel(rel, isFirst){
     ifcInfo = await buildPlacementInfo({ ifcAPI, WebIFC, modelID, getTruePosition });
     ifcInfo.deterministicAnchor = patchResult.anchor;
   }catch(e){ console.warn("[coord] placement detection failed for", rel, e); }
+  // Establish the common floating origin from the FIRST model that carries a
+  // resolvable anchor, then share that same SCENE_ANCHOR with every model so
+  // they rebase against one origin (see computePlacementTransform). Same metres
+  // + Y-up mapping used there: (X, Y, Z) -> (X, Z, -Y).
+  if(ifcInfo && ifcInfo.deterministicAnchor && !SCENE_ANCHOR){
+    const a = ifcInfo.deterministicAnchor;
+    const m = ifcInfo.lengthUnit ? ifcInfo.lengthUnit.metres : 1.0;
+    SCENE_ANCHOR = new THREE.Vector3(a[0]*m, a[2]*m, -a[1]*m);
+  }
+  if(ifcInfo) ifcInfo.sceneAnchor = SCENE_ANCHOR;
   // Default view: Shared Coordinates -- the IFC/Revit-authoritative frame,
   // shown immediately rather than requiring the user to open the panel.
   models.push({ name: rel, modelID, group, meshes, ifcInfo, mode: "sharedCoordinates", localBox });
@@ -974,9 +992,11 @@ const UNIT_DEFS = {
   ft:    { label:"Feet",         suffix:"ft",  factor:3.2808399 },
   ftdec: { label:"Decimal feet", suffix:"ft",  factor:3.2808399 },
 };
-// Default unit is Millimeters (kept this way deliberately, rather than matching
-// the reference screenshot's "Decimal feet", per explicit instruction).
-const measSettings = { unit:"mm", unit2:"none", precision:1, isolate:false, free:true };
+// Default unit is Meters: with the floating-origin rebase, the spot-coordinate
+// tool reports true survey coordinates (easting/northing/elevation), which are
+// only legible in metres -- the same value in mm is a 10-digit wall of noise.
+// The unit selector still switches to mm/cm/ft when needed.
+const measSettings = { unit:"m", unit2:"none", precision:2, isolate:false, free:true };
 
 function hint(t){ $("modeHint").textContent = t; }
 
@@ -999,6 +1019,11 @@ function fmtArea(m2){
   return out;
 }
 function fmtCoord(v){ const u = UNIT_DEFS[measSettings.unit]; return (v*u.factor).toFixed(measSettings.precision) + " " + u.suffix; }
+// Convert a three.js world point (which, after the floating-origin rebase, sits
+// near the origin) back to its TRUE survey coordinate by adding SCENE_ANCHOR in
+// full (float64) JS-number precision. Lengths/areas are translation-invariant
+// and must NOT use this -- only absolute coordinate readouts do.
+function trueCoord(p){ return SCENE_ANCHOR ? p.clone().add(SCENE_ANCHOR) : p.clone(); }
 
 function clearMeasureLabels(){ mLabels.forEach(L=>L.el.remove()); mLabels=[]; }
 function clearMeasure(){ mObjs.forEach(o=>scene.remove(o)); mObjs=[]; mPts=[]; mHitMeshes=[]; clearMeasureLabels(); $("measureOut").textContent="—"; showAll(); }
@@ -1047,7 +1072,8 @@ function snapToNearestVertex(p, mesh){
 function addCoordLabel(p){
   const el = document.createElement("div");
   el.className = "mLabel";
-  el.innerHTML = "~ X: " + fmtCoord(p.x) + "<br>~ Y: " + fmtCoord(p.y) + "<br>~ Z: " + fmtCoord(p.z);
+  const w = trueCoord(p);  // true survey coordinate; the label still anchors at the near-origin point p
+  el.innerHTML = "~ X: " + fmtCoord(w.x) + "<br>~ Y: " + fmtCoord(w.y) + "<br>~ Z: " + fmtCoord(w.z);
   $("view").appendChild(el);
   mLabels.push({ el, pt: p.clone() });
 }
@@ -1099,7 +1125,8 @@ function handleMeasureClick(ev){
     }
   } else if(measureMode==="point"){
     addCoordLabel(p);
-    $("measureOut").textContent = "Point: X " + fmtCoord(p.x) + " · Y " + fmtCoord(p.y) + " · Z " + fmtCoord(p.z);
+    const w = trueCoord(p);
+    $("measureOut").textContent = "Point: X " + fmtCoord(w.x) + " · Y " + fmtCoord(w.y) + " · Z " + fmtCoord(w.z);
     finishMeasureIfIsolating();
     mPts=[]; mHitMeshes=[];
   }

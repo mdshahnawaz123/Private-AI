@@ -3,7 +3,7 @@ try:
     load_dotenv()  # read .env before anything reads os.getenv
 except Exception:
     pass
-import os, shutil, json, time, re
+import os, shutil, json, time, re, threading
 import mimetypes as _mimetypes
 # Static .mjs/.wasm files (vendored for the Fragments 3D engine migration, served
 # under /ui/vendor_fragments/) need correct MIME types for strict ES-module loading
@@ -18,7 +18,7 @@ _FRAGMENTS_POC_MARKER = "poc-marker-20261002-A"
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Request, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import StreamingResponse, RedirectResponse, FileResponse
+from fastapi.responses import StreamingResponse, RedirectResponse, FileResponse, PlainTextResponse
 from pydantic import BaseModel
 from typing import List, Optional
 import traceback
@@ -276,6 +276,58 @@ async def health_db():
         return {"status": "ok", "database": "connected"}
     except Exception as e:
         return {"status": "error", "database": str(e)}
+
+
+@app.get("/diagnostics/ifc")
+async def diagnostics_ifc(request: Request, project: str = "", limit: int = 100):
+    """Recent IFC upload/convert pipeline events (newest last) plus a quick
+    environment self-check. Admin/lead only. Use this after uploading an IFC to
+    see what happened and what (if anything) went wrong with .frag conversion."""
+    auth.require_roles(request, "admin", "lead")
+    events = []
+    try:
+        if os.path.exists(IFC_DIAG_PATH):
+            with open(IFC_DIAG_PATH, "r", encoding="utf-8") as f:
+                lines = f.readlines()
+            for ln in lines:
+                ln = ln.strip()
+                if not ln:
+                    continue
+                try:
+                    evt = json.loads(ln)
+                except Exception:
+                    continue
+                if project and evt.get("project") != project:
+                    continue
+                events.append(evt)
+    except Exception as e:
+        return {"events": [], "error": str(e)}
+    if limit and limit > 0:
+        events = events[-limit:]
+    app_dir = os.path.dirname(os.path.abspath(__file__))
+    env = {
+        "converter_enabled": os.getenv("EXPO_FRAGMENTS_CONVERT", "1").lower() in ("1", "true", "yes", "on"),
+        "converter_script_present": os.path.exists(os.path.join(app_dir, "tools", "fragments", "convert_ifc_to_frag.mjs")),
+        "deps_installed": os.path.isdir(os.path.join(app_dir, "tools", "fragments", "node_modules")),
+        "node_bin": os.getenv("EXPO_NODE_BIN", "node"),
+        "timeout_s": os.getenv("EXPO_FRAGMENTS_TIMEOUT", "900"),
+        "log_path": IFC_DIAG_PATH,
+    }
+    return {"count": len(events), "env": env, "events": events}
+
+
+@app.get("/diagnostics/ifc/raw", response_class=PlainTextResponse)
+async def diagnostics_ifc_raw(request: Request):
+    """Raw JSONL of the IFC pipeline log -- easy to copy/paste back to share.
+    Admin/lead only."""
+    auth.require_roles(request, "admin", "lead")
+    try:
+        if os.path.exists(IFC_DIAG_PATH):
+            with open(IFC_DIAG_PATH, "r", encoding="utf-8") as f:
+                return f.read()
+    except Exception as e:
+        return "error: " + str(e)
+    return ""
 
 
 # ── Phase 9: Observability endpoints ───────────────────────
@@ -2051,15 +2103,55 @@ PROGRESS = {}
 def _pkey(project, filename):
     return project + "||" + filename
 
-def convert_ifc_to_fragments(save_path):
+# ============================================================
+# IFC pipeline diagnostics -- a structured, appendable record of what happens to
+# every uploaded IFC (received -> convert -> ok/failed/skipped). Lets you (and
+# me) see exactly what went right or wrong on the real machine. Stored as JSON
+# lines under data/diagnostics/ (gitignored), readable via /diagnostics/ifc.
+# ============================================================
+_IFC_DIAG_LOCK = threading.Lock()
+IFC_DIAG_PATH = os.path.join(DATA_DIR, "diagnostics", "ifc_pipeline.jsonl")
+IFC_DIAG_MAX_LINES = 2000  # keep the file bounded (ring-trim on write)
+
+def record_ifc_event(project, filename, stage, status, **details):
+    """Append one structured diagnostics line for the IFC upload/convert
+    pipeline, and echo it to the normal logger. Best-effort; never raises."""
+    try:
+        evt = {"ts": time.strftime("%Y-%m-%dT%H:%M:%S"), "project": project,
+               "file": filename, "stage": stage, "status": status}
+        for k, v in details.items():
+            # keep values small/serializable
+            if isinstance(v, str) and len(v) > 1000:
+                v = v[:1000] + "…"
+            evt[k] = v
+        line = json.dumps(evt, ensure_ascii=False)
+        os.makedirs(os.path.dirname(IFC_DIAG_PATH), exist_ok=True)
+        with _IFC_DIAG_LOCK:
+            with open(IFC_DIAG_PATH, "a", encoding="utf-8") as f:
+                f.write(line + "\n")
+            # Trim if it has grown past the cap (cheap, infrequent).
+            try:
+                with open(IFC_DIAG_PATH, "r", encoding="utf-8") as f:
+                    lines = f.readlines()
+                if len(lines) > IFC_DIAG_MAX_LINES:
+                    with open(IFC_DIAG_PATH, "w", encoding="utf-8") as f:
+                        f.writelines(lines[-IFC_DIAG_MAX_LINES:])
+            except Exception:
+                pass
+        logger.info("[ifc-diag] " + line)
+    except Exception:
+        pass
+
+def convert_ifc_to_fragments(project, save_path, filename):
     """Best-effort: convert an uploaded .ifc to a lightweight Fragments (.frag)
     sibling via the Node converter in tools/fragments/. Runs in a background
     task. NEVER raises -- any failure (disabled, Node or deps missing, timeout,
-    converter error) is logged and the original .ifc is kept, so the viewer
-    simply falls back to parsing the IFC directly. Produces <save_path>.frag on
-    success. See tools/fragments/README.md and OPENCOMPANY_FRAGMENTS_POC_RESULTS.md."""
+    converter error) is logged + recorded in the IFC diagnostics, and the
+    original .ifc is kept so the viewer falls back to parsing it directly.
+    Produces <save_path>.frag on success. See tools/fragments/README.md."""
     import subprocess
     if os.getenv("EXPO_FRAGMENTS_CONVERT", "1").lower() not in ("1", "true", "yes", "on"):
+        record_ifc_event(project, filename, "convert", "skipped", reason="disabled (EXPO_FRAGMENTS_CONVERT)")
         return
     if not save_path.lower().endswith(".ifc"):
         return
@@ -2067,9 +2159,12 @@ def convert_ifc_to_fragments(save_path):
     script = os.path.join(app_dir, "tools", "fragments", "convert_ifc_to_frag.mjs")
     deps = os.path.join(app_dir, "tools", "fragments", "node_modules")
     if not os.path.exists(script):
+        record_ifc_event(project, filename, "convert", "skipped", reason="converter-script-missing", path=script)
         logger.warning("[fragments] converter script missing, skipping: " + script)
         return
     if not os.path.isdir(deps):
+        record_ifc_event(project, filename, "convert", "skipped", reason="deps-not-installed",
+                         hint="run `npm install` in tools/fragments/")
         logger.warning("[fragments] tools/fragments/node_modules not installed -- run `npm install` there to enable .frag compression. Keeping raw IFC.")
         return
     node_bin = os.getenv("EXPO_NODE_BIN", "node")
@@ -2087,26 +2182,44 @@ def convert_ifc_to_fragments(save_path):
             pass
 
     try:
-        logger.info("[fragments] converting " + os.path.basename(save_path) + " -> .frag")
+        in_bytes = os.path.getsize(save_path) if os.path.exists(save_path) else None
+    except Exception:
+        in_bytes = None
+    record_ifc_event(project, filename, "convert", "started", inBytes=in_bytes, node=node_bin, timeout_s=timeout_s)
+    t_start = time.time()
+
+    try:
+        logger.info("[fragments] converting " + filename + " -> .frag")
         proc = subprocess.run([node_bin, script, save_path, out_path],
                               capture_output=True, text=True, timeout=timeout_s)
         if proc.returncode == 0:
+            info = {}
             try:
                 info = json.loads((proc.stdout or "").strip().splitlines()[-1])
-                logger.info("[fragments] done: {in_mb:.1f} MB IFC -> {out_mb:.1f} MB frag ({ratio}x) in {ms} ms".format(
-                    in_mb=info.get("inBytes", 0) / 1e6, out_mb=info.get("outBytes", 0) / 1e6,
-                    ratio=info.get("ratio", "?"), ms=info.get("ms", "?")))
             except Exception:
-                logger.info("[fragments] conversion succeeded for " + os.path.basename(save_path))
+                pass
+            record_ifc_event(project, filename, "convert", "ok",
+                             inBytes=info.get("inBytes"), outBytes=info.get("outBytes"),
+                             ratio=info.get("ratio"), ms=info.get("ms", int((time.time() - t_start) * 1000)),
+                             frag=os.path.basename(out_path))
+            logger.info("[fragments] done: {in_mb:.1f} MB IFC -> {out_mb:.1f} MB frag ({ratio}x) in {ms} ms".format(
+                in_mb=(info.get("inBytes", 0) or 0) / 1e6, out_mb=(info.get("outBytes", 0) or 0) / 1e6,
+                ratio=info.get("ratio", "?"), ms=info.get("ms", "?")))
         else:
             _cleanup_partial()
-            logger.warning("[fragments] conversion failed (rc=" + str(proc.returncode) + "): " + (proc.stderr or "").strip()[:500])
+            err = (proc.stderr or proc.stdout or "").strip()
+            record_ifc_event(project, filename, "convert", "failed", returncode=proc.returncode, error=err[:800])
+            logger.warning("[fragments] conversion failed (rc=" + str(proc.returncode) + "): " + err[:500])
     except subprocess.TimeoutExpired:
         _cleanup_partial()
-        logger.warning("[fragments] conversion timed out after " + str(timeout_s) + "s for " + os.path.basename(save_path))
+        record_ifc_event(project, filename, "convert", "timeout", timeout_s=timeout_s)
+        logger.warning("[fragments] conversion timed out after " + str(timeout_s) + "s for " + filename)
     except FileNotFoundError:
+        record_ifc_event(project, filename, "convert", "skipped", reason="node-not-found",
+                         hint="install Node or set EXPO_NODE_BIN", node=node_bin)
         logger.warning("[fragments] Node not found (set EXPO_NODE_BIN to the node binary). Keeping raw IFC.")
     except Exception as e:
+        record_ifc_event(project, filename, "convert", "error", error=str(e)[:800])
         logger.warning("[fragments] conversion error: " + str(e))
 
 def process_document(project, save_path, filename, disc, category, folder_id=None):
@@ -2326,7 +2439,12 @@ async def upload_document(request: Request, background: BackgroundTasks, project
     # Compress uploaded IFC models to a lightweight Fragments (.frag) sibling in
     # the background (best-effort; keeps the raw .ifc either way).
     if ext == ".ifc":
-        background.add_task(convert_ifc_to_fragments, save_path)
+        try:
+            _sz = os.path.getsize(save_path)
+        except Exception:
+            _sz = None
+        record_ifc_event(project, file.filename, "upload", "received", inBytes=_sz, folder=folder_name, by=user.get("username") if isinstance(user, dict) else None)
+        background.add_task(convert_ifc_to_fragments, project, save_path, file.filename)
     return {"message": ("Processing started" if needs else "Stored (original kept, not AI-indexed)"),
             "filename": file.filename, "category": category, "folder": folder_name, "status": status}
 

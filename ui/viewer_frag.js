@@ -99,19 +99,34 @@ async function loadModel(rel) {
   const model = await fragments.load(bytes, { modelId: rel, camera });
   dlog("fragments-loaded");
   scene.add(model.object);
+  // Critical: tell the model which camera to stream geometry for. Without this,
+  // Fragments never materializes geometry (empty box, blank view).
+  try { model.useCamera(camera); dlog("use-camera-ok"); } catch (e) { derr("useCamera", e); }
   model.getClippingPlanesEvent = () => renderer.clippingPlanes;
   loaded.push({ rel, model });
   return model;
 }
 
-function computeBox(model) {
-  let box = null;
-  try { if (model.box && !model.box.isEmpty()) box = model.box; } catch (e) {}
-  if (!box) { try { const b = new THREE.Box3().setFromObject(model.object); if (!b.isEmpty()) box = b; } catch (e) {} }
-  return box;
+function asBox3(b) {
+  if (!b) return null;
+  if (b.isBox3) return b;
+  if (b.min && b.max) {
+    const g = (p, a, i) => (p[a] != null ? p[a] : (Array.isArray(p) ? p[i] : undefined));
+    const mn = new THREE.Vector3(g(b.min, "x", 0), g(b.min, "y", 1), g(b.min, "z", 2));
+    const mx = new THREE.Vector3(g(b.max, "x", 0), g(b.max, "y", 1), g(b.max, "z", 2));
+    if ([mn.x, mn.y, mn.z, mx.x, mx.y, mx.z].every((n) => typeof n === "number" && isFinite(n))) return new THREE.Box3(mn, mx);
+  }
+  return null;
 }
-function fitTo(model) {
-  const box = computeBox(model);
+async function computeBox(model) {
+  // The authoritative source in Fragments v3 is the async model.getBox().
+  try { const b = asBox3(await model.getBox()); if (b && !b.isEmpty()) return b; } catch (e) { derr("getBox", e); }
+  try { if (model.box && !model.box.isEmpty()) return model.box; } catch (e) {}
+  try { const b = new THREE.Box3().setFromObject(model.object); if (!b.isEmpty()) return b; } catch (e) {}
+  return null;
+}
+async function fitTo(model) {
+  const box = await computeBox(model);
   if (!box) { dlog("fit-no-box", "bounding box empty / geometry not ready yet"); return false; }
   const size = box.getSize(new THREE.Vector3());
   const center = box.getCenter(new THREE.Vector3());
@@ -187,7 +202,7 @@ function setWire(on) {
   $("btnShaded").classList.toggle("on", !on);
   $("btnWire").classList.toggle("on", on);
 }
-$("btnFit").onclick = () => { if (loaded[0]) fitTo(loaded[0].model); };
+$("btnFit").onclick = () => { if (loaded[0]) fitTo(loaded[0].model); };  // fire-and-forget
 $("btnShaded").onclick = () => setWire(false);
 $("btnWire").onclick = () => setWire(true);
 
@@ -212,7 +227,7 @@ function animate() {
     const model = await loadModel(first);
     dlog("fragments-update");
     await fragments.update(true);
-    const framed = fitTo(model);
+    const framed = await fitTo(model);
     dlog("fit-done", { framed });
     if (!framed) {
       // Fragments may still be streaming geometry; retry a couple of times.
@@ -220,11 +235,11 @@ function animate() {
       const retry = async () => {
         tries++;
         try { await fragments.update(true); } catch (e) {}
-        if (fitTo(model)) { dlog("fit-retry-ok", { tries }); }
-        else if (tries < 5) { setTimeout(retry, 500); }
+        if (await fitTo(model)) { dlog("fit-retry-ok", { tries }); }
+        else if (tries < 6) { setTimeout(retry, 600); }
         else { dlog("fit-gave-up", "box still empty after retries — paste this log"); }
       };
-      setTimeout(retry, 400);
+      setTimeout(retry, 500);
     }
     $("title").textContent = first.split("/").pop() + (rels.length > 1 ? "  (1 of " + rels.length + " — multi-model is next)" : "");
     setLoading(null);

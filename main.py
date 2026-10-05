@@ -2674,7 +2674,7 @@ def get_llm(req: QueryRequest):
     try:
         from config import get_settings
         s = get_settings()
-        mdl = getattr(s, "chat_model", "qwen3:4b") or "qwen3:4b"
+        mdl = getattr(s, "chat_model", "qwen2.5vl:7b") or "qwen2.5vl:7b"
         # honor an explicit per-request model choice; otherwise use the fast chat model
         if getattr(req, "model", None) and req.model != _DEFAULT:
             mdl = req.model
@@ -3069,9 +3069,9 @@ Format exactly like this at the end of your text: [COMMAND:ISOLATE:IFCWALL]"""
 
     try:
         from config import get_settings as _gs_am
-        _cm = getattr(_gs_am(), "chat_model", "qwen3:4b") or "qwen3:4b"
+        _cm = getattr(_gs_am(), "chat_model", "qwen2.5vl:7b") or "qwen2.5vl:7b"
     except Exception:
-        _cm = "qwen3:4b"
+        _cm = "qwen2.5vl:7b"
     _mdl_am = req.model if (getattr(req, "model", None) and req.model != "qwen2.5vl:32b") else _cm
     current_llm = local_chat.LocalChatOllama(model=_mdl_am, temperature=0.1,
                                              num_predict=3072, keep_alive="5m")

@@ -37,9 +37,9 @@ class Settings(BaseSettings):
     reranker_enabled: bool = False
 
     # Wave 1: Model tiering
-    worker_model: str = "qwen3:4b"
+    worker_model: str = "qwen2.5vl:7b"
     author_model: str = "qwen2.5vl:32b"
-    chat_model: str = "qwen3:4b"  # fast model for answering/chat; vision+upload still use the 32B
+    chat_model: str = "qwen2.5vl:7b"  # fast model for answering/chat; vision+upload still use the 32B
     enable_model_tiering: bool = False
     rerank_candidates: int = 20
     rerank_keep: int = 5

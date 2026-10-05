@@ -174,7 +174,7 @@ def _get_model_config():
     except Exception:
         return {
             "worker_model": "qwen2.5vl:7b",
-            "author_model": "qwen2.5vl:32b",
+            "author_model": "qwen2.5vl:7b",
             "enable_model_tiering": False,
         }
 

@@ -29,7 +29,7 @@ class Settings(BaseSettings):
     admin_password: str = "admin"
 
     # AI models
-    vision_model: str = "qwen2.5vl:32b"
+    vision_model: str = "qwen2.5vl:7b"
     embed_model: str = "bge-m3"
     fast_llm: str = "qwen2.5:7b"
     fast_llm_enabled: bool = False
@@ -38,7 +38,7 @@ class Settings(BaseSettings):
 
     # Wave 1: Model tiering
     worker_model: str = "qwen2.5vl:7b"
-    author_model: str = "qwen2.5vl:32b"
+    author_model: str = "qwen2.5vl:7b"
     chat_model: str = "qwen2.5vl:7b"  # fast model for answering/chat; vision+upload still use the 32B
     enable_model_tiering: bool = False
     rerank_candidates: int = 20
@@ -57,7 +57,7 @@ class Settings(BaseSettings):
     enable_self_check: bool = False  # Phase 2: worker model self-check for answer verification
     not_found_threshold: float = 0.0  # Phase 2 FIX: 0.3 was miscalibrated for bge-reranker-v2-m3 (relevant chunks score ~0.01-0.06), which silently discarded valid retrievals. 0.0 disables the score-gate; honest "not found" is still handled by the answer prompt. Recalibrate later with eval data.
 
-    # Accurate extraction: run the vision model (qwen2.5vl:32b) on EVERY PDF page
+    # Accurate extraction: run the vision model (qwen2.5vl:7b) on EVERY PDF page
     # at upload, not only image-only pages, so dense multi-table data sheets keep
     # their row/column structure. Heavy but accurate; set False to revert to the
     # fast "smart" mode (vision only on image-only pages).

@@ -108,7 +108,7 @@ def run_qwen_vl(img_path, page_text=""):
     prompt = f"Extract all engineering tables and numerical values from this image. Output strictly as a Markdown table. Page context: {page_text[:500]}"
     try:
         res = httpx.post('http://localhost:11434/api/chat', json={
-            'model': 'qwen2.5-vl:7b',
+            'model': 'qwen2.5vl:7b',
             'stream': False,
             'messages': [{'role': 'user', 'content': prompt, 'images': [b64]}]
         }, timeout=120)

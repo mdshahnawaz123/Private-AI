@@ -156,7 +156,7 @@ class ModelRegistry:
     def _load_defaults(self):
         """Load default model configurations from environment or defaults."""
         ollama_host = os.getenv("OLLAMA_HOST", "http://127.0.0.1:11434").rstrip("/")
-        vision_model = os.getenv("EXPO_VISION_MODEL", "qwen2.5vl:32b")
+        vision_model = os.getenv("EXPO_VISION_MODEL", "qwen2.5vl:7b")
         embed_model = os.getenv("EXPO_EMBED_MODEL", "bge-m3")
 
         # Reasoning / chat model

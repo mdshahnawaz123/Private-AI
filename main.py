@@ -1452,9 +1452,9 @@ app.include_router(api_v1)
 
 vectorstores = {}
 embedder = local_embed.LocalOllamaEmbeddings(model="bge-m3")
-# Chat/reasoning uses the same vision-language model as drawings (qwen2.5vl:32b),
+# Chat/reasoning uses the same vision-language model as drawings (qwen2.5vl:7b),
 # so only ONE large model is ever loaded -- important on a 16GB GPU.
-llm = ChatOllama(model="qwen2.5vl:32b", temperature=0.1, keep_alive="5m")
+llm = ChatOllama(model="qwen2.5vl:7b", temperature=0.1, keep_alive="5m")
 
 def get_vectorstore(project: str):
     if project in vectorstores: return vectorstores[project]
@@ -1485,7 +1485,7 @@ class QueryRequest(BaseModel):
     project: str = "default"
     messages: List[Message] = []
     k: int = 3
-    model: str = "qwen2.5vl:32b"
+    model: str = "qwen2.5vl:7b"
     mode: str = "chat"
     discipline: str = ""
     focus_doc: str = ""
@@ -1505,7 +1505,7 @@ class ModelQueryReq(BaseModel):
     context: str = ""          # model summary built by the viewer
     selection: str = ""        # properties of the currently-selected element (optional)
     messages: List[Message] = []
-    model: str = "qwen2.5vl:32b"
+    model: str = "qwen2.5vl:7b"
 
 class ProjectSave(BaseModel):
     project: str
@@ -2670,7 +2670,7 @@ def get_llm(req: QueryRequest):
     # Direct /api/chat streamer (reliable + larger context) instead of ChatOllama.
     # Wave 1: Model tiering — when enabled, uses worker/author split.
     # When disabled, preserves existing behavior (single author model).
-    _DEFAULT = "qwen2.5vl:32b"
+    _DEFAULT = "qwen2.5vl:7b"
     try:
         from config import get_settings
         s = get_settings()
@@ -3072,7 +3072,7 @@ Format exactly like this at the end of your text: [COMMAND:ISOLATE:IFCWALL]"""
         _cm = getattr(_gs_am(), "chat_model", "qwen2.5vl:7b") or "qwen2.5vl:7b"
     except Exception:
         _cm = "qwen2.5vl:7b"
-    _mdl_am = req.model if (getattr(req, "model", None) and req.model != "qwen2.5vl:32b") else _cm
+    _mdl_am = req.model if (getattr(req, "model", None) and req.model != "qwen2.5vl:7b") else _cm
     current_llm = local_chat.LocalChatOllama(model=_mdl_am, temperature=0.1,
                                              num_predict=3072, keep_alive="5m")
 
@@ -3817,7 +3817,7 @@ async def get_forensics_status():
 @app.get("/health")
 async def health(project: str = "default"):
     has_docs = get_vectorstore(project) is not None
-    return {"status":"ok","documents_indexed":has_docs,"model":"qwen2.5vl:32b","streaming":True,"db":True}
+    return {"status":"ok","documents_indexed":has_docs,"model":"qwen2.5vl:7b","streaming":True,"db":True}
 
 if __name__ == "__main__":
     import uvicorn

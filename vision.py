@@ -10,7 +10,7 @@ import os
 import base64
 
 OLLAMA_URL = os.getenv("OLLAMA_HOST", "http://127.0.0.1:11434").rstrip("/")
-VISION_MODEL = os.getenv("EXPO_VISION_MODEL", "qwen2.5vl:32b")
+VISION_MODEL = os.getenv("EXPO_VISION_MODEL", "qwen2.5vl:7b")
 IMAGE_EXTS = (".png", ".jpg", ".jpeg", ".webp", ".bmp", ".tif", ".tiff", ".gif")
 
 # Keep the (large) model resident in Ollama between page calls so it does not
@@ -20,7 +20,7 @@ KEEP_ALIVE = os.getenv("EXPO_KEEP_ALIVE", "5m")
 VISION_RETRIES = int(os.getenv("EXPO_VISION_RETRIES", "3"))
 
 # Serialize heavy inferences: only ONE vision call runs at a time across the whole
-# app, so concurrent uploads can never stack two 32B inferences and exhaust memory.
+# app, so concurrent uploads can never stack two 7B inferences and exhaust memory.
 import threading
 import time as _time
 _VISION_LOCK = threading.Lock()

@@ -243,7 +243,7 @@ class EvaluationRunner:
                 SystemMessage(content="Answer the question using only the provided context."),
                 HumanMessage(content=f"Context:\n{ctx}\n\nQuestion: {question}")
             ]
-            llm = app_main.get_llm(type("Req", (), {"model": "qwen2.5vl:32b"})())
+            llm = app_main.get_llm(type("Req", (), {"model": "qwen2.5vl:7b"})())
             answer = ""
             for chunk in llm.stream(msgs):
                 answer += chunk.content

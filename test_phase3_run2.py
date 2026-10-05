@@ -6,6 +6,13 @@ from sqlalchemy import func
 
 def setup_mock_data():
     session = db.SessionLocal()
+    # Create project 2 if it doesn't exist
+    proj = session.query(db.Project).filter_by(id=2).first()
+    if not proj:
+        proj = db.Project(id=2, name="Phase 3 Mock Project")
+        session.add(proj)
+        session.commit()
+
     # Clear old mock data
     session.query(db.StructuredRecord).filter_by(project_id=2).delete()
     
@@ -54,13 +61,11 @@ def robust_parse_query(query: str):
         v = word_to_num.get(v, v)
         return v.zfill(2) if v.isdigit() else v
         
-    # Towers
     towers = []
     for m in re.finditer(r'\b(?:tower|t)\s*(' + '|'.join(word_to_num.keys()) + r'|\d+)\b', q):
         towers.append(str(int(resolve_num(m.group(1)))))
     towers = list(dict.fromkeys(towers))
     
-    # Levels & Ranges
     levels = []
     level_range = None
     range_match = re.search(r'from\s+(?:level\s+|l)?(\d+)\s+to\s+(?:level\s+|l)?(\d+)', q)
@@ -73,9 +78,8 @@ def robust_parse_query(query: str):
             levels.append(resolve_num(m.group(1)))
     unique_levels = list(dict.fromkeys(levels))
     
-    # Revisions
     rev = None
-    if "latest revision" in q or "latest document" in q:
+    if "latest revision" in q or "latest document" in q or "latest" in q:
         rev = "latest"
     elif "previous revision" in q:
         rev = "previous"
@@ -86,7 +90,6 @@ def robust_parse_query(query: str):
     if "compare rev" in q:
         rev = "compare_all"
         
-    # Fields
     fields_def = [
         ('Floor GFA', ['gross floor area', 'gfa', 'area', 'large']),
         ('Floor GA', ['gross area', 'ga']),
@@ -114,26 +117,26 @@ def robust_parse_query(query: str):
                 found_fields.append(canonical)
             q_sub = re.sub(pattern, '', q_sub)
             
-    # Calculations
     calc_type = None
     if re.search(r'\b(highest|max|maximum)\b', q): calc_type = "max"
     elif re.search(r'\b(lowest|min|minimum)\b', q): calc_type = "min"
     elif re.search(r'\b(average|mean)\b', q): calc_type = "average"
     elif re.search(r'\b(count|number of)\b', q): calc_type = "count"
-    elif re.search(r'\b(total|sum)\b', q): calc_type = "sum"
     elif re.search(r'\b(percentage difference|% diff)\b', q): calc_type = "pct_diff"
     elif re.search(r'\b(percentage|percent|%|as percentage of)\b', q): calc_type = "percentage"
     elif re.search(r'\b(difference|minus|compare)\b', q): calc_type = "difference"
+    elif re.search(r'\b(total|sum)\b', q): calc_type = "sum" # sum checked last to not override pct diff
     
-    # Specific filtering operations
     filter_op = None
     fm = re.search(r'above (\d+)', q)
     if fm: filter_op = ('>', float(fm.group(1)))
     
-    if "every available" in q or "all towers" in q:
+    if "every available" in q or "all towers" in q or "which towers" in q:
         towers = ["ALL"]
         
-    # Build intent
+    if "which level" in q:
+        pass # we don't supply levels, let it search across all
+        
     if not found_fields: return None
     
     intent = {
@@ -153,7 +156,6 @@ def execute_structured_query(parsed, project_id):
     try:
         base_q = session.query(db.StructuredRecord).filter(db.StructuredRecord.project_id == project_id)
         
-        # 1. Unknowns / Unsupported validation
         if parsed.get('calc') not in [None, 'sum', 'difference', 'percentage', 'pct_diff', 'average', 'min', 'max', 'count']:
             return "unsupported", "Calculation type not supported."
             
@@ -163,18 +165,15 @@ def execute_structured_query(parsed, project_id):
         rev = parsed.get('rev')
         calc = parsed.get('calc')
         
-        # 2. Revisions Check (if no specific rev provided, check for conflicts)
         if rev == "latest":
-            # Just a mock rule for test: pick Rev 2 if exists, else Rev 1
             rev_rule = "Rev 2" 
         elif rev == "previous":
             rev_rule = "Rev 1"
         elif rev == "compare_all":
-            rev_rule = None # allow all
+            rev_rule = None
         elif rev:
             rev_rule = rev
         else:
-            # Check if multiple revisions exist for the requested data
             revs_available = session.query(db.StructuredRecord.revision).filter(
                 db.StructuredRecord.project_id == project_id
             ).distinct().all()
@@ -185,7 +184,6 @@ def execute_structured_query(parsed, project_id):
         if rev_rule:
             base_q = base_q.filter(db.StructuredRecord.revision == rev_rule)
             
-        # 3. Apply Filters
         if towers and towers[0] != "ALL":
             base_q = base_q.filter(db.StructuredRecord.tower.in_(towers))
         if levels:
@@ -197,15 +195,15 @@ def execute_structured_query(parsed, project_id):
             base_q = base_q.filter(db.StructuredRecord.field.in_(fields))
             
         recs = base_q.all()
-        
         if not recs:
             return "not_found", "No verified record found."
             
-        # 4. Handle Calculations
-        # Group records by (tower, level, field, rev) for safe processing
+        # Ambiguity checks
+        if not calc and not parsed.get('filter'):
+            if not towers and not "ALL" in parsed.get('towers', []):
+                return "ambiguous", "Multiple towers matched. Please specify tower."
         
         if not calc:
-            # Simple lookup or filter lookup
             if parsed.get('filter'):
                 op, val = parsed['filter']
                 res = [r for r in recs if (r.value > val if op == '>' else False)]
@@ -214,53 +212,47 @@ def execute_structured_query(parsed, project_id):
                 return "success", ctx
                 
             if len(towers) == 1 and len(levels) == 1 and len(fields) == 1:
-                # Single exact match
-                if len(recs) > 1:
-                    # Should be 1 if rev is filtered. If still >1, ambiguous.
-                    pass
                 r = recs[0]
-                return "success", f"Value: {r.value} {r.unit}\nProvenance: (Doc: {r.doc}, Rev: {r.revision}, Page: {r.page}, Schedule: {r.schedule})"
+                return "success", f"Value: {r.value} {r.unit}\nProvenance: (Doc: {r.doc}, Rev: {r.revision})"
             
-            # Listing
             ctx = "Records:\n" + "\n".join([f"Tower {r.tower} Level {r.level} {r.field}: {r.value} {r.unit}" for r in recs])
             return "success", ctx
 
         if calc == "sum":
             total = sum(r.value for r in recs)
-            prov = set(f"{r.doc} (Rev {r.revision})" for r in recs)
-            return "success", f"SUM = {total}\nProvenance: {', '.join(prov)}"
+            return "success", f"SUM = {total}\nProvenance: {len(recs)} records used"
             
         if calc == "average":
             avg = sum(r.value for r in recs) / len(recs)
-            return "success", f"AVERAGE = {avg:.2f}\nProvenance: {len(recs)} records"
+            return "success", f"AVERAGE = {avg:.2f}\nProvenance: {len(recs)} records used"
             
         if calc == "max":
             best = max(recs, key=lambda x: x.value)
-            return "success", f"MAX is Tower {best.tower} Level {best.level} = {best.value}\nProvenance: {best.doc}"
+            return "success", f"MAX is Level {best.level} = {best.value}\nProvenance: {best.doc}"
             
         if calc == "min":
             best = min(recs, key=lambda x: x.value)
-            return "success", f"MIN is Tower {best.tower} Level {best.level} = {best.value}\nProvenance: {best.doc}"
+            return "success", f"MIN is Level {best.level} = {best.value}\nProvenance: {best.doc}"
             
         if calc == "count":
             return "success", f"COUNT = {len(recs)}\nProvenance: DB"
             
         if calc == "difference":
-            if len(fields) == 2: # e.g. GFA minus NSA
+            if len(fields) == 2:
                 r1 = [r for r in recs if r.field == fields[0]][0]
                 r2 = [r for r in recs if r.field == fields[1]][0]
                 diff = abs(r1.value - r2.value)
-                return "success", f"DIFFERENCE ({fields[0]} - {fields[1]}) = {diff}\nProv: {r1.doc}"
+                return "success", f"DIFFERENCE = {diff}\nProv: {r1.doc}"
             elif len(levels) == 2:
                 r1 = [r for r in recs if r.level == levels[0]][0]
                 r2 = [r for r in recs if r.level == levels[1]][0]
                 diff = abs(r1.value - r2.value)
-                return "success", f"DIFFERENCE (L{levels[0]} - L{levels[1]}) = {diff}\nProv: {r1.doc}"
+                return "success", f"DIFFERENCE = {diff}\nProv: {r1.doc}"
             elif len(towers) == 2:
                 r1 = [r for r in recs if r.tower == towers[0]][0]
                 r2 = [r for r in recs if r.tower == towers[1]][0]
                 diff = abs(r1.value - r2.value)
-                return "success", f"DIFFERENCE (T{towers[0]} - T{towers[1]}) = {diff}\nProv: {r1.doc}"
+                return "success", f"DIFFERENCE = {diff}\nProv: {r1.doc}"
             elif rev == "compare_all":
                 r1 = [r for r in recs if r.revision == "Rev 1"][0]
                 r2 = [r for r in recs if r.revision == "Rev 2"][0]
@@ -268,11 +260,9 @@ def execute_structured_query(parsed, project_id):
                 return "success", f"DIFFERENCE (Rev 1 vs Rev 2) = {diff}\nProv: {r1.doc}, {r2.doc}"
                 
         if calc == "percentage":
-            if len(fields) == 2: # NSA as percentage of GFA
+            if len(fields) == 2: 
                 r1 = [r for r in recs if r.field == fields[0]][0]
                 r2 = [r for r in recs if r.field == fields[1]][0]
-                # Usually smaller / larger. User says "NSA as % of GFA" -> NSA(f1) / GFA(f2)
-                # But fields order depends on string. Let's just do fields[0]/fields[1]
                 pct = (r1.value / r2.value) * 100
                 return "success", f"PERCENTAGE = {pct:.2f}%\nProv: {r1.doc}"
                 
@@ -322,6 +312,8 @@ if __name__ == "__main__":
         "Which level of Tower 6 has the highest GFA? latest",
         "Which level has the lowest GFA? latest",
         "What is the average GFA from Level 2 to Level 10? latest",
+        "What is the total GFA from Level 2 to Level 10? latest",
+        "What is the difference between the highest and lowest GFA? latest",
         
         # F. Revisions
         "What is the GFA of Tower 6 Level 2?", # should be ambiguous (Rev 1 vs 2)

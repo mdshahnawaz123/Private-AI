@@ -207,8 +207,10 @@ class IngestionPipeline:
         Phase 2: Store each row as a structured record.
         """
         try:
-            from knowledge.extraction import index_structured_tables
-            return index_structured_tables(project_id, filename, meta)
+            from knowledge.extraction import index_structured_tables, index_visual_structured_records
+            count1 = index_structured_tables(project_id, filename, meta)
+            count2 = index_visual_structured_records(project_id, filename, meta)
+            return count1 + count2
         except Exception as e:
             logger.warning("Structured table extraction failed: {}", e)
             return 0

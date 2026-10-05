@@ -254,6 +254,7 @@
     <div style="display:flex;gap:6px;margin-top:8px">
       <button id="uploadBtn" onclick="pickUpload()" style="display:none;flex:1;background:#3b82f6;color:#fff;border:none;border-radius:9px;padding:8px;font-size:12px;font-weight:600;cursor:pointer">Upload files</button>
       <button id="docsBtn" onclick="openDocs()" style="flex:1;background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:9px;padding:8px;font-size:12px;cursor:pointer">Documents</button>
+      <button id="forensicBtn" onclick="openForensics()" style="flex:1;background:linear-gradient(180deg,#eab308,#ca8a04);color:#fff;border:none;border-radius:9px;padding:8px;font-size:12px;cursor:pointer">&#128300; Forensic Stress Test</button>
     </div>
     <button id="viewer3dBtn" onclick="openViewer()" style="margin-top:6px;width:100%;background:linear-gradient(180deg,#8a6cff,#7658f0);color:#fff;border:none;border-radius:9px;padding:8px;font-size:12px;font-weight:600;cursor:pointer">&#9635; 3D Review</button>
     <input type="file" id="directUpload" hidden multiple onchange="uploadDirect(this)">
@@ -2371,5 +2372,69 @@ body::before{
 #toast{background:#111826;border:1px solid var(--border);box-shadow:var(--sh2);border-radius:11px}
 </style>
 
+<div class="docs-back" id="forensicModal" style="background:#18181b">
+  <div class="docs-head">
+    <h3>Forensic Stress Test Engine</h3>
+    <button class="doc-btn" onclick="closeForensics()">Close</button>
+  </div>
+  <div class="docs-body" style="padding: 20px; color: #fff;">
+    <button onclick="startForensicTest()" style="padding:10px 20px; background:#eab308; color:#000; font-weight:bold; border-radius: 8px; border:none; cursor:pointer; margin-bottom: 20px;">Start Forensic Test</button>
+    
+    <div id="forensicStatus" style="margin-bottom: 20px; font-size: 14px;">
+        Status: <span id="fsState">Idle</span><br>
+        Progress: <span id="fsProgress">0</span> / <span id="fsTotal">0</span><br>
+        Passed: <span id="fsPassed" style="color: #22c55e">0</span><br>
+        Failed: <span id="fsFailed" style="color: #ef4444">0</span><br>
+        Current Stage: <span id="fsStage">-</span><br>
+        Current Question: <span id="fsQuestion">-</span><br>
+    </div>
+  </div>
+</div>
+
+<script>
+function openForensics() {
+    document.getElementById('forensicModal').classList.add('open');
+    pollForensicStatus();
+}
+
+function closeForensics() {
+    document.getElementById('forensicModal').classList.remove('open');
+}
+
+async function startForensicTest() {
+    if (!currentProject) { toast('Please select a project first.'); return; }
+    try {
+        let res = await fetch('/api/forensics/start/' + currentProject + '/default');
+        let data = await res.json();
+        if (data.status === 'error') {
+            toast(data.message);
+        } else {
+            toast('Forensic test started.');
+            pollForensicStatus();
+        }
+    } catch(e) {
+        toast('Error starting test');
+    }
+}
+
+async function pollForensicStatus() {
+    if (!document.getElementById('forensicModal').classList.contains('open')) return;
+    try {
+        let res = await fetch('/api/forensics/status');
+        let data = await res.json();
+        document.getElementById('fsState').textContent = data.status;
+        document.getElementById('fsTotal').textContent = data.total;
+        document.getElementById('fsProgress').textContent = data.completed;
+        document.getElementById('fsPassed').textContent = data.passed;
+        document.getElementById('fsFailed').textContent = data.failed;
+        document.getElementById('fsStage').textContent = data.current_stage;
+        document.getElementById('fsQuestion').textContent = data.current_question;
+        
+        if (data.status === 'running') {
+            setTimeout(pollForensicStatus, 1000);
+        }
+    } catch(e) {}
+}
+</script>
 </body>
 </html>

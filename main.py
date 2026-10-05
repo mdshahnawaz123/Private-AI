@@ -2317,13 +2317,10 @@ def process_document(project, save_path, filename, disc, category, folder_id=Non
         elif ext == ".pdf":
             def _cb(done, total):
                 PROGRESS[key] = {"stage": "reading pages", "done": done, "total": total}
-            from config import get_settings as _gs_pdf
-            _pv = _gs_pdf()
-            _smart = not getattr(_pv, "pdf_vision_all", True)  # vision on EVERY page unless disabled
-            _vmax = int(getattr(_pv, "vision_max_pages", 300) or 300)
-            combined, meta = extract.extract_pdf(save_path, vision_fn=vision.describe_image,
-                                                 render_dir=save_path + "_pages", deep=True,
-                                                 smart=_smart, max_pages=_vmax, progress_cb=_cb)
+            # Phase 5B: Disable unbounded legacy vision; use native extraction only.
+            combined, meta = extract.extract_pdf(save_path, vision_fn=None,
+                                                 render_dir=save_path + "_pages", deep=False,
+                                                 smart=True, max_pages=300, progress_cb=_cb)
         elif ext in (".xlsx", ".xls"):
             PROGRESS[key] = {"stage": "reading spreadsheet", "done": 0, "total": 1}
             combined, meta = extract.extract_excel(save_path)
@@ -2342,6 +2339,10 @@ def process_document(project, save_path, filename, disc, category, folder_id=Non
                 tf.write(combined or "")
         except Exception:
             pass
+            
+        chunks_n = 0
+        has_warnings = False
+        
         if combined and combined.strip():
             try:
                 chunks_n = index_structured(project, meta, filename, folder_id)
@@ -2360,6 +2361,14 @@ def process_document(project, save_path, filename, disc, category, folder_id=Non
                             table_rows = get_pipeline().extract_structured_tables(_proj_id, filename, meta)
                             if table_rows > 0:
                                 logger.info("Extracted {} structured table rows for {}", table_rows, filename)
+                            
+                            # Phase 5B: Visual Table Extraction Pipeline (EasyOCR + Qwen2.5-VL 7B)
+                            if ext == ".pdf":
+                                PROGRESS[key] = {"stage": "visual extraction", "done": 0, "total": 1}
+                                from services.pipeline import process_document_pipeline
+                                pipe_status = process_document_pipeline(_proj_id, save_path, filename)
+                                if pipe_status == "WARNINGS":
+                                    has_warnings = True
                 except Exception as e:
                     logger.warning("Structured table extraction failed: {}", e)
                 # Phase 2: Quantities extraction
@@ -2377,8 +2386,10 @@ def process_document(project, save_path, filename, disc, category, folder_id=Non
                                 logger.info("Extracted {} quantities for {}", quantities, filename)
                 except Exception as e:
                     logger.warning("Quantities extraction failed: {}", e)
-                db.update_document_status(project, filename, chunks_n, "ready")
-                logger.info("Processed {} -> {} chunks (page-aware)", filename, chunks_n)
+                
+                final_status = "ready_with_warnings" if has_warnings else "ready"
+                db.update_document_status(project, filename, chunks_n, final_status)
+                logger.info("Processed {} -> {} chunks (page-aware), status: {}", filename, chunks_n, final_status)
             except Exception:
                 # Extraction succeeded and is saved to .extracted.txt; only the
                 # embedding step failed (usually the local model server). Keep the
@@ -2760,6 +2771,47 @@ async def ask_image(request: Request, project: str = Form("default"),
     return StreamingResponse(gen(), media_type="text/event-stream")
 
 
+
+@app.post("/api/query_document")
+async def api_query_document(request: Request):
+    user = auth.require_project(request, "default")
+    try:
+        body = await request.json()
+    except:
+        body = {}
+        
+    project_id = body.get("project", "default")
+    question = body.get("question", "")
+    
+    if not question:
+        return {"status": "ERROR", "answer": "Question is required."}
+        
+    import intelligence.structured_query as sq
+    
+    def do_retrieve(proj, q, k=5, user=None):
+        return retrieve_context(proj, q, k, user)
+        
+    def do_qwen(prompt):
+        import time
+        t_start = time.perf_counter()
+        import httpx
+        try:
+            r = httpx.post("http://127.0.0.1:11434/api/generate", json={
+                "model": "qwen2.5:32b", "prompt": prompt, "stream": False, "options": {"temperature": 0.0}
+            }, timeout=10.0)
+            return r.json().get("response", ""), time.perf_counter() - t_start
+        except:
+            return "[Qwen Fallback Generated Answer]", time.perf_counter() - t_start
+            
+    resp, latencies = sq.query_document(
+        question, project_id, 
+        retrieve_context_func=do_retrieve,
+        call_qwen_func=do_qwen,
+        user_context={"user": user, "selected_guid": body.get("selected_guid"), "history": body.get("history", [])}
+    )
+    
+    return resp
+
 @app.post("/ask_stream")
 async def ask_stream(req: QueryRequest, request: Request = None):
     user = auth.require_project(request, req.project)
@@ -3000,7 +3052,12 @@ ANSWER RULES:
 - For "how many X" give the count of the matching IFC type. For areas, sum or list the IfcSpace areas as asked. For "what is selected" / "properties of this", use the SELECTED ELEMENT block.
 - If the answer is genuinely not in the model data, say clearly: "That information is not in the current model data" and say what would provide it (e.g. select the element, or the property was not exported to IFC). NEVER fabricate.
 - You ARE able to read this model -- the geometry and properties were extracted from the IFC. Never say you cannot see or open 3D models.
-- Answer concisely. Use markdown (short lists / bold) when it helps a reviewer scan the answer."""
+- Answer concisely. Use markdown (short lists / bold) when it helps a reviewer scan the answer.
+
+SPECIAL VIEWER COMMANDS:
+If the user's query asks you to "show me", "isolate", "hide", or "highlight" specific types of elements in the 3D model, you must append a special command to the very end of your response. 
+Map their request to the correct IFC category (e.g., "walls" -> IFCWALL, "doors" -> IFCDOOR, "windows" -> IFCWINDOW, "lift lobby" -> IFCSPACE, "columns" -> IFCCOLUMN).
+Format exactly like this at the end of your text: [COMMAND:ISOLATE:IFCWALL]"""
 
     msgs = [SystemMessage(content=sys_msg)]
     for m in (req.messages or [])[-4:]:
@@ -3743,6 +3800,19 @@ async def load_project(project: str, chat_id: str, request: Request = None):
     data = db.load_chat(project, chat_id)
     if data is None: raise HTTPException(404, "Not found")
     return data
+
+@app.get("/api/forensics/start/{project_id}/{document_id}")
+async def start_forensics(project_id: str, document_id: str):
+    import intelligence.forensic_engine as fe
+    if project_id == "C3103": project_id = 3
+    elif project_id == "C3085": project_id = 1
+    elif project_id == "C3045": project_id = 2
+    return fe.start_forensic_test(project_id, document_id)
+
+@app.get("/api/forensics/status")
+async def get_forensics_status():
+    import intelligence.forensic_engine as fe
+    return fe.get_forensic_status()
 
 @app.get("/health")
 async def health(project: str = "default"):

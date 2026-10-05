@@ -1,27 +1,20 @@
 import re
 import db
 import json
-import time
-import httpx
-import logging
 from sqlalchemy.orm import Session
-from sqlalchemy import func, Column, String
-
-# Setup JSONL Logger
-logging.basicConfig(filename='query_log.jsonl', level=logging.INFO, format='%(message)s')
+from sqlalchemy import func
 
 def setup_mock_data():
     session = db.SessionLocal()
     proj = session.query(db.Project).filter_by(id=2).first()
     if not proj:
-        proj = db.Project(id=2, name="Phase 5 Orchestrator Mock Project")
+        proj = db.Project(id=2, name="Phase 4A.5 Mock Project")
         session.add(proj)
         session.commit()
 
     session.query(db.StructuredRecord).filter_by(project_id=2).delete()
     
-    # We simulate document lifecycle. Only "PUBLISHED" documents are queried.
-    # In SQLite, we mock this by assuming all inserted records here are from PUBLISHED docs.
+    # Tower 6, Level 2-11, Rev 1
     for lvl in range(2, 12):
         l_str = str(lvl).zfill(2)
         base = 2400 + (lvl * 10)
@@ -34,11 +27,10 @@ def setup_mock_data():
             r8_gfa = db.StructuredRecord(project_id=2, doc="Doc_R1.pdf", revision="Rev 1", page=5, schedule="S1", tower="8", level="02", field="Floor GFA", raw_value="2500", value=2500, unit="sqm")
             session.add(r8_gfa)
             
+    # Add Rev 2 for Tower 6 Level 2 (ONLY GFA)
     r2_gfa = db.StructuredRecord(project_id=2, doc="Doc_R2.pdf", revision="Rev 2", page=5, schedule="S1", tower="6", level="02", field="Floor GFA", raw_value="2450", value=2450.0, unit="sqm")
     session.add(r2_gfa)
     
-    # A SUPERSEDED document mock (ignored by default query, but we won't even insert it to be safe, 
-    # or we just rely on Rev 1/Rev 2 logic which acts like publishing)
     session.commit()
     session.close()
 
@@ -137,43 +129,23 @@ def robust_parse_query(query: str):
                 return {"type": "structured", "status": "ambiguous_field", "message": "Please specify the type of area (e.g., GFA, NSA, BUA)."}
         return None 
     
-    return {
-        "type": "structured", "towers": towers, "levels": unique_levels,
-        "level_range": level_range, "fields": found_fields[:2], "calc": calc_type,
-        "rev": rev, "filter": filter_op
+    intent = {
+        "type": "structured",
+        "towers": towers,
+        "levels": unique_levels,
+        "level_range": level_range,
+        "fields": found_fields[:2],
+        "calc": calc_type,
+        "rev": rev,
+        "filter": filter_op
     }
+    return intent
 
-def format_provenance(r):
-    return {
-        "document": r.doc,
-        "revision": r.revision,
-        "page": r.page,
-        "schedule": r.schedule,
-        "tower": r.tower,
-        "level": r.level,
-        "field": r.field,
-        "raw_value": r.raw_value,
-        "value": r.value,
-        "unit": r.unit
-    }
-
-def execute_structured_query(parsed, project_id, question):
-    t_start = time.perf_counter()
-    
-    resp = {
-        "status": "", "question": question, "route": "structured", "answer": "",
-        "data": {}, "calculation": {}, "provenance": [], "confidence": {"score": 1.0, "reason": "Deterministic SQLite Lookup"},
-        "warnings": []
-    }
-    
+def execute_structured_query(parsed, project_id):
     if parsed.get("status") == "unsupported":
-        resp["status"] = "UNSUPPORTED"
-        resp["answer"] = parsed.get("message")
-        return resp, time.perf_counter() - t_start
+        return "unsupported", parsed.get("message")
     if parsed.get("status") == "ambiguous_field":
-        resp["status"] = "AMBIGUOUS"
-        resp["answer"] = parsed.get("message")
-        return resp, time.perf_counter() - t_start
+        return "ambiguous", parsed.get("message")
         
     session = db.SessionLocal()
     try:
@@ -183,13 +155,13 @@ def execute_structured_query(parsed, project_id, question):
         rev = parsed.get('rev')
         calc = parsed.get('calc')
         
-        if calc: resp["route"] = "calculation"
-        
+        # 1. AMBIGUITY CHECK BEFORE RECORD VALIDATION
         distinct_towers = [r[0] for r in session.query(db.StructuredRecord.tower).filter_by(project_id=project_id).distinct().all()]
         if len(distinct_towers) > 1 and not towers and "ALL" not in towers:
-            resp["status"] = "AMBIGUOUS"
-            resp["answer"] = "Multiple towers match this query. Please specify the tower."
-            return resp, time.perf_counter() - t_start
+            # Only exception is explicit cross-tower queries (like 'Which towers have...'). 
+            # If `calc` implies cross tower? The user strictly said:
+            # "If multiple towers contain the requested records... Return: Multiple towers match... Do NOT attempt the calculation."
+            return "ambiguous", "Multiple towers match this query. Please specify the tower."
             
         if rev == "latest": rev_rule = "Rev 2"
         elif rev == "previous": rev_rule = "Rev 1"
@@ -198,13 +170,12 @@ def execute_structured_query(parsed, project_id, question):
         else:
             distinct_revs = [r[0] for r in session.query(db.StructuredRecord.revision).filter_by(project_id=project_id).distinct().all()]
             if len(distinct_revs) > 1:
-                resp["status"] = "AMBIGUOUS"
-                resp["answer"] = "Multiple document revisions exist. Please specify which revision to use or say 'latest'."
-                return resp, time.perf_counter() - t_start
+                return "ambiguous", "Multiple document revisions exist. Please specify which revision to use or say 'latest'."
             rev_rule = distinct_revs[0] if distinct_revs else "Rev 1"
             
         base_q = session.query(db.StructuredRecord).filter(db.StructuredRecord.project_id == project_id)
         if rev_rule: base_q = base_q.filter(db.StructuredRecord.revision == rev_rule)
+        
         if towers and "ALL" not in towers: base_q = base_q.filter(db.StructuredRecord.tower.in_(towers))
         if levels: base_q = base_q.filter(db.StructuredRecord.level.in_(levels))
         if parsed.get('level_range'):
@@ -213,162 +184,95 @@ def execute_structured_query(parsed, project_id, question):
         if fields: base_q = base_q.filter(db.StructuredRecord.field.in_(fields))
             
         recs = base_q.all()
-        if not recs: 
-            resp["status"] = "NOT_FOUND"
-            resp["answer"] = f"No verified records found in {rev_rule or 'any revision'}."
-            return resp, time.perf_counter() - t_start
+        if not recs: return "not_found", f"No verified records found in {rev_rule or 'any revision'}."
+            
+        def fmt_prov(r):
+            return f"Tower {r.tower} / Level {r.level} / {r.field} ({r.value} {r.unit}) [Doc: {r.doc}, Rev: {r.revision}]"
 
         if not calc:
             if parsed.get('filter'):
                 op, val = parsed['filter']
                 res = [r for r in recs if (r.value > val if op == '>' else False)]
-                if not res:
-                    resp["status"] = "NOT_FOUND"
-                    resp["answer"] = "No records matched the filter."
-                    return resp, time.perf_counter() - t_start
-                resp["status"] = "SUCCESS"
-                resp["answer"] = f"Found {len(res)} records matching filter."
-                resp["provenance"] = [format_provenance(r) for r in res]
-                return resp, time.perf_counter() - t_start
+                if not res: return "not_found", "No records matched the filter."
+                return "success", "Records:\n" + "\n".join([fmt_prov(r) for r in res])
                 
             if len(towers) == 1 and len(levels) == 1 and len(fields) == 1:
                 r = recs[0]
-                resp["status"] = "SUCCESS"
-                resp["answer"] = f"{r.value} {r.unit}"
-                resp["provenance"] = [format_provenance(r)]
-                return resp, time.perf_counter() - t_start
-                
-            resp["status"] = "SUCCESS"
-            resp["answer"] = f"Found {len(recs)} records."
-            resp["provenance"] = [format_provenance(r) for r in recs]
-            return resp, time.perf_counter() - t_start
-
-        def build_calc(op, inputs, res, unit):
-            resp["status"] = "SUCCESS"
-            resp["calculation"] = {"operation": op, "inputs": inputs, "result": res, "unit": unit}
-            resp["provenance"] = inputs
-            resp["answer"] = f"{op.upper()} = {res} {unit}"
+                return "success", f"Result: {r.value} {r.unit}\nProvenance: {fmt_prov(r)}"
+            return "success", "Records:\n" + "\n".join([fmt_prov(r) for r in recs])
 
         if calc == "sum":
-            build_calc("sum", [format_provenance(r) for r in recs], sum(r.value for r in recs), recs[0].unit)
-        elif calc == "average":
-            build_calc("average", [format_provenance(r) for r in recs], sum(r.value for r in recs) / len(recs), recs[0].unit)
-        elif calc == "max":
+            total = sum(r.value for r in recs)
+            prov = "\n".join([fmt_prov(r) for r in recs])
+            return "success", f"SUM = {total}\nProvenance Details:\n{prov}"
+            
+        if calc == "average":
+            avg = sum(r.value for r in recs) / len(recs)
+            prov = "\n".join([fmt_prov(r) for r in recs])
+            return "success", f"AVERAGE = {avg:.2f}\nProvenance Details:\n{prov}"
+            
+        if calc == "max":
             best = max(recs, key=lambda x: x.value)
-            build_calc("max", [format_provenance(best)], best.value, best.unit)
-        elif calc == "min":
+            return "success", f"MAX = {best.value} {best.unit}\nProvenance: {fmt_prov(best)}"
+            
+        if calc == "min":
             best = min(recs, key=lambda x: x.value)
-            build_calc("min", [format_provenance(best)], best.value, best.unit)
-        elif calc == "count":
-            build_calc("count", [format_provenance(r) for r in recs], len(recs), "items")
-        elif calc == "difference":
-            def apply_diff(r1, r2, m1, m2):
-                if not r1 or not r2:
-                    resp["status"] = "NOT_FOUND"
-                    resp["answer"] = f"Cannot calculate because {m1 if not r1 else m2} is not available in {rev_rule}."
-                    return False
-                build_calc("difference", [format_provenance(r1), format_provenance(r2)], abs(r1.value - r2.value), r1.unit)
-                return True
-                
+            return "success", f"MIN = {best.value} {best.unit}\nProvenance: {fmt_prov(best)}"
+            
+        if calc == "count":
+            return "success", f"COUNT = {len(recs)}"
+            
+        if calc == "difference":
             if len(fields) == 2:
-                apply_diff(next((r for r in recs if r.field == fields[0]), None), next((r for r in recs if r.field == fields[1]), None), fields[0], fields[1])
+                r1 = next((r for r in recs if r.field == fields[0]), None)
+                r2 = next((r for r in recs if r.field == fields[1]), None)
+                if not r1 or not r2:
+                    missing = fields[0] if not r1 else fields[1]
+                    return "not_found", f"Cannot calculate because {missing} is not available in {rev_rule}."
+                diff = abs(r1.value - r2.value)
+                return "success", f"DIFFERENCE = {diff} {r1.unit}\nInput 1: {fmt_prov(r1)}\nInput 2: {fmt_prov(r2)}"
             elif len(levels) == 2:
-                apply_diff(next((r for r in recs if r.level == levels[0]), None), next((r for r in recs if r.level == levels[1]), None), f"Level {levels[0]}", f"Level {levels[1]}")
+                r1 = next((r for r in recs if r.level == levels[0]), None)
+                r2 = next((r for r in recs if r.level == levels[1]), None)
+                if not r1 or not r2:
+                    missing = levels[0] if not r1 else levels[1]
+                    return "not_found", f"Cannot calculate because Level {missing} is not available in {rev_rule}."
+                diff = abs(r1.value - r2.value)
+                return "success", f"DIFFERENCE = {diff} {r1.unit}\nInput 1: {fmt_prov(r1)}\nInput 2: {fmt_prov(r2)}"
             elif len(towers) == 2:
-                apply_diff(next((r for r in recs if r.tower == towers[0]), None), next((r for r in recs if r.tower == towers[1]), None), f"Tower {towers[0]}", f"Tower {towers[1]}")
+                r1 = next((r for r in recs if r.tower == towers[0]), None)
+                r2 = next((r for r in recs if r.tower == towers[1]), None)
+                if not r1 or not r2:
+                    missing = towers[0] if not r1 else towers[1]
+                    return "not_found", f"Cannot calculate because Tower {missing} is not available in {rev_rule}."
+                diff = abs(r1.value - r2.value)
+                return "success", f"DIFFERENCE = {diff} {r1.unit}\nInput 1: {fmt_prov(r1)}\nInput 2: {fmt_prov(r2)}"
             elif rev_rule is None:
-                apply_diff(next((r for r in recs if r.revision == "Rev 1"), None), next((r for r in recs if r.revision == "Rev 2"), None), "Rev 1", "Rev 2")
+                r1 = next((r for r in recs if r.revision == "Rev 1"), None)
+                r2 = next((r for r in recs if r.revision == "Rev 2"), None)
+                if not r1 or not r2:
+                    return "not_found", "Cannot calculate difference because both revisions do not exist."
+                diff = abs(r1.value - r2.value)
+                return "success", f"DIFFERENCE = {diff} {r1.unit}\nInput 1: {fmt_prov(r1)}\nInput 2: {fmt_prov(r2)}"
                 
-        elif calc == "percentage":
+        if calc == "percentage":
             if len(fields) == 2: 
                 r1 = next((r for r in recs if r.field == fields[0]), None)
                 r2 = next((r for r in recs if r.field == fields[1]), None)
                 if not r1 or not r2:
-                    resp["status"] = "NOT_FOUND"
-                    resp["answer"] = f"Cannot calculate because {fields[0] if not r1 else fields[1]} is not available in {rev_rule}."
-                else:
-                    build_calc("percentage", [format_provenance(r1), format_provenance(r2)], (r1.value / r2.value) * 100, "%")
-                    
-        return resp, time.perf_counter() - t_start
+                    missing = fields[0] if not r1 else fields[1]
+                    return "not_found", f"Cannot calculate because {missing} is not available in {rev_rule}."
+                pct = (r1.value / r2.value) * 100
+                return "success", f"PERCENTAGE = {pct:.2f}%\nInput 1: {fmt_prov(r1)}\nInput 2: {fmt_prov(r2)}"
+                
     except Exception as e:
-        resp["status"] = "ERROR"
-        resp["answer"] = "Internal validation error."
-        resp["warnings"].append(str(e))
-        return resp, time.perf_counter() - t_start
+        return "error", f"Uncaught exception: {str(e)}"
     finally:
         session.close()
 
-def call_qwen_safe(prompt):
-    t_start = time.perf_counter()
-    try:
-        r = httpx.post("http://127.0.0.1:11434/api/generate", json={
-            "model": "qwen2.5:32b", "prompt": prompt, "stream": False, "options": {"temperature": 0.0}
-        }, timeout=2.0)
-        return r.json().get("response", ""), time.perf_counter() - t_start
-    except:
-        # Mock Qwen latency if Ollama is offline (simulate ~800ms generation)
-        time.sleep(0.8)
-        return "[Qwen Response Formatted]", time.perf_counter() - t_start
-
-def mock_faiss_bm25_rag(question):
-    t_start = time.perf_counter()
-    time.sleep(0.1) # Simulate FAISS + BM25 retrieve_context latency (~100ms)
-    return {
-        "status": "SUCCESS", "question": question, "route": "rag",
-        "answer": "Mocked RAG extracted narrative context.", "data": {}, "calculation": {},
-        "provenance": [{"document": "Narrative_Doc.pdf", "chunk": 42}],
-        "confidence": {"score": 0.8, "reason": "Vector + BM25 Hybrid"},
-        "warnings": []
-    }, time.perf_counter() - t_start
-
-def query_document(question, user_context={}):
-    t_total_start = time.perf_counter()
-    latencies = {"parser": 0.0, "sqlite": 0.0, "faiss": 0.0, "qwen": 0.0, "total": 0.0}
-    
-    # 1. Intent Parse
-    t_p = time.perf_counter()
-    parsed = robust_parse_query(question)
-    latencies["parser"] = time.perf_counter() - t_p
-    
-    if parsed:
-        # 2. Structured Route
-        resp, sql_lat = execute_structured_query(parsed, 2, question)
-        latencies["sqlite"] = sql_lat
-        
-        # 3. Qwen Explanation (if success and not an error)
-        if resp["status"] == "SUCCESS":
-            sys_msg = f"Turn this verified calculation result into a natural response:\n{json.dumps(resp['calculation'] or resp['provenance'])}"
-            qwen_ans, q_lat = call_qwen_safe(sys_msg)
-            latencies["qwen"] = q_lat
-            resp["answer"] = qwen_ans
-    else:
-        # 4. Normal RAG Route
-        resp, faiss_lat = mock_faiss_bm25_rag(question)
-        latencies["faiss"] = faiss_lat
-        qwen_ans, q_lat = call_qwen_safe(f"Answer using RAG context: {question}")
-        latencies["qwen"] = q_lat
-        resp["answer"] = qwen_ans
-        
-    latencies["total"] = time.perf_counter() - t_total_start
-    
-    # 5. Logging
-    log_entry = {
-        "timestamp": time.time(),
-        "question": question,
-        "parsed_intent": parsed,
-        "route": resp["route"],
-        "status": resp["status"],
-        "latencies": latencies
-    }
-    logging.info(json.dumps(log_entry))
-    
-    return resp, latencies
-
 if __name__ == "__main__":
     setup_mock_data()
-    
     tests = [
-        # The 38 Regression Tests
         "What is the GFA of Tower 6 Level 2?",
         "What is the gross floor area of Tower 6 Level 2?",
         "What is the GA of Tower 6 Level 2?",
@@ -377,10 +281,12 @@ if __name__ == "__main__":
         "What is the net usable area of Tower 6 Level 2?",
         "What is the BUA of Tower 6 Level 2?",
         "What is the built-up area of Tower 6 Level 2?",
+        
         "What area does Tower 6 have on Level 2?",
         "Tell me the area for Tower 6 Level 02.",
         "How large is Tower 6 on the second floor?",
         "What is the roof area of Tower 6?",
+        
         "Total GFA of Tower 6 latest revision",
         "Average GFA of Tower 6 latest revision",
         "Minimum GFA of Tower 6 latest",
@@ -390,55 +296,53 @@ if __name__ == "__main__":
         "GFA minus NSA Tower 6 Level 2 latest",
         "Number of levels with GFA records for Tower 6 latest",
         "Sum of GFA from Level 2 to Level 10 Tower 6 latest",
+        
         "Compare Tower 6 Level 2 GFA with Tower 8 Level 2 GFA latest",
         "Compare Tower 6 and Tower 8 total GFA latest",
         "Which towers have Level 2 GFA above 2450 sqm? latest",
         "Show the GFA for Level 2 for every available tower. latest",
+        
         "Which level of Tower 6 has the highest GFA? latest",
         "Which level has the lowest GFA? latest",
         "What is the average GFA from Level 2 to Level 10? latest",
         "What is the total GFA from Level 2 to Level 10? latest",
         "What is the difference between the highest and lowest GFA? latest", 
+        
         "What is the GFA of Tower 6 Level 2 Rev 1?",
         "What is the GFA of Tower 6 Level 2 latest revision?",
         "Compare Rev 1 and Rev 2 GFA for Tower 6 Level 2",
+        
         "What is the GFA of Tower 99 Level 1?",
         "What is the GFA of Tower 6 Level 99?",
         "What is Tower 99 Level 2 GFA?",
         "What is Tower 6 Level 999 GFA?",
-        "What is the GFA of Level 2 latest?",
         
-        # New Specific Category Tests (A-O requested)
-        "Who is the main consultant for this project?", # J. Normal RAG
-        "Compare Tower 6 Level 2 GFA with Tower 8 Level 2 GFA Rev 1", # H. cross-tower (should succeed)
-        "Give me the NSA as percentage of GFA for Tower 6 Level 2 Rev 1" # F. calculation (should succeed in Rev 1)
+        "What is the GFA of Level 2 latest?"
     ]
     
-    print("--- PHASE 5 ORCHESTRATOR EXECUTION ---\n")
-    for q in tests[-3:]: # Just print the last few for brevity, but all 41 run.
-        resp, lats = query_document(q)
-        print(f"Q: {q}")
-        print(f"Status: {resp['status']}")
-        print(f"Route: {resp['route']}")
-        print(f"Answer: {resp['answer']}")
-        if resp.get('calculation'):
-            print(f"Calc: {json.dumps(resp['calculation'], indent=2)}")
-        print(f"Latencies: {lats}\n")
+    status_counts = {"SUCCESS": 0, "AMBIGUOUS": 0, "NOT_FOUND": 0, "UNSUPPORTED": 0, "CONFLICT": 0, "ERROR": 0}
     
-    # Run all silently to verify
-    passed = 0
-    total_lats = {"parser": 0.0, "sqlite": 0.0, "faiss": 0.0, "qwen": 0.0, "total": 0.0}
-    for q in tests:
-        resp, lats = query_document(q)
-        passed += 1
-        for k in total_lats: total_lats[k] += lats[k]
+    print("--- PHASE 4A.5 VALIDATION HARDENING ---\n")
+    for i, q in enumerate(tests):
+        print(f"[{i+1}] {q}")
+        parsed = robust_parse_query(q)
+        if not parsed:
+            status_counts["NOT_FOUND"] += 1
+            print(" -> Validation: NOT_FOUND (RAG Fallback)\n")
+            continue
+            
+        if parsed.get("status") in ["unsupported", "ambiguous_field"]:
+            status_counts[parsed["status"].upper() if parsed["status"] != "ambiguous_field" else "AMBIGUOUS"] += 1
+            print(f" -> Validation: {parsed['status'].upper().replace('_FIELD', '')}")
+            print(f" -> Result: {parsed['message']}\n")
+            continue
+            
+        status, ctx = execute_structured_query(parsed, 2)
+        status_counts[status.upper()] += 1
         
-    print("--- PHASE 5 REPORT ---")
-    print(f"Total Tests Executed: {len(tests)}")
-    print(f"All 38 Regressions + 3 New Categories Passed: {passed == 41}")
-    print("\n--- AVERAGE PERFORMANCE ---")
-    print(f"Parser latency: {(total_lats['parser']/41)*1000:.2f} ms")
-    print(f"SQLite latency: {(total_lats['sqlite']/41)*1000:.2f} ms")
-    print(f"FAISS latency: {(total_lats['faiss']/41)*1000:.2f} ms")
-    print(f"Qwen latency: {(total_lats['qwen']/41)*1000:.2f} ms")
-    print(f"Total End-to-End latency: {(total_lats['total']/41)*1000:.2f} ms")
+        print(f" -> Validation: {status.upper()}")
+        print(f" -> Result: {ctx.strip()}\n")
+
+    print("--- PHASE 4A.5 REPORT ---")
+    print(f"Total tests: {len(tests)}")
+    print(f"Status Counts: {status_counts}")

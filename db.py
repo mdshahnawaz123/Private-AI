@@ -88,6 +88,25 @@ class Chat(Base):
     project = relationship("Project", back_populates="chats")
     __table_args__ = (UniqueConstraint("project_id", "chat_id", name="uq_chat_project_chatid"),)
 
+class Annotation(Base):
+    __tablename__ = "annotations"
+    id = Column(String, primary_key=True)
+    document_id = Column(String, index=True)
+    drawing = Column(String)
+    annotation_type = Column(String)
+    x = Column(Float)
+    y = Column(Float)
+    width = Column(Float)
+    height = Column(Float)
+    page_number = Column(Integer)
+    author = Column(String)
+    timestamp = Column(Float)
+    comment_text = Column(String)
+    status = Column(String, default="OPEN")
+    revision = Column(String)
+    created_at = Column(Float)
+    updated_at = Column(Float)
+    
 class Document(Base):
     __tablename__ = "documents"
     id = Column(Integer, primary_key=True)
@@ -922,6 +941,32 @@ class Schedule(Base):
     created_at = Column(DateTime, default=_utcnow)
 
 
+
+class StructuredRecord(Base):
+    __tablename__ = "structured_records"
+    id = Column(Integer, primary_key=True, index=True)
+    project_id = Column(Integer, ForeignKey("projects.id", ondelete="CASCADE"), index=True)
+    doc = Column(String, index=True)
+    revision = Column(String)
+    page = Column(Integer)
+    schedule = Column(String)
+    tower = Column(String, index=True)
+    level = Column(String, index=True)
+    field = Column(String, index=True)
+    raw_value = Column(String)
+    value = Column(Float)
+    unit = Column(String)
+    row_idx = Column(Integer)
+    col_idx = Column(Integer)
+    source_bbox = Column(String)
+    # Phase 5A: Additive visual extraction
+    entity = Column(String)
+    row_label = Column(String)
+    column_label = Column(String)
+    confidence = Column(String, default="HIGH")
+    extraction_method = Column(String, default="DIGITAL")
+    source_type = Column(String, default="PDF_TEXT")
+
 class ScheduleRow(Base):
     """Individual schedule rows with typed fields."""
     __tablename__ = "schedule_rows"
@@ -1073,3 +1118,42 @@ def init_knowledge_tables():
     """Create Phase 0 Knowledge Hub tables. Idempotent."""
     Base.metadata.create_all(engine)
     logger.info("Knowledge Hub tables initialized")
+
+class PageRecord(Base):
+    __tablename__ = "page_records"
+    id = Column(Integer, primary_key=True, index=True)
+    project_id = Column(Integer, ForeignKey("projects.id", ondelete="CASCADE"), index=True)
+    document_filename = Column(String, index=True)
+    page_number = Column(Integer, index=True)
+    page_status = Column(String, default="PENDING")
+    text_extracted = Column(Integer, default=0)
+    native_table_count = Column(Integer, default=0)
+    image_count = Column(Integer, default=0)
+    ocr_status = Column(String, default="PENDING")
+    vision_status = Column(String, default="PENDING")
+    structured_record_count = Column(Integer, default=0)
+    rag_chunk_count = Column(Integer, default=0)
+    processing_started = Column(DateTime)
+    processing_completed = Column(DateTime)
+    processing_error = Column(String)
+
+class ImageRecord(Base):
+    __tablename__ = "image_records"
+    id = Column(Integer, primary_key=True, index=True)
+    project_id = Column(Integer, ForeignKey("projects.id", ondelete="CASCADE"), index=True)
+    document_filename = Column(String, index=True)
+    page_number = Column(Integer, index=True)
+    image_id = Column(String, index=True)
+    image_index = Column(Integer)
+    image_path = Column(String)
+    width = Column(Integer)
+    height = Column(Integer)
+    image_type = Column(String, default="UNKNOWN")
+    ocr_text = Column(String)
+    visual_description = Column(String)
+    ocr_status = Column(String, default="PENDING")
+    vision_status = Column(String, default="PENDING")
+    structured_extraction_status = Column(String, default="PENDING")
+    confidence = Column(Float)
+    processing_error = Column(String)
+    created_at = Column(DateTime)

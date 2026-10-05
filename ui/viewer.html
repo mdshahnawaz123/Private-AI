@@ -97,10 +97,7 @@
   .poscard .pcname{font-weight:700;margin-bottom:6px}
   .poscard select{width:100%;background:var(--panel2);color:var(--text);border:1px solid var(--border);border-radius:7px;padding:5px 6px;font-size:12px;margin-bottom:6px}
   .poscard .pchint{font-size:11px;color:var(--muted);margin-bottom:6px}
-  #aiFab{position:absolute;right:16px;top:16px;z-index:7;background:var(--mint);color:#062018;border:none;border-radius:22px;padding:9px 16px;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;box-shadow:0 6px 20px rgba(49,208,165,.35);display:flex;align-items:center;gap:7px}
-  #aiFab:hover{filter:brightness(1.07)}
-  #aiFab .fabdot{width:8px;height:8px;border-radius:50%;background:#062018;opacity:.7}
-  #aiPanel.open ~ #aiFab, #aiFab.hidden{display:none}
+  #aiFab{display:none !important}
   /* left-panel resizer */
   #wrap{position:relative}
   #leftResizer{position:absolute;top:48px;bottom:0;left:var(--leftw,230px);width:6px;margin-left:-3px;cursor:col-resize;z-index:9;background:transparent}
@@ -280,7 +277,6 @@
   <div id="view">
     <div id="loading">Loading engine…</div>
     <div id="err"></div>
-    <button id="aiFab"><span class="fabdot"></span>Ask AI</button>
     <div id="measureDock">
       <button class="mtBtn" id="btnLen" title="Length"><svg viewBox="0 0 24 24"><circle cx="5" cy="19" r="2"/><circle cx="19" cy="5" r="2"/><line x1="6.4" y1="17.6" x2="17.6" y2="6.4"/></svg></button>
       <button class="mtBtn" id="btnAngle" title="Angle"><svg viewBox="0 0 24 24"><path d="M4 20V4"/><path d="M4 20h16"/><path d="M8 20a8 8 0 0 1 2-7"/></svg></button>
@@ -411,7 +407,7 @@
     <div id="aiPanel">
       <div id="aiHead"><span><span class="dotai">●</span>Ask AI about this model</span><span id="aiClose">✕</span></div>
       <div id="aiMsgs"></div>
-      <div id="aiTip">Grounded only in this model's IFC data. Try: "how many columns?", "list the levels", "total space area", "what is selected?"</div>
+      <div id="aiTip">Document QA Engine. Ask questions across published documents and tables. Try: "What is Tower 6 Level 2 GFA?" or "Compare Tower 6 and 8 GFA".</div>
       <label id="aiSelWrap"><input type="checkbox" id="aiInclSel" checked> include the selected element's properties</label>
       <div id="aiInputRow">
         <textarea id="aiInput" rows="2" placeholder="Ask about counts, levels, spaces, areas, or the selected element…"></textarea>
@@ -450,8 +446,18 @@
 })();
 </script>
 <script type="importmap">
-{ "imports": { "three": "/ui/vendor/three.module.js" } }
+{
+  "imports": {
+    "three": "/ui/vendor_fragments/three.module.js",
+    "three/examples/jsm/lines/Line2.js": "/ui/vendor_fragments/examples/jsm/lines/Line2.js",
+    "three/examples/jsm/lines/LineMaterial.js": "/ui/vendor_fragments/examples/jsm/lines/LineMaterial.js",
+    "three/examples/jsm/lines/LineGeometry.js": "/ui/vendor_fragments/examples/jsm/lines/LineGeometry.js",
+    "web-ifc": "/ui/vendor_fragments/web-ifc-api.js"
+  }
+}
 </script>
-<script type="module" src="/ui/viewer.js?v=31"></script>
+<script type="module" src="/ui/viewer_fragments.js?v=14"></script>
 </body>
 </html>
+
+

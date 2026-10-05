@@ -280,7 +280,7 @@ def _resolve_project_id(project_id):
 
 # ── Phase 2: Structured Table Extraction ───────────────────
 
-def parse_generic_tables(text, source_doc="", page=None, revision=""):
+def parse_generic_tables(text, source_doc="", page=None, revision="", source_type="PDF_TEXT"):
     """Parse markdown-style tables (| a | b | ...) from vision/extraction text into
     structured rows. table_name = the nearest heading line above the block. This is
     general-purpose: it captures area, parking, lift, unit-mix and any other table
@@ -320,7 +320,7 @@ def parse_generic_tables(text, source_doc="", page=None, revision=""):
                         vals[col] = r[ci]
                     rows.append({"doc": source_doc, "page": page,
                                  "table_name": last_heading or (header[0] if header else "Table"),
-                                 "row_key": key, "row_values": vals, "revision": revision})
+                                 "row_key": key, "row_values": vals, "revision": revision, "source_type": source_type})
             i = j
             continue
         s2 = ln.strip().strip("#").strip()
@@ -376,11 +376,15 @@ def extract_structured_tables_from_pdf(meta: Dict[str, Any],
                 })
 
         # General tables from the clean vision transcription (preferred) or text layer.
+        has_vision = bool(page.get("tables") or page.get("vision"))
         _tbl_src = page.get("tables") or page.get("vision") or ""
         if "|" not in _tbl_src:
             _tbl_src = text if ("|" in text) else ""
+            has_vision = False
+        
         if _tbl_src:
-            rows.extend(parse_generic_tables(_tbl_src, filename, page_num, meta.get("revision", "")))
+            stype = "PDF_IMAGE" if has_vision else "PDF_TEXT"
+            rows.extend(parse_generic_tables(_tbl_src, filename, page_num, meta.get("revision", ""), source_type=stype))
 
         # Detect legend codes (e.g., LX-PT, 1 BED-A, etc.)
         legend_pattern = r'\b([A-Z]{1,3}-[A-Z]{1,3})\b'
@@ -624,4 +628,112 @@ def index_quantities(project_id, filename: str,
             db_session.close()
 
     logger.info("Indexed {} quantities for {}", count, filename)
+    return count
+
+
+def index_visual_structured_records(project_id, filename: str, meta: Dict[str, Any]) -> int:
+    """
+    Phase 5A: Additive visual extraction branch for StructuredRecord.
+    Reads vision markdown from meta, normalizes it, and stores it in StructuredRecord.
+    """
+    import db
+    import re
+    project_id = _resolve_project_id(project_id)
+    if project_id is None: return 0
+
+    count = 0
+    _mtype = meta.get("type")
+    if _mtype != "pdf": return 0
+    
+    # We only process pages where vision was used (e.g. source_type == "PDF_IMAGE")
+    # Actually, we can just process all tables in meta that are from vision.
+    
+    # Let's extract the rows using our existing parse_generic_tables
+    rows = []
+    for page in meta.get("pages", []):
+        vis = page.get("vision", "")
+        if "|" in vis:
+            page_num = page.get("page")
+            # Parse it
+            r = parse_generic_tables(vis, filename, page_num, meta.get("revision", ""), source_type="PDF_IMAGE")
+            rows.extend(r)
+            
+    if not rows:
+        return 0
+
+    db_session = db.SessionLocal()
+    try:
+        # We don't blindly delete all StructuredRecords for the doc, because digital extraction
+        # might have also populated it (e.g. run_structured_record_extraction). 
+        # But wait, does the system run run_structured_record_extraction automatically? No!
+        # So we should delete ONLY the visual ones? Or all? Let's delete visual ones.
+        db_session.query(db.StructuredRecord).filter_by(
+            project_id=project_id, doc=filename, extraction_method="VISION"
+        ).delete()
+        db_session.commit()
+    except Exception:
+        db_session.rollback()
+
+    for r in rows:
+        table_name = r.get("table_name", "")
+        row_key = r.get("row_key", "")
+        vals = r.get("row_values", {})
+        
+        # Normalize into StructuredRecord
+        # Torsional Irregularity: table_name="Torsional Irregularity"
+        # row_key="Left Part", vals={"direction": "X", "ratio": "1.009", ...}
+        
+        # Determine entity
+        entity = row_key
+        # Check if it has tower/level for backwards compatibility
+        tower = ""
+        level = ""
+        t_match = re.search(r'TOWER\s*(\d+)', entity, re.IGNORECASE)
+        if t_match:
+            tower = t_match.group(1)
+        l_match = re.search(r'(LEVEL\s*\d+|ROOF)', entity, re.IGNORECASE)
+        if l_match:
+            level = l_match.group(1)
+            
+        for col, raw_val in vals.items():
+            if not raw_val or str(raw_val).strip() == "-": continue
+            # Attempt to parse float
+            val = None
+            raw_clean = str(raw_val).replace(',', '').strip()
+            try:
+                val = float(raw_clean)
+            except ValueError:
+                pass
+                
+            rec = db.StructuredRecord(
+                project_id=project_id,
+                doc=r["doc"],
+                revision=r.get("revision", ""),
+                page=r.get("page"),
+                schedule=table_name,
+                tower=tower,
+                level=level,
+                field=col,
+                raw_value=str(raw_val),
+                value=val,
+                unit=None,  # Unit parsing could be added if needed
+                entity=entity,
+                row_label=row_key,
+                column_label=col,
+                confidence="HIGH",
+                extraction_method="VISION",
+                source_type=r.get("source_type", "PDF_IMAGE")
+            )
+            db_session.add(rec)
+            count += 1
+            
+    try:
+        db_session.commit()
+    except Exception as e:
+        logger.error(f"Failed to commit visual structured records: {e}")
+        db_session.rollback()
+    finally:
+        db_session.close()
+
+    logger.info("Indexed {} visual structured records for {}", count, filename)
     return count

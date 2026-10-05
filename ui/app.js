@@ -290,7 +290,7 @@ function loadModels(relList){
   if(chosen.length>8 && !confirm(`Open ${chosen.length} models together? Large federated sets can be slow to parse and memory-heavy. Continue?`)) return;
   loadedRels = new Set(chosen);
   const rels=chosen.map(r=>'rel='+encodeURIComponent(r)).join('&');
-  const url=`/ui/viewer.html?embed=1&project=${encodeURIComponent(currentProject)}&token=${encodeURIComponent(authToken||'')}&${rels}`;
+  const url=`/ui/viewer.html?v=24&embed=1&project=${encodeURIComponent(currentProject)}&token=${encodeURIComponent(authToken||'')}&${rels}`;
   $('vpEmpty').style.display='none'; $('viewerFrame').style.display='block'; $('viewerFrame').src=url; viewerLoaded=true;
 }
 // PRIMARY engine: the Fragments viewer (fast .frag loading + federation). This
@@ -303,7 +303,7 @@ function openFragments(relList){
   loadedRels = new Set(chosen);
   navigate('design');
   const rels=chosen.map(r=>'rel='+encodeURIComponent(r)).join('&');
-  const url=`/ui/viewer_frag.html?v=13&embed=1&project=${encodeURIComponent(currentProject)}&token=${encodeURIComponent(authToken||'')}&${rels}`;
+  const url=`/ui/viewer.html?v=24&embed=1&project=${encodeURIComponent(currentProject)}&token=${encodeURIComponent(authToken||'')}&${rels}`;
   $('vpEmpty').style.display='none'; $('viewerFrame').style.display='block'; $('viewerFrame').src=url; viewerLoaded=true;
 }
 // Open exactly the models ticked in the Models table (Fragments engine).
@@ -515,7 +515,7 @@ function _schedQtyHTML(qty){
 async function renderSchedules(b){
   b.innerHTML=`<div class="ws-scroll" id="schBody">${state('Loading schedules…','load')}</div>`;
   const canUp=canUpload();
-  const uploadBtn=canUp ? `<button class="primary" id="schUploadBtn">${svg('<path d="M12 3v12m0-12 5 5m-5-5-5 5M5 21h14"/>')} Upload data file</button>` : '';
+  const uploadBtn=''; // Removed per request
   try{
     const r=await fetch(`${API}/api/v1/projects/${encodeURIComponent(currentProject)}/schedules`);
     const d=await r.json();
@@ -527,9 +527,7 @@ async function renderSchedules(b){
     const rows=(d.rows||[]).filter(row=>schedFiles.has(row.doc));
     const qty=(d.quantities||[]).filter(q=>schedFiles.has(q.source_doc));
     if(!rows.length && !qty.length){
-      const emptyMsg=canUp
-        ? 'Nothing uploaded into Schedules yet. Click "Upload data file" above (Excel, CSV, PDF or Word) and it will be parsed into clean tables here automatically — pick a table from the list and view its data in detail. This view only shows files uploaded here, not every document in the project.'
-        : 'Nothing uploaded into Schedules yet. Ask an admin or project lead to upload a schedule file (Excel, CSV, PDF or Word) and it will appear here automatically.';
+      const emptyMsg='Nothing uploaded into Schedules yet. Schedule data is extracted automatically from project documents by the backend process.';
       b.innerHTML=(canUp?`<div class="ws-scroll"><div class="dt-toolbar">${uploadBtn}</div>`:'<div class="ws-scroll">')+state(emptyMsg)+`</div>`;
       const ub=$('schUploadBtn'); if(ub) ub.onclick=pickScheduleUpload;
       return;
@@ -950,12 +948,29 @@ async function stream(display,endpoint,body){ const bub=addMsg('a','<span class=
         else if(d.type==='error'){ ans+='\n[error] '+d.message; bub.innerHTML=mdLite(ans); }
         else if(d.type==='structured'){ structured=d.data||null; }
       } }
-    // Show only the sources the answer actually cited
-    { const hasCites=/\[SOURCE:/i.test(ans); const cited=citedSources(ans,lastSources);
-      const showSrc = hasCites ? cited : lastSources;
-      lastUsedSources = showSrc;
-      bub._ev = evHTML(showSrc);
-      bub.innerHTML = mdLite(ans)+bub._ev; }
+    // Handle 3D Viewer AI Commands
+      let displayAns = ans;
+      const cmdRegex = /\[COMMAND:([A-Z_]+):([^\]]+)\]/gi;
+      let match;
+      while ((match = cmdRegex.exec(displayAns)) !== null) {
+          const cmdType = match[1].toLowerCase();
+          const cmdArg = match[2].trim();
+          displayAns = displayAns.replace(match[0], '').trim();
+          
+          if (cmdType === 'isolate' && window.currentDest === 'design') {
+              const vf = document.querySelector('.viewer iframe');
+              if (vf && vf.contentWindow) {
+                  vf.contentWindow.postMessage({ type: 'viewer_command', command: 'isolate', category: cmdArg }, '*');
+              }
+          }
+      }
+
+      // Show only the sources the answer actually cited
+      { const hasCites=/\[SOURCE:/i.test(displayAns); const cited=citedSources(displayAns,lastSources);
+        const showSrc = hasCites ? cited : lastSources;
+        lastUsedSources = showSrc;
+        bub._ev = evHTML(showSrc);
+        bub.innerHTML = mdLite(displayAns)+bub._ev; }
     if(!ans&&!bub._ev) bub.innerHTML='<span class="faint">(no answer)</span>';
     // Response Rendering Engine (additive): for document analysis / tables / metrics /
     // calculations / issues answers, replace the plain bubble with the trusted structured
@@ -1146,3 +1161,4 @@ function initAppResizers(){
   if(sbH) sbH.ondblclick=()=>{ root.style.setProperty('--sb','248px'); try{localStorage.setItem('expo_sb_w','248');}catch(_){ } };
   if(aiH) aiH.ondblclick=()=>{ root.style.setProperty('--ai','360px'); try{localStorage.setItem('expo_ai_w','360');}catch(_){ } };
 }
+

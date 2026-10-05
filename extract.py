@@ -144,8 +144,18 @@ def extract_pdf(path, vision_fn=None, render_dir=None, deep=True, smart=True,
             geo = ""
         vis = ""
         # Vision only when the page has (almost) no text layer — a scan/rendering.
-        # Text-layer pages are handled fast & accurately by geometry tables above.
-        want_vision = bool(deep and vision_fn and render_dir) and (not smart or len(text) < min_chars)
+        # detect if page has significant embedded images (e.g. screenshot tables)
+        has_large_image = False
+        try:
+            for img in page.get_images(full=True):
+                if img[2] * img[3] > 50000:  # > 50k pixels
+                    has_large_image = True
+                    break
+        except:
+            pass
+
+        want_vision = bool(deep and vision_fn and render_dir) and (not smart or len(text) < min_chars or has_large_image)
+
         if want_vision:
             try:
                 import os as _os

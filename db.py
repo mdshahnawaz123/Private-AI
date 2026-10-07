@@ -42,6 +42,7 @@ if DATABASE_URL.startswith("sqlite"):
         cur = dbapi_conn.cursor()
         cur.execute("PRAGMA journal_mode=WAL;")
         cur.execute("PRAGMA foreign_keys=ON;")
+        cur.execute("PRAGMA busy_timeout=30000;")
         cur.close()
 
 SessionLocal = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False, future=True)
@@ -61,6 +62,7 @@ class User(Base):
     email = Column(String(200), default="")
     role = Column(String(40), default="reviewer")        # reviewer | lead | admin
     password_hash = Column(String(255), nullable=True)   # set when login lands (Phase 5)
+    auth_version = Column(Integer, default=0, nullable=False)
     is_active = Column(Integer, default=1)
     created_at = Column(DateTime, default=_utcnow)
 
@@ -151,6 +153,10 @@ class AuditLog(Base):
 # ── init / migration ───────────────────────────────────────
 def init_db():
     Base.metadata.create_all(engine)
+    from sqlalchemy import inspect
+    if 'auth_version' not in {column['name'] for column in inspect(engine).get_columns('users')}:
+        with engine.begin() as conn:
+            conn.exec_driver_sql('ALTER TABLE users ADD COLUMN auth_version INTEGER NOT NULL DEFAULT 0')
     try:
         with engine.begin() as conn:
             conn.exec_driver_sql("ALTER TABLE documents ADD COLUMN status VARCHAR(20) DEFAULT 'ready'")
@@ -408,7 +414,7 @@ class ProjectMember(Base):
 
 def _user_dict(u):
     return {"id": u.id, "username": u.username, "full_name": u.full_name or "",
-            "email": u.email or "", "role": u.role, "is_active": bool(u.is_active),
+            "email": u.email or "", "role": u.role, "is_active": bool(u.is_active), 'auth_version':u.auth_version or 0,
             "created_at": u.created_at.isoformat() if u.created_at else None}
 
 def get_user_by_username(username):
@@ -445,7 +451,9 @@ def set_user_password(uid, password_hash, by=None):
         u = s.get(User, uid)
         if not u:
             return False
-        u.password_hash = password_hash; s.commit(); un = u.username
+        u.password_hash = password_hash
+        u.auth_version = (u.auth_version or 0) + 1
+        s.commit(); un = u.username
     audit("user.password", target=un, user=by or SYSTEM_USER)
     return True
 

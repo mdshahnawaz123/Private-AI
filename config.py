@@ -5,8 +5,9 @@ Uses pydantic-settings for environment-based configuration.
 All paths relative to EXPO_DATA_DIR. No hardcoded machine-specific paths.
 """
 import os
-from typing import List, Optional
-from pydantic_settings import BaseSettings
+from typing import List, Optional, Annotated
+from pydantic_settings import BaseSettings, SettingsConfigDict, NoDecode
+from pydantic import field_validator
 
 
 class Settings(BaseSettings):
@@ -15,7 +16,7 @@ class Settings(BaseSettings):
     # Server
     host: str = "127.0.0.1"
     port: int = 8090
-    cors_origins: List[str] = []
+    cors_origins: Annotated[List[str], NoDecode] = []
 
     # Database
     database_url: str = ""
@@ -39,7 +40,7 @@ class Settings(BaseSettings):
     # Wave 1: Model tiering
     worker_model: str = "qwen2.5vl:7b"
     author_model: str = "qwen2.5vl:7b"
-    chat_model: str = "qwen2.5vl:7b"  # fast model for answering/chat; vision+upload still use the 32B
+    chat_model: str = "qwen3.5:9b"  # Installed text model; vision uses vision_model separately.
     enable_model_tiering: bool = False
     rerank_candidates: int = 20
     rerank_keep: int = 5
@@ -55,6 +56,7 @@ class Settings(BaseSettings):
     enable_structured_tables: bool = True  # extract EVERY table (area/parking/lift/unit-mix) as structured rows for exact lookup
     enable_quantities_store: bool = True  # capture numeric quantities as structured data
     enable_self_check: bool = False  # Phase 2: worker model self-check for answer verification
+    enable_legacy_schedule_context: bool = False  # Legacy flat grids can lose column/entity alignment.
     not_found_threshold: float = 0.0  # Phase 2 FIX: 0.3 was miscalibrated for bge-reranker-v2-m3 (relevant chunks score ~0.01-0.06), which silently discarded valid retrievals. 0.0 disables the score-gate; honest "not found" is still handled by the answer prompt. Recalibrate later with eval data.
 
     # Accurate extraction: run the vision model (qwen2.5vl:7b) on EVERY PDF page
@@ -93,10 +95,22 @@ class Settings(BaseSettings):
     log_rotation: str = "10 MB"
     log_retention: str = "60 days"
 
-    class Config:
-        env_prefix = "EXPO_"
-        env_file = ".env"
-        env_file_encoding = "utf-8"
+    model_config = SettingsConfigDict(env_prefix='EXPO_',env_file='.env',env_file_encoding='utf-8',extra='ignore')
+
+    @field_validator('cors_origins', mode='before')
+    @classmethod
+    def parse_origins(cls,value):
+        if isinstance(value,str):
+            import json
+            return json.loads(value) if value.strip().startswith('[') else [v.strip() for v in value.split(',') if v.strip()]
+        return value
+
+    @field_validator('chat_model','vision_model','worker_model','author_model','fast_llm')
+    @classmethod
+    def permitted_model(cls,value):
+        if value not in {'qwen2.5:7b','qwen2.5vl:7b','qwen3.5:9b'}:
+            raise ValueError('Only Qwen 2.5 7B and Qwen 3.5 9B are enabled')
+        return value
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)

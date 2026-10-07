@@ -57,25 +57,13 @@ class OCREngine:
 
     def _check_backends(self):
         """Check which OCR backends are available."""
-        # Check PaddleOCR
-        try:
-            import paddleocr  # noqa: F401
-            self._paddle_available = True
-            logger.info("PaddleOCR available")
-        except ImportError:
-            logger.info("PaddleOCR not available")
-
-        # Check Tesseract
-        try:
-            import pytesseract  # noqa: F401
-            self._tesseract_available = True
-            logger.info("Tesseract available")
-        except ImportError:
-            logger.info("Tesseract not available")
-
-        # Check vision model (always available via Ollama)
-        self._vision_available = True
-        logger.info("Vision model OCR available (via Ollama)")
+        # Importing a package does not establish installed offline model weights.
+        import shutil
+        self._tesseract_available = bool(shutil.which('tesseract'))
+        # Paddle constructors may download weights: only use explicitly provisioned
+        # local models. EasyOCR below is configured to forbid downloads.
+        self._paddle_available = False
+        self._vision_available = True  # Request failure is reported by recognize.
 
     def is_available(self) -> bool:
         """Check if any OCR backend is available."""
@@ -83,6 +71,9 @@ class OCREngine:
 
     def get_backend(self) -> str:
         """Get the best available backend name."""
+        from services.vision_adapter import EasyOCRExtractor
+        if EasyOCRExtractor().reader is not None:
+            return 'easyocr_offline'
         if self._paddle_available:
             return "paddleocr"
         elif self._tesseract_available:
@@ -97,6 +88,23 @@ class OCREngine:
         Recognize text in an image.
         Returns OCRPageResult with text, confidence, and bounding boxes.
         """
+        try:
+            from services.vision_adapter import EasyOCRExtractor
+            reader = EasyOCRExtractor().reader
+            if reader is not None:
+                raw = reader.readtext(image_path)
+                records = []
+                for polygon, text, confidence in raw:
+                    xs, ys = [p[0] for p in polygon], [p[1] for p in polygon]
+                    records.append(OCRResult(text=text,confidence=float(confidence),
+                        bounding_box={'x':float(min(xs)),'y':float(min(ys)),'w':float(max(xs)-min(xs)),'h':float(max(ys)-min(ys))},
+                        page=page,source_doc=source_doc,source_version=source_version))
+                if records:
+                    return OCRPageResult(page_number=page or 0,results=records,
+                        full_text='\n'.join(r.text for r in records),
+                        average_confidence=sum(r.confidence for r in records)/len(records))
+        except Exception as exc:
+            logger.warning('Offline EasyOCR failed: {}',exc)
         if self._paddle_available:
             return self._recognize_paddle(image_path, page, source_doc, source_version)
         elif self._tesseract_available:
@@ -211,13 +219,13 @@ class OCREngine:
                 page_number=page or 0,
                 results=[OCRResult(
                     text=text or "",
-                    confidence=0.7,  # Vision model confidence is estimated
+                    confidence=0.0,  # Model prose has no calibrated OCR confidence.
                     page=page,
                     source_doc=source_doc,
                     source_version=source_version,
                 )],
                 full_text=text or "",
-                average_confidence=0.7,
+                average_confidence=0.0,
             )
         except Exception as e:
             logger.error("Vision OCR failed: {}", e)

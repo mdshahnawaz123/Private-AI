@@ -474,6 +474,7 @@ def index_structured_tables(project_id, filename: str,
         _clr.commit()
     except Exception:
         _clr.rollback()
+        raise
     finally:
         _clr.close()
 
@@ -529,37 +530,17 @@ def extract_quantities_from_pdf(meta: Dict[str, Any],
         import re
 
         # Extract TOS/TOPR levels
-        tos_pattern = r'TOS\s+(\d+\.\d+)'
-        topr_pattern = r'TOPR\s+(\d+\.\d+)'
-        tower_pattern = r'TOWER\s*(\d+)'
-
-        towers = re.findall(tower_pattern, text, re.IGNORECASE)
-        tos_values = re.findall(tos_pattern, text, re.IGNORECASE)
-        topr_values = re.findall(topr_pattern, text, re.IGNORECASE)
-
-        for i, tower in enumerate(towers):
-            if i < len(tos_values):
-                quantities.append({
-                    "project_id": project_id,
-                    "building": f"Tower {tower}",
-                    "metric": "TOS",
-                    "value": tos_values[i],
-                    "unit": "m",
-                    "source_doc": filename,
-                    "source_page": page_num,
-                    "revision": meta.get("revision", ""),
-                })
-            if i < len(topr_values):
-                quantities.append({
-                    "project_id": project_id,
-                    "building": f"Tower {tower}",
-                    "metric": "TOPR",
-                    "value": topr_values[i],
-                    "unit": "m",
-                    "source_doc": filename,
-                    "source_page": page_num,
-                    "revision": meta.get("revision", ""),
-                })
+        # Do not zip unrelated lists of towers and elevations or assume metres.
+        # Associate only an explicit unique entity on the same source line;
+        # otherwise retain an unknown building/unit for review.
+        for line in text.splitlines():
+            owners=set(re.findall(r'\bTOWER\s*(\d+)\b',line,re.I))
+            for match in re.finditer(r'\b(TOS|TOPR)\s*:?\s*([-+]?\d[\d,]*(?:\.\d+)?)(?:\s*(mm|cm|m)\b)?',line,re.I):
+                quantities.append({'project_id':project_id,
+                    'building':'Tower '+next(iter(owners)) if len(owners)==1 else '',
+                    'metric':match[1].upper(),'value':match[2].replace(',',''),
+                    'unit':(match[3] or '').lower(),'source_doc':filename,
+                    'source_page':page_num,'revision':meta.get('revision','')})
 
         # Extract dimensions (e.g., 6,250, 9,050, etc.)
         dim_pattern = r'\b(\d{1,3}(?:,\d{3})+(?:\.\d+)?)\s*(mm|cm|m)\b'
@@ -598,19 +579,16 @@ def index_quantities(project_id, filename: str,
     quantities = extract_quantities_from_pdf(meta, project_id)
     count = 0
 
-    for q in quantities:
-        db_session = db.SessionLocal()
-        try:
-            # Check if quantity already exists
-            existing = db_session.query(db.Quantity).filter_by(
-                project_id=project_id,
-                building=q["building"],
-                metric=q["metric"],
-                source_doc=q["source_doc"],
-                source_page=q["source_page"],
-            ).first()
-
-            if not existing:
+    db_session = db.SessionLocal()
+    try:
+        # One source version replaces its quantities atomically. A page can
+        # contain multiple dimensions; do not collapse them to its first value.
+        db_session.query(db.Quantity).filter_by(project_id=project_id,source_doc=filename).delete()
+        seen=set()
+        for q in quantities:
+            key=tuple(q.get(k) for k in ('building','metric','value','unit','source_page','revision'))
+            if key not in seen:
+                seen.add(key)
                 new_q = db.Quantity(
                     project_id=q["project_id"],
                     building=q["building"],
@@ -622,10 +600,13 @@ def index_quantities(project_id, filename: str,
                     revision=q["revision"],
                 )
                 db_session.add(new_q)
-                db_session.commit()   # Phase 2 fix: persist the quantity (was rolled back on close)
                 count += 1
-        finally:
-            db_session.close()
+        db_session.commit()
+    except Exception:
+        db_session.rollback()
+        raise
+    finally:
+        db_session.close()
 
     logger.info("Indexed {} quantities for {}", count, filename)
     return count
@@ -658,9 +639,6 @@ def index_visual_structured_records(project_id, filename: str, meta: Dict[str, A
             r = parse_generic_tables(vis, filename, page_num, meta.get("revision", ""), source_type="PDF_IMAGE")
             rows.extend(r)
             
-    if not rows:
-        return 0
-
     db_session = db.SessionLocal()
     try:
         # We don't blindly delete all StructuredRecords for the doc, because digital extraction
@@ -670,9 +648,10 @@ def index_visual_structured_records(project_id, filename: str, meta: Dict[str, A
         db_session.query(db.StructuredRecord).filter_by(
             project_id=project_id, doc=filename, extraction_method="VISION"
         ).delete()
-        db_session.commit()
     except Exception:
         db_session.rollback()
+        db_session.close()
+        raise
 
     for r in rows:
         table_name = r.get("table_name", "")
@@ -720,7 +699,7 @@ def index_visual_structured_records(project_id, filename: str, meta: Dict[str, A
                 entity=entity,
                 row_label=row_key,
                 column_label=col,
-                confidence="HIGH",
+                confidence="AMBIGUOUS",
                 extraction_method="VISION",
                 source_type=r.get("source_type", "PDF_IMAGE")
             )
@@ -732,6 +711,7 @@ def index_visual_structured_records(project_id, filename: str, meta: Dict[str, A
     except Exception as e:
         logger.error(f"Failed to commit visual structured records: {e}")
         db_session.rollback()
+        raise
     finally:
         db_session.close()
 

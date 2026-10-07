@@ -34,6 +34,23 @@ class UploadTooLargeError(Exception):
     pass
 
 
+def contained_upload_path(root: str, project: str, folder: str, filename: str) -> str:
+    """Reject client path components and symlink escapes before any file write."""
+    import ntpath
+    for label, value in (("project", project), ("folder", folder), ("filename", filename)):
+        if (not isinstance(value,str) or not value or value in (".", "..") or any(c in value for c in '/\\:\x00')
+                or ntpath.basename(value) != value or value.endswith((' ', '.'))):
+            raise ValueError(f"Invalid {label}")
+        from pathlib import PureWindowsPath
+        if PureWindowsPath(value).is_reserved():
+            raise ValueError(f'Invalid reserved {label}')
+    base = os.path.realpath(root)
+    target = os.path.realpath(os.path.join(base, project, folder, filename))
+    if os.path.commonpath([base, target]) != base:
+        raise ValueError("Upload path escapes the document directory")
+    return target
+
+
 def save_upload_capped(fileobj, save_path: str, max_bytes: int, chunk_size: int = 1024 * 1024) -> int:
     """Stream `fileobj` (anything with a .read(n) method -- an UploadFile's
     .file, or a plain file object in tests) to `save_path`, aborting and
@@ -213,7 +230,7 @@ class IngestionPipeline:
             return count1 + count2
         except Exception as e:
             logger.warning("Structured table extraction failed: {}", e)
-            return 0
+            raise
 
     def extract_quantities(self, project_id: str, filename: str,
                            meta: Dict[str, Any]) -> int:
@@ -226,7 +243,7 @@ class IngestionPipeline:
             return index_quantities(project_id, filename, meta)
         except Exception as e:
             logger.warning("Quantities extraction failed: {}", e)
-            return 0
+            raise
 
     def quality_check(self, extraction_result: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -274,20 +291,17 @@ class IngestionPipeline:
             "score": score,
             "flags": flags,
             "needs_review": needs_review,
-            "can_auto_publish": score >= self._quality_threshold,
+            "can_auto_publish": False,
         }
 
-    def get_next_state(self, current_state: str, quality_score: float) -> str:
+    def get_next_state(self, current_state: str, quality_score: float, source_verified: bool = False) -> str:
         """Determine the next document state based on quality."""
         if current_state == DocumentState.UPLOADED:
             return DocumentState.PROCESSING
         elif current_state == DocumentState.PROCESSING:
-            if quality_score >= self._quality_threshold:
-                return DocumentState.VERIFIED
-            else:
-                return DocumentState.REVIEW_REQUIRED
+            return DocumentState.VERIFIED if source_verified else DocumentState.REVIEW_REQUIRED
         elif current_state == DocumentState.REVIEW_REQUIRED:
-            return DocumentState.VERIFIED
+            return DocumentState.VERIFIED if source_verified else DocumentState.REVIEW_REQUIRED
         elif current_state == DocumentState.VERIFIED:
             return DocumentState.PUBLISHED
         return current_state

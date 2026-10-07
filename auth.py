@@ -79,6 +79,8 @@ def make_token(user):
     exp = datetime.datetime.utcnow() + datetime.timedelta(hours=TOKEN_TTL_HOURS)
     claims = {"sub": str(user["id"]), "username": user["username"],
               "role": user["role"], "exp": exp}
+    current=db.get_user(user['id'])
+    claims['ver']=(current or {}).get('auth_version',0)
     tok = jwt.encode(claims, secret(), algorithm=ALGO)
     # Some jose/jwt backends return bytes; the JSON response needs a str.
     if isinstance(tok, (bytes, bytearray)):
@@ -116,8 +118,12 @@ def user_from_request(request):
     if not claims:
         return None
     try:
-        return {"id": int(claims.get("sub")), "username": claims.get("username"),
-                "role": claims.get("role")}
+        current = db.get_user(int(claims.get('sub')))
+        if not current or not current.get('is_active'):
+            return None
+        if int(claims.get('ver',0)) != current.get('auth_version',0):
+            return None
+        return {'id':current['id'],'username':current['username'],'role':current['role']}
     except Exception:
         return None
 
@@ -136,6 +142,14 @@ def require_roles(request, *roles):
 
 def require_project(request, project):
     u = require_user(request)
+    from services.ingestion import contained_upload_path
+    try:
+        contained_upload_path(os.path.join(db.DATA_DIR,'docs'),project,'validation','resource')
+    except (ValueError,TypeError):
+        raise HTTPException(400,'Invalid project name')
+    with db.SessionLocal() as session:
+        if not session.query(db.Project).filter_by(name=project).first():
+            raise HTTPException(404,'Project not found')
     if u["role"] == "admin":
         return u
     if not db.user_can_access(u, project):

@@ -21,7 +21,7 @@ except Exception:  # logging is best-effort
         def __getattr__(self, _): return lambda *a, **k: None
     logger = _Nop()
 
-OLLAMA_URL = os.getenv("OLLAMA_HOST", "http://127.0.0.1:11434").rstrip("/")
+OLLAMA_URL = os.getenv("EXPO_OLLAMA_HOST", os.getenv("OLLAMA_HOST", "http://127.0.0.1:11434")).rstrip("/")
 NUM_CTX = int(os.getenv("EXPO_NUM_CTX", "16384"))
 CHAT_RETRIES = int(os.getenv("EXPO_CHAT_RETRIES", "3"))
 KEEP_ALIVE = os.getenv("EXPO_KEEP_ALIVE", "5m")
@@ -61,7 +61,7 @@ def to_ollama_messages(msgs):
 
 class LocalChatOllama:
     def __init__(self, model, temperature=0.1, num_ctx=NUM_CTX, num_predict=8192,
-                 keep_alive=KEEP_ALIVE, fmt=None, url=OLLAMA_URL, timeout=900):
+                 keep_alive=KEEP_ALIVE, fmt=None, url=OLLAMA_URL, timeout=120):
         self.model = model
         self.temperature = temperature
         self.num_ctx = num_ctx
@@ -98,6 +98,9 @@ class LocalChatOllama:
                     _m["content"] = (_m.get("content") or "") + " /no_think"
                     break
         payload = self._payload(ol_msgs)
+        if _is_q3:
+            payload['think'] = False
+        started = time.monotonic()
         prompt_chars = sum(len(m["content"]) for m in ol_msgs)
 
         for attempt in range(max(1, CHAT_RETRIES)):
@@ -110,6 +113,8 @@ class LocalChatOllama:
                                   timeout=self.timeout) as r:
                     r.raise_for_status()
                     for line in r.iter_lines():
+                        if time.monotonic()-started > self.timeout:
+                            raise TimeoutError('Local model exceeded the answer deadline')
                         if not line:
                             continue
                         try:
@@ -150,10 +155,10 @@ class LocalChatOllama:
                     continue
                 logger.warning("chat produced no tokens after {} attempts (done_reason={})",
                                CHAT_RETRIES, done_reason)
-                return
+                raise RuntimeError('Local model returned no answer')
             except Exception as e:
                 logger.exception("chat attempt {}/{} failed: {}", attempt + 1, CHAT_RETRIES, e)
-                if got > 0 or attempt >= CHAT_RETRIES - 1:
+                if got > 0 or attempt >= CHAT_RETRIES - 1 or time.monotonic()-started >= self.timeout:
                     raise
                 time.sleep(min(2 ** attempt * 2, 12))
         return

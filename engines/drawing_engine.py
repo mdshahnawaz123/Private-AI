@@ -30,6 +30,8 @@ class Dimension:
     location: str = ""  # where on the drawing
     confidence: float = 0.0
     text: str = ""  # original text
+    interpretation_state: str = "INTERPRETED"
+    verification_state: str = "REVIEW_REQUIRED"
 
 
 @dataclass
@@ -40,6 +42,8 @@ class DrawingElement:
     dimensions: Dict[str, float] = field(default_factory=dict)
     properties: Dict[str, Any] = field(default_factory=dict)
     confidence: float = 0.0
+    interpretation_state: str = "AMBIGUOUS"
+    verification_state: str = "REVIEW_REQUIRED"
 
 
 @dataclass
@@ -83,9 +87,9 @@ class DrawingIntelligenceEngine:
         dimensions = []
 
         # Linear dimensions: 1200, 1200mm, 1.2m
-        linear_pattern = r'(\d+(?:\.\d+)?)\s*(mm|cm|m|in|ft)\b'
+        linear_pattern = r'(?<![\wØ-])([-+]?\d[\d,]*(?:\.\d+)?)\s*(mm|cm|m|in|ft)\b'
         for match in re.finditer(linear_pattern, text, re.IGNORECASE):
-            value = float(match.group(1))
+            value = float(match.group(1).replace(',',''))
             unit = match.group(2).lower()
             dimensions.append(Dimension(
                 value=value,
@@ -96,27 +100,29 @@ class DrawingIntelligenceEngine:
             ))
 
         # Diameter: Ø200, D200, dia 200
-        diameter_pattern = r'(?:Ø|D|dia\.?)\s*(\d+(?:\.\d+)?)\s*(mm|cm|m)?'
+        diameter_pattern = r'(?:Ø|\bdia(?:meter)?\.?\s*[:=]?)\s*(\d+(?:\.\d+)?)\s*(mm|cm|m)?\b'
         for match in re.finditer(diameter_pattern, text, re.IGNORECASE):
             value = float(match.group(1))
-            unit = (match.group(2) or "mm").lower()
+            unit = (match.group(2) or "").lower()
             dimensions.append(Dimension(
                 value=value,
                 unit=unit,
                 dimension_type="diameter",
+                interpretation_state="INTERPRETED" if unit else "AMBIGUOUS",
                 text=match.group(0),
                 confidence=0.85,
             ))
 
         # Radius: R500
-        radius_pattern = r'R\s*(\d+(?:\.\d+)?)\s*(mm|cm|m)?'
+        radius_pattern = r'(?<![\w-])R\s*(\d+(?:\.\d+)?)\s*(mm|cm|m)?\b'
         for match in re.finditer(radius_pattern, text, re.IGNORECASE):
             value = float(match.group(1))
-            unit = (match.group(2) or "mm").lower()
+            unit = (match.group(2) or "").lower()
             dimensions.append(Dimension(
                 value=value,
                 unit=unit,
                 dimension_type="radial",
+                interpretation_state="INTERPRETED" if unit else "AMBIGUOUS",
                 text=match.group(0),
                 confidence=0.85,
             ))
@@ -171,7 +177,7 @@ class DrawingIntelligenceEngine:
             ))
 
         # Level patterns: L1, L2, Level 1, etc.
-        level_pattern = r'\bL(\d+)\b'
+        level_pattern = r'\b(?:L|Level\s*(?:annotation\s*:)?\s*)(\d+)\b'
         for match in re.finditer(level_pattern, text):
             elements.append(DrawingElement(
                 element_type="level",
@@ -180,11 +186,11 @@ class DrawingIntelligenceEngine:
             ))
 
         # Grid patterns: A, B, C, 1, 2, 3
-        grid_pattern = r'\b([A-Z])\b|\b(\d+)\b'
-        for match in re.finditer(grid_pattern, text):
+        grid_pattern = r'\bgrid\s*(?:reference|annotation|line|label)?\s*[:=]?\s*([A-Z0-9]+(?:[-/][A-Z0-9]+)?)\b'
+        for match in re.finditer(grid_pattern, text,re.I):
             elements.append(DrawingElement(
                 element_type="grid",
-                properties={"grid_reference": match.group(0)},
+                properties={"grid_reference": match.group(1)},
                 confidence=0.5,
             ))
 
@@ -291,12 +297,14 @@ class DrawingIntelligenceEngine:
             "elements": [],
             "layout": None,
             "ocr_text": ocr_text,
+            "verification_state": "REVIEW_REQUIRED",
         }
 
         # Extract dimensions from OCR text
         if ocr_text:
             result["dimensions"] = [
-                {"value": d.value, "unit": d.unit, "type": d.dimension_type, "text": d.text}
+                {"value": d.value, "unit": d.unit, "type": d.dimension_type, "text": d.text,
+                 "interpretation_state":d.interpretation_state,"verification_state":d.verification_state}
                 for d in self.extract_dimensions(ocr_text)
             ]
             result["elements"] = [

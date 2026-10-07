@@ -77,10 +77,13 @@ def extract_tables_geometry(page):
         except TypeError:
             finders.append(page.find_tables(strategy="lines"))
         # also try a text-based pass to catch borderless tables
-        try:
-            finders.append(page.find_tables(strategy="text"))
-        except Exception:
-            pass
+        # The text strategy can merge unrelated side-by-side tables into a huge
+        # second grid. Use it only when line geometry found no tables.
+        if not any(getattr(f, "tables", None) for f in finders):
+            try:
+                finders.append(page.find_tables(strategy="text"))
+            except Exception:
+                pass
         seen_bbox = []
         for finder in finders:
             for t in (getattr(finder, "tables", None) or []):
@@ -172,7 +175,10 @@ def extract_pdf(path, vision_fn=None, render_dir=None, deep=True, smart=True,
             except Exception:
                 vis = ""
                 vision_errors += 1
+        from services.pdf_inspection import inspect_page, inspection_text
+        inspection = inspect_page(page)
         pages.append({"page": i + 1, "text": text, "tables": geo, "vision": vis,
+                      "inspection":inspection,"inspection_text":inspection_text(inspection),
                       "vision_used": bool(vis)})
         block = "[PAGE %d]\n%s" % (i + 1, text)
         if geo:
@@ -223,9 +229,15 @@ def extract_docx(path):
     return "\n\n".join(parts), {"type": "docx", "paragraphs": paras, "tables": tables}
 
 def save_json(sidecar_path, meta):
+    import uuid
+    temporary=sidecar_path+'.tmp-'+uuid.uuid4().hex
     try:
-        with open(sidecar_path, "w", encoding="utf-8") as f:
+        with open(temporary, "w", encoding="utf-8") as f:
             json.dump(meta, f, ensure_ascii=False, indent=1)
+            f.flush();os.fsync(f.fileno())
+        os.replace(temporary,sidecar_path)
         return True
     except Exception:
         return False
+    finally:
+        if os.path.isfile(temporary):os.unlink(temporary)

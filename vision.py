@@ -9,7 +9,7 @@ imported lazily so the pure helpers below can be unit-tested without it.
 import os
 import base64
 
-OLLAMA_URL = os.getenv("OLLAMA_HOST", "http://127.0.0.1:11434").rstrip("/")
+OLLAMA_URL = os.getenv("EXPO_OLLAMA_HOST", os.getenv("OLLAMA_HOST", "http://127.0.0.1:11434")).rstrip("/")
 VISION_MODEL = os.getenv("EXPO_VISION_MODEL", "qwen2.5vl:7b")
 IMAGE_EXTS = (".png", ".jpg", ".jpeg", ".webp", ".bmp", ".tif", ".tiff", ".gif")
 
@@ -120,7 +120,8 @@ def health():
         r = httpx.get(OLLAMA_URL + "/api/tags", timeout=10)
         r.raise_for_status()
         names = [m.get("name", "") for m in r.json().get("models", [])]
-        ok = any(model_base(n) == model_base(VISION_MODEL) for n in names)
+        exact = VISION_MODEL if ':' in VISION_MODEL else VISION_MODEL + ':latest'
+        ok = exact in names
         return ok, {"model": VISION_MODEL, "installed": ok, "available": names}
     except Exception as e:
         return False, {"model": VISION_MODEL, "error": str(e)}

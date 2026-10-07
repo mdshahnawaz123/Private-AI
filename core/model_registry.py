@@ -98,6 +98,7 @@ class OllamaProvider(ModelProvider):
                 temperature=0.1,
                 num_ctx=self.config.context_length,
                 keep_alive="5m",
+                url=self.config.endpoint,
             )
         return self._chat_client
 
@@ -111,8 +112,10 @@ class OllamaProvider(ModelProvider):
 
     def chat(self, messages: List[dict], **kwargs) -> str:
         client = self._get_chat_client()
-        result = client.chat(messages, **kwargs)
-        return result
+        from langchain_core.messages import HumanMessage, SystemMessage, AIMessage
+        types = {'user':HumanMessage, 'system':SystemMessage, 'assistant':AIMessage}
+        typed = [types.get(m.get('role'),HumanMessage)(content=m.get('content','')) if isinstance(m,dict) else m for m in messages]
+        return ''.join(chunk.content for chunk in client.stream(typed))
 
     def stream(self, messages: List[dict], **kwargs) -> Iterator[str]:
         client = self._get_chat_client()
@@ -133,8 +136,8 @@ class OllamaProvider(ModelProvider):
             r = httpx.get(self.config.endpoint + "/api/tags", timeout=10)
             r.raise_for_status()
             names = [m.get("name", "") for m in r.json().get("models", [])]
-            model_base = self.config.name.split(":")[0]
-            ok = any(n.split(":")[0] == model_base for n in names)
+            exact = self.config.name if ':' in self.config.name else self.config.name + ':latest'
+            ok = exact in names
             return ok, {"model": self.config.name, "installed": ok, "available": names}
         except Exception as e:
             return False, {"model": self.config.name, "error": str(e)}

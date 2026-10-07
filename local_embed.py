@@ -17,7 +17,7 @@ except Exception:  # keep importable even if langchain isn't present
     class _Base:  # type: ignore
         pass
 
-OLLAMA_URL = os.getenv("OLLAMA_HOST", "http://127.0.0.1:11434").rstrip("/")
+OLLAMA_URL = os.getenv("EXPO_OLLAMA_HOST", os.getenv("OLLAMA_HOST", "http://127.0.0.1:11434")).rstrip("/")
 EMBED_MODEL = os.getenv("EXPO_EMBED_MODEL", "bge-m3")
 EMBED_RETRIES = int(os.getenv("EXPO_EMBED_RETRIES", "5"))
 EMBED_TIMEOUT = int(os.getenv("EXPO_EMBED_TIMEOUT", "120"))

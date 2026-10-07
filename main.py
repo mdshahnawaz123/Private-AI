@@ -2522,10 +2522,22 @@ def process_document(project, save_path, filename, disc, category, folder_id=Non
         elif ext == ".pdf":
             def _cb(done, total):
                 PROGRESS[key] = {"stage": "reading pages", "done": done, "total": total}
-            # Phase 5B: Disable unbounded legacy vision; use native extraction only.
+            # Phase 5B originally disabled vision entirely here (vision_fn=None,
+            # deep=False) to avoid hammering the local model on every page of
+            # every upload. That also silently made extract_pdf's smart, per-page
+            # vision gate (want_vision) unreachable -- including the later
+            # is_dense_table_page signal added for the reproduced FAR/GFA
+            # mis-read bug (a page packed with many small tables scrambles
+            # PyMuPDF's text-reading order; vision reads the rendered pixels
+            # instead). Re-enabling vision_fn/deep=True here does NOT restore
+            # "unbounded legacy vision": smart=True keeps the gate in force, so
+            # vision only runs on pages that are (near-)image-only, carry a large
+            # embedded image, or are a dense multi-table page -- exactly the
+            # pages native text extraction can't be trusted on. Normal text-rich
+            # report pages are still indexed from their text layer alone.
             from config import get_settings as _pdf_settings
-            combined, meta = extract.extract_pdf(save_path, vision_fn=None,
-                                                 render_dir=save_path + "_pages", deep=False,
+            combined, meta = extract.extract_pdf(save_path, vision_fn=vision.describe_image,
+                                                 render_dir=save_path + "_pages", deep=True,
                                                  smart=True, max_pages=getattr(_pdf_settings(),'max_pages',300), progress_cb=_cb)
         elif ext in (".xlsx", ".xls"):
             PROGRESS[key] = {"stage": "reading spreadsheet", "done": 0, "total": 1}

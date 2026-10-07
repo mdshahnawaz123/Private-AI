@@ -66,8 +66,14 @@ def extract_tables_geometry(page):
     """Fast, CPU-only table extraction from the PDF's own text-layer geometry.
     Uses PyMuPDF's built-in table finder (v1.23+). For each table, grabs the
     heading text just above it so tables with identical column headers (e.g. the
-    several '... AREA BREAKDOWN' tables) stay distinguishable. Returns a Markdown
-    string (title + pipe table per table), or '' if none / unsupported."""
+    several '... AREA BREAKDOWN' tables) stay distinguishable. Returns
+    (markdown, table_count): a Markdown string (title + pipe table per table,
+    '' if none / unsupported) and how many distinct tables were found on the
+    page. table_count is also used by extract_pdf as a page-density signal:
+    a page packed with many small side-by-side tables (an infographic-style
+    "data sheet" rather than a normal report page) is exactly the layout where
+    PyMuPDF's own text-reading order scrambles which number sits next to which
+    label -- see DENSE_TABLE_VISION_FIX.md for the reproduced case."""
     import fitz
     blocks = []
     try:
@@ -110,8 +116,8 @@ def extract_tables_geometry(page):
                     title = ""
                 blocks.append((title + "\n" + md) if title else md)
     except Exception:
-        return ""
-    return "\n\n".join(blocks)
+        return "", 0
+    return "\n\n".join(blocks), len(blocks)
 
 
 def extract_pdf(path, vision_fn=None, render_dir=None, deep=True, smart=True,
@@ -142,9 +148,9 @@ def extract_pdf(path, vision_fn=None, render_dir=None, deep=True, smart=True,
         except Exception:
             text = ""
         try:
-            geo = extract_tables_geometry(page)
+            geo, table_count = extract_tables_geometry(page)
         except Exception:
-            geo = ""
+            geo, table_count = "", 0
         vis = ""
         # Vision only when the page has (almost) no text layer — a scan/rendering.
         # detect if page has significant embedded images (e.g. screenshot tables)
@@ -157,7 +163,21 @@ def extract_pdf(path, vision_fn=None, render_dir=None, deep=True, smart=True,
         except:
             pass
 
-        want_vision = bool(deep and vision_fn and render_dir) and (not smart or len(text) < min_chars or has_large_image)
+        # A page packed with many small, separate tables (a "project data sheet"
+        # / infographic layout with dozens of side-by-side boxes, as opposed to
+        # one or two normal tables on a report page) is the case where PyMuPDF's
+        # native text-reading order scrambles label/value adjacency -- confirmed
+        # on a real document where a value physically next to "FAR Allowed:" in
+        # the text stream actually belonged to "FAR Proposed:" two lines down,
+        # and a number got silently truncated (110,000.00 -> 10) next to
+        # "GFA Allowed:". min_chars-based detection misses this entirely because
+        # these pages have PLENTY of text -- just not in a trustworthy order.
+        # Checked against real documents: normal report/schedule pages carry at
+        # most ~1 table per page; this page alone carried 14. Vision reads the
+        # rendered pixels, so it isn't fooled by text-stream ordering.
+        is_dense_table_page = table_count >= 5
+        want_vision = bool(deep and vision_fn and render_dir) and (
+            not smart or len(text) < min_chars or has_large_image or is_dense_table_page)
 
         if want_vision:
             try:
@@ -179,7 +199,8 @@ def extract_pdf(path, vision_fn=None, render_dir=None, deep=True, smart=True,
         inspection = inspect_page(page)
         pages.append({"page": i + 1, "text": text, "tables": geo, "vision": vis,
                       "inspection":inspection,"inspection_text":inspection_text(inspection),
-                      "vision_used": bool(vis)})
+                      "vision_used": bool(vis), "table_count": table_count,
+                      "dense_table_page": is_dense_table_page})
         block = "[PAGE %d]\n%s" % (i + 1, text)
         if geo:
             block += "\n\n[TABLES]\n" + geo

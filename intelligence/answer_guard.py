@@ -23,16 +23,42 @@ def numbers(text):
     return result
 
 
+_UNITS=r'kN/m2|kN/m²|N/mm2|N/mm²|square metres|square meters|square feet|sq\.?\s*ft|sq\.?\s*m|sqm|sqft|MPa|kPa|bar|mm|cm|m²|m2|m|%'
+_UNIT_ALIASES={'m2':'sqm','m²':'sqm','sq m':'sqm','sq.m':'sqm','square metres':'sqm','square meters':'sqm',
+         'sq ft':'sqft','sq.ft':'sqft','square feet':'sqft'}
+
+
 def quantity_pairs(text):
-    """Keep an explicitly written engineering value attached to its unit."""
-    aliases={'m2':'sqm','m²':'sqm','sq m':'sqm','sq.m':'sqm','square metres':'sqm','square meters':'sqm',
-             'sq ft':'sqft','sq.ft':'sqft','square feet':'sqft'}
-    pattern=r'(?<![\w])([-+]?\d[\d,]*(?:\.\d+)?)(?:\s|\*)*(kN/m2|kN/m²|N/mm2|N/mm²|square metres|square meters|square feet|sq\.?\s*ft|sq\.?\s*m|sqm|sqft|MPa|kPa|bar|mm|cm|m²|m2|m|%)(?![A-Za-z0-9])'
+    """Keep an explicitly written engineering value attached to its unit.
+
+    Two source conventions are both in play here: prose states a value as
+    "34,950 sqm" (unit after the number), while this app's own structured
+    table rows (intelligence/table_evidence.py) serialize it the other way
+    round, as "Floor GFA (sqm): 34,950" (unit, in parentheses, before the
+    number). Only matching the first form meant any answer that paraphrased
+    a structured-table figure into ordinary prose ("...GFA is 34,950 sqm")
+    got flagged 'Value/unit pair absent from cited page excerpts' and
+    withheld, even though the correct, cited number was right there in the
+    excerpt -- just with its unit on the other side. Both directions are
+    matched and normalized into the same (value, unit) pairs."""
+    cleaned=MARKER.sub('',text)
+    pattern_after=r'(?<![\w])([-+]?\d[\d,]*(?:\.\d+)?)(?:\s|\*)*(' + _UNITS + r')(?![A-Za-z0-9])'
+    # Markdown pipe tables (the raw table geometry text.select_page_context
+    # surfaces verbatim) put the unit-labeled header in one cell and the value
+    # in the next: "| Floor BUA (sqm) | 121,085 |", not "(sqm): 121,085" --
+    # a different separator than table_evidence.py's own colon-joined
+    # 'Label (unit): value' serialization. Accept either.
+    pattern_before=r'\((' + _UNITS + r')\)\s*[:|]\s*([-+]?\d[\d,]*(?:\.\d+)?)(?![A-Za-z0-9])'
     pairs=set()
-    for match in re.finditer(pattern,MARKER.sub('',text),re.I):
+    for match in re.finditer(pattern_after,cleaned,re.I):
         unit=re.sub(r'\s+',' ',match[2]).lower().strip()
-        unit=aliases.get(unit,unit)
+        unit=_UNIT_ALIASES.get(unit,unit)
         try:pairs.add((Decimal(match[1].replace(',','')),unit))
+        except InvalidOperation:pass
+    for match in re.finditer(pattern_before,cleaned,re.I):
+        unit=re.sub(r'\s+',' ',match[1]).lower().strip()
+        unit=_UNIT_ALIASES.get(unit,unit)
+        try:pairs.add((Decimal(match[2].replace(',','')),unit))
         except InvalidOperation:pass
     return pairs
 

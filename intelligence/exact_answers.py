@@ -120,10 +120,20 @@ def exact_answer(question,documents):
             pattern=r'^sq ft$' if unit=='sqft' else r'^sq m$'
             find(f'{qualifier.title()} GFA',lambda r: any(_normal(v)=='gfa '+qualifier for _,v in r['fields']),
                  lambda r:field_value(r,pattern),unit)
-    parking_fields=[(label,pattern) for label,pattern in [
-        ('Normal',r'^normal$'),('Tandem',r'^tandem$'),('POD',r'^pod$'),
+    _ALL_PARKING_FIELDS=[('Normal',r'^normal$'),('Tandem',r'^tandem$'),('POD',r'^pod$'),
         ('Current EV',r'^current ev(?: 5)?$'),('Future EV',r'^future ev$')]
-        if _normal(label) in q]
+    parking_fields=[(label,pattern) for label,pattern in _ALL_PARKING_FIELDS if _normal(label) in q]
+    # A query can ask for the GRAND TOTAL REQUIRED/ACHIEVED row without naming
+    # any specific field ("what is the parking grand total required?"), unlike
+    # the field-matching path above which only fires when the user names one
+    # of Normal/Tandem/POD/Current EV/Future EV explicitly. Without this,
+    # such a query fell through to the 'total parking' branch below, which
+    # looks for an unrelated "parking calculation" sheet that doesn't exist in
+    # every project and hard-fails with NOT_FOUND even though the GRAND TOTAL
+    # REQUIRED row (with all its fields) is sitting right there in the native
+    # table evidence. Default to the full field breakdown in that case.
+    if 'parking' in q and not towers and not parking_fields and ('grand total' in q or 'bays' in q):
+        parking_fields=_ALL_PARKING_FIELDS
     if 'parking' in q and not towers and parking_fields:
         dispositions=[s for s in ('required','achieved') if s in q]
         for disposition in dispositions:

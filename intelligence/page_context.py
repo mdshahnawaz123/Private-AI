@@ -3,13 +3,81 @@ import json
 import re
 
 
-def select_page_context(path, filename, query, budget=16000):
+def select_page_context(path, filename, query, budget=16000, max_chars_per_page=4000):
+    terms = set(re.findall(r'\w+', query.lower())) - {'the','a','an','is','what','of','and','in','to','for'}
     try:
         with open(path + '.index.json', encoding='utf-8') as handle:
             meta = json.load(handle)
         pages=[]
         for entry in meta.get('pages',[]):
-            native='\n'.join(str(entry.get(key) or '') for key in ('text','tables'))
+            # Order matters once a page's content exceeds max_chars_per_page and
+            # gets truncated below: put the MOST verifiable evidence first so it
+            # survives, and the least reliable last so it's what gets cut.
+            #   1. table_row_units() rows -- table_evidence.py's flattened
+            #      "Entity: X ... Label (unit): value" strings. Compact and
+            #      directly matchable by answer_guard.quantity_pairs(). A dense
+            #      multi-table page (e.g. a per-level area schedule covering
+            #      several towers) can produce dozens of these rows -- far more
+            #      than max_chars_per_page alone -- so within this tier the rows
+            #      are ranked by how many query terms their own text contains
+            #      (an "Entity: TOWER 2" row sorts ahead of TOWER 1/3 rows for a
+            #      "Tower 2" query) rather than kept in document order, so the
+            #      truncation below cuts irrelevant rows, not the one the query
+            #      actually needs.
+            #   2. the raw markdown `tables` field -- still structured (pipe
+            #      tables), human/model-readable, but header/value cells sit in
+            #      different rows so quantity_pairs() can't pair them directly.
+            #   3. the raw PyMuPDF `text` field -- on a dense multi-table page
+            #      this is column-by-column reading-order text with headers and
+            #      values from DIFFERENT columns interleaved; it can be large
+            #      (observed 5200+ chars on an 8-table schedule page) and is the
+            #      least reliable for exact figures, so it goes last. Before this
+            #      reordering, `text` (jumbled, highest volume) came FIRST, so it
+            #      alone could consume the entire max_chars_per_page cap and
+            #      silently push the clean `tables` markdown and the even-cleaner
+            #      table_row_units() rows out of the excerpt entirely -- on
+            #      exactly the dense pages where verification needed them most
+            #      (reproduced: page 4 of the C3085 area schedule, text field
+            #      alone = 5200 chars, already over the 4000 cap, with the
+            #      correct "Floor GFA (sqm): 34,950" TOWER 2 row 22000+ chars
+            #      further into the string and therefore always truncated away).
+            tbl=str(entry.get('tables') or '')
+            rows_text=''
+            if tbl:
+                try:
+                    from intelligence.table_evidence import table_row_units
+                    rows=table_row_units(tbl)
+                    if rows:
+                        # Generic term overlap alone is not discriminating enough
+                        # here: a query for "Tower 2" shares 'tower' and 'total'
+                        # with every tower's own TOTAL row (table_row_units()
+                        # labels the summary row "LEVEL: TOTAL"), so plain term
+                        # counting put Tower 1's row ahead of Tower 2's. Pull out
+                        # an explicit entity reference ("tower 2", "building 3",
+                        # ...) from the query and score a row's own "Entity: X"
+                        # line against it directly; a query asking for a "TOTAL"
+                        # value is also boosted toward rows whose own LEVEL field
+                        # is the summary row, not a per-level breakdown row.
+                        entity_match=re.search(r'\b(tower|building|block)\s*0*(\d+)\b',query,re.I)
+                        wants_total='total' in terms
+                        def _score(row):
+                            row_lower=row.lower()
+                            s=sum(1 for t in terms if t in row_lower)
+                            if entity_match:
+                                phrase=f'entity: {entity_match.group(1).lower()} {entity_match.group(2)}'
+                                if phrase in row_lower:
+                                    s+=1000
+                                elif re.search(r'entity:\s*(tower|building|block)\s*0*\d+',row_lower):
+                                    s-=1000
+                            if wants_total and re.search(r'level:\s*total\b',row_lower):
+                                s+=100
+                            return s
+                        rows=sorted(rows,key=_score,reverse=True)
+                        rows_text='\n'.join(rows)
+                except Exception:
+                    pass
+            raw_text=str(entry.get('text') or '')
+            native='\n'.join(part for part in (rows_text,tbl,raw_text) if part)
             observation='\n'.join(str(entry.get(key) or '') for key in ('vision','inspection_text')).strip()
             if observation:native+='\n[UNVERIFIED EXTRACTION; REVIEW_REQUIRED]\n'+observation
             pages.append((entry['page'],native))
@@ -22,7 +90,6 @@ def select_page_context(path, filename, query, budget=16000):
         pages = [(int(parts[i]), parts[i+1]) for i in range(1,len(parts)-1,2)]
         if not pages:
             pages = [(None, raw)]
-    terms = set(re.findall(r'\w+', query.lower())) - {'the','a','an','is','what','of','and','in','to','for'}
     requested = {int(n) for n in re.findall(r'\bpage\s+(\d+)\b',query,re.I)}
     if requested:
         pages = [(page,text) for page,text in pages if page in requested]
@@ -34,9 +101,22 @@ def select_page_context(path, filename, query, budget=16000):
         room = budget - used
         if room <= 200:
             break
-        clipped = len(text) > room
+        # Cap any single page's share of the budget. Without this, one
+        # unusually large page -- confirmed in practice to be a reduced
+        # "overview" page whose own extracted text duplicates several other
+        # pages' schedules in miniature -- can consume the entire budget by
+        # itself, so every other page (including the one actually bearing the
+        # correctly-paginated source for a value) gets silently dropped. The
+        # model, reading the overview page's duplicated content, would then
+        # correctly state the number but cite the page it visually recognizes
+        # the table belonging to -- a citation that was never in `sources`,
+        # which the publication guard rightly rejects as unverifiable. A
+        # cap lets multiple ranked pages share the budget so the real source
+        # page is actually offered, not just content that happens to echo it.
+        page_room = min(room, max_chars_per_page)
+        clipped = len(text) > page_room
         label = str(page) if page is not None else 'UNPAGINATED'
-        block = f'[SOURCE: {filename} | PAGE {label}]\n{text[:room]}'
+        block = f'[SOURCE: {filename} | PAGE {label}]\n{text[:page_room]}'
         if clipped:
             block += '\n[EXCERPT ENDS; REST OF THIS PAGE NOT INCLUDED]'
         blocks.append(block)

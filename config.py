@@ -35,7 +35,20 @@ class Settings(BaseSettings):
     fast_llm: str = "qwen2.5:7b"
     fast_llm_enabled: bool = False
     reranker_model: str = "bge-reranker-v2-m3"
-    reranker_enabled: bool = False
+    # Re-enabled (was False): with it off, /ask_stream falls back to raw
+    # vector+BM25 top-k (main.py ~line 2090, docs = permitted[:k]) with no
+    # cross-encoder pass. Confirmed via live C3085 testing that this makes any
+    # document with repeated near-identical sections (multiple towers/
+    # buildings/typical floors) effectively blind past the first section: a
+    # bi-encoder + BM25 RRF can't reliably tell 'Tower 2 Floor GFA' from
+    # 'Tower 1 Floor GFA' when the surrounding table boilerplate is near-
+    # identical, so the wrong (or no) row lands in the top-k and the answer
+    # guard correctly refuses rather than publish an uncited number. A cross-
+    # encoder reads query+passage jointly and is specifically good at this
+    # kind of fine discrimination. Falls back to unreranked order automatically
+    # (reranker.py _load_model) if sentence-transformers or the model weights
+    # are not available -- never a hard failure.
+    reranker_enabled: bool = True
 
     # Wave 1: Model tiering
     worker_model: str = "qwen2.5vl:7b"

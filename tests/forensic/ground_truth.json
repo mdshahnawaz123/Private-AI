@@ -1,0 +1,32 @@
+{
+  "C3103": {
+    "Torsional_Irregularity": {
+      "Left_Part": {
+        "X_Direction": {
+          "Maximum_Ratio": 1.095,
+          "Threshold_Exceeded": false
+        },
+        "Y_Direction": {
+          "Maximum_Ratio": 1.242,
+          "Threshold_Exceeded": true
+        }
+      }
+    }
+  },
+  "C3085": {
+    "Areas": {
+      "Tower_6_Level_02": {
+        "Expected": "Structured"
+      },
+      "Tower_7_Level_02": {
+        "Expected": "Structured"
+      }
+    }
+  },
+  "C3045": {
+    "Amenities_Breakdown": {
+      "Rows_Expected": 7,
+      "Total": 1359.09
+    }
+  }
+}

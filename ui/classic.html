@@ -254,7 +254,7 @@
     <div style="display:flex;gap:6px;margin-top:8px">
       <button id="uploadBtn" onclick="pickUpload()" style="display:none;flex:1;background:#3b82f6;color:#fff;border:none;border-radius:9px;padding:8px;font-size:12px;font-weight:600;cursor:pointer">Upload files</button>
       <button id="docsBtn" onclick="openDocs()" style="flex:1;background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:9px;padding:8px;font-size:12px;cursor:pointer">Documents</button>
-      <button id="forensicBtn" onclick="openForensics()" style="flex:1;background:linear-gradient(180deg,#eab308,#ca8a04);color:#fff;border:none;border-radius:9px;padding:8px;font-size:12px;cursor:pointer">&#128300; Forensic Stress Test</button>
+      <button id="forensicBtn" onclick="openForensics()" style="flex:1;background:linear-gradient(180deg,#eab308,#ca8a04);color:#fff;border:none;border-radius:9px;padding:8px;font-size:12px;cursor:pointer">Document coverage</button>
     </div>
     <button id="viewer3dBtn" onclick="openViewer()" style="margin-top:6px;width:100%;background:linear-gradient(180deg,#8a6cff,#7658f0);color:#fff;border:none;border-radius:9px;padding:8px;font-size:12px;font-weight:600;cursor:pointer">&#9635; 3D Review</button>
     <input type="file" id="directUpload" hidden multiple onchange="uploadDirect(this)">
@@ -279,7 +279,7 @@
     <div class="sidebar-footer">
       <div class="model-status">
         <div class="status-dot"></div>
-        <div><div class="name" id="footerModel">qwen2.5vl:7b</div><div class="sub">Ollama &bull; Vision + Reasoning</div></div>
+        <div><div class="name" id="footerModel">qwen3.5:9b</div><div class="sub">Ollama &bull; Local document answers</div></div>
       </div>
     </div>
   </aside>
@@ -294,6 +294,7 @@
           Chat
         </span>
         <select id="modelSelect" onchange="document.getElementById('footerModel').textContent = this.value;" style="background:var(--panel); color:var(--text); border:1px solid var(--border); border-radius:6px; padding:4px 8px; font-size:12px; margin-left:10px; outline:none; font-family:var(--font); cursor:pointer;">
+          <option value="qwen3.5:9b">qwen3.5:9b (Document answers)</option>
           <option value="qwen2.5vl:7b">qwen2.5vl:7b (Vision + Reasoning)</option>
         </select>
         <select id="disciplineSelect" title="Review discipline" style="background:var(--panel); color:var(--text); border:1px solid var(--border); border-radius:6px; padding:4px 8px; font-size:12px; margin-left:8px; outline:none; font-family:var(--font); cursor:pointer;">
@@ -613,7 +614,13 @@ function docCardHtml(f, canManage){
   let procTxt = 'Processing...';
   if (f.progress && f.progress.total) procTxt = 'Processing ' + f.progress.done + '/' + f.progress.total + (f.progress.stage ? ' (' + f.progress.stage + ')' : '');
   else if (f.progress && f.progress.stage) procTxt = f.progress.stage;
-  const badge = f.status === 'processing' ? ("<span style='color:#fbbf24'>" + procTxt + "</span>") : (f.status === 'error' ? "<span style='color:#f87171'>Error</span>" : (f.status === 'extracted' ? "<span style='color:#fbbf24'>Text ready \u00b7 re-index</span>" : (f.indexed ? "<span style='color:#4ade80'>AI-indexed</span>" : 'stored')));
+  const needsReview = ['ready_with_warnings','review_required','PARTIAL','FAILED','failed'].includes(f.status);
+  const badge = f.status === 'processing'
+    ? ("<span style='color:#fbbf24'>" + procTxt + "</span>")
+    : needsReview ? "<span style='color:#fbbf24'>Indexed evidence · visual review required</span>"
+    : f.status === 'error' ? "<span style='color:#f87171'>Error</span>"
+    : f.status === 'extracted' ? "<span style='color:#fbbf24'>Text ready · re-index</span>"
+    : f.indexed ? "<span style='color:#4ade80'>AI-indexed</span>" : 'stored';
   return `<div class="doc-card">
     <div class="doc-badge">${ext.toUpperCase().slice(0,4)}</div>
     <div class="doc-name" title="${escapeHtml(f.filename)}">${escapeHtml(f.filename)}</div>
@@ -732,7 +739,8 @@ async function fmAdd(uid){ await fetch(`${API}/projects/${encodeURIComponent(cur
 async function fmRemove(uid){ await fetch(`${API}/projects/${encodeURIComponent(currentProject)}/folders/${window._fmFolder}/members/${uid}`, { method:'DELETE' }); fmRefresh(); loadDocuments(); }
 
 async function rebuildIndex(btn){
-  if (!confirm('Rebuild the search index for this project with page tags? This re-embeds all documents from their saved extraction (no re-upload).')) return;
+  const status = document.getElementById('docsOperationStatus');
+  if (status) status.textContent = 'Refreshing source evidence…';
   const old = btn ? btn.textContent : '';
   if (btn){ btn.disabled = true; btn.textContent = 'Rebuilding...'; }
   try {
@@ -742,13 +750,13 @@ async function rebuildIndex(btn){
     });
     const d = await r.json();
     if (d.status === 'ok'){
-      alert('Rebuilt: ' + d.docs + ' document(s), ' + d.chunks + ' chunks indexed with page tags.' + (d.failed && d.failed.length ? ('\nCould not index: ' + d.failed.join(', ')) : ''));
+      if (status) status.textContent = 'Refreshed ' + d.docs + ' document(s), ' + d.chunks + ' evidence chunks.' + (d.failed && d.failed.length ? (' Could not index: ' + d.failed.join(', ')) : '');
       loadDocuments();
     } else {
-      alert('Rebuild failed: ' + (d.detail || 'unknown error'));
+      if (status) status.textContent = 'Refresh failed: ' + (d.detail || 'unknown error');
     }
   } catch(e){
-    alert('Rebuild failed: ' + e.message);
+    if (status) status.textContent = 'Refresh failed: ' + e.message;
   } finally {
     if (btn){ btn.disabled = false; btn.textContent = old || 'Rebuild Index'; }
   }
@@ -1518,7 +1526,7 @@ Return the COMPLETE updated artifact in a single fenced \`\`\`${currentArtifact.
     }
 
     const docsReady = await hasDocs();
-    const endpoint = docsReady ? `${API}/ask_stream` : `${API}/ask_chat`;
+    const endpoint = `${API}/ask_stream`;
     await streamResponse(prompt, endpoint);
 
     await saveChat();
@@ -1541,7 +1549,7 @@ Return the COMPLETE updated artifact in a single fenced \`\`\`${currentArtifact.
 let hasDocsCache = false;
 async function hasDocs() {
   try {
-    const r = await fetch(`${API}/health?project=${currentProject}`);
+    const r = await fetch(`${API}/health?project=${encodeURIComponent(currentProject)}`);
     const d = await r.json();
     hasDocsCache = d.documents_indexed;
     return hasDocsCache;
@@ -2237,6 +2245,7 @@ function highlightCode(code, lang) {
 <div class="docs-back" id="docsPanel">
  <div class="docs-head">
   <h3 id="docsTitle">Documents</h3>
+  <span id="docsOperationStatus" role="status" aria-live="polite"></span>
   <div style="display:flex;gap:8px">
    <button class="doc-btn" id="docsUploadBtn" style="display:none;flex:none;padding:7px 16px;background:#3b82f6;color:#fff;border:none" onclick="newFolder()">&#43; New Folder</button>
    <button class="doc-btn" id="docsRebuildBtn" style="display:none;flex:none;padding:7px 16px;background:#6366f1;color:#fff;border:none" onclick="rebuildIndex(this)" title="Re-embed all documents with page tags (no re-upload)">Rebuild Index</button>
@@ -2372,68 +2381,34 @@ body::before{
 #toast{background:#111826;border:1px solid var(--border);box-shadow:var(--sh2);border-radius:11px}
 </style>
 
-<div class="docs-back" id="forensicModal" style="background:#18181b">
-  <div class="docs-head">
-    <h3>Forensic Stress Test Engine</h3>
-    <button class="doc-btn" onclick="closeForensics()">Close</button>
-  </div>
-  <div class="docs-body" style="padding: 20px; color: #fff;">
-    <button onclick="startForensicTest()" style="padding:10px 20px; background:#eab308; color:#000; font-weight:bold; border-radius: 8px; border:none; cursor:pointer; margin-bottom: 20px;">Start Forensic Test</button>
-    
-    <div id="forensicStatus" style="margin-bottom: 20px; font-size: 14px;">
-        Status: <span id="fsState">Idle</span><br>
-        Progress: <span id="fsProgress">0</span> / <span id="fsTotal">0</span><br>
-        Passed: <span id="fsPassed" style="color: #22c55e">0</span><br>
-        Failed: <span id="fsFailed" style="color: #ef4444">0</span><br>
-        Current Stage: <span id="fsStage">-</span><br>
-        Current Question: <span id="fsQuestion">-</span><br>
-    </div>
-  </div>
+<div class="docs-back" id="forensicModal">
+  <div class="docs-head"><h3>Document processing coverage</h3><button class="doc-btn" onclick="closeForensics()">Close</button></div>
+  <div class="docs-body" style="padding:20px"><p id="coverageNotice"></p><div id="coverageRows" aria-live="polite"></div></div>
 </div>
-
 <script>
-function openForensics() {
-    document.getElementById('forensicModal').classList.add('open');
-    pollForensicStatus();
-}
-
-function closeForensics() {
-    document.getElementById('forensicModal').classList.remove('open');
-}
-
-async function startForensicTest() {
-    if (!currentProject) { toast('Please select a project first.'); return; }
-    try {
-        let res = await fetch('/api/forensics/start/' + currentProject + '/default');
-        let data = await res.json();
-        if (data.status === 'error') {
-            toast(data.message);
-        } else {
-            toast('Forensic test started.');
-            pollForensicStatus();
-        }
-    } catch(e) {
-        toast('Error starting test');
+function openForensics(){ document.getElementById('forensicModal').classList.add('open'); loadDocumentCoverage(); }
+function closeForensics(){ document.getElementById('forensicModal').classList.remove('open'); }
+async function loadDocumentCoverage(){
+  const rows=document.getElementById('coverageRows'); rows.textContent='Loading coverage…';
+  try{
+    const response=await fetch('/coverage/'+encodeURIComponent(currentProject));
+    if(!response.ok) throw new Error('Coverage unavailable');
+    const data=await response.json();
+    document.getElementById('coverageNotice').textContent=data.notice;
+    rows.replaceChildren();
+    for(const doc of data.documents){
+      const card=document.createElement('section'); card.style.cssText='padding:16px;margin:12px 0;border:1px solid var(--border);border-radius:10px';
+      const heading=document.createElement('h4'); heading.textContent=doc.filename;card.append(heading);
+      for(const text of [
+        'Status: '+doc.status+' • Search chunks: '+doc.chunks,
+        'Pages processed: '+doc.pages_processed+' / '+doc.pages,
+        'Images with extracted text: '+doc.image_text_extracted+' / '+doc.images,
+        'Images needing review: '+doc.images_review_required+' • Failed images: '+doc.images_failed
+      ]){ const line=document.createElement('p');line.textContent=text;card.append(line); }
+      rows.append(card);
     }
-}
-
-async function pollForensicStatus() {
-    if (!document.getElementById('forensicModal').classList.contains('open')) return;
-    try {
-        let res = await fetch('/api/forensics/status');
-        let data = await res.json();
-        document.getElementById('fsState').textContent = data.status;
-        document.getElementById('fsTotal').textContent = data.total;
-        document.getElementById('fsProgress').textContent = data.completed;
-        document.getElementById('fsPassed').textContent = data.passed;
-        document.getElementById('fsFailed').textContent = data.failed;
-        document.getElementById('fsStage').textContent = data.current_stage;
-        document.getElementById('fsQuestion').textContent = data.current_question;
-        
-        if (data.status === 'running') {
-            setTimeout(pollForensicStatus, 1000);
-        }
-    } catch(e) {}
+    if(!data.documents.length) rows.textContent='No accessible documents in this project.';
+  }catch(error){rows.textContent=error.message;}
 }
 </script>
 </body>

@@ -52,6 +52,10 @@ const STANDARD_FOLDERS=['models','drawings','documents','schedules','specificati
 function folderName(f){ return String((f&&f.folder)||'').trim().toLowerCase(); }
 function hasKnownFolder(f){ return STANDARD_FOLDERS.includes(folderName(f)); }
 function byDest(name, fallbackTest){ return f => hasKnownFolder(f) ? folderName(f)===name : fallbackTest(f); }
+function documentWorkspaceFile(f){
+  return byDest('documents',x=>rx.doc.test(x.filename)&&!rx.spec.test((x.folder||'')+' '+x.filename))(f)
+    || (['reports','schedules'].includes(folderName(f))&&rx.doc.test(f.filename));
+}
 function fileExt(fn){ return (String(fn||'').split('.').pop()||'').toUpperCase(); }
 function fileTypeIcon(ext){ const i={PDF:'📄',DOCX:'📝',DOC:'📝',XLSX:'📊',XLS:'📊',CSV:'📊',DWG:'📐',DXF:'📐',IFC:'🏗️',RVT:'🏗️',PNG:'🖼️',JPG:'🖼️',JPEG:'🖼️',TXT:'📃',RTF:'📃'}; return i[ext]||'📄'; }
 function state(msg,kind){ return `<div class="state ${kind==='err'?'err':''}">${kind==='load'?'<div class="spinner"></div>':''}<div>${esc(msg)}</div></div>`; }
@@ -122,7 +126,8 @@ function wireTopbar(){
   $('logoutBtn').onclick=logout;
   $('sbToggle').onclick=()=>{ document.body.classList.toggle('sb-collapsed'); document.body.classList.toggle('show-sb'); };
   $('sbCollapse').onclick=()=>document.body.classList.add('sb-collapsed');
-  $('aiCollapse').onclick=()=>document.body.classList.toggle('ai-collapsed');
+  $('aiCollapse').onclick=()=>{if(document.body.clientWidth<=1200)document.body.classList.remove('show-ai');else document.body.classList.toggle('ai-collapsed');};
+  $('aiToggle').onclick=()=>{if(document.body.clientWidth<=1200)document.body.classList.toggle('show-ai');else document.body.classList.toggle('ai-collapsed');};
   initAppResizers();
   $('btnHelp').onclick=()=>toast('Expo Design AI — select a destination on the left, work in the center, ask the Copilot on the right.');
   $('btnSettings').onclick=()=>navigate('settings');
@@ -166,7 +171,7 @@ async function loadDocuments(){
 function counts(){ return {
   models:allDocs.filter(byDest('models', f=>rx.ifc.test(f.filename))).length,
   drawings:allDocs.filter(byDest('drawings', f=>rx.dwg.test(f.filename))).length,
-  documents:allDocs.filter(byDest('documents', f=>rx.doc.test(f.filename)&&!rx.spec.test((f.folder||'')+' '+f.filename))).length,
+  documents:allDocs.filter(documentWorkspaceFile).length,
   specs:allDocs.filter(byDest('specifications', f=>rx.spec.test((f.folder||'')+' '+f.filename))).length,
   schedules:allDocs.filter(byDest('schedules', f=>rx.sched.test(f.filename))).length,
 }; }
@@ -174,7 +179,7 @@ function buildRevSelect(){
   const revs=[...new Set(allDocs.map(f=>f._rev).filter(Boolean))].sort();
   if(!revs.length){ $('revWrap').hidden=true; currentRevision=''; return; }
   $('revWrap').hidden=false;
-  $('revSel').innerHTML=`<option value="">All revisions</option>`+revs.map(r=>`<option value="${esc(r)}">Rev ${esc(r)}</option>`).join('');
+  $('revSel').innerHTML=`<option value="">All revisions</option>`+revs.map(r=>`<option value="${esc(r)}">File Rev ${esc(r)}</option>`).join('');
   $('revSel').value=currentRevision||'';
 }
 function fileURL(rel){ return `${API}/projects/${encodeURIComponent(currentProject)}/file?rel=${encodeURIComponent(rel)}&token=${encodeURIComponent(authToken||'')}`; }
@@ -371,7 +376,7 @@ async function renderModels(b){
 /* ---------- Drawings ---------- */
 function renderDrawings(b){ renderSplitDocs(b, docsBy(byDest('drawings', f=>rx.dwg.test(f.filename))), 'drawing', 'No drawings (PDF/DWG/DXF) in this project.'); }
 /* ---------- Documents ---------- */
-function renderDocuments(b){ renderSplitDocs(b, docsBy(byDest('documents', f=>rx.doc.test(f.filename)&&!rx.spec.test((f.folder||'')+' '+f.filename))), 'document', 'No documents in this project.'); }
+function renderDocuments(b){ renderSplitDocs(b, docsBy(documentWorkspaceFile), 'document', 'No documents in this project.'); }
 /* ---------- Specifications ---------- */
 function renderSpecifications(b){ renderSplitDocs(b, docsBy(byDest('specifications', f=>rx.spec.test((f.folder||'')+' '+f.filename))), 'specification', 'No specification documents detected. Specs are documents whose name/folder mentions spec / requirement / criteria.'); }
 
@@ -385,7 +390,7 @@ function renderSplitDocs(b, list, kind, emptyMsg){
   initSplitter(b.querySelector('.split'));
   const lc=$('docList');
   lc.innerHTML=list.map((f,i)=>`<div class="li" data-i="${i}"><div class="fi">${fileTypeIcon(fileExt(f.filename))}</div>
-    <div class="fn"><b>${esc(f.filename)}</b><span>${esc(f.category||'')}${f._rev?` · Rev ${esc(f._rev)}`:''}${f.chunks?` · ${f.chunks} chunks`:''}</span></div></div>`).join('');
+    <div class="fn"><b>${esc(f.filename)}</b><span>${esc(f.folder||f.category||'')}${f._rev?` · File Rev ${esc(f._rev)}`:''}${f.chunks?` · ${f.chunks} chunks`:''}</span></div></div>`).join('');
   lc.querySelectorAll('.li').forEach(li=>li.onclick=()=>{
     lc.querySelectorAll('.li').forEach(x=>x.classList.remove('on')); li.classList.add('on');
     const f=list[+li.dataset.i]; openInViewer(f);
@@ -393,10 +398,31 @@ function renderSplitDocs(b, list, kind, emptyMsg){
   // auto-open first
   lc.querySelector('.li').click();
 }
+let pdfPreviewSequence=0, pdfPreviewObjectUrl=null;
+async function openPdfPreview(f,page=1){
+  const v=$('docView'); if(!v)return;
+  const sequence=++pdfPreviewSequence;
+  setDocContext(f);
+  v.innerHTML=state('Loading source page…','load');
+  try{
+    const response=await fetch(`${API}/projects/${encodeURIComponent(currentProject)}/page-preview?rel=${encodeURIComponent(f.rel)}&page=${page}`);
+    if(!response.ok)throw new Error((await response.json()).detail||'Source preview unavailable');
+    const pages=Number(response.headers.get('X-PDF-Pages'));
+    const pixels=await response.blob();
+    if(sequence!==pdfPreviewSequence||!v.isConnected)return;
+    if(pdfPreviewObjectUrl)URL.revokeObjectURL(pdfPreviewObjectUrl);
+    pdfPreviewObjectUrl=URL.createObjectURL(pixels);
+    v.innerHTML=`<div class="dt-toolbar"><button class="tb" id="pdfPrev" ${page<=1?'disabled':''}>Previous</button><span>Source page ${page} / ${pages}</span><button class="tb" id="pdfNext" ${page>=pages?'disabled':''}>Next</button><button class="tb" id="pdfZoom">Zoom in</button><button class="tb" id="pdfOriginal" style="margin-left:auto">Open original PDF</button></div><div style="height:calc(100% - 48px);overflow:auto;background:#fff"><img id="pdfSourcePage" alt="Source page ${page}: ${esc(f.filename)}" style="display:block;width:100%;height:auto" src="${pdfPreviewObjectUrl}"></div>`;
+    $('pdfPrev').onclick=()=>openPdfPreview(f,page-1);
+    $('pdfNext').onclick=()=>openPdfPreview(f,page+1);
+    $('pdfOriginal').onclick=()=>openFile(f.rel);
+    $('pdfZoom').onclick=()=>{const image=$('pdfSourcePage');const fitted=image.style.width==='100%';image.style.width=fitted?'auto':'100%';$('pdfZoom').textContent=fitted?'Fit width':'Zoom in';};
+  }catch(error){if(sequence===pdfPreviewSequence&&v.isConnected)v.innerHTML=state(error.message||'Source preview unavailable.','err');}
+}
 function openInViewer(f){
   const isPdf=/\.pdf$/i.test(f.filename);
   const v=$('docView');
-  if(isPdf){ v.innerHTML=`<div class="docframe-wrap"><iframe class="docframe" src="${fileURL(f.rel)}#toolbar=1"></iframe></div>`; }
+  if(isPdf){ openPdfPreview(f,1); }
   else { v.innerHTML=`<div class="ws-scroll">${state('Preview not available for .'+fileExt(f.filename).toLowerCase()+' — open in a new tab.')}<div style="text-align:center"><button class="primary" onclick="openFile('${esc(f.rel)}')">Open file</button></div></div>`; }
   // set copilot context to this document
   setDocContext(f);
@@ -513,11 +539,20 @@ function _schedQtyHTML(qty){
 }
 
 async function renderSchedules(b){
+  const scheduleDocuments=docsBy(f=>folderName(f)==='schedules'&&rx.doc.test(f.filename));
+  if(currentUser&&currentUser.role!=='admin'&&scheduleDocuments.length){
+    renderSplitDocs(b,scheduleDocuments,'schedule document','No schedule documents in this project.');
+    return;
+  }
   b.innerHTML=`<div class="ws-scroll" id="schBody">${state('Loading schedules…','load')}</div>`;
   const canUp=canUpload();
   const uploadBtn=''; // Removed per request
   try{
     const r=await fetch(`${API}/api/v1/projects/${encodeURIComponent(currentProject)}/schedules`);
+    if(!r.ok){
+      b.innerHTML=state(r.status===403?'This schedule view is unavailable for your role. Open the PDF in Documents and ask the Copilot about its schedules.':'Could not load schedules. Try again or open the source document.');
+      return;
+    }
     const d=await r.json();
     // Scope Schedules to documents actually uploaded INTO the Schedules folder
     // (via the Upload button here) — not every structured table extracted from
@@ -730,6 +765,8 @@ function wireCopilot(){
   });
 }
 function setAiTab(tab){
+  document.body.classList.remove('ai-collapsed');
+  if(document.body.clientWidth<=1200)document.body.classList.add('show-ai');
   $('aiTabs').querySelectorAll('.ai-tab').forEach(t=>t.classList.toggle('on',t.dataset.tab===tab));
   ['chat','references','compliance','insights'].forEach(k=>{ const p=$('pane-'+k); if(p)p.hidden=(k!==tab); });
   if(tab==='compliance') renderCompliancePane();
@@ -752,7 +789,7 @@ function setElementContext(p){
   updateCtxActions();
 }
 function setDocContext(f){
-  showCtx(f.category||'Document', f.filename, [f._rev?('Rev '+f._rev):'', f.discipline||''].filter(Boolean).join(' · ')||fileExt(f.filename), fileTypeIcon(fileExt(f.filename)));
+  showCtx(f.folder||f.category||'Document', f.filename, [f._rev?('File Rev '+f._rev):'', f.discipline||''].filter(Boolean).join(' · ')||fileExt(f.filename), fileTypeIcon(fileExt(f.filename)));
   ctxDoc=f; updateCtxActions();
 }
 let ctxDoc=null;
@@ -879,8 +916,8 @@ function updateCtxActions(){
   } else {
     A('Ask Design AI','<circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>',()=>{ setAiTab('chat'); $('aiIn').focus(); });
   }
-  if(ctxDoc && ctxDoc.rel && /\.pdf$/i.test(ctxDoc.filename||'') && (currentDest==='drawings'||currentDest==='documents'||currentDest==='specifications')){
-    A('Re-read with vision (accurate tables)','<path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/>',()=>reextractDoc());
+  if(canUpload() && ctxDoc && ctxDoc.rel && /\.pdf$/i.test(ctxDoc.filename||'') && (currentDest==='drawings'||currentDest==='documents'||currentDest==='specifications')){
+    A('Re-read with vision (requires review)','<path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/>',()=>reextractDoc());
   }
   wrap.innerHTML=`<div class="h">Suggested actions</div>`+acts.map((a,i)=>`<button class="act" data-i="${i}">${svg(a.icon)}${esc(a.label)}</button>`).join('');
   wrap.querySelectorAll('.act').forEach(btn=>btn.onclick=()=>acts[+btn.dataset.i].fn());
@@ -923,7 +960,7 @@ async function findSimilar(){
   setAiTab('chat');
 }
 function updateAiCtx(){
-  const map={ design:'3D model + selection', drawings:'Drawing viewer', documents:'Project documents',
+  const map={ design:viewerLoaded?'3D model + selection':'Project documents', drawings:'Drawing viewer', documents:'Project documents',
     specifications:'Specifications', schedules:'Schedules & quantities', codes:'Codes / standards (KB)',
     qa:'QA & issues', reports:'Reports', overview:'Project overview', settings:'Project' };
   $('aiCtx').innerHTML=`Context: <b>${esc(map[currentDest]||'Project')}</b>${currentRevision?` · Rev ${esc(currentRevision)}`:''}`;
@@ -938,7 +975,13 @@ function updateAiCtx(){
 /* --- streaming client (protected: reuse SSE contract verbatim) --- */
 async function stream(display,endpoint,body){ const bub=addMsg('a','<span class="faint">…</span>'); let ans=''; let structured=null;
   try{ const r=await fetch(endpoint,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-    if(!r.ok){ bub.innerHTML='<span style="color:var(--red)">Error '+r.status+'</span>'; return; }
+    if(!r.ok){
+      let message='Error '+r.status;
+      if(r.status===503 && endpoint==='/ask_stream'){
+        try{ const failure=await r.json(); if(typeof failure.detail==='string') message=failure.detail; }catch(e){}
+      }
+      bub.innerHTML='<span style="color:var(--red)">'+esc(message)+'</span>'; return;
+    }
     const rd=r.body.getReader(); const dec=new TextDecoder(); let buf='';
     while(true){ const {value,done}=await rd.read(); if(done)break; buf+=dec.decode(value,{stream:true}); let i;
       while((i=buf.indexOf('\n\n'))>=0){ const line=buf.slice(0,i); buf=buf.slice(i+2); const dl=line.split('\n').find(l=>l.startsWith('data:')); if(!dl)continue;
@@ -991,6 +1034,16 @@ function openSourceTile(rel, page){
   const base=String(rel).replace(/\\/g,'/').split('/').pop();
   const f=allDocs.find(x=>x.rel===rel || x.filename===base || (x.rel&&x.rel.endsWith('/'+base)));
   if(!f){ openFile(rel); return; }
+  if(/\.pdf$/i.test(f.filename)){
+    navigate('documents');
+    // A cited accessible PDF may live in Reports or Schedules. Show the
+    // actual source without changing its folder or falling back to page 1.
+    renderSplitDocs($('genericWrap'),[f],'source document','Source unavailable.');
+    const sourcePage=Number.isInteger(Number(page))&&Number(page)>0?Number(page):1;
+    openPdfPreview(f,sourcePage);
+    setDocContext(f);
+    return;
+  }
   const dest=/\.(pdf|dwg|dxf)$/i.test(f.filename)?'drawings':(/\.(xlsx|xls|csv)$/i.test(f.filename)?'schedules':'documents');
   if(currentDest!==dest){ try{ navigate(dest); }catch(e){} }
   setTimeout(()=>{
@@ -1035,8 +1088,9 @@ function evHTML(sources){
     const rel=s.rel||s.source||'';
     const ext=fileExt(b);
     const pg=(s.page!=null)?('p.'+s.page):'';
-    const rev=s.revision?('Rev '+s.revision):'';
-    return `<button class="chip" title="${esc(name)}${pg?' · '+esc(pg):''}" onclick="openFile('${esc(rel)}')">`
+    const rev=s.revision?('File Rev '+s.revision):'';
+    const sourcePage=Number.isInteger(Number(s.page))&&Number(s.page)>0?Number(s.page):null;
+    return `<button class="chip" title="${esc(name)}${pg?' · '+esc(pg):''}" onclick="openSourceTile(${esc(JSON.stringify(rel))},${sourcePage})">`
       +`<span class="ci">${fileTypeIcon(ext)}</span>`
       +`<span class="cn">${esc(b)}</span>`
       +(pg?`<span class="cp">${esc(pg)}</span>`:'')
@@ -1048,11 +1102,12 @@ async function sendAi(standards){ const t=$('aiIn'); const q=t.value.trim();
   if(!q){ return; } if(!currentProject){ toast('Select a project'); return; }
   t.value=''; addMsg('u',esc(q));
   const revNote=currentRevision?` (revision ${currentRevision})`:'';
-  if(currentDest==='design'&&on3D){ const ctx=await getViewerCtx();
+  const documentQuestion=/\b(pdf|document|schedule|specification|uploaded|gfa|nsa|nisa|bua|area schedule)\b/i.test(q);
+  if(currentDest==='design'&&on3D&&viewerLoaded&&!documentQuestion&&!standards&&!currentAttachment){ const ctx=await getViewerCtx();
     await stream(q,`${API}/ask_model`,{project:currentProject,query:q+revNote,context:ctx.context||'',selection:ctx.selection||(lastSel&&lastSel.text)||'',messages:aiHist.slice(-6)}); }
   else { const prefix=(standards||currentDest==='codes')?'Using the codes/standards knowledge base, ':'';
     let scoped=q+revNote;
-    const _focus=(ctxDoc&&(currentDest==='documents'||currentDest==='specifications'||currentDest==='drawings'))?(ctxDoc.rel||''):'';
+    const _focus=(ctxDoc&&['documents','specifications','drawings','schedules'].includes(currentDest))?(ctxDoc.rel||''):'';
     if(_focus) scoped=`Regarding "${ctxDoc.filename}": `+scoped;
     const _attId=(currentAttachment&&currentAttachment.id)||null;
     await stream(q,`${API}/ask_stream`,{project:currentProject,query:prefix+scoped,messages:aiHist.slice(-8),k:8,focus_doc:_focus,attachment_id:_attId}); }

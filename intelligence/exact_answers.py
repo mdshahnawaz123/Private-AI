@@ -239,6 +239,18 @@ def calculated_answer(question,documents):
     unsupported={'status':'UNSUPPORTED','sources':[],'facts':[],
         'answer':'I cannot verify this calculation. Specify one operation, one metric, and each tower and level explicitly; unsupported calculations require source review.'}
     if len(operations)!=1 or len(metrics)!=1 or not towers or not levels:
+        # A bare word like 'minimum' or 'average' can appear in an ordinary
+        # factual question ("what is the minimum store loading?") that has no
+        # tower/level comparison intent at all. Without this distinction, the
+        # caller (main.py /ask_stream) treats ANY truthy return here as final
+        # and never falls through to RAG -- so such a question always hit this
+        # hardcoded 'unsupported' refusal, even though the plain-text answer
+        # was sitting right there in the document for RAG to find. Only return
+        # the explicit refusal when there is already some genuine per-tower/
+        # level comparison intent (a tower or level was actually named); with
+        # neither, this was never a calculation request in the first place.
+        if not towers and not levels:
+            return None
         return unsupported
     # A Cartesian plan with both multiple towers and levels may pair operands
     # incorrectly. Require a single shared tower or a single shared level.

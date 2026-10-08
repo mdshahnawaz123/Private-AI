@@ -70,6 +70,9 @@ class Settings(BaseSettings):
     enable_quantities_store: bool = True  # capture numeric quantities as structured data
     enable_self_check: bool = False  # Phase 2: worker model self-check for answer verification
     enable_legacy_schedule_context: bool = False  # Legacy flat grids can lose column/entity alignment.
+    enable_document_memory: bool = False  # Phase 1: AI reads whole document, writes structured evidence-linked memory rows (additive; see intelligence/document_memory.py)
+    document_memory_doc_allowlist: Annotated[List[str], NoDecode] = []  # Phase 1 scope guard: memory build only runs for filenames in this list, regardless of enable_document_memory
+    document_memory_model: str = "qwen3.5:9b"  # REASONING_LLM; qwen2.5:7b only if latency requires it
     not_found_threshold: float = 0.0  # Phase 2 FIX: 0.3 was miscalibrated for bge-reranker-v2-m3 (relevant chunks score ~0.01-0.06), which silently discarded valid retrievals. 0.0 disables the score-gate; honest "not found" is still handled by the answer prompt. Recalibrate later with eval data.
 
     # Accurate extraction: run the vision model (qwen2.5vl:7b) on EVERY PDF page
@@ -81,6 +84,14 @@ class Settings(BaseSettings):
 
     # Ollama
     ollama_host: str = "http://127.0.0.1:11434"
+    # Pilot architecture blueprint Sec 6.2: vision and chat/text roles can point
+    # at two separate Ollama processes/ports so the heavy image-bearing upload
+    # workload (admin-side) never contends with the concurrent user-facing chat
+    # workload. Empty = both ride ollama_host (today's single-process behavior,
+    # unchanged). Set EXPO_VISION_OLLAMA_HOST / EXPO_CHAT_OLLAMA_HOST to split
+    # them later with no other code change.
+    vision_ollama_host: str = ""
+    chat_ollama_host: str = ""
     keep_alive: str = "5m"
     vision_retries: int = 3
     embed_retries: int = 5
@@ -147,3 +158,31 @@ def get_settings() -> Settings:
     if _settings is None:
         _settings = Settings()
     return _settings
+
+
+# -- Model-serving role resolution (Pilot architecture blueprint Sec 6.1) --
+# Every model call site should resolve {model, base_url} through this function
+# instead of reading a settings.*_model / settings.ollama_host field directly,
+# so a future split onto separate processes/ports (Sec 6.2) or a swap to a
+# different serving stack only ever requires a config change here.
+_MODEL_ROLES = ("vision", "chat", "worker", "author", "embed")
+
+def resolve_role(role: str) -> dict:
+    """Resolve a model role to {'model': <name>, 'base_url': <ollama endpoint>}."""
+    if role not in _MODEL_ROLES:
+        raise ValueError(f"Unknown model role: {role!r} (expected one of {_MODEL_ROLES})")
+    s = get_settings()
+    model = {
+        "vision": s.vision_model,
+        "chat": s.chat_model,
+        "worker": s.worker_model if s.enable_model_tiering else s.author_model,
+        "author": s.author_model,
+        "embed": s.embed_model,
+    }[role]
+    if role == "vision":
+        base_url = s.vision_ollama_host or s.ollama_host
+    elif role in ("chat", "worker", "author"):
+        base_url = s.chat_ollama_host or s.ollama_host
+    else:
+        base_url = s.ollama_host
+    return {"model": model, "base_url": base_url.rstrip("/")}

@@ -18,7 +18,7 @@ _FRAGMENTS_POC_MARKER = "poc-marker-20261002-A"
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Request, BackgroundTasks, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import StreamingResponse, RedirectResponse, FileResponse, PlainTextResponse
+from fastapi.responses import StreamingResponse, RedirectResponse, FileResponse, PlainTextResponse, JSONResponse
 from pydantic import BaseModel
 from typing import List, Optional
 import traceback
@@ -211,10 +211,52 @@ def _start_ingestion_runner():
     job_queue.handlers.update(document=_run_document_job, private=_run_private_job)
     job_queue.failure_handlers.update(document=_invalidate_document_job,private=_invalidate_private_job)
     job_queue.start()
+    _start_recycle_bin_sweeper()
+
+_recycle_bin_sweeper_stop = threading.Event()
+
+def _start_recycle_bin_sweeper():
+    """Recycle bin (2026-10-07): once a day, permanently remove any soft-deleted
+    document past db.RECYCLE_BIN_RETENTION_DAYS, and delete its recycle-bin
+    files from disk. Runs once at startup too, so anything that expired while
+    the app was offline is still cleaned up."""
+    def _loop():
+        import glob as _glob
+        while not _recycle_bin_sweeper_stop.is_set():
+            try:
+                purged = db.purge_expired_deleted_documents()
+                for p in purged:
+                    recycle_dir = _recycle_bin_dir(p["project"])
+                    for f in _glob.glob(os.path.join(recycle_dir, "*-" + p["filename"] + "*")):
+                        try:
+                            if os.path.isdir(f):
+                                shutil.rmtree(f)
+                            else:
+                                os.remove(f)
+                        except Exception:
+                            logger.exception("recycle-bin sweep: could not remove " + f)
+                if purged:
+                    logger.info("Recycle-bin sweep: purged {} expired document(s)", len(purged))
+                import re as _re
+                purged_projects = db.purge_expired_deleted_projects()
+                for pp in purged_projects:
+                    safe = _re.sub(r'[^A-Za-z0-9 ._-]', '_', pp["name"])
+                    for d in _glob.glob(os.path.join(_project_recycle_bin_dir(), "*-" + safe)):
+                        try:
+                            shutil.rmtree(d)
+                        except Exception:
+                            logger.exception("recycle-bin sweep: could not remove " + d)
+                if purged_projects:
+                    logger.info("Recycle-bin sweep: purged {} expired project(s)", len(purged_projects))
+            except Exception:
+                logger.exception("recycle-bin sweep failed")
+            _recycle_bin_sweeper_stop.wait(24 * 3600)
+    threading.Thread(target=_loop, name="recycle-bin-sweeper", daemon=True).start()
 
 @app.on_event('shutdown')
 def _stop_ingestion_runner():
     job_queue.stop()
+    _recycle_bin_sweeper_stop.set()
 
 # Phase 0: Initialize model registry and orchestrator
 from core.model_registry import get_registry
@@ -1561,9 +1603,10 @@ vectorstores = {}
 _index_mutation_lock = threading.RLock()
 from config import get_settings as _index_settings
 embedder = local_embed.LocalOllamaEmbeddings(model=_index_settings().embed_model,url=_index_settings().ollama_host)
-# Chat/reasoning uses the same vision-language model as drawings (qwen2.5vl:7b),
-# so only ONE large model is ever loaded -- important on a 16GB GPU.
-llm = ChatOllama(model="qwen2.5vl:7b", temperature=0.1, keep_alive="5m")
+# NOTE: the old module-level `llm = ChatOllama(...)` global (hardcoded to
+# qwen2.5vl:7b) was removed here 2026-10-07 -- it was dead code, nothing
+# read it. The live answer-synthesis path is get_llm() below, which resolves
+# the chat model/endpoint via config.resolve_role('chat').
 
 def get_vectorstore(project: str):
     from services.ingestion import contained_upload_path
@@ -2351,8 +2394,10 @@ def resolve_sources(project, items):
                     "page": page})
     return out
 
-PROGRESS = {}
-
+# PROGRESS used to be a plain in-process dict here. It is now backed by
+# db.JobProgress (set_progress/get_progress/clear_progress) so multiple
+# app server processes see the same ingestion progress for a document --
+# a plain dict silently breaks the moment more than one process runs.
 def _pkey(project, filename):
     return project + "||" + filename
 
@@ -2477,9 +2522,10 @@ def convert_ifc_to_fragments(project, save_path, filename):
 
 def process_document(project, save_path, filename, disc, category, folder_id=None):
     """Runs in a background thread. Deep-extracts, writes JSON, indexes, sets status.
-    Live progress is kept in PROGRESS so the documents endpoint can report it."""
+    Live progress is kept in db.JobProgress (shared across processes) so the
+    documents endpoint can report it."""
     key = _pkey(project, filename)
-    PROGRESS[key] = {"stage": "starting", "done": 0, "total": 0}
+    db.set_progress(key, "starting", 0, 0)
     try:
         ext = os.path.splitext(save_path)[-1].lower()
         from services.jobs import source_hash
@@ -2494,13 +2540,13 @@ def process_document(project, save_path, filename, disc, category, folder_id=Non
         combined = ""
         meta = {"type": "other"}
         if vision.is_image(save_path):
-            PROGRESS[key] = {"stage": "reading image", "done": 0, "total": 1}
+            db.set_progress(key, "reading image", 0, 1)
             from services.vision_adapter import extract_visual_table
             result=extract_visual_table(save_path,drawing=True)
             if not result.get('success'):raise RuntimeError(result.get('error','Image extraction failed'))
             combined = '[UNVERIFIED IMAGE EXTRACTION]\n'+result['raw_text']
             meta = {"type": "image", "vision": combined}
-            PROGRESS[key] = {"stage": "reading image", "done": 1, "total": 1}
+            db.set_progress(key, "reading image", 1, 1)
         elif cad.is_cad(save_path):
             data, imgs = cad.ingest(save_path, save_path + "_render")
             parts, views = [], []
@@ -2508,7 +2554,7 @@ def process_document(project, save_path, filename, disc, category, folder_id=Non
                 parts.append("CAD DATA (extracted from the drawing):\n" + data)
             total = max(1, len(imgs))
             for idx, im in enumerate(imgs):
-                PROGRESS[key] = {"stage": "reading views", "done": idx, "total": total}
+                db.set_progress(key, "reading views", idx, total)
                 try:
                     vt = vision.describe_image(im)
                     if vt:
@@ -2516,12 +2562,12 @@ def process_document(project, save_path, filename, disc, category, folder_id=Non
                         views.append({"image": os.path.basename(im), "vision": vt})
                 except Exception:
                     logger.exception("vision on CAD render failed")
-            PROGRESS[key] = {"stage": "reading views", "done": total, "total": total}
+            db.set_progress(key, "reading views", total, total)
             combined = "\n\n====\n\n".join(parts)
             meta = {"type": "cad", "data": data, "views": views}
         elif ext == ".pdf":
             def _cb(done, total):
-                PROGRESS[key] = {"stage": "reading pages", "done": done, "total": total}
+                db.set_progress(key, "reading pages", done, total)
             # Phase 5B originally disabled vision entirely here (vision_fn=None,
             # deep=False) to avoid hammering the local model on every page of
             # every upload. That also silently made extract_pdf's smart, per-page
@@ -2540,15 +2586,15 @@ def process_document(project, save_path, filename, disc, category, folder_id=Non
                                                  render_dir=save_path + "_pages", deep=True,
                                                  smart=True, max_pages=getattr(_pdf_settings(),'max_pages',300), progress_cb=_cb)
         elif ext in (".xlsx", ".xls"):
-            PROGRESS[key] = {"stage": "reading spreadsheet", "done": 0, "total": 1}
+            db.set_progress(key, "reading spreadsheet", 0, 1)
             combined, meta = extract.extract_excel(save_path)
-            PROGRESS[key] = {"stage": "reading spreadsheet", "done": 1, "total": 1}
+            db.set_progress(key, "reading spreadsheet", 1, 1)
         elif ext == ".docx":
-            PROGRESS[key] = {"stage": "reading document", "done": 0, "total": 1}
+            db.set_progress(key, "reading document", 0, 1)
             combined, meta = extract.extract_docx(save_path)
-            PROGRESS[key] = {"stage": "reading document", "done": 1, "total": 1}
-        cur = PROGRESS.get(key, {})
-        PROGRESS[key] = {"stage": "indexing", "done": cur.get("total", 1), "total": cur.get("total", 1)}
+            db.set_progress(key, "reading document", 1, 1)
+        cur = db.get_progress(key) or {}
+        db.set_progress(key, "indexing", cur.get("total", 1), cur.get("total", 1))
         meta["filename"] = filename
         meta['source_sha256']=digest
         meta['processing_complete']=False
@@ -2576,7 +2622,7 @@ def process_document(project, save_path, filename, disc, category, folder_id=Non
                 if project_id is None:
                     raise RuntimeError("Missing project")
                 from services.pipeline import process_document_pipeline
-                PROGRESS[key] = {"stage": "visual extraction", "done": 0, "total": len(meta.get("pages",[]))}
+                db.set_progress(key, "visual extraction", 0, len(meta.get("pages",[])))
                 has_warnings = (process_document_pipeline(project_id,save_path,filename,resume=same_source,expected_sha256=digest if same_source else None,retry_failed=True) != "READY") or has_warnings
                 with db.SessionLocal() as session:
                     images = session.query(db.ImageRecord).filter_by(project_id=project_id,document_filename=filename).all()
@@ -2643,7 +2689,37 @@ def process_document(project, save_path, filename, disc, category, folder_id=Non
                 except Exception as e:
                     logger.warning("Quantities extraction failed: {}", e)
                     raise
-                
+
+                # Phase 1: AI Document Memory (additive, non-blocking).
+                # Gated by enable_document_memory AND an explicit filename
+                # allow-list (config.document_memory_doc_allowlist) -- for
+                # every other document this is a no-op, zero behavior change.
+                # Never raises: a memory-build failure degrades to
+                # "RAG-only for this document", same isolation as the two
+                # blocks above, deliberately looser (no re-raise) since this
+                # stage is new and unproven. See intelligence/document_memory.py
+                # and the "Document Memory Layer" design doc for the full flow.
+                try:
+                    from config import get_settings as _gs_mem
+                    if _gs_mem().enable_document_memory:
+                        from intelligence.document_memory import build_memory_for_document, is_allowlisted
+                        if is_allowlisted(filename):
+                            with db.SessionLocal() as _s:
+                                _proj = _s.query(db.Project).filter_by(name=project).first()
+                                _proj_id = _proj.id if _proj else None
+                                _doc = _s.query(db.Document).filter_by(project_id=_proj_id, filename=filename).order_by(db.Document.id.desc()).first() if _proj_id else None
+                                _doc_id = _doc.id if _doc else None
+                            if _proj_id and _doc_id:
+                                _mem_counts = build_memory_for_document(
+                                    _proj_id, _doc_id, filename, meta, digest,
+                                    model_role="REASONING_LLM",
+                                )
+                                logger.info("Document memory build for {}: {}", filename, _mem_counts)
+                            else:
+                                logger.warning("Document memory skipped for {}: project/document row not found", filename)
+                except Exception as e:
+                    logger.warning("Document memory build failed (non-blocking): {}", e)
+
                 if not chunks_n or source_hash(save_path)!=digest:
                     raise RuntimeError('Index publication incomplete or source changed')
                 final_status = "ready_with_warnings" if has_warnings else "ready"
@@ -2666,7 +2742,7 @@ def process_document(project, save_path, filename, disc, category, folder_id=Non
         logger.exception("process_document failed for " + str(filename))
         db.update_document_status(project, filename, 0, "error")
     finally:
-        PROGRESS.pop(key, None)
+        db.clear_progress(key)
 def process_user_upload(upload_id, save_path, filename):
     """Background extraction for a PRIVATE chat attachment (the Copilot "+"
     button). Deliberately lightweight and fully isolated from the shared
@@ -2972,13 +3048,15 @@ def get_llm(req: QueryRequest):
     # Direct /api/chat streamer (reliable + larger context) instead of ChatOllama.
     # Wave 1: Model tiering — when enabled, uses worker/author split.
     # When disabled, preserves existing behavior (single author model).
-    from config import get_settings
-    settings = get_settings()
-    mdl = req.model if req.model and req.model != 'qwen2.5vl:7b' else settings.chat_model
+    # Model name + serving endpoint resolved via config.resolve_role (Pilot
+    # architecture blueprint Sec 6.1) so this call site never hardcodes either.
+    from config import resolve_role
+    chat_role = resolve_role("chat")
+    mdl = req.model if req.model and req.model != 'qwen2.5vl:7b' else chat_role['model']
     allowed = {'qwen2.5:7b','qwen2.5vl:7b','qwen3.5:9b'}
     if mdl not in allowed:
         raise HTTPException(400, 'Choose Qwen 2.5 7B or Qwen 3.5 9B. Other models are disabled.')
-    return local_chat.LocalChatOllama(model=mdl, temperature=0.1,url=settings.ollama_host,
+    return local_chat.LocalChatOllama(model=mdl, temperature=0.1,url=chat_role['base_url'],
                                      num_predict=3072, keep_alive=0)
 
 
@@ -3593,7 +3671,7 @@ async def project_documents(project: str, request: Request):
                     "indexed": (d["chunks"] or 0) > 0, "discipline": d.get("discipline"),
                     "status": d.get("status", "ready"),
                     "folder": d.get("folder"), "folder_id": d.get("folder_id"),
-                    "progress": PROGRESS.get(_pkey(project, fn)),
+                    "progress": db.get_progress(_pkey(project, fn)),
                     "hasData": os.path.isfile(fp + ".index.json"),
                     "uploaded_at": d.get("uploaded_at"), "size": size,
                     "exists": os.path.isfile(fp)})
@@ -3862,6 +3940,284 @@ async def reextract_document(project: str, request: Request):
         logger.exception("reextract failed for " + str(filename))
         return {"status": "error",
                 "detail": "vision re-read failed - is Ollama running with the vision model? (%s)" % e}
+
+# ============================================================
+# Recycle bin (2026-10-07): per-document delete, soft -- the file and its
+# DB rows are kept for db.RECYCLE_BIN_RETENTION_DAYS days (currently 15) so
+# an admin mistake, or deleting the wrong revision, is recoverable. The
+# physical file + sidecar artifacts move to data/recycle_bin/<project>/;
+# the document's chunks are purged from the live FAISS index immediately so
+# it stops being retrievable right away, even during the recovery window.
+# A background sweep (started at app startup, see _start_ingestion_runner)
+# permanently removes anything past the retention window.
+# ============================================================
+
+def _recycle_bin_dir(project: str) -> str:
+    import re as _re
+    safe = _re.sub(r'[^A-Za-z0-9 ._-]', '_', project)
+    d = os.path.join(DATA_DIR, "recycle_bin", safe)
+    os.makedirs(d, exist_ok=True)
+    return d
+
+def _purge_source_from_index(project: str, filename: str):
+    """Remove one source's chunks from the project's live FAISS index, if any."""
+    try:
+        vs = get_vectorstore(project)
+        if vs is None:
+            return
+        obsolete = [k for k, v in vs.docstore._dict.items() if v.metadata.get('source') == filename]
+        if not obsolete:
+            return
+        with _index_mutation_lock:
+            vs.delete(obsolete)
+            _persist_index_generation(project, vs)
+            vectorstores[project] = vs
+            _bm25_cache.pop(project, None)
+    except Exception:
+        logger.exception("_purge_source_from_index failed for {} / {}".format(project, filename))
+
+@app.delete("/projects/{project}/documents/{filename}")
+async def delete_document(project: str, filename: str, request: Request):
+    """Soft-delete one document (admin/lead only): purge its chunks from the
+    live index, move the file + sidecars to the recycle bin, mark the DB row
+    deleted. Recoverable via the /restore endpoint below for
+    db.RECYCLE_BIN_RETENTION_DAYS days."""
+    user = auth.require_project(request, project)
+    if not auth.can_manage_project(user, project):
+        return JSONResponse({"status": "error", "detail": "not allowed"}, status_code=403)
+    doc = next((d for d in db.list_documents(project) if d["filename"] == filename), None)
+    if not doc:
+        raise HTTPException(404, "Document not found")
+    path = doc.get("path")
+
+    _purge_source_from_index(project, filename)
+
+    moved = 0
+    if path and os.path.isfile(path):
+        import datetime as _dt
+        recycle_dir = _recycle_bin_dir(project)
+        stamp = _dt.datetime.utcnow().strftime("%Y%m%d-%H%M%S")
+        dest_base = os.path.join(recycle_dir, "{}-{}".format(stamp, filename))
+        candidates = [path, path + ".extracted.txt", path + ".index.json",
+                      path + "_images", path + "_inspection", path + "_pages", path + "_page_ocr"]
+        for c in candidates:
+            if os.path.exists(c):
+                suffix = c[len(path):]
+                try:
+                    shutil.move(c, dest_base + suffix)
+                    moved += 1
+                except Exception:
+                    logger.exception("delete_document: could not move " + c)
+
+    info = db.soft_delete_document(project, filename, user=user, ip=_client_ip(request))
+    if not info:
+        raise HTTPException(404, "Document not found")
+    return {"status": "deleted", "moved_files": moved, "recycle_bin_days": db.RECYCLE_BIN_RETENTION_DAYS}
+
+@app.post("/projects/{project}/documents/{filename}/restore")
+async def restore_document(project: str, filename: str, request: Request):
+    """Undo delete_document() within the retention window: move the file(s)
+    back from the recycle bin and re-index them."""
+    user = auth.require_project(request, project)
+    if not auth.can_manage_project(user, project):
+        return JSONResponse({"status": "error", "detail": "not allowed"}, status_code=403)
+    info = db.restore_document(project, filename, user=user, ip=_client_ip(request))
+    if not info:
+        raise HTTPException(404, "Deleted document not found (it may already be restored, or past the retention window)")
+    path = info.get("path")
+    restored_files = 0
+    if path:
+        recycle_dir = _recycle_bin_dir(project)
+        import glob as _glob
+        base = os.path.basename(path)
+        hits = sorted(_glob.glob(os.path.join(recycle_dir, "*-" + base)), reverse=True)
+        if hits:
+            dest_base = path
+            src_base = hits[0]
+            suffix_map = {"": dest_base, ".extracted.txt": dest_base + ".extracted.txt",
+                          ".index.json": dest_base + ".index.json", "_images": dest_base + "_images",
+                          "_inspection": dest_base + "_inspection", "_pages": dest_base + "_pages",
+                          "_page_ocr": dest_base + "_page_ocr"}
+            for suffix, dest in suffix_map.items():
+                src = src_base + suffix if suffix else src_base
+                if os.path.exists(src):
+                    try:
+                        os.makedirs(os.path.dirname(dest), exist_ok=True)
+                        shutil.move(src, dest)
+                        restored_files += 1
+                    except Exception:
+                        logger.exception("restore_document: could not move " + src)
+    chunks_n = 0
+    try:
+        jp = (path or "") + ".index.json"
+        tp = (path or "") + ".extracted.txt"
+        if path and os.path.isfile(jp):
+            with open(jp, "r", encoding="utf-8") as jf:
+                meta = json.load(jf)
+            chunks_n = index_structured(project, meta, filename, info.get("folder_id"))
+        if chunks_n == 0 and path and os.path.isfile(tp):
+            with open(tp, "r", encoding="utf-8") as tf:
+                combined = tf.read()
+            if combined.strip():
+                chunks_n = index_text(project, combined, filename, info.get("folder_id"))
+        db.update_document_status(project, filename, chunks_n, "ready" if chunks_n > 0 else "extracted")
+    except Exception:
+        logger.exception("restore_document: re-index failed for " + filename)
+    return {"status": "restored", "restored_files": restored_files, "chunks": chunks_n}
+
+@app.get("/projects/{project}/recycle-bin")
+async def recycle_bin(project: str, request: Request):
+    """List this project's soft-deleted documents (admin/lead only), with
+    days_remaining before the background sweep purges each one for good."""
+    user = auth.require_project(request, project)
+    if not auth.can_manage_project(user, project):
+        return JSONResponse({"status": "error", "detail": "not allowed"}, status_code=403)
+    return {"items": db.list_deleted_documents(project), "retention_days": db.RECYCLE_BIN_RETENTION_DAYS}
+
+@app.delete("/projects/{project}/recycle-bin/{filename}")
+async def recycle_bin_purge_now(project: str, filename: str, request: Request):
+    """Admin override: permanently purge one recycle-bin document immediately,
+    instead of waiting out the retention window. Irreversible."""
+    user = auth.require_roles(request, "admin")
+    hit = db.purge_one_deleted_document(project, filename)
+    if not hit:
+        raise HTTPException(404, "Not in the recycle bin for this project")
+    recycle_dir = _recycle_bin_dir(project)
+    import glob as _glob
+    for f in _glob.glob(os.path.join(recycle_dir, "*-" + filename + "*")):
+        try:
+            if os.path.isdir(f):
+                shutil.rmtree(f)
+            else:
+                os.remove(f)
+        except Exception:
+            logger.exception("recycle_bin_purge_now: could not remove " + f)
+    db.audit("document.purge_now", project=project, target=filename, user=user, ip=_client_ip(request))
+    return {"status": "purged"}
+
+# ============================================================
+# Recycle bin -- whole projects (2026-10-07). Same soft-delete pattern as the
+# per-document one above, at project scope: deleting moves the project's
+# entire docs/ and faiss_index/ folders into data/recycle_bin/_projects/, and
+# marks the Project row deleted -- which (via auth.require_project) makes the
+# project disappear from the whole app immediately, for every role including
+# admin, until it's restored. Recoverable for db.RECYCLE_BIN_RETENTION_DAYS
+# days, then the same daily sweep that purges expired documents purges
+# expired projects too.
+# ============================================================
+
+def _project_recycle_bin_dir() -> str:
+    d = os.path.join(DATA_DIR, "recycle_bin", "_projects")
+    os.makedirs(d, exist_ok=True)
+    return d
+
+@app.delete("/projects/{project}")
+async def delete_project(project: str, request: Request):
+    """Soft-delete an entire project (admin only): move its docs/ and
+    faiss_index/ folders to the recycle bin and mark it deleted. Recoverable
+    via the /restore endpoint below for db.RECYCLE_BIN_RETENTION_DAYS days."""
+    user = auth.require_roles(request, "admin")
+    import re as _re, datetime as _dt, glob as _glob
+    safe = _re.sub(r'[^A-Za-z0-9 ._-]', '_', project)
+    stamp = _dt.datetime.utcnow().strftime("%Y%m%d-%H%M%S")
+    dest_dir = os.path.join(_project_recycle_bin_dir(), "{}-{}".format(stamp, safe))
+    os.makedirs(dest_dir, exist_ok=True)
+
+    if project in vectorstores:
+        del vectorstores[project]
+    _bm25_cache.pop(project, None)
+
+    moved = 0
+    docs_src = os.path.join(DOCS_DIR, project)
+    if os.path.isdir(docs_src):
+        try:
+            shutil.move(docs_src, os.path.join(dest_dir, "docs"))
+            moved += 1
+        except Exception:
+            logger.exception("delete_project: could not move docs folder for " + project)
+    idx_src = os.path.join(INDEX_DIR, project)
+    if os.path.isdir(idx_src):
+        try:
+            shutil.move(idx_src, os.path.join(dest_dir, "faiss_index"))
+            moved += 1
+        except Exception:
+            logger.exception("delete_project: could not move faiss_index folder for " + project)
+    for prev in _glob.glob(idx_src + ".previous-*"):
+        try:
+            shutil.move(prev, os.path.join(dest_dir, os.path.basename(prev)))
+        except Exception:
+            logger.exception("delete_project: could not move " + prev)
+
+    info = db.soft_delete_project(project, user=user, ip=_client_ip(request))
+    if not info:
+        raise HTTPException(404, "Project not found")
+    return {"status": "deleted", "moved_folders": moved, "recycle_bin_days": db.RECYCLE_BIN_RETENTION_DAYS}
+
+@app.post("/projects/{project}/restore")
+async def restore_project(project: str, request: Request):
+    """Undo delete_project() within the retention window."""
+    user = auth.require_roles(request, "admin")
+    info = db.restore_project(project, user=user, ip=_client_ip(request))
+    if not info:
+        raise HTTPException(404, "Deleted project not found (it may already be restored, or past the retention window)")
+    import re as _re, glob as _glob
+    safe = _re.sub(r'[^A-Za-z0-9 ._-]', '_', project)
+    hits = sorted(_glob.glob(os.path.join(_project_recycle_bin_dir(), "*-" + safe)), reverse=True)
+    restored = 0
+    if hits:
+        src_dir = hits[0]
+        docs_src = os.path.join(src_dir, "docs")
+        if os.path.isdir(docs_src):
+            try:
+                os.makedirs(DOCS_DIR, exist_ok=True)
+                shutil.move(docs_src, os.path.join(DOCS_DIR, project))
+                restored += 1
+            except Exception:
+                logger.exception("restore_project: could not move docs folder back for " + project)
+        idx_src = os.path.join(src_dir, "faiss_index")
+        if os.path.isdir(idx_src):
+            try:
+                os.makedirs(INDEX_DIR, exist_ok=True)
+                shutil.move(idx_src, os.path.join(INDEX_DIR, project))
+                restored += 1
+            except Exception:
+                logger.exception("restore_project: could not move faiss_index folder back for " + project)
+        for prev in _glob.glob(os.path.join(src_dir, os.path.basename(idx_src) + ".previous-*")):
+            try:
+                shutil.move(prev, os.path.join(INDEX_DIR, os.path.basename(prev)))
+            except Exception:
+                logger.exception("restore_project: could not move " + prev)
+        try:
+            if not os.listdir(src_dir):
+                os.rmdir(src_dir)
+        except Exception:
+            pass
+    return {"status": "restored", "restored_folders": restored}
+
+@app.get("/admin/recycle-bin/projects")
+async def recycle_bin_projects(request: Request):
+    """List soft-deleted projects (admin only), with days_remaining before the
+    background sweep purges each one for good."""
+    auth.require_roles(request, "admin")
+    return {"items": db.list_deleted_projects(), "retention_days": db.RECYCLE_BIN_RETENTION_DAYS}
+
+@app.delete("/admin/recycle-bin/projects/{project}")
+async def recycle_bin_purge_project_now(project: str, request: Request):
+    """Admin override: permanently purge one recycle-bin project immediately.
+    Irreversible."""
+    user = auth.require_roles(request, "admin")
+    hit = db.purge_one_deleted_project(project)
+    if not hit:
+        raise HTTPException(404, "Not in the recycle bin")
+    import re as _re, glob as _glob
+    safe = _re.sub(r'[^A-Za-z0-9 ._-]', '_', project)
+    for d in _glob.glob(os.path.join(_project_recycle_bin_dir(), "*-" + safe)):
+        try:
+            shutil.rmtree(d)
+        except Exception:
+            logger.exception("recycle_bin_purge_project_now: could not remove " + d)
+    db.audit("project.purge_now", project=project, user=user, ip=_client_ip(request))
+    return {"status": "purged"}
 
 @app.get("/projects/{project}/file")
 async def project_file(project: str, rel: str, request: Request):
@@ -4240,9 +4596,9 @@ async def project_coverage(project: str, request: Request):
 @app.get('/admin/ingestion-jobs')
 async def ingestion_job_status(request: Request):
     auth.require_roles(request,'admin')
-    with job_queue.connect() as connection:
-        rows=connection.execute('SELECT id,kind,state,attempts,created,updated,error FROM jobs ORDER BY created DESC LIMIT 100').fetchall()
-    return {'counts':job_queue.status(),'jobs':[dict(row) for row in rows]}
+    # Pilot architecture blueprint Sec 6.3: read via JobQueue.list_recent(),
+    # never by hand-writing SQL against the jobs table from outside the class.
+    return {'counts':job_queue.status(),'jobs':job_queue.list_recent(100)}
 
 @app.get('/health/ready')
 async def readiness():
@@ -4254,11 +4610,19 @@ async def readiness():
         try:
             with db.SessionLocal() as session:
                 session.execute(text('SELECT 1'))
-            response=httpx.get(settings.ollama_host.rstrip('/')+'/api/tags',timeout=5)
-            response.raise_for_status()
-            installed={m.get('name') for m in response.json().get('models',[])}
-            required={m if ':' in m else m+':latest' for m in (settings.chat_model,settings.vision_model,settings.embed_model)}
-            return required<=installed and bool(job_queue.thread and job_queue.thread.is_alive())
+            from config import resolve_role
+            hosts={}
+            for _role in ('vision','chat','embed'):
+                _r=resolve_role(_role)
+                hosts.setdefault(_r['base_url'],set()).add(_r['model'])
+            for _host,_models in hosts.items():
+                response=httpx.get(_host.rstrip('/')+'/api/tags',timeout=5)
+                response.raise_for_status()
+                installed={m.get('name') for m in response.json().get('models',[])}
+                required={m if ':' in m else m+':latest' for m in _models}
+                if not (required<=installed):
+                    return False
+            return bool(job_queue.thread and job_queue.thread.is_alive())
         except Exception:
             return False
     ready=await run_in_threadpool(check)

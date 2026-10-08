@@ -12,7 +12,7 @@ import json
 import datetime
 
 from sqlalchemy import (create_engine, event, Column, Integer, String, Text,
-                        DateTime, ForeignKey, JSON, UniqueConstraint, Float)
+                        DateTime, ForeignKey, JSON, UniqueConstraint, Float, Index)
 from sqlalchemy.orm import declarative_base, sessionmaker, relationship
 from loguru import logger
 
@@ -74,6 +74,11 @@ class Project(Base):
     created_by = Column(Integer, ForeignKey("users.id"), nullable=True)
     created_at = Column(DateTime, default=_utcnow)
     updated_at = Column(DateTime, default=_utcnow, onupdate=_utcnow)
+    # Recycle bin (2026-10-07): same soft-delete pattern as Document.deleted_at
+    # below -- see soft_delete_project() / restore_project() /
+    # purge_expired_deleted_projects(). NULL = not deleted.
+    deleted_at = Column(DateTime, nullable=True)
+    deleted_by = Column(Integer, ForeignKey("users.id"), nullable=True)
     chats = relationship("Chat", back_populates="project", cascade="all, delete-orphan")
     documents = relationship("Document", back_populates="project", cascade="all, delete-orphan")
 
@@ -121,6 +126,14 @@ class Document(Base):
     folder_id = Column(Integer, ForeignKey("folders.id"), nullable=True, index=True)
     uploaded_by = Column(Integer, ForeignKey("users.id"), nullable=True)
     uploaded_at = Column(DateTime, default=_utcnow)
+    # Recycle bin (2026-10-07): soft-delete instead of a hard DELETE, so an
+    # admin mistake is recoverable. See soft_delete_document() / restore_document()
+    # / purge_expired_deleted_documents() below. NULL = not deleted (the normal
+    # state); list_documents() filters these out by default so deleted files
+    # vanish from the app immediately, while the row (and the file, moved to
+    # data/recycle_bin/) stays recoverable for RECYCLE_BIN_RETENTION_DAYS days.
+    deleted_at = Column(DateTime, nullable=True)
+    deleted_by = Column(Integer, ForeignKey("users.id"), nullable=True)
     project = relationship("Project", back_populates="documents")
 
 class Finding(Base):
@@ -150,8 +163,68 @@ class AuditLog(Base):
     detail = Column(JSON, nullable=True)
     ip = Column(String(64), nullable=True)
 
+
+class JobProgress(Base):
+    """Shared, cross-process ingestion progress (replaces the old in-memory
+    PROGRESS dict in main.py). Keyed by "<project>||<filename>" so multiple
+    app server processes -- or workers behind a future queue/Postgres
+    deployment -- all see the same progress for a document being processed.
+    One row per in-flight document; the row is deleted when processing ends
+    (success or failure), matching the old dict's pop-on-completion behavior.
+    """
+    __tablename__ = "job_progress"
+    key = Column(String(600), primary_key=True)
+    stage = Column(String(120), nullable=False)
+    done = Column(Integer, nullable=False, default=0)
+    total = Column(Integer, nullable=False, default=0)
+    updated_at = Column(DateTime, default=_utcnow, onupdate=_utcnow)
+
+
+def set_progress(key, stage, done, total):
+    """Upsert the progress row for `key`. Safe to call from any process --
+    all state lives in the DB, not in process memory."""
+    with SessionLocal() as s:
+        row = s.get(JobProgress, key)
+        if row is None:
+            row = JobProgress(key=key, stage=stage, done=done, total=total)
+            s.add(row)
+        else:
+            row.stage = stage
+            row.done = done
+            row.total = total
+            row.updated_at = _utcnow()
+        s.commit()
+
+
+def get_progress(key):
+    """Return {"stage":..., "done":..., "total":...} or None if no job is
+    in flight for this key (matches the old PROGRESS.get(key) contract)."""
+    with SessionLocal() as s:
+        row = s.get(JobProgress, key)
+        if row is None:
+            return None
+        return {"stage": row.stage, "done": row.done, "total": row.total}
+
+
+def clear_progress(key):
+    """Remove the progress row once processing finishes (success or failure),
+    matching the old PROGRESS.pop(key, None) behavior."""
+    with SessionLocal() as s:
+        row = s.get(JobProgress, key)
+        if row is not None:
+            s.delete(row)
+            s.commit()
+
 # ── init / migration ───────────────────────────────────────
 def init_db():
+    # NOTE (Pilot architecture blueprint Sec 6.3): create_all() plus the
+    # hand-rolled ALTER-TABLE-if-missing blocks below are how this schema has
+    # evolved so far. Alembic is now set up (see alembic/README) specifically
+    # to replace this pattern going forward -- any NEW column/table should be
+    # added via `alembic revision --autogenerate` + `alembic upgrade head`,
+    # not another try/except ALTER TABLE block here. The blocks below are left
+    # as-is (already deployed, working, and idempotent) rather than migrated
+    # retroactively, to avoid any risk to the running pilot.
     Base.metadata.create_all(engine)
     from sqlalchemy import inspect
     if 'auth_version' not in {column['name'] for column in inspect(engine).get_columns('users')}:
@@ -255,7 +328,8 @@ def projects_with_chats(user=None):
         allowed = set(user_projects(user["id"]))
     out = {}
     with SessionLocal() as s:
-        for proj in s.query(Project).order_by(Project.name).all():
+        for proj in (s.query(Project).filter(Project.deleted_at.is_(None))
+                      .order_by(Project.name).all()):
             if proj.name.startswith("__"):
                 continue
             if allowed is not None and proj.name not in allowed:
@@ -266,6 +340,123 @@ def projects_with_chats(user=None):
     if not out and (user is None or user.get("role") == "admin"):
         out["default"] = []
     return out
+
+
+# ============================================================
+# Recycle bin -- projects (2026-10-07). Same pattern as the per-document one
+# above: soft-delete hides the project everywhere immediately (auth.require_project
+# excludes deleted_at IS NOT NULL too, so even an admin can't use it normally
+# until restored); the physical docs/ and faiss_index/ folders move to
+# data/recycle_bin/_projects/<project>/ (main.py's delete_project endpoint does
+# that, these helpers only manage DB rows); the project is recoverable for
+# RECYCLE_BIN_RETENTION_DAYS days, then the daily sweep purges it for good.
+# ============================================================
+# NAMES, not class objects: this assignment runs at module-load time
+# (while db.py is still being imported top-to-bottom), and several of
+# these classes are defined further down the file, so the class objects
+# themselves don't exist yet here. _purge_project_row() resolves each
+# name via globals() when it actually runs, long after the whole module
+# has finished loading.
+_PROJECT_CHILD_TABLE_NAMES = (
+    "Finding", "ProjectMember", "Folder", "Requirement", "Evidence", "SourcePrecedence",
+    "GraphEdge", "EngineeringRule", "QAFinding", "BimModel", "BimElement", "Drawing",
+    "Schedule", "StructuredRecord", "ScheduleRow", "Quantity", "UserUpload",
+    "PageRecord", "ImageRecord", "Chat", "Document",
+)
+
+def soft_delete_project(name, user=None, ip=None):
+    """Mark a project deleted. Returns {id, name} or None if no such
+    (non-deleted) project exists."""
+    with SessionLocal() as s:
+        proj = (s.query(Project).filter_by(name=name)
+                 .filter(Project.deleted_at.is_(None)).first())
+        if not proj:
+            return None
+        proj.deleted_at = _utcnow()
+        proj.deleted_by = (user or {}).get("id") if user else None
+        s.commit()
+        info = {"id": proj.id, "name": proj.name}
+    audit("project.delete", project=name,
+          detail={"recycle_bin_days": RECYCLE_BIN_RETENTION_DAYS}, user=user or SYSTEM_USER, ip=ip)
+    return info
+
+def restore_project(name, user=None, ip=None):
+    """Undo soft_delete_project() within the retention window."""
+    with SessionLocal() as s:
+        proj = (s.query(Project).filter_by(name=name)
+                 .filter(Project.deleted_at.isnot(None)).first())
+        if not proj:
+            return None
+        proj.deleted_at = None
+        proj.deleted_by = None
+        s.commit()
+        info = {"id": proj.id, "name": proj.name}
+    audit("project.restore", project=name, user=user or SYSTEM_USER, ip=ip)
+    return info
+
+def list_deleted_projects():
+    """Recycle-bin listing: soft-deleted projects, newest-deleted first, with
+    days_remaining before purge_expired_deleted_projects() removes them for good."""
+    with SessionLocal() as s:
+        rows = (s.query(Project).filter(Project.deleted_at.isnot(None))
+                 .order_by(Project.deleted_at.desc()).all())
+        out = []
+        now = _utcnow()
+        for p in rows:
+            age_days = (now - p.deleted_at).days if p.deleted_at else 0
+            out.append({
+                "id": p.id, "name": p.name,
+                "deleted_at": p.deleted_at.isoformat() if p.deleted_at else None,
+                "deleted_by": p.deleted_by,
+                "days_remaining": max(0, RECYCLE_BIN_RETENTION_DAYS - age_days),
+            })
+        return out
+
+def _purge_project_row(s, proj):
+    """Delete every row tied to one Project (all FK children, explicitly --
+    see _PROJECT_CHILD_TABLE_NAMES above -- then DocMeta via each document's id,
+    then the Project row itself). Caller owns the session/commit."""
+    doc_ids = [d.id for d in s.query(Document.id).filter_by(project_id=proj.id).all()]
+    if doc_ids:
+        s.query(DocMeta).filter(DocMeta.document_id.in_(doc_ids)).delete(synchronize_session=False)
+    g = globals()
+    for name in _PROJECT_CHILD_TABLE_NAMES:
+        s.query(g[name]).filter_by(project_id=proj.id).delete(synchronize_session=False)
+    s.delete(proj)
+
+def purge_one_deleted_project(name):
+    """Admin override: permanently purge exactly one recycle-bin project now.
+    Returns {name} if a matching soft-deleted project was found and purged,
+    else None. Caller (main.py) deletes the project's recycle-bin folders."""
+    with SessionLocal() as s:
+        proj = (s.query(Project).filter_by(name=name)
+                 .filter(Project.deleted_at.isnot(None)).first())
+        if not proj:
+            return None
+        result = {"name": proj.name}
+        _purge_project_row(s, proj)
+        s.commit()
+    audit("project.purge_now", project=name, user=SYSTEM_USER)
+    return result
+
+def purge_expired_deleted_projects(retention_days=None):
+    """Permanently remove projects (and everything in them) that have been in
+    the recycle bin longer than retention_days (default RECYCLE_BIN_RETENTION_DAYS).
+    Returns a list of {name} for the caller to also delete recycle-bin folders for."""
+    retention_days = RECYCLE_BIN_RETENTION_DAYS if retention_days is None else retention_days
+    cutoff = _utcnow() - datetime.timedelta(days=retention_days)
+    purged = []
+    with SessionLocal() as s:
+        rows = (s.query(Project)
+                 .filter(Project.deleted_at.isnot(None), Project.deleted_at < cutoff).all())
+        for proj in rows:
+            purged.append({"name": proj.name})
+            _purge_project_row(s, proj)
+        s.commit()
+    if purged:
+        audit("project.purge_expired", detail={"count": len(purged)}, user=SYSTEM_USER)
+    return purged
+
 
 def save_chat(project, chat_id, title, messages, user=None, ip=None):
     u = user or SYSTEM_USER
@@ -372,16 +563,20 @@ def document_folder_id_for_path(project, abs_path):
         return None
 
 
-def list_documents(project, user=None):
+def list_documents(project, user=None, include_deleted=False):
     """List documents in a project. If `user` is given and is NOT full-access
     (admin, or lead who is a project member), only documents in folders the user
-    is assigned to are returned (strict: unassigned users see nothing)."""
+    is assigned to are returned (strict: unassigned users see nothing).
+    Soft-deleted documents (recycle bin) are excluded unless include_deleted=True
+    -- see soft_delete_document() below."""
     with SessionLocal() as sess:
         proj = sess.query(Project).filter_by(name=project).first()
         if not proj:
             return []
         fnames = {f.id: f.name for f in sess.query(Folder).filter_by(project_id=proj.id).all()}
         q = sess.query(Document).filter_by(project_id=proj.id)
+        if not include_deleted:
+            q = q.filter(Document.deleted_at.is_(None))
         if user is not None:
             allow_all, ids = _folder_access(sess, user, proj)
             if not allow_all:
@@ -396,6 +591,132 @@ def list_documents(project, user=None):
                  "folder": fnames.get(getattr(r, "folder_id", None)),
                  "uploaded_at": r.uploaded_at.isoformat() if r.uploaded_at else None}
                 for r in rows]
+
+
+# ============================================================
+# Recycle bin (2026-10-07): soft-delete a document instead of hard-deleting it.
+# main.py's delete endpoint moves the physical file(s) to data/recycle_bin/ and
+# purges the document's chunks from the live FAISS index; these helpers only
+# manage the DB row and the structured-data rows that cite it.
+# ============================================================
+RECYCLE_BIN_RETENTION_DAYS = 15
+
+def soft_delete_document(project, filename, user=None, ip=None):
+    """Mark a document deleted. Returns {id, filename, path, folder_id} for the
+    caller to act on (moving files, purging FAISS chunks), or None if no such
+    (non-deleted) document exists."""
+    with SessionLocal() as s:
+        proj = s.query(Project).filter_by(name=project).first()
+        if not proj:
+            return None
+        doc = (s.query(Document)
+                .filter_by(project_id=proj.id, filename=filename)
+                .filter(Document.deleted_at.is_(None)).first())
+        if not doc:
+            return None
+        doc.deleted_at = _utcnow()
+        doc.deleted_by = (user or {}).get("id") if user else None
+        s.commit()
+        info = {"id": doc.id, "filename": doc.filename, "path": doc.path, "folder_id": doc.folder_id}
+    audit("document.delete", project=project, target=filename,
+          detail={"recycle_bin_days": RECYCLE_BIN_RETENTION_DAYS}, user=user or SYSTEM_USER, ip=ip)
+    return info
+
+def restore_document(project, filename, user=None, ip=None):
+    """Undo soft_delete_document() within the retention window. Returns
+    {id, filename, path, folder_id}, or None if no deleted document matches."""
+    with SessionLocal() as s:
+        proj = s.query(Project).filter_by(name=project).first()
+        if not proj:
+            return None
+        doc = (s.query(Document)
+                .filter_by(project_id=proj.id, filename=filename)
+                .filter(Document.deleted_at.isnot(None)).first())
+        if not doc:
+            return None
+        doc.deleted_at = None
+        doc.deleted_by = None
+        s.commit()
+        info = {"id": doc.id, "filename": doc.filename, "path": doc.path, "folder_id": doc.folder_id}
+    audit("document.restore", project=project, target=filename, user=user or SYSTEM_USER, ip=ip)
+    return info
+
+def list_deleted_documents(project=None):
+    """Recycle-bin listing: soft-deleted documents, newest-deleted first, with
+    days_remaining before purge_expired_deleted_documents() removes them for good."""
+    with SessionLocal() as s:
+        q = (s.query(Document, Project.name)
+              .join(Project, Document.project_id == Project.id)
+              .filter(Document.deleted_at.isnot(None)))
+        if project:
+            q = q.filter(Project.name == project)
+        rows = q.order_by(Document.deleted_at.desc()).all()
+        out = []
+        now = _utcnow()
+        for d, proj_name in rows:
+            age_days = (now - d.deleted_at).days if d.deleted_at else 0
+            out.append({
+                "id": d.id, "project": proj_name, "filename": d.filename,
+                "path": d.path, "folder_id": d.folder_id,
+                "deleted_at": d.deleted_at.isoformat() if d.deleted_at else None,
+                "deleted_by": d.deleted_by,
+                "days_remaining": max(0, RECYCLE_BIN_RETENTION_DAYS - age_days),
+            })
+        return out
+
+def purge_one_deleted_document(project, filename):
+    """Admin override: permanently purge exactly one recycle-bin document now,
+    instead of waiting out the retention window. Returns {project, filename, path}
+    if a matching soft-deleted document was found and purged, else None. Unlike
+    purge_expired_deleted_documents(), this never touches any other document."""
+    with SessionLocal() as s:
+        proj = s.query(Project).filter_by(name=project).first()
+        if not proj:
+            return None
+        d = (s.query(Document)
+              .filter_by(project_id=proj.id, filename=filename)
+              .filter(Document.deleted_at.isnot(None)).first())
+        if not d:
+            return None
+        result = {"project": project, "filename": d.filename, "path": d.path}
+        s.query(ScheduleRow).filter_by(project_id=d.project_id, doc=d.filename).delete()
+        s.query(Quantity).filter_by(project_id=d.project_id, source_doc=d.filename).delete()
+        s.query(StructuredRecord).filter_by(project_id=d.project_id, doc=d.filename).delete()
+        s.query(PageRecord).filter_by(project_id=d.project_id, document_filename=d.filename).delete()
+        s.query(ImageRecord).filter_by(project_id=d.project_id, document_filename=d.filename).delete()
+        s.query(DocMeta).filter_by(document_id=d.id).delete()
+        s.delete(d)
+        s.commit()
+    audit("document.purge_now", project=project, target=filename, user=SYSTEM_USER)
+    return result
+
+def purge_expired_deleted_documents(retention_days=None):
+    """Permanently remove documents (and the structured-data rows that cite
+    them) that have been in the recycle bin longer than retention_days
+    (default RECYCLE_BIN_RETENTION_DAYS). Returns a list of
+    {project, filename, path} for the caller to also delete the recycle-bin
+    files for from disk. Does NOT touch the live FAISS index -- the document's
+    chunks were already purged from it at soft-delete time."""
+    retention_days = RECYCLE_BIN_RETENTION_DAYS if retention_days is None else retention_days
+    cutoff = _utcnow() - datetime.timedelta(days=retention_days)
+    purged = []
+    with SessionLocal() as s:
+        rows = (s.query(Document, Project.name)
+                 .join(Project, Document.project_id == Project.id)
+                 .filter(Document.deleted_at.isnot(None), Document.deleted_at < cutoff).all())
+        for d, proj_name in rows:
+            purged.append({"project": proj_name, "filename": d.filename, "path": d.path})
+            s.query(ScheduleRow).filter_by(project_id=d.project_id, doc=d.filename).delete()
+            s.query(Quantity).filter_by(project_id=d.project_id, source_doc=d.filename).delete()
+            s.query(StructuredRecord).filter_by(project_id=d.project_id, doc=d.filename).delete()
+            s.query(PageRecord).filter_by(project_id=d.project_id, document_filename=d.filename).delete()
+            s.query(ImageRecord).filter_by(project_id=d.project_id, document_filename=d.filename).delete()
+            s.query(DocMeta).filter_by(document_id=d.id).delete()
+            s.delete(d)
+        s.commit()
+    if purged:
+        audit("document.purge_expired", detail={"count": len(purged)}, user=SYSTEM_USER)
+    return purged
 
 
 # ============================================================
@@ -992,6 +1313,72 @@ class ScheduleRow(Base):
     row_values = Column(JSON, nullable=True)  # Full row data as JSON
     revision = Column(String(50), default="")  # Document revision
     created_at = Column(DateTime, default=_utcnow)
+
+
+class DocumentMemory(Base):
+    """Phase 1 (2026-10-08): AI Document Memory layer. One row per fact an
+    LLM identified while reading a whole document end-to-end, relationship-
+    aware (section/table/entity/parent_context) rather than a flat fact
+    store. Additive to StructuredRecord/Quantity (which capture table cells
+    mechanically) -- this captures prose facts, defined terms and
+    cross-references no cell-level extractor produces, plus a second,
+    independent extraction path for table facts that is not subject to the
+    same parsing-bug classes as table_evidence.table_row_units().
+
+    evidence_state values: PENDING (never left set after ingestion commits;
+    present only transiently) | VERIFIED (evidence_quote confirmed verbatim
+    in the source page text) | REVIEW_REQUIRED (a real candidate fact whose
+    evidence_quote did not verify -- persisted, NOT discarded, with
+    review_reason explaining why) | REJECTED (structurally degenerate model
+    output -- empty/near-empty quote, exact duplicate -- not a real
+    candidate, kept only for audit) | SUPERSEDED (superseded_at set on
+    re-upload/re-extraction; row kept for history, never deleted).
+
+    Only VERIFIED rows are eligible to answer a question directly at query
+    time (Phase 2+); REVIEW_REQUIRED/REJECTED/SUPERSEDED rows exist for
+    audit and reviewer visibility, never as a trusted answer source.
+    """
+    __tablename__ = "document_memory"
+    id = Column(Integer, primary_key=True)
+
+    # --- identity / provenance ---
+    project_id = Column(Integer, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, index=True)
+    document_id = Column(Integer, ForeignKey("documents.id", ondelete="CASCADE"), nullable=False, index=True)
+    doc = Column(String(400), nullable=False, index=True)  # denormalized filename, for display/debug without a join
+    revision = Column(String(40), default="")
+    source_sha256 = Column(String(64), nullable=False, index=True)  # invalidate memory if file content changes
+
+    # --- structural location ---
+    page = Column(Integer, nullable=True, index=True)
+    section = Column(String(300), default="", index=True)   # narrative heading, e.g. "Means of Egress"
+    table = Column(String(300), default="", index=True)     # specific schedule/table, e.g. "AREA STATEMENT SUMMARY"
+    entity = Column(String(120), default="", index=True)    # e.g. "TOWER 2" -- matches StructuredRecord.entity convention
+    parent_context = Column(String(300), default="")        # qualification ("applies only if sprinklered") or parent row
+                                                             # ("sub-row of RESIDENTIAL UNIT BREAKDOWN > 2BR-Type 3")
+
+    # --- the fact itself ---
+    property = Column(String(300), nullable=False)          # short matching key, e.g. "Plot Area"
+    claim = Column(Text, nullable=False)                     # full sentence, human-readable
+    value = Column(String(200), default="")
+    unit = Column(String(50), default="")
+    topic_tags = Column(JSON, default=list)
+
+    # --- evidence & trust ---
+    evidence_quote = Column(Text, nullable=False)            # verbatim substring of the source page's stored text/tables
+    evidence_source = Column(String(40), default="")        # "text" | "table_row" | "vision"
+    evidence_state = Column(String(20), nullable=False, default="PENDING", index=True)
+    review_reason = Column(Text, default="")                # set only when evidence_state == REVIEW_REQUIRED
+    confidence = Column(String(20), default="HIGH")          # model's own stated confidence -- independent of evidence_state
+
+    # --- bookkeeping ---
+    built_by_model = Column(String(80), default="")
+    created_at = Column(DateTime, default=_utcnow)
+    superseded_at = Column(DateTime, nullable=True)
+
+    __table_args__ = (
+        Index("ix_memory_project_entity_property", "project_id", "entity", "property"),
+        Index("ix_memory_project_state", "project_id", "evidence_state"),
+    )
 
 
 class EvalDataset(Base):

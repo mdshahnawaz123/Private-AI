@@ -1,0 +1,140 @@
+param([switch]$OpenBrowser, [switch]$Restart)
+$ErrorActionPreference = 'Stop'
+Set-Location -LiteralPath $PSScriptRoot
+
+# Offline startup: dependencies and model weights must already be provisioned.
+# Never kill unrelated processes, install packages, or download model weights.
+# -Restart is the ONE exception, and even then a process is stopped only after
+# a live HTTP health check on that exact port confirms it is THIS app
+# (service: expo-design-ai, status: ready) -- never "whatever is on the port".
+# That HTTP identity check is the authority here, not a Win32_Process command-
+# line match: CommandLine is frequently returned as $null by WMI for another
+# user/session's process (a Windows permission quirk, not a security check we
+# can rely on), so requiring it would make -Restart silently never work rather
+# than failing safe in a way anyone would notice.
+# Resolve the Python this project was actually built/locked against (3.12)
+# via the `py` launcher, which is immune to PATH ordering. A bare
+# `Get-Command python.exe` picks up WHATEVER python.exe is first on PATH --
+# this broke startup on 2026-10-08 when installing a separate tool's Python
+# 3.10 landed ahead of this project's 3.12 on PATH, so `python.exe` silently
+# resolved to an interpreter with none of this project's packages installed
+# (ModuleNotFoundError: pydantic_settings, then loguru, ...). Falls back to
+# plain python.exe if the py launcher or 3.12 aren't available, so this still
+# works on a machine without the launcher installed.
+$python = $null
+try {
+    $pyLauncherPath = (& py -3.12 -c "import sys; print(sys.executable)" 2>$null)
+    if ($pyLauncherPath) { $pyLauncherPath = $pyLauncherPath.Trim() }
+    if ($pyLauncherPath -and (Test-Path $pyLauncherPath)) { $python = $pyLauncherPath }
+} catch { }
+if (-not $python) {
+    $python = (Get-Command python.exe -ErrorAction Stop).Source
+    Write-Warning "py -3.12 launcher unavailable; falling back to PATH python.exe ($python). If this project needs 3.12 specifically, verify this interpreter has its dependencies installed."
+}
+
+$settingsJson = @'
+import json
+from config import get_settings, resolve_role
+s=get_settings()
+# Pilot architecture blueprint Sec 6.2: each role resolves its own model name
+# + serving endpoint; vision can live on a separate Ollama process/port from
+# chat/embed without any change here.
+roles={r: resolve_role(r) for r in ('vision','chat','embed')}
+print(json.dumps({'port':s.port,'data':s.data_dir,'roles':roles}))
+'@ | & $python -
+if ($LASTEXITCODE -ne 0) { throw 'Application configuration is invalid.' }
+$settings = $settingsJson | ConvertFrom-Json
+$serviceUrl = "http://127.0.0.1:$($settings.port)"
+function Show-LocalService {
+    Write-Host "Local service ready: $serviceUrl/ui/classic.html"
+    if ($OpenBrowser) {
+        try { Start-Process -FilePath "$serviceUrl/ui/classic.html" }
+        catch { Write-Warning "Could not open your browser. Open $serviceUrl/ui/classic.html manually." }
+    }
+}
+if (Get-NetTCPConnection -LocalPort $settings.port -State Listen -ErrorAction SilentlyContinue) {
+    $isOurs = $false
+    try {
+        $live = Invoke-RestMethod -Uri "$serviceUrl/health/live" -TimeoutSec 5
+        $ready = Invoke-RestMethod -Uri "$serviceUrl/health/ready" -TimeoutSec 10
+        $isOurs = ($live.service -eq 'expo-design-ai' -and $ready.status -eq 'ready')
+    } catch { }
+    if ($isOurs -and -not $Restart) {
+        Write-Host 'Expo Design AI is already running.'
+        Write-Host '(Code changes on disk are NOT picked up by an already-running server.'
+        Write-Host ' Run restart.bat instead of start.bat to pick up a code change.)'
+        Show-LocalService
+        exit 0
+    }
+    if ($isOurs -and $Restart) {
+        # $isOurs already proved, via a live request to this exact port, that
+        # it answered as service: expo-design-ai / status: ready -- that IS
+        # the identity check. Stop whatever process(es) own that port; prefer
+        # python.exe by name when Get-CimInstance can see it, but don't require
+        # it (WMI commonly can't read Name/CommandLine for another session's
+        # process even when Stop-Process on the same PID works fine).
+        $ownerPids = @(Get-NetTCPConnection -LocalPort $settings.port -State Listen -ErrorAction SilentlyContinue |
+            Select-Object -ExpandProperty OwningProcess -Unique)
+        $stopped = $false
+        foreach ($procId in $ownerPids) {
+            $proc = Get-CimInstance Win32_Process -Filter "ProcessId=$procId" -ErrorAction SilentlyContinue
+            if ($proc -and $proc.Name -and $proc.Name -ne 'python.exe') {
+                Write-Warning "PID $procId on port $($settings.port) is '$($proc.Name)', not python.exe -- skipping it, not stopping."
+                continue
+            }
+            try {
+                Write-Host "Stopping the running Expo Design AI server (PID $procId) before restart..."
+                Stop-Process -Id $procId -Force -ErrorAction Stop
+                $stopped = $true
+            } catch {
+                Write-Warning "Could not stop PID $procId`: $($_.Exception.Message)"
+            }
+        }
+        if (-not $stopped) {
+            throw "Port $($settings.port) is serving a healthy Expo Design AI, but its process could not be stopped (see warnings above). Close it manually, then run start.bat."
+        }
+        for ($attempt = 0; $attempt -lt 30; $attempt++) {
+            if (-not (Get-NetTCPConnection -LocalPort $settings.port -State Listen -ErrorAction SilentlyContinue)) { break }
+            Start-Sleep -Seconds 1
+        }
+        if (Get-NetTCPConnection -LocalPort $settings.port -State Listen -ErrorAction SilentlyContinue) {
+            throw "Port $($settings.port) is still in use after stopping the previous server. Close it manually and try again."
+        }
+    } elseif (-not $isOurs) {
+        throw "Port $($settings.port) is in use, but a healthy Expo Design AI service could not be confirmed. No process was stopped."
+    }
+}
+& $python -c 'import fastapi, sqlalchemy, faiss, fitz, httpx, pydantic_settings'
+if ($LASTEXITCODE -ne 0) { throw 'Required Python dependencies are missing. Provision the environment before startup.' }
+# Check each DISTINCT role endpoint once (today that's one Ollama instance;
+# after standing up a second one for vision per Sec 6.2, this checks both).
+$hostsToModels = @{}
+foreach ($roleName in $settings.roles.PSObject.Properties.Name) {
+    $role = $settings.roles.$roleName
+    $exactTag = if ($role.model.Contains(':')) { $role.model } else { $role.model + ':latest' }
+    if (-not $hostsToModels.ContainsKey($role.base_url)) { $hostsToModels[$role.base_url] = @() }
+    $hostsToModels[$role.base_url] += $exactTag
+}
+foreach ($baseUrl in $hostsToModels.Keys) {
+    $tags = Invoke-RestMethod -Uri ($baseUrl.TrimEnd('/') + '/api/tags') -TimeoutSec 10
+    $available = @($tags.models | ForEach-Object { $_.name })
+    foreach ($exactTag in ($hostsToModels[$baseUrl] | Select-Object -Unique)) {
+        if ($exactTag -notin $available) { throw "Required local model is missing on $baseUrl`: $exactTag. Provision it before startup." }
+    }
+}
+$logRoot = [System.IO.Path]::GetFullPath($settings.data)
+New-Item -ItemType Directory -Path $logRoot -Force | Out-Null
+Start-Process -FilePath $python -ArgumentList 'main.py' -WorkingDirectory $PSScriptRoot -WindowStyle Hidden `
+    -RedirectStandardOutput (Join-Path $logRoot 'server.stdout.log') `
+    -RedirectStandardError (Join-Path $logRoot 'server.stderr.log')
+for ($attempt = 0; $attempt -lt 60; $attempt++) {
+    try {
+        $health = Invoke-RestMethod -Uri "http://127.0.0.1:$($settings.port)/health/ready" -TimeoutSec 10
+        if ($health.status -eq 'ready') {
+            Show-LocalService
+            exit 0
+        }
+    } catch { }
+    Start-Sleep -Seconds 1
+}
+throw 'The service did not become ready. Inspect data/server.stderr.log.'

@@ -522,16 +522,33 @@ def memory_lookup(project_id: int, query: str, permitted_filenames=None, focus_f
             return None
 
         # Disambiguate: prefer the unqualified (empty parent_context) row
-        # unless the query itself names the condition a qualified row covers.
+        # unless the query itself names the SPECIFIC condition a qualified
+        # row covers. The naive version of this check -- "do any words in
+        # parent_context appear in the query" -- was wrong in practice: a
+        # query like "minimum guard height" shares the word "guard" with
+        # EVERY guard-height variant's parent_context (including the
+        # handrail-reduction one), so it always looked like a "match"
+        # whether or not the query actually asked about that condition.
+        # Fix: only count a word as a real condition signal if it is NOT
+        # part of the shared vocabulary these candidates' own `property`
+        # names already have in common (guard/height/minimum/maximum, etc.)
+        # -- a word unique to one or two candidates' property names (like
+        # "handrail") is a real distinguisher; a word every variant shares
+        # is just the topic, not the condition.
+        from collections import Counter
+        _prop_word_counts = Counter()
+        for _row, _ in candidates:
+            _prop_word_counts.update(set(re.findall(r"[a-z0-9]+", (_row.property or "").lower())))
+        _generic_words = {w for w, n in _prop_word_counts.items() if n > 1}
+
         def _rank(item):
             row, score = item
             qualified = bool((row.parent_context or "").strip())
-            matches_condition = qualified and bool(
-                set(re.findall(r"[a-z0-9]+", (row.parent_context or "").lower())) & query_words
-            )
-            # Highest priority: a qualified row whose condition the query
-            # actually names. Next: an unqualified default row. Last: a
-            # qualified row the query didn't ask about.
+            condition_words = set(re.findall(r"[a-z0-9]+", (row.parent_context or "").lower())) - _generic_words
+            matches_condition = qualified and bool(condition_words & query_words)
+            # Highest priority: a qualified row whose SPECIFIC condition the
+            # query actually names. Next: an unqualified default row. Last:
+            # a qualified row the query didn't ask about.
             tier = 0 if matches_condition else (1 if not qualified else 2)
             return (tier, -score)
         candidates.sort(key=_rank)

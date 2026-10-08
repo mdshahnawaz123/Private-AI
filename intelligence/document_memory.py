@@ -550,7 +550,18 @@ def memory_lookup(project_id: int, query: str, permitted_filenames=None, focus_f
             # query actually names. Next: an unqualified default row. Last:
             # a qualified row the query didn't ask about.
             tier = 0 if matches_condition else (1 if not qualified else 2)
-            return (tier, -score)
+            # Within a tier, prefer the row whose own `property` name matches
+            # MORE of the query's distinguishing words before falling back to
+            # raw BM25 score. BM25's length normalization alone is not a
+            # reliable tiebreaker here: a short, unrelated-but-topically-
+            # adjacent row (e.g. "Guard maximum height") can out-score a
+            # longer row that is the actual, more specific match (e.g.
+            # "Minimum guard height", which uniquely contains "minimum") just
+            # by being shorter. Counting how many query words the property
+            # name itself contains catches this directly.
+            prop_words = set(re.findall(r"[a-z0-9]+", (row.property or "").lower()))
+            prop_match_count = len(query_words & prop_words)
+            return (tier, -prop_match_count, -score)
         candidates.sort(key=_rank)
         best_row, best_score = candidates[0]
 

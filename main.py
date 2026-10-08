@@ -3229,6 +3229,37 @@ async def ask_stream(req: QueryRequest, request: Request = None):
             yield f"data: {json.dumps({'type':'done'})}\n\n"
         return StreamingResponse(exact_stream(), media_type="text/event-stream")
 
+    # Phase 2: AI Document Memory lookup (additive). Runs only when the
+    # mechanical exact_answer() above found nothing. Scoped to VERIFIED rows,
+    # the user's permitted documents, and (when set) the focused document;
+    # re-verifies its evidence against the CURRENT source text and still runs
+    # the unchanged answer_guard check before publishing. Falls through to
+    # today's RAG path unchanged on anything short of a confident match --
+    # see intelligence/document_memory.py:memory_lookup and the
+    # "Document Memory Layer" design doc for the full flow.
+    try:
+        from config import get_settings as _gs_mem2
+        if _gs_mem2().enable_document_memory and not req.attachment_id and req.mode != "cowork":
+            with db.SessionLocal() as _s_mem:
+                _proj_mem = _s_mem.query(db.Project).filter_by(name=req.project).first()
+                _proj_id_mem = _proj_mem.id if _proj_mem else None
+            if _proj_id_mem:
+                from intelligence.document_memory import memory_lookup
+                _permitted_fn = {d['filename'] for d in exact_documents}
+                _focus_fn = os.path.basename(req.focus_doc.replace(chr(92), '/')) if req.focus_doc else None
+                _mem = await run_in_threadpool(memory_lookup, _proj_id_mem, req.query, _permitted_fn, _focus_fn)
+                if _mem:
+                    def memory_stream():
+                        sources = resolve_sources(req.project, _mem["sources"])
+                        yield f"data: {json.dumps({'type':'sources','sources':sources})}\n\n"
+                        yield f"data: {json.dumps({'type':'token','text':_mem['answer']})}\n\n"
+                        yield f"data: {json.dumps({'type':'done'})}\n\n"
+                    db.audit("ask.memory_answer", project=req.project,
+                             detail={"query_chars": len(req.query or "")}, user=user, ip=_client_ip(request))
+                    return StreamingResponse(memory_stream(), media_type="text/event-stream")
+    except Exception as _me:
+        logger.warning("Document memory lookup failed (non-blocking, falling through to RAG): {}", _me)
+
     # Phase 0: Optional orchestrator mode (falls back to direct RAG if orchestrator fails)
     if req.mode == "orchestrated":
         try:

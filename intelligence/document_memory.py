@@ -20,6 +20,7 @@ does not verify is persisted with evidence_state="REVIEW_REQUIRED" and a
 review_reason string -- never dropped.
 """
 import json
+import os
 import re
 from typing import Any, Dict, List, Optional
 
@@ -437,3 +438,132 @@ def is_allowlisted(filename: str) -> bool:
     from config import get_settings
     allowlist = get_settings().document_memory_doc_allowlist or []
     return filename in allowlist
+
+
+# ── Phase 2: query-time memory-first lookup ──────────────────
+# Additive only. Called from main.py:ask_stream BEFORE the existing
+# retrieve_context()/select_page_context() RAG path, and falls through to it
+# unchanged whenever memory doesn't clearly cover the question -- this
+# function never raises and returns None on anything short of a confident,
+# re-verified, guard-passing match.
+
+_meta_cache: Dict[str, Any] = {}  # doc path -> (mtime, page_text map)
+
+
+def _cached_page_text(doc_path: str) -> Dict[int, str]:
+    try:
+        mtime = os.path.getmtime(doc_path + ".index.json")
+    except OSError:
+        return {}
+    cached = _meta_cache.get(doc_path)
+    if cached and cached[0] == mtime:
+        return cached[1]
+    try:
+        meta = json.load(open(doc_path + ".index.json", encoding="utf-8"))
+    except Exception:
+        return {}
+    page_text = _page_text_map(meta)
+    _meta_cache[doc_path] = (mtime, page_text)
+    return page_text
+
+
+def _memory_row_content(row) -> str:
+    return " ".join(str(x or "") for x in (
+        row.property, row.claim, row.section, row.table,
+        row.entity, " ".join(row.topic_tags or []),
+    ))
+
+
+def memory_lookup(project_id: int, query: str, permitted_filenames=None, focus_filename: str = None):
+    """Return {"answer": str, "sources": [...]} for a confident, re-verified,
+    guard-passing memory answer, or None to fall through to RAG. Never raises.
+    """
+    try:
+        import db
+        from intelligence.retrieval import BM25Index
+        from intelligence.answer_guard import guarded_answer
+
+        db_session = db.SessionLocal()
+        try:
+            q = db_session.query(db.DocumentMemory).filter_by(
+                project_id=project_id, evidence_state="VERIFIED"
+            ).filter(db.DocumentMemory.superseded_at.is_(None))
+            if focus_filename:
+                q = q.filter(db.DocumentMemory.doc == focus_filename)
+            rows = q.all()
+        finally:
+            db_session.close()
+
+        if not rows:
+            return None
+        if permitted_filenames is not None:
+            rows = [r for r in rows if r.doc in permitted_filenames]
+        if not rows:
+            return None
+
+        bm25 = BM25Index()
+        bm25.add_documents([{"content": _memory_row_content(r), "idx": i} for i, r in enumerate(rows)])
+        hits = bm25.search(query, k=8)
+        if not hits:
+            return None
+
+        # Require at least one non-trivial query word to appear literally in
+        # the matched row's `property` key -- BM25 alone can surface a
+        # topically-related but wrong-field row; this keeps the lookup
+        # conservative about what counts as "this question is about that fact".
+        query_words = {w for w in re.findall(r"[a-z0-9]+", query.lower()) if len(w) >= 4}
+        candidates = []
+        for idx, score in hits:
+            row = rows[idx]
+            prop_words = set(re.findall(r"[a-z0-9]+", (row.property or "").lower()))
+            if query_words & prop_words:
+                candidates.append((row, score))
+        if not candidates:
+            return None
+
+        # Disambiguate: prefer the unqualified (empty parent_context) row
+        # unless the query itself names the condition a qualified row covers.
+        def _rank(item):
+            row, score = item
+            qualified = bool((row.parent_context or "").strip())
+            matches_condition = qualified and bool(
+                set(re.findall(r"[a-z0-9]+", (row.parent_context or "").lower())) & query_words
+            )
+            # Highest priority: a qualified row whose condition the query
+            # actually names. Next: an unqualified default row. Last: a
+            # qualified row the query didn't ask about.
+            tier = 0 if matches_condition else (1 if not qualified else 2)
+            return (tier, -score)
+        candidates.sort(key=_rank)
+        best_row, best_score = candidates[0]
+
+        # Re-verify the chosen row's evidence against the CURRENT source text
+        # (catches drift if the document was reprocessed since memory was built).
+        doc_path = None
+        import db as _db
+        with _db.SessionLocal() as _s:
+            d_row = _s.query(_db.Document).filter_by(id=best_row.document_id).first()
+            doc_path = d_row.path if d_row else None
+        if not doc_path:
+            return None
+        page_text = _cached_page_text(doc_path)
+        quote_norm = _normalize(best_row.evidence_quote)
+        page_norm = page_text.get(best_row.page, "")
+        if quote_norm not in page_norm:
+            # also accept if it verifies on ANY page (handles a page-number
+            # correction since the memory row was written)
+            if not any(quote_norm in t for t in page_text.values()):
+                logger.info("document_memory: query-time re-verification failed for '{}', falling through to RAG", best_row.property)
+                return None
+
+        answer = f"{best_row.claim.strip()} [SOURCE: {best_row.doc} | PAGE {best_row.page}]"
+        evidence = f"[SOURCE: {best_row.doc} | PAGE {best_row.page}]\n{best_row.evidence_quote}"
+        sources = [{"source": best_row.doc, "page": best_row.page}]
+        published, issues = guarded_answer(answer, evidence, sources)
+        if issues:
+            logger.info("document_memory: query-time guard rejected memory answer for '{}': {}", best_row.property, issues)
+            return None
+        return {"answer": published, "sources": sources}
+    except Exception as e:
+        logger.warning("document_memory: memory_lookup failed (falling through to RAG): {}", e)
+        return None

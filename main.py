@@ -3859,6 +3859,61 @@ async def reindex_document(project: str, request: Request):
         db.update_document_status(project, filename, 0, "extracted")
         return {"status": "error", "detail": "indexing failed - is the local model server running? (%s)" % e}
 
+@app.post("/projects/{project}/document-memory/build")
+async def build_document_memory(project: str, request: Request):
+    """Phase 1 validation endpoint: build/rebuild AI Document Memory rows for
+    one document from its already-saved extraction (no re-extraction, no
+    re-embedding of RAG chunks -- mirrors /reindex's pattern). Admin/lead
+    gated. Requires config.enable_document_memory AND the filename to be in
+    config.document_memory_doc_allowlist -- this endpoint does not bypass
+    either gate, it only lets an authorized user trigger the build on demand
+    for an already-ingested document instead of waiting for a fresh upload.
+    """
+    user = auth.require_project(request, project)
+    if not auth.can_manage_project(user, project):
+        return {"status": "error", "detail": "not allowed"}
+    from config import get_settings
+    settings = get_settings()
+    if not settings.enable_document_memory:
+        return {"status": "error", "detail": "enable_document_memory is False"}
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    filename = (body or {}).get("filename")
+    if not filename:
+        return {"status": "error", "detail": "filename required"}
+    from intelligence.document_memory import is_allowlisted, build_memory_for_document
+    if not is_allowlisted(filename):
+        return {"status": "error", "detail": "filename is not in document_memory_doc_allowlist"}
+    doc = next((d for d in db.list_documents(project) if d["filename"] == filename), None)
+    if not doc or not doc.get("path"):
+        return {"status": "error", "detail": "document not found"}
+    json_path = doc["path"] + ".index.json"
+    if not os.path.isfile(json_path):
+        return {"status": "error", "detail": "no saved extraction - please re-upload this file"}
+    try:
+        with open(json_path, "r", encoding="utf-8") as jf:
+            meta = json.load(jf)
+        with db.SessionLocal() as _s:
+            proj = _s.query(db.Project).filter_by(name=project).first()
+            proj_id = proj.id if proj else None
+            doc_row = _s.query(db.Document).filter_by(project_id=proj_id, filename=filename).order_by(db.Document.id.desc()).first() if proj_id else None
+            doc_id = doc_row.id if doc_row else None
+        if not proj_id or not doc_id:
+            return {"status": "error", "detail": "project or document row not found"}
+        source_sha256 = meta.get("source_sha256") or source_hash(doc["path"])
+        counts = await run_in_threadpool(
+            build_memory_for_document, proj_id, doc_id, filename, meta, source_sha256,
+            "REASONING_LLM",
+        )
+        db.audit("document.memory_build", project=project,
+                 detail={"filename": filename, **counts}, user=user, ip=_client_ip(request))
+        return {"status": "ready", **counts}
+    except Exception as e:
+        logger.exception("document memory build failed for " + str(filename))
+        return {"status": "error", "detail": str(e)}
+
 @app.post("/projects/{project}/reextract")
 async def reextract_document(project: str, request: Request):
     """Force a VISION re-read of a PDF even when it has a text layer, so complex

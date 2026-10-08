@@ -70,8 +70,11 @@ class Settings(BaseSettings):
     enable_quantities_store: bool = True  # capture numeric quantities as structured data
     enable_self_check: bool = False  # Phase 2: worker model self-check for answer verification
     enable_legacy_schedule_context: bool = False  # Legacy flat grids can lose column/entity alignment.
-    enable_document_memory: bool = False  # Phase 1: AI reads whole document, writes structured evidence-linked memory rows (additive; see intelligence/document_memory.py)
-    document_memory_doc_allowlist: Annotated[List[str], NoDecode] = []  # Phase 1 scope guard: memory build only runs for filenames in this list, regardless of enable_document_memory
+    enable_document_memory: bool = True  # Phase 1 validation run (2026-10-08): on, scoped to the two benchmark documents only via the allowlist below
+    document_memory_doc_allowlist: Annotated[List[str], NoDecode] = [
+        "C3085-RPT-3EH6105-FP-0000001(5).pdf",
+        "260610_C3045_2VA_PROJECT_DATA_SHEET_-_STAGE_4.pdf",
+    ]  # Phase 1 scope guard: memory build only runs for filenames in this list, regardless of enable_document_memory
     document_memory_model: str = "qwen3.5:9b"  # REASONING_LLM; qwen2.5:7b only if latency requires it
     not_found_threshold: float = 0.0  # Phase 2 FIX: 0.3 was miscalibrated for bge-reranker-v2-m3 (relevant chunks score ~0.01-0.06), which silently discarded valid retrievals. 0.0 disables the score-gate; honest "not found" is still handled by the answer prompt. Recalibrate later with eval data.
 

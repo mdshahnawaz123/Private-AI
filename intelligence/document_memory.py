@@ -514,15 +514,36 @@ def memory_lookup(project_id: int, query: str, permitted_filenames=None, focus_f
         # totally unrelated facts. Found via the 173-question live benchmark
         # (2026-10-08): a travel-distance fact answered a riser-height
         # question because both properties happened to contain "permitted".
-        # "minimum"/"maximum" are deliberately NOT in this list -- they are
-        # genuine, value-distinguishing signal (e.g. "Minimum guard height"
-        # vs "Guard maximum height" are different facts).
+        # "minimum"/"maximum"/"allowed" are deliberately NOT in this list --
+        # they are often genuine, value-distinguishing signal in THIS corpus'
+        # own property names (e.g. "Minimum guard height" vs "Guard maximum
+        # height" are different facts; "FAR Allowed" vs "FAR Proposed" are
+        # different facts) even though they read like qualifiers.
         _QUALIFIER_STOPWORDS = {
-            "permitted", "required", "allowed", "shall", "should", "provided",
+            "permitted", "required", "shall", "should", "provided",
             "must", "prohibited", "necessary", "within", "without", "least",
+            "what", "how", "many", "they", "there", "does", "that", "this",
         }
+
+        def _tokenize_for_match(text):
+            # A word counts as a match-worthy token if it's reasonably long
+            # (len>=4), a number of any length (digits distinguish "1
+            # Bedroom" from "2 Bedroom" -- a len>=4 filter alone drops them
+            # entirely, which was a real bug: nothing could tell those rows
+            # apart), or an all-caps acronym of 2+ letters (FAR, GFA, BUA --
+            # short but highly specific; a pure length filter was dropping
+            # these as "too short" and letting generic rows like "F Value"
+            # or "Section Value" win on the word "value" alone instead).
+            raw = re.findall(r"[A-Za-z0-9]+", text)
+            out = set()
+            for w in raw:
+                lw = w.lower()
+                if lw.isdigit() or (w.isupper() and len(w) >= 2) or len(lw) >= 4:
+                    out.add(lw)
+            return out - _QUALIFIER_STOPWORDS
+
         query_words = {w for w in re.findall(r"[a-z0-9]+", query.lower()) if len(w) >= 4}
-        query_content = query_words - _QUALIFIER_STOPWORDS
+        query_content = _tokenize_for_match(query)
 
         # Property-only BM25 index, used only for its IDF table: a rough,
         # corpus-calibrated measure of how distinguishing a given property
@@ -533,7 +554,7 @@ def memory_lookup(project_id: int, query: str, permitted_filenames=None, focus_f
         _prop_bm25.add_documents([{"content": (r.property or ""), "idx": i} for i, r in enumerate(rows)])
 
         def _prop_content_words(prop):
-            return set(re.findall(r"[a-z0-9]+", (prop or "").lower())) - _QUALIFIER_STOPWORDS
+            return _tokenize_for_match(prop or "")
 
         # Require the matched row's `property` key to overlap the query on
         # at least one non-qualifier word. BM25 alone can surface a
@@ -595,13 +616,23 @@ def memory_lookup(project_id: int, query: str, permitted_filenames=None, focus_f
             # guard height, riser height, egress door force, exit
             # separation vs. tree separation) were traced by hand against
             # this exact formula before it was deployed.
+            # Rank primarily on the ABSOLUTE combined IDF of the overlapping
+            # words (a strong, specific match should win outright), not the
+            # overlap RATIO alone -- ratio-first was tried and reverted
+            # (2026-10-08 benchmark) because it let a short property made
+            # entirely of matched words (e.g. "Total Units", fully matching a
+            # query about "total units of 1-bedroom type") beat a longer,
+            # genuinely more specific property with one unmatched word (e.g.
+            # "1 Bedroom Units (Required)"). Ratio is kept only as a
+            # tiebreak, with the empty-value penalty, raw overlap count and
+            # raw BM25 score as further tiebreaks after that.
             prop_content = _prop_content_words(row.property)
             overlap = query_content & prop_content
             overlap_idf = sum(_prop_bm25.idf.get(w, 0.0) for w in overlap)
             total_idf = sum(_prop_bm25.idf.get(w, 0.0) for w in prop_content) or 1e-9
             ratio = overlap_idf / total_idf
             no_value = 0 if str(row.value or "").strip() else 1
-            return (tier, no_value, -ratio, -overlap_idf, -len(overlap), -score)
+            return (tier, -overlap_idf, no_value, -ratio, -len(overlap), -score)
         candidates.sort(key=_rank)
         best_row, best_score = candidates[0]
 

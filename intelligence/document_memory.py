@@ -43,6 +43,38 @@ def _page_blob(page: Dict[str, Any]) -> str:
     return f"[PAGE {page.get('page')}]\n{body}"
 
 
+def _split_oversized_blob(blob: str, pno) -> List[Dict[str, Any]]:
+    """A single page can itself exceed WINDOW_CHARS (a dense data-sheet page
+    with a full text layer + table markdown + a vision transcript routinely
+    runs 40000+ chars combined) -- split it on paragraph/row boundaries into
+    several same-page sub-windows with overlap, rather than handing the whole
+    thing to the model in one shot (empirically: qwen3.5:9b given a ~45000
+    char single prompt returned an almost-empty response -- it needs each
+    extraction pass scoped to a few thousand chars to actually enumerate
+    facts instead of just summarizing or truncating)."""
+    # Prefer splitting on blank-line boundaries so a table row or sentence is
+    # never cut mid-way; fall back to a hard character split only if a single
+    # paragraph is itself larger than WINDOW_CHARS.
+    paragraphs = re.split(r"\n\s*\n", blob)
+    chunks = []
+    cur = ""
+    for para in paragraphs:
+        if cur and len(cur) + len(para) > WINDOW_CHARS:
+            chunks.append(cur)
+            tail = cur[-WINDOW_OVERLAP:] if len(cur) > WINDOW_OVERLAP else cur
+            cur = tail + "\n\n" + para
+        else:
+            cur = (cur + "\n\n" + para) if cur else para
+        while len(cur) > WINDOW_CHARS * 2:
+            # a single paragraph (e.g. one giant vision transcript) that's
+            # still too big on its own -- hard-split it.
+            chunks.append(cur[:WINDOW_CHARS])
+            cur = cur[WINDOW_CHARS - WINDOW_OVERLAP:]
+    if cur:
+        chunks.append(cur)
+    return [{"text": chunk, "pages": [pno]} for chunk in chunks]
+
+
 def build_windows(meta: Dict[str, Any]) -> List[Dict[str, Any]]:
     """Split the document's already-extracted pages into large, overlapping
     comprehension windows. Each window records the set of page numbers it
@@ -61,6 +93,15 @@ def build_windows(meta: Dict[str, Any]) -> List[Dict[str, Any]]:
     for page in pages:
         blob = _page_blob(page)
         pno = page.get("page")
+        if len(blob) > WINDOW_CHARS:
+            # flush whatever was accumulating first, then split this page on
+            # its own (it needs multiple windows by itself).
+            if cur_text:
+                windows.append({"text": cur_text, "pages": list(cur_pages)})
+                cur_text = ""
+                cur_pages = []
+            windows.extend(_split_oversized_blob(blob, pno))
+            continue
         if cur_text and len(cur_text) + len(blob) > WINDOW_CHARS:
             windows.append({"text": cur_text, "pages": list(cur_pages)})
             # overlap: carry the tail of the previous window forward
@@ -109,14 +150,85 @@ TEXT:
 """
 
 
+_SYSTEM_PROMPT = (
+    "You are a strict data-extraction engine, not a conversational assistant. "
+    "You NEVER write a summary, a preamble, or any commentary. Your entire "
+    "response is a single JSON array and nothing else -- it must start with "
+    "'[' and end with ']'. If there is nothing to extract, respond with []."
+)
+
+
 def _call_model(window_text: str, model_role: str = "REASONING_LLM") -> List[Dict[str, Any]]:
     from core.model_registry import get_registry
     provider = get_registry().get_provider(model_role)
     if provider is None:
         raise RuntimeError(f"No provider registered for role {model_role}")
     prompt = _EXTRACTION_PROMPT.format(window_text=window_text)
-    raw = provider.chat([{"role": "user", "content": prompt}])
-    return _parse_json_array(raw)
+    # Assistant-turn prefill: ending the message list on a short assistant
+    # turn of just "[" strongly biases chat-tuned local models to continue
+    # the array rather than open with a conversational summary -- this
+    # model (qwen3.5:9b) ignores a system-only instruction not to summarize,
+    # but reliably continues from a primed "[" (confirmed empirically against
+    # this exact failure mode: raw responses otherwise opened with "Based on
+    # the provided project data sheets...").
+    raw = provider.chat([
+        {"role": "system", "content": _SYSTEM_PROMPT},
+        {"role": "user", "content": prompt},
+        {"role": "assistant", "content": "["},
+    ])
+    facts = _parse_json_array("[" + raw if not raw.lstrip().startswith("[") else raw)
+    if not facts:
+        # One retry, blunter, still primed.
+        retry_prompt = (
+            "Your previous response did not follow the required format. "
+            "Re-extract the SAME facts from the SAME text below as a JSON "
+            "array ONLY -- no commentary, no markdown fence, nothing before "
+            "'[' or after ']'.\n\n" + prompt
+        )
+        raw2 = provider.chat([
+            {"role": "system", "content": _SYSTEM_PROMPT},
+            {"role": "user", "content": retry_prompt},
+            {"role": "assistant", "content": "["},
+        ])
+        facts = _parse_json_array("[" + raw2 if not raw2.lstrip().startswith("[") else raw2)
+    return facts
+
+
+def _extract_balanced_objects(text: str) -> List[str]:
+    """Scan for top-level {...} substrings respecting string literals and
+    escapes, without requiring the surrounding array to be valid JSON. Local
+    chat models occasionally drop a comma or otherwise malform ONE entry in
+    an otherwise-good array (confirmed empirically against this model);
+    recovering every other entry is much better than discarding the whole
+    window's facts over one bad object."""
+    objects = []
+    depth = 0
+    start = None
+    in_string = False
+    escape = False
+    for i, ch in enumerate(text):
+        if in_string:
+            if escape:
+                escape = False
+            elif ch == "\\":
+                escape = True
+            elif ch == '"':
+                in_string = False
+            continue
+        if ch == '"':
+            in_string = True
+            continue
+        if ch == "{":
+            if depth == 0:
+                start = i
+            depth += 1
+        elif ch == "}":
+            if depth > 0:
+                depth -= 1
+                if depth == 0 and start is not None:
+                    objects.append(text[start:i + 1])
+                    start = None
+    return objects
 
 
 def _parse_json_array(raw: str) -> List[Dict[str, Any]]:
@@ -125,24 +237,55 @@ def _parse_json_array(raw: str) -> List[Dict[str, Any]]:
     # pull out the first top-level [...] block rather than failing outright.
     match = re.search(r"\[.*\]", raw, re.DOTALL)
     if not match:
-        logger.warning("document_memory: model returned no JSON array")
+        logger.warning("document_memory: model returned no JSON array. raw[:800]={}", raw[:800])
         return []
+    array_text = match.group(0)
     try:
-        data = json.loads(match.group(0))
+        data = json.loads(array_text)
+        if isinstance(data, list):
+            return [d for d in data if isinstance(d, dict)]
     except Exception as e:
-        logger.warning("document_memory: JSON parse failed: {}", e)
-        return []
-    if not isinstance(data, list):
-        return []
-    return [d for d in data if isinstance(d, dict)]
+        snippet_start = max(0, getattr(e, "pos", 0) - 150)
+        snippet = array_text[snippet_start:snippet_start + 300]
+        logger.warning(
+            "document_memory: array-level JSON parse failed, falling back to "
+            "per-object recovery: {} | context: {}", e, snippet,
+        )
+    # Fallback: recover whichever individual {...} objects ARE valid JSON,
+    # rather than discarding the whole window over one malformed entry.
+    recovered = []
+    skipped = 0
+    for obj_text in _extract_balanced_objects(array_text):
+        try:
+            obj = json.loads(obj_text)
+            if isinstance(obj, dict):
+                recovered.append(obj)
+        except Exception:
+            skipped += 1
+    if skipped:
+        logger.warning("document_memory: per-object recovery skipped {} malformed object(s), kept {}", skipped, len(recovered))
+    return recovered
 
 
 # ── verification ─────────────────────────────────────────────
-_WS_RE = re.compile(r"\s+")
+# Pipe characters (markdown table cell delimiters) and newlines are treated
+# as interchangeable with plain whitespace when comparing a model's "verbatim"
+# quote against the source: the model consistently reconstructs a pipe-
+# delimited table row ("| Basement 1 | 32,031.40 | 344,782.79 |") using
+# newlines instead of pipes when it copies a cell boundary, which is a
+# formatting difference, not a change to the actual words/numbers in the
+# quote. Collapsing both to a single space before comparing recovers these
+# facts as VERIFIED without weakening the check that matters: every word and
+# number in the quote still has to appear in the source, in the same order.
+_DELIM_RE = re.compile(r"[\s|]+")
+_QUOTE_RE = re.compile(r"[\u2018\u2019\u201c\u201d'\"]+")
+_MD_EMPHASIS_RE = re.compile(r"\*{1,2}|_{1,2}(?=\w)|(?<=\w)_{1,2}")
 
 
 def _normalize(s: str) -> str:
-    return _WS_RE.sub(" ", (s or "")).strip().lower()
+    s = _QUOTE_RE.sub("", (s or ""))
+    s = _MD_EMPHASIS_RE.sub("", s)
+    return _DELIM_RE.sub(" ", s).strip().lower()
 
 
 def _page_text_map(meta: Dict[str, Any]) -> Dict[int, str]:

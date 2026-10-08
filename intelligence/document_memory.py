@@ -507,16 +507,42 @@ def memory_lookup(project_id: int, query: str, permitted_filenames=None, focus_f
         if not hits:
             return None
 
-        # Require at least one non-trivial query word to appear literally in
-        # the matched row's `property` key -- BM25 alone can surface a
+        # Qualifier/modal words common throughout this regulatory corpus'
+        # property names -- "permitted", "required", "shall", etc. -- carry
+        # almost no topic signal (nearly every rule says something is
+        # "permitted" or "required") but can coincidentally overlap between
+        # totally unrelated facts. Found via the 173-question live benchmark
+        # (2026-10-08): a travel-distance fact answered a riser-height
+        # question because both properties happened to contain "permitted".
+        # "minimum"/"maximum" are deliberately NOT in this list -- they are
+        # genuine, value-distinguishing signal (e.g. "Minimum guard height"
+        # vs "Guard maximum height" are different facts).
+        _QUALIFIER_STOPWORDS = {
+            "permitted", "required", "allowed", "shall", "should", "provided",
+            "must", "prohibited", "necessary", "within", "without", "least",
+        }
+        query_words = {w for w in re.findall(r"[a-z0-9]+", query.lower()) if len(w) >= 4}
+        query_content = query_words - _QUALIFIER_STOPWORDS
+
+        # Property-only BM25 index, used only for its IDF table: a rough,
+        # corpus-calibrated measure of how distinguishing a given property
+        # word actually is (a word that appears in many distinct properties,
+        # like "stair" or "exit" in a stair/egress-heavy document, is a
+        # weaker signal than one that appears in only a handful).
+        _prop_bm25 = BM25Index()
+        _prop_bm25.add_documents([{"content": (r.property or ""), "idx": i} for i, r in enumerate(rows)])
+
+        def _prop_content_words(prop):
+            return set(re.findall(r"[a-z0-9]+", (prop or "").lower())) - _QUALIFIER_STOPWORDS
+
+        # Require the matched row's `property` key to overlap the query on
+        # at least one non-qualifier word. BM25 alone can surface a
         # topically-related but wrong-field row; this keeps the lookup
         # conservative about what counts as "this question is about that fact".
-        query_words = {w for w in re.findall(r"[a-z0-9]+", query.lower()) if len(w) >= 4}
         candidates = []
         for idx, score in hits:
             row = rows[idx]
-            prop_words = set(re.findall(r"[a-z0-9]+", (row.property or "").lower()))
-            if query_words & prop_words:
+            if query_content & _prop_content_words(row.property):
                 candidates.append((row, score))
         if not candidates:
             return None
@@ -550,18 +576,32 @@ def memory_lookup(project_id: int, query: str, permitted_filenames=None, focus_f
             # query actually names. Next: an unqualified default row. Last:
             # a qualified row the query didn't ask about.
             tier = 0 if matches_condition else (1 if not qualified else 2)
-            # Within a tier, prefer the row whose own `property` name matches
-            # MORE of the query's distinguishing words before falling back to
-            # raw BM25 score. BM25's length normalization alone is not a
-            # reliable tiebreaker here: a short, unrelated-but-topically-
-            # adjacent row (e.g. "Guard maximum height") can out-score a
-            # longer row that is the actual, more specific match (e.g.
-            # "Minimum guard height", which uniquely contains "minimum") just
-            # by being shorter. Counting how many query words the property
-            # name itself contains catches this directly.
-            prop_words = set(re.findall(r"[a-z0-9]+", (row.property or "").lower()))
-            prop_match_count = len(query_words & prop_words)
-            return (tier, -prop_match_count, -score)
+            # Within a tier, rank by (in priority order):
+            #  1. Whether the row even HAS a value -- a property with an
+            #     empty `value` is rarely the right answer to a "what is
+            #     the value of X" question (it's usually a qualitative/
+            #     descriptive fact that happened to match on vocabulary).
+            #  2. The overlap RATIO: what fraction of the property name's
+            #     own (IDF-weighted) content is explained by the query,
+            #     rather than raw overlap count or sum. A short property
+            #     made entirely of generic words ("Maximum Permitted
+            #     Height") can otherwise look like a perfect, trivial match;
+            #     a longer, genuinely specific property ("Stair Riser
+            #     Height Range") loses on raw overlap size alone just for
+            #     having one extra word. Ratio normalizes for that.
+            #  3/4. Raw IDF-sum and overlap count, as further tiebreaks.
+            #  5. Raw BM25 content score, as the final fallback.
+            # All four of the live-benchmark failure cases (2026-10-08:
+            # guard height, riser height, egress door force, exit
+            # separation vs. tree separation) were traced by hand against
+            # this exact formula before it was deployed.
+            prop_content = _prop_content_words(row.property)
+            overlap = query_content & prop_content
+            overlap_idf = sum(_prop_bm25.idf.get(w, 0.0) for w in overlap)
+            total_idf = sum(_prop_bm25.idf.get(w, 0.0) for w in prop_content) or 1e-9
+            ratio = overlap_idf / total_idf
+            no_value = 0 if str(row.value or "").strip() else 1
+            return (tier, no_value, -ratio, -overlap_idf, -len(overlap), -score)
         candidates.sort(key=_rank)
         best_row, best_score = candidates[0]
 

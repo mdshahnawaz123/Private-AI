@@ -115,6 +115,44 @@ foreach ($roleName in $settings.roles.PSObject.Properties.Name) {
     if (-not $hostsToModels.ContainsKey($role.base_url)) { $hostsToModels[$role.base_url] = @() }
     $hostsToModels[$role.base_url] += $exactTag
 }
+# Start Ollama itself if it isn't already running on a LOCAL endpoint this
+# script's own role config points at. This is not "installing packages or
+# downloading model weights" (still never done automatically) -- it's just
+# starting an already-installed local background service, the same way this
+# script already starts/stops its own server process. Added 2026-10-08/09
+# after repeated manual restarts failing here with "Unable to connect to the
+# remote server" simply because Ollama's service had stopped in the
+# background; `ollama serve` is idempotent/harmless to call against an
+# instance that's already up (it just fails to bind and exits), so this only
+# acts when the endpoint is confirmed unreachable first.
+foreach ($baseUrl in @($hostsToModels.Keys)) {
+    $uri = [System.Uri]$baseUrl
+    if ($uri.Host -notin @('127.0.0.1', 'localhost')) { continue }
+    try {
+        Invoke-RestMethod -Uri ($baseUrl.TrimEnd('/') + '/api/tags') -TimeoutSec 5 | Out-Null
+        continue
+    } catch { }
+    $ollamaCmd = Get-Command ollama.exe -ErrorAction SilentlyContinue
+    if (-not $ollamaCmd) { $ollamaCmd = Get-Command ollama -ErrorAction SilentlyContinue }
+    if (-not $ollamaCmd) {
+        throw "Ollama at $baseUrl is not reachable and the 'ollama' command was not found on PATH. Start Ollama manually, then run start.bat again."
+    }
+    Write-Host "Ollama at $baseUrl is not responding -- starting it..."
+    Start-Process -FilePath $ollamaCmd.Source -ArgumentList 'serve' -WindowStyle Hidden
+    $ollamaUp = $false
+    for ($attempt = 0; $attempt -lt 30; $attempt++) {
+        Start-Sleep -Seconds 1
+        try {
+            Invoke-RestMethod -Uri ($baseUrl.TrimEnd('/') + '/api/tags') -TimeoutSec 5 | Out-Null
+            $ollamaUp = $true
+            break
+        } catch { }
+    }
+    if (-not $ollamaUp) {
+        throw "Started 'ollama serve' but $baseUrl still isn't responding after 30s. Check Ollama manually, then run start.bat again."
+    }
+    Write-Host "Ollama is up."
+}
 foreach ($baseUrl in $hostsToModels.Keys) {
     $tags = Invoke-RestMethod -Uri ($baseUrl.TrimEnd('/') + '/api/tags') -TimeoutSec 10
     $available = @($tags.models | ForEach-Object { $_.name })

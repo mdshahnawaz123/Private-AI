@@ -195,6 +195,73 @@ def _call_model(window_text: str, model_role: str = "REASONING_LLM") -> List[Dic
     return facts
 
 
+# ── Phase 3: LLM re-ranking among ambiguous memory candidates ──
+# A sentinel distinct from None: None means "the rerank call itself didn't
+# produce a usable answer" (fall back to the heuristic's top pick); _NO_MATCH
+# means "the LLM looked at the candidates and concluded none of them answer
+# the question" (fall through to RAG, same as the gate finding nothing).
+_NO_MATCH = object()
+
+_RERANK_SYSTEM_PROMPT = (
+    "You are a strict fact-matching engine, not a conversational assistant. "
+    "You are given a question and a short numbered list of candidate facts "
+    "from an engineering document. Pick the ONE candidate that actually "
+    "answers the question. If none of them do, say so. You NEVER write a "
+    "summary or commentary -- your entire response is a single JSON object "
+    "and nothing else, either {\"index\": <int>} or {\"index\": null}."
+)
+
+_RERANK_PROMPT = """Question: {query}
+
+Candidate facts:
+{candidate_list}
+
+Which candidate (by its number) actually answers the question? A candidate only counts if it directly states the thing being asked -- a candidate that merely shares a topic or a few words with the question does NOT count. Respond with ONLY a JSON object: {{"index": <the matching candidate's number>}} or {{"index": null}} if none of them answer the question.
+"""
+
+
+def _llm_rerank(query: str, candidates: List[Any]):
+    """Ask REASONING_LLM to pick which of up to 5 candidate DocumentMemory
+    rows actually answers `query`. Returns the chosen row, _NO_MATCH if the
+    model says none fit, or None if the call failed/was unusable (caller
+    falls back to the heuristic ranking in that case). Never raises.
+    """
+    try:
+        from core.model_registry import get_registry
+        provider = get_registry().get_provider("REASONING_LLM")
+        if provider is None:
+            return None
+
+        lines = []
+        for i, row in enumerate(candidates):
+            parent = f" (applies when: {row.parent_context})" if (row.parent_context or "").strip() else ""
+            lines.append(f"{i}. {row.property}: {row.claim}{parent}")
+        prompt = _RERANK_PROMPT.format(query=query, candidate_list="\n".join(lines))
+
+        raw = provider.chat([
+            {"role": "system", "content": _RERANK_SYSTEM_PROMPT},
+            {"role": "user", "content": prompt},
+            {"role": "assistant", "content": "{"},
+        ])
+        text = "{" + raw if not raw.lstrip().startswith("{") else raw
+        match = re.search(r"\{[^{}]*\}", text, re.DOTALL)
+        if not match:
+            return None
+        try:
+            parsed = json.loads(match.group(0))
+        except Exception:
+            return None
+        idx = parsed.get("index")
+        if idx is None:
+            return _NO_MATCH
+        if not isinstance(idx, int) or not (0 <= idx < len(candidates)):
+            return None
+        return candidates[idx]
+    except Exception as e:
+        logger.warning("document_memory: LLM rerank failed (falling back to heuristic ranking): {}", e)
+        return None
+
+
 def _extract_balanced_objects(text: str) -> List[str]:
     """Scan for top-level {...} substrings respecting string literals and
     escapes, without requiring the surrounding array to be valid JSON. Local
@@ -634,7 +701,32 @@ def memory_lookup(project_id: int, query: str, permitted_filenames=None, focus_f
             no_value = 0 if str(row.value or "").strip() else 1
             return (tier, -overlap_idf, no_value, -ratio, -len(overlap), -score)
         candidates.sort(key=_rank)
+
+        # Phase 3 (2026-10-09): when the lexical gate leaves more than one
+        # candidate, ask the REASONING_LLM to pick the one that actually
+        # answers the question, instead of trusting the IDF/BM25 heuristic
+        # ranking alone. Proposal doc: "Phase 3 Proposal - LLM Re-ranking for
+        # Memory Lookup". The heuristic ranking (above) earns its keep on
+        # cost/latency for the common single-candidate case and is left
+        # untouched; this only runs on the genuinely ambiguous ~10-20% of
+        # queries where 2+ candidates survived the gate. A margin/threshold
+        # check on the heuristic's own score was tried first and rejected --
+        # verified-correct answers can tie at the exact same score as
+        # verified-wrong ones (duplicate-extracted rows, or two equally
+        # "generic" property names), so no threshold on that signal
+        # separates good from bad. The LLM can read what each candidate
+        # actually SAYS, which no word-overlap score can do.
         best_row, best_score = candidates[0]
+        if len(candidates) > 1:
+            reranked = _llm_rerank(query, [c[0] for c in candidates[:5]])
+            if reranked is _NO_MATCH:
+                logger.info("document_memory: LLM re-ranker found no matching candidate for '{}', falling through to RAG", query)
+                return None
+            if reranked is not None:
+                best_row = reranked
+            # else: rerank call itself failed/was inconclusive -- keep the
+            # heuristic's top pick rather than discard an otherwise-working
+            # answer over a transient LLM hiccup.
 
         # Re-verify the chosen row's evidence against the CURRENT source text
         # (catches drift if the document was reprocessed since memory was built).

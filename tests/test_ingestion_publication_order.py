@@ -25,14 +25,15 @@ class IngestionPublicationOrder(unittest.TestCase):
             extractor=SimpleNamespace(extract_pdf=lambda *a,**kw:('native evidence',metadata),
                 save_json=lambda path,data:Path(path).write_text(json.dumps(data),encoding='utf8'))
             database=SimpleNamespace(SessionLocal=Session,Project=object(),ImageRecord=object(),
+                set_progress=lambda *a:None,get_progress=lambda *a:{},clear_progress=lambda *a:None,
                 update_document_status=lambda *a:events.append(('status',a[-1])))
             def index(project,meta,*args):
                 self.assertIn('machine image evidence',meta['pages'][0]['vision'])
                 self.assertEqual(events[0],('visual','complete'))
                 events.append(('index','published'))
                 return 2
-            scope={'os':os,'PROGRESS':{},'_pkey':lambda *a:tuple(a),'db':database,
-                   'vision':SimpleNamespace(is_image=lambda *a:False),'cad':SimpleNamespace(is_cad=lambda *a:False),
+            scope={'os':os,'json':json,'PROGRESS':{},'_pkey':lambda *a:tuple(a),'db':database,
+                   'vision':SimpleNamespace(is_image=lambda *a:False,describe_image=lambda *a:''),'cad':SimpleNamespace(is_cad=lambda *a:False),
                    'extract':extractor,'index_structured':index,'logger':SimpleNamespace(info=lambda *a:None,warning=lambda *a:None,exception=lambda *a:None)}
             tree=ast.parse((Path(__file__).resolve().parents[1]/'main.py').read_text(encoding='utf8'))
             node=next(n for n in tree.body if isinstance(n,ast.FunctionDef) and n.name=='process_document')

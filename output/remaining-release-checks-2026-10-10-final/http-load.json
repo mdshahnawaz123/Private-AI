@@ -1,0 +1,3901 @@
+[
+  {
+    "concurrency": 4,
+    "scope": "HTTP deterministic source-table answer",
+    "requests": 4,
+    "wall_seconds": 0.8279999999940628,
+    "p50_seconds": 0.8119999999908032,
+    "p95_seconds": 0.8279999999940628,
+    "correct": 4,
+    "answers": [
+      {
+        "project": "SYNTH-A",
+        "query": "What is the Plot Area?",
+        "http": 200,
+        "seconds": 0.8279999999940628,
+        "answer": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]"
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What is the Plot Area?",
+        "http": 200,
+        "seconds": 0.8119999999908032,
+        "answer": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]"
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What is the Plot Area?",
+        "http": 200,
+        "seconds": 0.8119999999908032,
+        "answer": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]"
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What is the Plot Area?",
+        "http": 200,
+        "seconds": 0.8119999999908032,
+        "answer": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]"
+          },
+          {
+            "type": "done"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "concurrency": 8,
+    "scope": "HTTP deterministic source-table answer",
+    "requests": 8,
+    "wall_seconds": 1.3130000000091968,
+    "p50_seconds": 1.2970000000059372,
+    "p95_seconds": 1.2970000000059372,
+    "correct": 8,
+    "answers": [
+      {
+        "project": "SYNTH-A",
+        "query": "What is the Plot Area?",
+        "http": 200,
+        "seconds": 1.2970000000059372,
+        "answer": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]"
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What is the Plot Area?",
+        "http": 200,
+        "seconds": 1.2660000000032596,
+        "answer": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]"
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What is the Plot Area?",
+        "http": 200,
+        "seconds": 1.2970000000059372,
+        "answer": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]"
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What is the Plot Area?",
+        "http": 200,
+        "seconds": 1.2189999999973224,
+        "answer": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]"
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What is the Plot Area?",
+        "http": 200,
+        "seconds": 1.2970000000059372,
+        "answer": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]"
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What is the Plot Area?",
+        "http": 200,
+        "seconds": 1.2970000000059372,
+        "answer": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]"
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What is the Plot Area?",
+        "http": 200,
+        "seconds": 1.2970000000059372,
+        "answer": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]"
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What is the Plot Area?",
+        "http": 200,
+        "seconds": 1.2970000000059372,
+        "answer": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]"
+          },
+          {
+            "type": "done"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "concurrency": 16,
+    "scope": "HTTP deterministic source-table answer",
+    "requests": 16,
+    "wall_seconds": 2.436999999990803,
+    "p50_seconds": 2.4219999999913853,
+    "p95_seconds": 2.436999999990803,
+    "correct": 16,
+    "answers": [
+      {
+        "project": "SYNTH-A",
+        "query": "What is the Plot Area?",
+        "http": 200,
+        "seconds": 2.436999999990803,
+        "answer": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]"
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What is the Plot Area?",
+        "http": 200,
+        "seconds": 2.436999999990803,
+        "answer": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]"
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What is the Plot Area?",
+        "http": 200,
+        "seconds": 2.436999999990803,
+        "answer": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]"
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What is the Plot Area?",
+        "http": 200,
+        "seconds": 2.436999999990803,
+        "answer": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]"
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What is the Plot Area?",
+        "http": 200,
+        "seconds": 2.4219999999913853,
+        "answer": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]"
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What is the Plot Area?",
+        "http": 200,
+        "seconds": 2.4219999999913853,
+        "answer": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]"
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What is the Plot Area?",
+        "http": 200,
+        "seconds": 2.2660000000032596,
+        "answer": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]"
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What is the Plot Area?",
+        "http": 200,
+        "seconds": 2.4069999999919673,
+        "answer": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]"
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What is the Plot Area?",
+        "http": 200,
+        "seconds": 2.4219999999913853,
+        "answer": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]"
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What is the Plot Area?",
+        "http": 200,
+        "seconds": 2.4219999999913853,
+        "answer": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]"
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What is the Plot Area?",
+        "http": 200,
+        "seconds": 2.4219999999913853,
+        "answer": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]"
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What is the Plot Area?",
+        "http": 200,
+        "seconds": 2.4219999999913853,
+        "answer": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]"
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What is the Plot Area?",
+        "http": 200,
+        "seconds": 2.4219999999913853,
+        "answer": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]"
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What is the Plot Area?",
+        "http": 200,
+        "seconds": 2.4059999999881256,
+        "answer": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]"
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What is the Plot Area?",
+        "http": 200,
+        "seconds": 2.4059999999881256,
+        "answer": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]"
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What is the Plot Area?",
+        "http": 200,
+        "seconds": 2.4059999999881256,
+        "answer": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]"
+          },
+          {
+            "type": "done"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "concurrency": 32,
+    "scope": "HTTP deterministic source-table answer",
+    "requests": 32,
+    "wall_seconds": 5.172000000005937,
+    "p50_seconds": 5.10899999999674,
+    "p95_seconds": 5.14100000000326,
+    "correct": 32,
+    "answers": [
+      {
+        "project": "SYNTH-A",
+        "query": "What is the Plot Area?",
+        "http": 200,
+        "seconds": 5.10899999999674,
+        "answer": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]"
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What is the Plot Area?",
+        "http": 200,
+        "seconds": 5.125,
+        "answer": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]"
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What is the Plot Area?",
+        "http": 200,
+        "seconds": 5.14100000000326,
+        "answer": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]"
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What is the Plot Area?",
+        "http": 200,
+        "seconds": 5.14100000000326,
+        "answer": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]"
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What is the Plot Area?",
+        "http": 200,
+        "seconds": 5.1560000000026776,
+        "answer": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]"
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What is the Plot Area?",
+        "http": 200,
+        "seconds": 5.14100000000326,
+        "answer": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]"
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What is the Plot Area?",
+        "http": 200,
+        "seconds": 5.125,
+        "answer": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]"
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What is the Plot Area?",
+        "http": 200,
+        "seconds": 5.078000000008615,
+        "answer": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]"
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What is the Plot Area?",
+        "http": 200,
+        "seconds": 5.10899999999674,
+        "answer": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]"
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What is the Plot Area?",
+        "http": 200,
+        "seconds": 5.0310000000026776,
+        "answer": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]"
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What is the Plot Area?",
+        "http": 200,
+        "seconds": 5.047000000005937,
+        "answer": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]"
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What is the Plot Area?",
+        "http": 200,
+        "seconds": 5.10899999999674,
+        "answer": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]"
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What is the Plot Area?",
+        "http": 200,
+        "seconds": 5.0939999999973224,
+        "answer": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]"
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What is the Plot Area?",
+        "http": 200,
+        "seconds": 5.062000000005355,
+        "answer": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]"
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What is the Plot Area?",
+        "http": 200,
+        "seconds": 5.14100000000326,
+        "answer": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]"
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What is the Plot Area?",
+        "http": 200,
+        "seconds": 5.14100000000326,
+        "answer": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]"
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What is the Plot Area?",
+        "http": 200,
+        "seconds": 5.125,
+        "answer": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]"
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What is the Plot Area?",
+        "http": 200,
+        "seconds": 5.139999999999418,
+        "answer": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]"
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What is the Plot Area?",
+        "http": 200,
+        "seconds": 5.125,
+        "answer": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]"
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What is the Plot Area?",
+        "http": 200,
+        "seconds": 5.125,
+        "answer": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]"
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What is the Plot Area?",
+        "http": 200,
+        "seconds": 5.092999999993481,
+        "answer": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]"
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What is the Plot Area?",
+        "http": 200,
+        "seconds": 5.125,
+        "answer": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]"
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What is the Plot Area?",
+        "http": 200,
+        "seconds": 5.062999999994645,
+        "answer": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]"
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What is the Plot Area?",
+        "http": 200,
+        "seconds": 5.110000000000582,
+        "answer": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]"
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What is the Plot Area?",
+        "http": 200,
+        "seconds": 5.0939999999973224,
+        "answer": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]"
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What is the Plot Area?",
+        "http": 200,
+        "seconds": 5.0939999999973224,
+        "answer": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]"
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What is the Plot Area?",
+        "http": 200,
+        "seconds": 5.0939999999973224,
+        "answer": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]"
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What is the Plot Area?",
+        "http": 200,
+        "seconds": 5.0789999999979045,
+        "answer": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]"
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What is the Plot Area?",
+        "http": 200,
+        "seconds": 5.062999999994645,
+        "answer": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]"
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What is the Plot Area?",
+        "http": 200,
+        "seconds": 5.032000000006519,
+        "answer": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]"
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What is the Plot Area?",
+        "http": 200,
+        "seconds": 5.0,
+        "answer": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]"
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What is the Plot Area?",
+        "http": 200,
+        "seconds": 4.937999999994645,
+        "answer": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]"
+          },
+          {
+            "type": "done"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "concurrency": 64,
+    "scope": "HTTP deterministic source-table answer",
+    "requests": 64,
+    "wall_seconds": 10.297000000005937,
+    "p50_seconds": 9.796500000004016,
+    "p95_seconds": 10.187999999994645,
+    "correct": 64,
+    "answers": [
+      {
+        "project": "SYNTH-A",
+        "query": "What is the Plot Area?",
+        "http": 200,
+        "seconds": 10.187999999994645,
+        "answer": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]"
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What is the Plot Area?",
+        "http": 200,
+        "seconds": 10.281000000002678,
+        "answer": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]"
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What is the Plot Area?",
+        "http": 200,
+        "seconds": 10.062999999994645,
+        "answer": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]"
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What is the Plot Area?",
+        "http": 200,
+        "seconds": 10.093999999997322,
+        "answer": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]"
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What is the Plot Area?",
+        "http": 200,
+        "seconds": 10.093999999997322,
+        "answer": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]"
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What is the Plot Area?",
+        "http": 200,
+        "seconds": 10.125,
+        "answer": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]"
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What is the Plot Area?",
+        "http": 200,
+        "seconds": 9.812999999994645,
+        "answer": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]"
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What is the Plot Area?",
+        "http": 200,
+        "seconds": 9.75,
+        "answer": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]"
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What is the Plot Area?",
+        "http": 200,
+        "seconds": 9.781000000002678,
+        "answer": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]"
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What is the Plot Area?",
+        "http": 200,
+        "seconds": 9.811999999990803,
+        "answer": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]"
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What is the Plot Area?",
+        "http": 200,
+        "seconds": 10.186999999990803,
+        "answer": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]"
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What is the Plot Area?",
+        "http": 200,
+        "seconds": 9.98399999999674,
+        "answer": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]"
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What is the Plot Area?",
+        "http": 200,
+        "seconds": 10.23399999999674,
+        "answer": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]"
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What is the Plot Area?",
+        "http": 200,
+        "seconds": 10.202999999994063,
+        "answer": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]"
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What is the Plot Area?",
+        "http": 200,
+        "seconds": 10.094000000011874,
+        "answer": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]"
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What is the Plot Area?",
+        "http": 200,
+        "seconds": 9.969000000011874,
+        "answer": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]"
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What is the Plot Area?",
+        "http": 200,
+        "seconds": 10.0,
+        "answer": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]"
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What is the Plot Area?",
+        "http": 200,
+        "seconds": 10.063000000009197,
+        "answer": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]"
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What is the Plot Area?",
+        "http": 200,
+        "seconds": 9.76600000000326,
+        "answer": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]"
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What is the Plot Area?",
+        "http": 200,
+        "seconds": 9.719000000011874,
+        "answer": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]"
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What is the Plot Area?",
+        "http": 200,
+        "seconds": 9.828000000008615,
+        "answer": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]"
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What is the Plot Area?",
+        "http": 200,
+        "seconds": 9.76600000000326,
+        "answer": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]"
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What is the Plot Area?",
+        "http": 200,
+        "seconds": 10.03200000000652,
+        "answer": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]"
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What is the Plot Area?",
+        "http": 200,
+        "seconds": 10.062000000005355,
+        "answer": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]"
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What is the Plot Area?",
+        "http": 200,
+        "seconds": 10.156000000002678,
+        "answer": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]"
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What is the Plot Area?",
+        "http": 200,
+        "seconds": 10.139999999999418,
+        "answer": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]"
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What is the Plot Area?",
+        "http": 200,
+        "seconds": 10.171000000002095,
+        "answer": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]"
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What is the Plot Area?",
+        "http": 200,
+        "seconds": 10.139999999999418,
+        "answer": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]"
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What is the Plot Area?",
+        "http": 200,
+        "seconds": 10.078999999997905,
+        "answer": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]"
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What is the Plot Area?",
+        "http": 200,
+        "seconds": 10.093999999997322,
+        "answer": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]"
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What is the Plot Area?",
+        "http": 200,
+        "seconds": 9.764999999999418,
+        "answer": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]"
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What is the Plot Area?",
+        "http": 200,
+        "seconds": 9.687000000005355,
+        "answer": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]"
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What is the Plot Area?",
+        "http": 200,
+        "seconds": 9.688000000009197,
+        "answer": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]"
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What is the Plot Area?",
+        "http": 200,
+        "seconds": 9.703000000008615,
+        "answer": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]"
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What is the Plot Area?",
+        "http": 200,
+        "seconds": 10.01600000000326,
+        "answer": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]"
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What is the Plot Area?",
+        "http": 200,
+        "seconds": 9.952999999994063,
+        "answer": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]"
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What is the Plot Area?",
+        "http": 200,
+        "seconds": 9.938000000009197,
+        "answer": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]"
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What is the Plot Area?",
+        "http": 200,
+        "seconds": 9.875,
+        "answer": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]"
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What is the Plot Area?",
+        "http": 200,
+        "seconds": 9.797000000005937,
+        "answer": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]"
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What is the Plot Area?",
+        "http": 200,
+        "seconds": 9.860000000000582,
+        "answer": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]"
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What is the Plot Area?",
+        "http": 200,
+        "seconds": 9.843999999997322,
+        "answer": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]"
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What is the Plot Area?",
+        "http": 200,
+        "seconds": 9.796000000002095,
+        "answer": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]"
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What is the Plot Area?",
+        "http": 200,
+        "seconds": 9.360000000000582,
+        "answer": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]"
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What is the Plot Area?",
+        "http": 200,
+        "seconds": 9.452999999994063,
+        "answer": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]"
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What is the Plot Area?",
+        "http": 200,
+        "seconds": 9.375,
+        "answer": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]"
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What is the Plot Area?",
+        "http": 200,
+        "seconds": 9.094000000011874,
+        "answer": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]"
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What is the Plot Area?",
+        "http": 200,
+        "seconds": 9.421000000002095,
+        "answer": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]"
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What is the Plot Area?",
+        "http": 200,
+        "seconds": 9.389999999999418,
+        "answer": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]"
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What is the Plot Area?",
+        "http": 200,
+        "seconds": 9.35899999999674,
+        "answer": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]"
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What is the Plot Area?",
+        "http": 200,
+        "seconds": 9.35899999999674,
+        "answer": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]"
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What is the Plot Area?",
+        "http": 200,
+        "seconds": 9.264999999999418,
+        "answer": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]"
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What is the Plot Area?",
+        "http": 200,
+        "seconds": 9.156000000002678,
+        "answer": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]"
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What is the Plot Area?",
+        "http": 200,
+        "seconds": 9.078000000008615,
+        "answer": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]"
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What is the Plot Area?",
+        "http": 200,
+        "seconds": 9.031000000002678,
+        "answer": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]"
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What is the Plot Area?",
+        "http": 200,
+        "seconds": 8.672000000005937,
+        "answer": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]"
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What is the Plot Area?",
+        "http": 200,
+        "seconds": 8.625,
+        "answer": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]"
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What is the Plot Area?",
+        "http": 200,
+        "seconds": 8.547000000005937,
+        "answer": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]"
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What is the Plot Area?",
+        "http": 200,
+        "seconds": 8.453999999997905,
+        "answer": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]"
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What is the Plot Area?",
+        "http": 200,
+        "seconds": 8.671000000002095,
+        "answer": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]"
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What is the Plot Area?",
+        "http": 200,
+        "seconds": 8.60899999999674,
+        "answer": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]"
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What is the Plot Area?",
+        "http": 200,
+        "seconds": 8.562000000005355,
+        "answer": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]"
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What is the Plot Area?",
+        "http": 200,
+        "seconds": 8.453000000008615,
+        "answer": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]"
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What is the Plot Area?",
+        "http": 200,
+        "seconds": 8.01600000000326,
+        "answer": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]"
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What is the Plot Area?",
+        "http": 200,
+        "seconds": 7.969000000011874,
+        "answer": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "- **Plot Area:** 123.45 sqm (Revision B; status: DRAFT). [SOURCE: native-a.pdf | PAGE 1]"
+          },
+          {
+            "type": "done"
+          }
+        ]
+      }
+    ]
+  }
+]

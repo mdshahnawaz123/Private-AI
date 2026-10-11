@@ -261,7 +261,10 @@
 
     <div class="proj-header">
       <div class="label">Projects</div>
-      <button class="add" onclick="createProject()" title="New Project">+</button>
+      <div style="display:flex;gap:4px">
+        <button class="add" id="projRecycleBtn" style="display:none" onclick="openProjectRecycleBin()" title="Recycle Bin (deleted projects, recoverable for 15 days)">&#9851;</button>
+        <button class="add" onclick="createProject()" title="New Project">+</button>
+      </div>
     </div>
     <div id="projList" style="max-height:140px;overflow-y:auto;display:flex;flex-direction:column;gap:2px"></div>
 
@@ -450,6 +453,8 @@ function onAuthed(){
   const plus = document.getElementById('plusBtn'); if (plus) plus.style.display = (currentUser.role === 'user') ? 'none' : '';
   const ub = document.getElementById('uploadBtn'); if (ub) ub.style.display = (currentUser.role === 'user') ? 'none' : '';
   const rb = document.getElementById('docsRebuildBtn'); if (rb) rb.style.display = (currentUser.role === 'user') ? 'none' : '';
+  const rcb = document.getElementById('docsRecycleBtn'); if (rcb) rcb.style.display = (currentUser.role === 'user') ? 'none' : '';
+  const prb = document.getElementById('projRecycleBtn'); if (prb) prb.style.display = (currentUser.role === 'admin') ? '' : 'none';
   const dub = document.getElementById('docsUploadBtn'); if (dub) dub.style.display = (currentUser.role === 'user') ? 'none' : '';
   loadProjects();
 }
@@ -631,6 +636,7 @@ function docCardHtml(f, canManage){
       <button class="doc-btn ghost" onclick="openFile('${enc}')">Open</button>
       ${canManage ? `<button class="doc-btn ghost" onclick="moveDoc('${encodeURIComponent(f.filename)}')">Move</button>` : ''}
       ${(canManage && (f.status === 'extracted' || f.status === 'error')) ? `<button class="doc-btn reidx" onclick="reindexFile('${encodeURIComponent(f.filename)}', this)">Re-index</button>` : ''}
+      ${canManage ? `<button class="doc-btn danger" onclick="deleteDoc('${encodeURIComponent(f.filename)}')" title="Moves to the Recycle Bin, recoverable for 15 days">Delete</button>` : ''}
     </div>
   </div>`;
 }
@@ -703,6 +709,40 @@ async function moveDoc(encName){
   if (isNaN(idx) || idx < 0 || idx >= folders.length){ return; }
   const r = await fetch(`${API}/projects/${encodeURIComponent(currentProject)}/documents/move`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ filename, folder_id: folders[idx].id }) });
   if (r.ok){ toast('Moved to ' + folders[idx].name + '. Rebuild Index to update search.'); loadDocuments(); } else alert('Move failed');
+}
+async function deleteDoc(encName){
+  const filename = decodeURIComponent(encName);
+  if (!confirm('Delete "' + filename + '"?\n\nIt moves to the Recycle Bin and stays recoverable for 15 days, then is purged for good. It stops appearing in search/answers immediately.')) return;
+  const r = await fetch(`${API}/projects/${encodeURIComponent(currentProject)}/documents/${encName}`, { method:'DELETE', headers:{'Authorization':'Bearer '+(authToken||'')} });
+  if (r.ok){ toast('Moved to Recycle Bin — recoverable for 15 days.'); loadDocuments(); } else { const d = await r.json().catch(()=>({})); alert('Delete failed: ' + (d.detail || 'unknown error')); }
+}
+async function openRecycleBin(){
+  const r = await fetch(`${API}/projects/${encodeURIComponent(currentProject)}/recycle-bin`, { headers:{'Authorization':'Bearer '+(authToken||'')} });
+  if (!r.ok){ alert('Could not load Recycle Bin.'); return; }
+  const d = await r.json();
+  const items = d.items || [];
+  const box = document.getElementById('recycleBinBody');
+  if (!items.length){
+    box.innerHTML = '<div class="muted" style="padding:16px 0">Recycle Bin is empty for this project.</div>';
+  } else {
+    box.innerHTML = items.map(it => {
+      const enc = encodeURIComponent(it.filename);
+      return `<div class="fm-row"><span>${escapeHtml(it.filename)} <span class="muted">(${it.days_remaining} day(s) left)</span></span>`
+        + `<span><button class="fbtn" onclick="restoreDoc('${enc}')">Restore</button> `
+        + `<button class="fbtn danger" onclick="purgeDocNow('${enc}')">Delete permanently</button></span></div>`;
+    }).join('');
+  }
+  document.getElementById('recycleBinModal').classList.add('open');
+}
+function closeRecycleBin(){ document.getElementById('recycleBinModal').classList.remove('open'); }
+async function restoreDoc(encName){
+  const r = await fetch(`${API}/projects/${encodeURIComponent(currentProject)}/documents/${encName}/restore`, { method:'POST', headers:{'Authorization':'Bearer '+(authToken||'')} });
+  if (r.ok){ toast('Restored.'); openRecycleBin(); loadDocuments(); } else { const d = await r.json().catch(()=>({})); alert('Restore failed: ' + (d.detail || 'unknown error')); }
+}
+async function purgeDocNow(encName){
+  if (!confirm('Permanently delete this file now? This cannot be undone.')) return;
+  const r = await fetch(`${API}/projects/${encodeURIComponent(currentProject)}/recycle-bin/${encName}`, { method:'DELETE', headers:{'Authorization':'Bearer '+(authToken||'')} });
+  if (r.ok){ toast('Permanently deleted.'); openRecycleBin(); } else { const d = await r.json().catch(()=>({})); alert('Delete failed: ' + (d.detail || 'unknown error')); }
 }
 // ---- folder access modal ----
 async function openFolderMembers(id, name){
@@ -1123,11 +1163,17 @@ async function loadProjects() {
 
 function renderProjects() {
   projList.innerHTML = '';
+  const isAdmin = !!(currentUser && currentUser.role === 'admin');
   Object.keys(projectsData).forEach(name => {
     const el = document.createElement('div');
     el.className = 'proj-item' + (name === currentProject ? ' active' : '');
-    el.innerHTML = `${ICONS.folder} <span>${escapeHtml(name)}</span>`;
-    el.onclick = () => {
+    el.innerHTML = `${ICONS.folder} <span>${escapeHtml(name)}</span>` + (isAdmin ? `<span class="del" title="Delete project">&times;</span>` : '');
+    el.onclick = (e) => {
+      if (e.target.classList.contains('del')) {
+        e.stopPropagation();
+        deleteProject(name);
+        return;
+      }
       currentProject = name;
       currentChatId = null;
       renderProjects();
@@ -1136,6 +1182,45 @@ function renderProjects() {
     };
     projList.appendChild(el);
   });
+}
+async function deleteProject(name){
+  if (!confirm('Delete project "' + name + '"?\n\nIt moves to the Recycle Bin and stays recoverable for 15 days, then is purged for good. Nobody can use it (not even admins) until it is restored.')) return;
+  const r = await fetch(`${API}/projects/${encodeURIComponent(name)}`, { method:'DELETE', headers:{'Authorization':'Bearer '+(authToken||'')} });
+  if (r.ok){
+    delete projectsData[name];
+    if (currentProject === name){ currentProject = Object.keys(projectsData)[0] || 'default'; currentChatId = null; }
+    renderProjects(); renderHistory(); loadKbList();
+    toast('Moved to Recycle Bin \u2014 recoverable for 15 days.');
+  } else { const d = await r.json().catch(()=>({})); alert('Delete failed: ' + (d.detail || 'unknown error')); }
+}
+async function openProjectRecycleBin(){
+  const r = await fetch(`${API}/admin/recycle-bin/projects`, { headers:{'Authorization':'Bearer '+(authToken||'')} });
+  if (!r.ok){ alert('Could not load project Recycle Bin.'); return; }
+  const d = await r.json();
+  const items = d.items || [];
+  const box = document.getElementById('projectRecycleBinBody');
+  if (!items.length){
+    box.innerHTML = '<div class="muted" style="padding:16px 0">Recycle Bin is empty.</div>';
+  } else {
+    box.innerHTML = items.map(it => {
+      const enc = encodeURIComponent(it.name);
+      return `<div class="fm-row"><span>${escapeHtml(it.name)} <span class="muted">(${it.days_remaining} day(s) left)</span></span>`
+        + `<span><button class="fbtn" onclick="restoreProject('${enc}')">Restore</button> `
+        + `<button class="fbtn danger" onclick="purgeProjectNow('${enc}')">Delete permanently</button></span></div>`;
+    }).join('');
+  }
+  document.getElementById('projectRecycleBinModal').classList.add('open');
+}
+function closeProjectRecycleBin(){ document.getElementById('projectRecycleBinModal').classList.remove('open'); }
+async function restoreProject(encName){
+  const name = decodeURIComponent(encName);
+  const r = await fetch(`${API}/projects/${encName}/restore`, { method:'POST', headers:{'Authorization':'Bearer '+(authToken||'')} });
+  if (r.ok){ toast('Restored.'); if (!projectsData[name]) projectsData[name] = []; openProjectRecycleBin(); renderProjects(); } else { const d = await r.json().catch(()=>({})); alert('Restore failed: ' + (d.detail || 'unknown error')); }
+}
+async function purgeProjectNow(encName){
+  if (!confirm('Permanently delete this project now? This cannot be undone.')) return;
+  const r = await fetch(`${API}/admin/recycle-bin/projects/${encName}`, { method:'DELETE', headers:{'Authorization':'Bearer '+(authToken||'')} });
+  if (r.ok){ toast('Permanently deleted.'); openProjectRecycleBin(); } else { const d = await r.json().catch(()=>({})); alert('Delete failed: ' + (d.detail || 'unknown error')); }
 }
 
 function renderHistory() {
@@ -2195,6 +2280,26 @@ function highlightCode(code, lang) {
   <div id="fmBody"></div>
  </div>
 </div>
+<div class="modal-back" id="recycleBinModal">
+ <div class="modal" style="width:520px">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+   <h3 style="margin:0">Recycle Bin</h3>
+   <button class="fbtn" onclick="closeRecycleBin()">Close</button>
+  </div>
+  <div class="muted" style="font-size:12px;margin-bottom:10px">Deleted documents for this project. Each one is kept here for 15 days from the day it was deleted, then removed for good.</div>
+  <div id="recycleBinBody"></div>
+ </div>
+</div>
+<div class="modal-back" id="projectRecycleBinModal">
+ <div class="modal" style="width:520px">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+   <h3 style="margin:0">Project Recycle Bin</h3>
+   <button class="fbtn" onclick="closeProjectRecycleBin()">Close</button>
+  </div>
+  <div class="muted" style="font-size:12px;margin-bottom:10px">Deleted projects. Each one is kept here for 15 days from the day it was deleted, then removed for good.</div>
+  <div id="projectRecycleBinBody"></div>
+ </div>
+</div>
 <style>
  #toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(20px);background:#111826;border:1px solid var(--border,#2a2f37);color:var(--text,#e8eaed);padding:10px 16px;border-radius:10px;font-size:13px;z-index:1200;opacity:0;transition:all .2s;pointer-events:none;font-family:var(--font,system-ui);max-width:60vw}
  #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
@@ -2223,6 +2328,8 @@ function highlightCode(code, lang) {
  .doc-btn.reidx:hover{background:#4f46e5}
  .doc-btn{flex:1;background:#3b82f6;color:#fff;border:none;border-radius:8px;padding:6px;font-size:12px;cursor:pointer}
  .doc-btn.ghost{background:var(--panel,#1b1f26);border:1px solid var(--border,#2a2f37);color:var(--text,#e8eaed)}
+ .doc-btn.danger{background:transparent;border:1px solid #7a2a2a;color:#f87171}
+ .doc-btn.danger:hover{background:#3a1414;border-color:#ef4444}
  #filePreview{position:fixed;inset:0;background:rgba(0,0,0,.78);display:none;flex-direction:column;z-index:1100}
  #filePreview.open{display:flex}
  #filePreview .pv-head{display:flex;align-items:center;justify-content:space-between;padding:12px 20px;color:#fff;font-family:var(--font,system-ui);font-size:13px}
@@ -2249,6 +2356,7 @@ function highlightCode(code, lang) {
   <div style="display:flex;gap:8px">
    <button class="doc-btn" id="docsUploadBtn" style="display:none;flex:none;padding:7px 16px;background:#3b82f6;color:#fff;border:none" onclick="newFolder()">&#43; New Folder</button>
    <button class="doc-btn" id="docsRebuildBtn" style="display:none;flex:none;padding:7px 16px;background:#6366f1;color:#fff;border:none" onclick="rebuildIndex(this)" title="Re-embed all documents with page tags (no re-upload)">Rebuild Index</button>
+   <button class="doc-btn" id="docsRecycleBtn" style="display:none;flex:none;padding:7px 16px;background:transparent;border:1px solid #7a2a2a;color:#f87171" onclick="openRecycleBin()" title="Deleted documents, recoverable for 15 days">Recycle Bin</button>
    <button class="doc-btn ghost" style="flex:none;padding:7px 16px" onclick="closeDocs()">Back to chat</button>
   </div>
  </div>

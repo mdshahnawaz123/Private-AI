@@ -23,11 +23,15 @@ def _label_value(label, value):
     clean = label.rstrip('.').strip()
     if clean and _BARE_UNIT_RE.match(clean):
         return f'({clean}): {value}'
+    unit=clean.rsplit('/',1)[-1].strip()
+    if '/' in clean and _BARE_UNIT_RE.fullmatch(unit):
+        return f'{label} ({unit}): {value}'
     return f'{label}: {value}'
 
 
 def table_row_units(markdown):
     title = ''
+    root_title = ''
     header = []
     col_titles = []
     entity = ''
@@ -65,12 +69,14 @@ def table_row_units(markdown):
         line = line.strip()
         if not line:
             title = ''
+            root_title = ''
             header = []
             col_titles = []
             entity = ''
             continue
         if not line.startswith('|'):
             title = line
+            root_title = line
             header = []
             col_titles = []
             entity = ''
@@ -86,6 +92,8 @@ def table_row_units(markdown):
 
         if len(filled) == 1 and is_textual(filled[0]):
             title = filled[0]
+            if not filled[0].endswith(':'):
+                root_title = filled[0]
             col_titles = []
             if re.fullmatch(r'TOTAL UNITS', filled[0], re.I):
                 header = cells
@@ -93,13 +101,14 @@ def table_row_units(markdown):
                 header = []
             continue
 
-        if cells and re.fullmatch(r'(?:Retail|F&B) Units:', cells[0], re.I):
-            title = cells[0]
-
         header_pattern_hit = any(
-            re.fullmatch(r'(?:LEVEL|ITEM|DESCRIPTION|REQUIRED|PROPOSED|NO\.|SQ\.M\.|SQ\.FT\.)', c, re.I)
+            re.fullmatch(r'(?:LEVEL|ITEM|DESCRIPTION|REQUIRED|PROPOSED|NO\.|SQ\.M\.|SQ\.FT\.|NORMAL|TANDEM|POD|CURRENT EV(?: \(5%\))?|FUTURE EV)', c, re.I)
             or re.search(r'\bFloor GFA\b', c, re.I) for c in cells
         )
+        # Disposition cells such as Proposed/Required also occur in data rows.
+        # An actual numeric cell establishes a populated row, not a header.
+        if any(re.fullmatch(r'[+-]?\d[\d,]*(?:\.\d+)?', c) for c in cells):
+            header_pattern_hit = False
 
         # Two or more side-by-side tables can land in one wide markdown row
         # (e.g. "AREA STATEMENT SUMMARY" next to "BUILT-UP AREA BREAKDOWN
@@ -150,6 +159,11 @@ def table_row_units(markdown):
             if any('TOTAL UNITS' in c.upper() or 'STANDARD BAYS' in c.upper() for c in cells):
                 header = cells
             continue
+
+        # A populated category row ends a preceding subsection. Its following
+        # TOTAL belongs to the parent table, not to the previous subsection.
+        if any(c.endswith(':') for c in filled):
+            title = root_title
 
         if col_titles:
             emit_row(cells)

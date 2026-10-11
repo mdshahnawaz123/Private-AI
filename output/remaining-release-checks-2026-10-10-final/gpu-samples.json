@@ -1,0 +1,972 @@
+[
+  {
+    "time": 1791618062.2818546,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:41:02.271, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 7702, 93, 64"
+  },
+  {
+    "time": 1791618064.353356,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:41:04.344, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 7702, 94, 63"
+  },
+  {
+    "time": 1791618066.4378262,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:41:06.427, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 7702, 94, 65"
+  },
+  {
+    "time": 1791618068.5165555,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:41:08.504, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 7702, 93, 64"
+  },
+  {
+    "time": 1791618070.5945644,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:41:10.584, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 7702, 94, 66"
+  },
+  {
+    "time": 1791618072.665733,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:41:12.654, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 7702, 0, 54"
+  },
+  {
+    "time": 1791618074.7352548,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:41:14.725, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 7702, 0, 53"
+  },
+  {
+    "time": 1791618076.7983494,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:41:16.788, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 7702, 0, 52"
+  },
+  {
+    "time": 1791618078.85979,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:41:18.850, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 7702, 0, 51"
+  },
+  {
+    "time": 1791618080.9380128,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:41:20.927, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 7702, 0, 51"
+  },
+  {
+    "time": 1791618083.0169241,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:41:23.005, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 7702, 0, 50"
+  },
+  {
+    "time": 1791618085.0832798,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:41:25.072, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 7702, 0, 50"
+  },
+  {
+    "time": 1791618087.1581109,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:41:27.145, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 7702, 0, 50"
+  },
+  {
+    "time": 1791618089.2337956,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:41:29.221, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 7702, 0, 49"
+  },
+  {
+    "time": 1791618091.2976308,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:41:31.287, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 7702, 0, 49"
+  },
+  {
+    "time": 1791618093.3675308,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:41:33.357, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 7702, 0, 49"
+  },
+  {
+    "time": 1791618095.443106,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:41:35.432, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 7702, 0, 49"
+  },
+  {
+    "time": 1791618097.5063472,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:41:37.495, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 7702, 0, 48"
+  },
+  {
+    "time": 1791618099.5800023,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:41:39.568, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 7702, 0, 48"
+  },
+  {
+    "time": 1791618101.653377,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:41:41.641, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 7702, 0, 48"
+  },
+  {
+    "time": 1791618103.7275794,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:41:43.716, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 7702, 0, 48"
+  },
+  {
+    "time": 1791618105.7923994,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:41:45.783, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 58, 0, 49"
+  },
+  {
+    "time": 1791618107.8604844,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:41:47.849, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 830, 7, 49"
+  },
+  {
+    "time": 1791618109.9232697,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:41:49.913, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 956, 0, 50"
+  },
+  {
+    "time": 1791618112.00997,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:41:51.996, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 956, 0, 49"
+  },
+  {
+    "time": 1791618114.0780454,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:41:54.067, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 956, 0, 49"
+  },
+  {
+    "time": 1791618116.15276,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:41:56.142, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 956, 0, 49"
+  },
+  {
+    "time": 1791618118.2291138,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:41:58.215, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 58, 0, 49"
+  },
+  {
+    "time": 1791618120.3000388,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:42:00.288, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 58, 0, 50"
+  },
+  {
+    "time": 1791618122.3706186,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:42:02.360, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 5066, 14, 50"
+  },
+  {
+    "time": 1791618124.446362,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:42:04.433, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 6744, 4, 50"
+  },
+  {
+    "time": 1791618126.5115917,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:42:06.501, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 58, 1, 58"
+  },
+  {
+    "time": 1791618128.5938654,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:42:08.579, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 66, 3, 52"
+  },
+  {
+    "time": 1791618130.6983378,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:42:10.683, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 910, 1, 51"
+  },
+  {
+    "time": 1791618132.7639227,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:42:12.754, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 252, 0, 50"
+  },
+  {
+    "time": 1791618134.8367114,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:42:14.825, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 252, 1, 51"
+  },
+  {
+    "time": 1791618136.898307,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:42:16.889, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 5066, 14, 51"
+  },
+  {
+    "time": 1791618138.9648843,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:42:18.953, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 7016, 76, 63"
+  },
+  {
+    "time": 1791618141.0420754,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:42:21.033, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 58, 2, 53"
+  },
+  {
+    "time": 1791618143.1091611,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:42:23.098, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 252, 1, 52"
+  },
+  {
+    "time": 1791618145.2308595,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:42:25.219, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 6744, 8, 52"
+  },
+  {
+    "time": 1791618147.295503,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:42:27.284, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 7016, 84, 64"
+  },
+  {
+    "time": 1791618149.365473,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:42:29.356, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 58, 0, 53"
+  },
+  {
+    "time": 1791618151.4329572,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:42:31.421, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 830, 14, 52"
+  },
+  {
+    "time": 1791618153.542906,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:42:33.525, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 910, 0, 52"
+  },
+  {
+    "time": 1791618155.6680048,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:42:35.652, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 910, 0, 52"
+  },
+  {
+    "time": 1791618157.7402186,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:42:37.727, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 58, 0, 52"
+  },
+  {
+    "time": 1791618159.8027787,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:42:39.792, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 252, 15, 53"
+  },
+  {
+    "time": 1791618161.8744366,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:42:41.863, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 5066, 7, 52"
+  },
+  {
+    "time": 1791618163.9567895,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:42:43.946, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 7016, 100, 69"
+  },
+  {
+    "time": 1791618166.0327353,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:42:46.022, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 58, 0, 58"
+  },
+  {
+    "time": 1791618168.0988681,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:42:48.089, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 252, 0, 54"
+  },
+  {
+    "time": 1791618170.1742961,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:42:50.161, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 5066, 15, 53"
+  },
+  {
+    "time": 1791618172.2409532,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:42:52.232, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 7016, 69, 62"
+  },
+  {
+    "time": 1791618174.3261957,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:42:54.316, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 58, 89, 63"
+  },
+  {
+    "time": 1791618176.3992298,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:42:56.386, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 70, 0, 55"
+  },
+  {
+    "time": 1791618178.5085433,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:42:58.492, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 910, 4, 54"
+  },
+  {
+    "time": 1791618180.58356,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:43:00.574, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 252, 4, 54"
+  },
+  {
+    "time": 1791618182.656491,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:43:02.645, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 252, 0, 54"
+  },
+  {
+    "time": 1791618184.7202957,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:43:04.710, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 5630, 14, 54"
+  },
+  {
+    "time": 1791618186.8364437,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:43:06.827, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 7016, 86, 66"
+  },
+  {
+    "time": 1791618188.9136405,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:43:08.904, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 58, 0, 56"
+  },
+  {
+    "time": 1791618190.9799142,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:43:10.970, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 252, 1, 55"
+  },
+  {
+    "time": 1791618193.0569198,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:43:13.046, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 6744, 1, 54"
+  },
+  {
+    "time": 1791618195.1529233,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:43:15.140, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 58, 88, 65"
+  },
+  {
+    "time": 1791618197.2367377,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:43:17.220, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 58, 0, 55"
+  },
+  {
+    "time": 1791618199.3252373,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:43:19.309, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 58, 0, 54"
+  },
+  {
+    "time": 1791618204.3610125,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:43:24.345, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 58, 0, 53"
+  },
+  {
+    "time": 1791618206.847929,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:43:26.748, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 58, 0, 53"
+  },
+  {
+    "time": 1791618214.148818,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:43:34.131, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 58, 0, 52"
+  },
+  {
+    "time": 1791618216.2172282,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:43:36.206, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 58, 0, 52"
+  },
+  {
+    "time": 1791618218.2740717,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:43:38.263, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 252, 1, 53"
+  },
+  {
+    "time": 1791618220.384064,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:43:40.369, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 910, 0, 53"
+  },
+  {
+    "time": 1791618222.4718132,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:43:42.458, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 910, 0, 53"
+  },
+  {
+    "time": 1791618224.5408952,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:43:44.530, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 58, 0, 53"
+  },
+  {
+    "time": 1791618226.6071246,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:43:46.598, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 5066, 0, 53"
+  },
+  {
+    "time": 1791618228.6794634,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:43:48.668, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 6744, 1, 54"
+  },
+  {
+    "time": 1791618230.7482111,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:43:50.737, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 7016, 82, 66"
+  },
+  {
+    "time": 1791618232.821315,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:43:52.810, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 7016, 80, 67"
+  },
+  {
+    "time": 1791618234.8975017,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:43:54.885, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 58, 1, 57"
+  },
+  {
+    "time": 1791618236.9643307,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:43:56.951, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 70, 0, 55"
+  },
+  {
+    "time": 1791618239.0284348,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:43:59.018, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 252, 0, 55"
+  },
+  {
+    "time": 1791618241.1562865,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:44:01.135, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 910, 0, 55"
+  },
+  {
+    "time": 1791618243.3452845,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:44:03.328, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 910, 0, 55"
+  },
+  {
+    "time": 1791618245.438966,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:44:05.425, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 910, 0, 54"
+  },
+  {
+    "time": 1791618247.5306945,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:44:07.518, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 58, 3, 54"
+  },
+  {
+    "time": 1791618249.6020029,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:44:09.591, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 252, 0, 54"
+  },
+  {
+    "time": 1791618251.671927,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:44:11.660, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 5066, 14, 54"
+  },
+  {
+    "time": 1791618253.7353334,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:44:13.725, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 7016, 17, 56"
+  },
+  {
+    "time": 1791618255.8157208,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:44:15.803, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 7016, 81, 66"
+  },
+  {
+    "time": 1791618257.9108298,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:44:17.896, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 7016, 81, 67"
+  },
+  {
+    "time": 1791618259.990406,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:44:19.979, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 7016, 83, 68"
+  },
+  {
+    "time": 1791618262.1339943,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:44:22.118, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 58, 86, 68"
+  },
+  {
+    "time": 1791618264.2395282,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:44:24.224, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 58, 4, 58"
+  },
+  {
+    "time": 1791618266.3313184,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:44:26.317, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 58, 0, 57"
+  },
+  {
+    "time": 1791618268.3968153,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:44:28.386, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 252, 0, 56"
+  },
+  {
+    "time": 1791618270.473273,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:44:30.460, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 910, 1, 56"
+  },
+  {
+    "time": 1791618272.6039124,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:44:32.580, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 910, 0, 56"
+  },
+  {
+    "time": 1791618275.395426,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:44:35.363, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 910, 0, 56"
+  },
+  {
+    "time": 1791618277.5339427,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:44:37.512, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 910, 0, 55"
+  },
+  {
+    "time": 1791618280.7113292,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:44:40.690, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 910, 0, 55"
+  },
+  {
+    "time": 1791618282.8813477,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:44:42.867, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 252, 3, 55"
+  },
+  {
+    "time": 1791618284.9776256,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:44:44.963, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 58, 0, 55"
+  },
+  {
+    "time": 1791618287.0691144,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:44:47.058, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 5066, 0, 55"
+  },
+  {
+    "time": 1791618289.1605766,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:44:49.149, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 6744, 11, 55"
+  },
+  {
+    "time": 1791618291.234721,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:44:51.224, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 7016, 100, 70"
+  },
+  {
+    "time": 1791618293.3289301,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:44:53.318, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 7016, 83, 65"
+  },
+  {
+    "time": 1791618295.4229395,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:44:55.412, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 7016, 81, 70"
+  },
+  {
+    "time": 1791618297.495363,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:44:57.485, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 7016, 82, 71"
+  },
+  {
+    "time": 1791618299.584831,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:44:59.569, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 7016, 77, 70"
+  },
+  {
+    "time": 1791618301.654402,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:45:01.644, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 7016, 87, 71"
+  },
+  {
+    "time": 1791618303.729719,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:45:03.719, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 7016, 84, 72"
+  },
+  {
+    "time": 1791618305.793585,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:45:05.783, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 7016, 38, 71"
+  },
+  {
+    "time": 1791618310.8716524,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:45:10.855, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 58, 0, 58"
+  },
+  {
+    "time": 1791618315.6271367,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:45:15.307, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 58, 0, 57"
+  },
+  {
+    "time": 1791618317.867458,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:45:17.857, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 252, 0, 57"
+  },
+  {
+    "time": 1791618319.982953,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:45:19.948, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 910, 15, 59"
+  },
+  {
+    "time": 1791618322.114544,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:45:22.087, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 910, 0, 57"
+  },
+  {
+    "time": 1791618324.2398286,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:45:24.218, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 910, 0, 57"
+  },
+  {
+    "time": 1791618326.3465037,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:45:26.326, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 910, 0, 56"
+  },
+  {
+    "time": 1791618328.475574,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:45:28.450, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 910, 0, 55"
+  },
+  {
+    "time": 1791618332.270591,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:45:32.185, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 910, 0, 55"
+  },
+  {
+    "time": 1791618335.5692267,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:45:35.510, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 910, 0, 55"
+  },
+  {
+    "time": 1791618337.8191996,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:45:37.725, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 910, 0, 55"
+  },
+  {
+    "time": 1791618341.9472427,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:45:41.929, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 58, 0, 54"
+  },
+  {
+    "time": 1791618344.03938,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:45:44.024, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 58, 0, 55"
+  },
+  {
+    "time": 1791618346.119077,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:45:46.108, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 5066, 7, 55"
+  },
+  {
+    "time": 1791618348.1882758,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:45:48.177, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 6744, 3, 56"
+  },
+  {
+    "time": 1791618350.262518,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:45:50.252, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 7016, 90, 64"
+  },
+  {
+    "time": 1791618352.3331785,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:45:52.322, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 7016, 82, 68"
+  },
+  {
+    "time": 1791618354.407074,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:45:54.396, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 7016, 79, 71"
+  },
+  {
+    "time": 1791618356.4824235,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:45:56.472, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 7016, 82, 69"
+  },
+  {
+    "time": 1791618358.5674338,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:45:58.556, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 7016, 80, 71"
+  },
+  {
+    "time": 1791618360.656363,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:46:00.643, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 7016, 75, 71"
+  },
+  {
+    "time": 1791618362.7332292,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:46:02.721, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 7016, 83, 71"
+  },
+  {
+    "time": 1791618364.8017647,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:46:04.791, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 7016, 82, 72"
+  },
+  {
+    "time": 1791618366.8942902,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:46:06.879, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 58, 0, 63"
+  },
+  {
+    "time": 1791618368.969901,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:46:08.952, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 58, 0, 60"
+  },
+  {
+    "time": 1791618371.050253,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:46:11.036, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 252, 0, 59"
+  },
+  {
+    "time": 1791618373.1271026,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:46:13.115, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 954, 4, 58"
+  },
+  {
+    "time": 1791618375.2103,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:46:15.196, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 954, 0, 58"
+  },
+  {
+    "time": 1791618377.2885394,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:46:17.280, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 954, 18, 60"
+  },
+  {
+    "time": 1791618379.3638747,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:46:19.353, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 954, 0, 57"
+  },
+  {
+    "time": 1791618381.4801319,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:46:21.458, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 954, 0, 57"
+  },
+  {
+    "time": 1791618383.551809,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:46:23.540, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 954, 0, 56"
+  },
+  {
+    "time": 1791618385.6478167,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:46:25.636, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 954, 0, 56"
+  },
+  {
+    "time": 1791618387.7311382,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:46:27.720, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 954, 0, 57"
+  },
+  {
+    "time": 1791618389.809228,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:46:29.797, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 954, 0, 57"
+  },
+  {
+    "time": 1791618391.8822756,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:46:31.870, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 954, 76, 59"
+  },
+  {
+    "time": 1791618393.961744,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:46:33.950, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 954, 0, 57"
+  },
+  {
+    "time": 1791618396.036795,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:46:36.025, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 954, 0, 56"
+  },
+  {
+    "time": 1791618398.2141957,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:46:38.192, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 954, 0, 56"
+  },
+  {
+    "time": 1791618402.4287684,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:46:42.410, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 954, 0, 55"
+  },
+  {
+    "time": 1791618404.5138235,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:46:44.502, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 954, 25, 56"
+  },
+  {
+    "time": 1791618406.5983655,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:46:46.585, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 954, 0, 56"
+  },
+  {
+    "time": 1791618408.6826036,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:46:48.671, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 954, 0, 56"
+  },
+  {
+    "time": 1791618410.766165,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:46:50.755, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 954, 0, 56"
+  },
+  {
+    "time": 1791618412.8470283,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:46:52.835, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 954, 30, 56"
+  },
+  {
+    "time": 1791618414.9550562,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:46:54.936, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 954, 0, 55"
+  },
+  {
+    "time": 1791618417.024861,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:46:57.014, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 954, 0, 56"
+  },
+  {
+    "time": 1791618419.1128786,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:46:59.100, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 954, 0, 55"
+  },
+  {
+    "time": 1791618421.207001,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:47:01.193, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 954, 35, 56"
+  },
+  {
+    "time": 1791618423.2881076,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:47:03.276, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 954, 0, 57"
+  },
+  {
+    "time": 1791618425.3673062,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:47:05.356, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 954, 0, 57"
+  },
+  {
+    "time": 1791618427.4645545,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:47:07.453, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 954, 0, 55"
+  },
+  {
+    "time": 1791618429.5280359,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:47:09.518, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 954, 0, 55"
+  },
+  {
+    "time": 1791618431.7381613,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:47:11.681, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 954, 0, 55"
+  },
+  {
+    "time": 1791618439.668711,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:47:19.650, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 954, 0, 54"
+  },
+  {
+    "time": 1791618441.7565055,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:47:21.744, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 954, 83, 57"
+  },
+  {
+    "time": 1791618443.8386931,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:47:23.827, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 954, 0, 55"
+  },
+  {
+    "time": 1791618445.9233077,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:47:25.911, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 954, 0, 55"
+  },
+  {
+    "time": 1791618447.9965663,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:47:27.986, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 954, 0, 55"
+  },
+  {
+    "time": 1791618450.0672622,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:47:30.056, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 954, 0, 55"
+  },
+  {
+    "time": 1791618452.1348329,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:47:32.124, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 954, 40, 55"
+  },
+  {
+    "time": 1791618454.2134993,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:47:34.201, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 954, 24, 57"
+  },
+  {
+    "time": 1791618456.3055513,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:47:36.292, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 954, 0, 55"
+  },
+  {
+    "time": 1791618458.3914275,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:47:38.380, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 954, 0, 55"
+  },
+  {
+    "time": 1791618460.484466,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:47:40.472, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 954, 82, 57"
+  },
+  {
+    "time": 1791618462.5778048,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:47:42.566, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 954, 0, 54"
+  },
+  {
+    "time": 1791618464.665151,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:47:44.653, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 954, 0, 55"
+  },
+  {
+    "time": 1791618466.745077,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:47:46.734, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 954, 0, 54"
+  },
+  {
+    "time": 1791618468.8226273,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:47:48.811, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 954, 0, 54"
+  },
+  {
+    "time": 1791618470.9070415,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:47:50.893, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 954, 69, 57"
+  },
+  {
+    "time": 1791618472.9865115,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:47:52.975, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 954, 0, 55"
+  },
+  {
+    "time": 1791618475.0644915,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:47:55.053, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 954, 0, 54"
+  },
+  {
+    "time": 1791618477.136536,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:47:57.125, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 954, 0, 55"
+  },
+  {
+    "time": 1791618479.2420852,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:47:59.230, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 954, 0, 54"
+  },
+  {
+    "time": 1791618481.349471,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:48:01.336, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 954, 0, 55"
+  },
+  {
+    "time": 1791618483.426654,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:48:03.415, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 954, 49, 55"
+  },
+  {
+    "time": 1791618485.5343387,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:48:05.520, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 954, 0, 54"
+  },
+  {
+    "time": 1791618487.6566865,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:48:07.645, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 954, 0, 54"
+  },
+  {
+    "time": 1791618489.7685142,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:48:09.757, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 954, 0, 54"
+  },
+  {
+    "time": 1791618491.8513608,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:48:11.829, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 954, 0, 54"
+  },
+  {
+    "time": 1791618493.928655,
+    "returncode": 0,
+    "gpu": "2026/10/10 11:48:13.917, NVIDIA GeForce RTX 5080 Laptop GPU, 16303, 954, 0, 53"
+  }
+]

@@ -1,0 +1,141 @@
+test_invention_and_foreign_citations_withheld (test_answer_guard.AnswerGuardTests.test_invention_and_foreign_citations_withheld) ... ok
+test_known_numeric_filename_is_not_a_quantity (test_answer_guard.AnswerGuardTests.test_known_numeric_filename_is_not_a_quantity) ... ok
+test_not_found_and_list_indices_not_numeric_claims (test_answer_guard.AnswerGuardTests.test_not_found_and_list_indices_not_numeric_claims) ... ok
+test_repair_failure_preserves_refusal_and_valid_answer_skips_repair (test_answer_guard.AnswerGuardTests.test_repair_failure_preserves_refusal_and_valid_answer_skips_repair) ... ok
+test_repair_is_single_and_checked_before_publication (test_answer_guard.AnswerGuardTests.test_repair_is_single_and_checked_before_publication) ... ok
+test_valid_and_wrong_page_values (test_answer_guard.AnswerGuardTests.test_valid_and_wrong_page_values) ... ok
+test_invalid_replacement_preserves_original_and_removes_temporary (test_atomic_upload.AtomicUploadTests.test_invalid_replacement_preserves_original_and_removes_temporary) ... ok
+test_current_role_overrides_stale_admin_token (test_auth_current_user.CurrentUserAuthorization.test_current_role_overrides_stale_admin_token) ... ok
+test_disabled_and_deleted_user_tokens_are_rejected (test_auth_current_user.CurrentUserAuthorization.test_disabled_and_deleted_user_tokens_are_rejected) ... ok
+test_password_rotation_revokes_previous_token (test_auth_current_user.CurrentUserAuthorization.test_password_rotation_revokes_previous_token) ... ok
+test_active_runner_and_nonempty_destination_are_rejected (test_backup_restore.BackupRestoreTests.test_active_runner_and_nonempty_destination_are_rejected) ... ok
+test_restore_database_and_artifact_and_reject_corruption (test_backup_restore.BackupRestoreTests.test_restore_database_and_artifact_and_reject_corruption) ... ok
+test_decimal_sum_and_difference_preserve_sources (test_calculations.Calculations.test_decimal_sum_and_difference_preserve_sources) ... ok
+test_unsupported_calculation_never_falls_through_to_model (test_calculations.Calculations.test_unsupported_calculation_never_falls_through_to_model) ... ERROR
+test_unique_explicit_name_and_ambiguity (test_document_focus.NamedDocumentTests.test_unique_explicit_name_and_ambiguity) ... ok
+test_changed_source_never_runs (test_durable_jobs.DurableJobsTests.test_changed_source_never_runs) ... ok
+test_interrupted_job_replays_and_runner_excludes_second_process (test_durable_jobs.DurableJobsTests.test_interrupted_job_replays_and_runner_excludes_second_process) ... ok
+test_later_page_ranks_and_preserves_attribution (test_durable_jobs.DurableJobsTests.test_later_page_ranks_and_preserves_attribution) ... ok
+test_reopen_deduplicate_and_finish (test_durable_jobs.DurableJobsTests.test_reopen_deduplicate_and_finish) ... ok
+test_retry_and_terminal_failure (test_durable_jobs.DurableJobsTests.test_retry_and_terminal_failure) ... ok
+test_verbatim_page_and_conflict (test_equipment_identifier.EquipmentIdentifierTests.test_verbatim_page_and_conflict) ... ok
+test_adjacent_tables_do_not_confuse_gfa_and_bua (test_exact_answers.SourceTableAnswers.test_adjacent_tables_do_not_confuse_gfa_and_bua) ... ok
+test_concrete_test_basis_is_preserved_not_reinterpreted (test_exact_answers.SourceTableAnswers.test_concrete_test_basis_is_preserved_not_reinterpreted) ... ok
+test_conflicting_values_are_not_selected (test_exact_answers.SourceTableAnswers.test_conflicting_values_are_not_selected) ... ok
+test_explicit_wrong_page_does_not_use_matching_value_elsewhere (test_exact_answers.SourceTableAnswers.test_explicit_wrong_page_does_not_use_matching_value_elsewhere) ... ok
+test_missing_entity_is_not_another_tower (test_exact_answers.SourceTableAnswers.test_missing_entity_is_not_another_tower) ... ok
+test_missing_requested_fact_does_not_return_partial_result (test_exact_answers.SourceTableAnswers.test_missing_requested_fact_does_not_return_partial_result) ... ok
+test_parking_categories_and_dispositions_keep_their_columns (test_exact_answers.SourceTableAnswers.test_parking_categories_and_dispositions_keep_their_columns) ... ok
+test_parking_missing_or_conflicting_category_is_not_guessed (test_exact_answers.SourceTableAnswers.test_parking_missing_or_conflicting_category_is_not_guessed) ... FAIL
+test_unit_selection_is_explicit (test_exact_answers.SourceTableAnswers.test_unit_selection_is_explicit) ... ok
+test_zero_is_a_value (test_exact_answers.SourceTableAnswers.test_zero_is_a_value) ... ok
+test_tag_is_not_verified_by_numeric_suffix_alone (test_identifier_guard.IdentifierGuardTests.test_tag_is_not_verified_by_numeric_suffix_alone) ... ok
+test_replacement_failure_and_restart (test_index_publication.IndexPublication.test_replacement_failure_and_restart) ... ok
+test_visual_evidence_is_saved_before_index_publication (test_ingestion_publication_order.IngestionPublicationOrder.test_visual_evidence_is_saved_before_index_publication) ... ERROR
+test_conditional_approval_cannot_be_promoted_to_unconditional (test_interpretation_gate.InterpretationGateTests.test_conditional_approval_cannot_be_promoted_to_unconditional) ... FAIL
+test_focused_page_context_marks_legacy_plain_vision_unverified (test_interpretation_gate.InterpretationGateTests.test_focused_page_context_marks_legacy_plain_vision_unverified) ... ok
+test_generic_approved_column_does_not_establish_authority (test_interpretation_gate.InterpretationGateTests.test_generic_approved_column_does_not_establish_authority) ... FAIL
+test_native_value_before_legacy_visual_section_remains_supported (test_interpretation_gate.InterpretationGateTests.test_native_value_before_legacy_visual_section_remains_supported) ... ok
+test_same_page_native_excerpt_does_not_validate_different_visual_value (test_interpretation_gate.InterpretationGateTests.test_same_page_native_excerpt_does_not_validate_different_visual_value) ... ok
+test_visual_only_value_and_identifier_cannot_support_claim (test_interpretation_gate.InterpretationGateTests.test_visual_only_value_and_identifier_cannot_support_claim) ... ok
+test_deadline_stops_without_retry (test_local_chat_failures.LocalChatFailures.test_deadline_stops_without_retry) ... ok
+test_empty_answer_is_an_error (test_local_chat_failures.LocalChatFailures.test_empty_answer_is_an_error) ... ok
+test_partial_answer_is_never_retried (test_local_chat_failures.LocalChatFailures.test_partial_answer_is_never_retried) ... ok
+test_failure_releases_capacity (test_model_admission.ModelAdmissionTests.test_failure_releases_capacity) ... ok
+test_limit_and_idempotent_release (test_model_admission.ModelAdmissionTests.test_limit_and_idempotent_release) ... ok
+test_native_ocr_coordinates_survive_worker_json (test_ocr_serialization.OCRSerializationTests.test_native_ocr_coordinates_survive_worker_json) ... ok
+test_explicit_page_keeps_complete_row_and_excludes_other_pages (test_page_context.PageContextTests.test_explicit_page_keeps_complete_row_and_excludes_other_pages) ... ok
+test_long_page_clipping_is_explicit (test_page_context.PageContextTests.test_long_page_clipping_is_explicit) ... ok
+test_answer_preserves_conditional_stamp_and_metadata_disagreement (test_pdf_inspection.PDFInspectionTests.test_answer_preserves_conditional_stamp_and_metadata_disagreement) ... ok
+test_native_geometry_and_annotation_relationship_are_preserved (test_pdf_inspection.PDFInspectionTests.test_native_geometry_and_annotation_relationship_are_preserved) ... ok
+test_rotation_maps_annotation_to_display_region (test_pdf_inspection.PDFInspectionTests.test_rotation_maps_annotation_to_display_region) ... ok
+test_stamp_ocr_is_cached_and_never_establishes_approval (test_pdf_inspection.PDFInspectionTests.test_stamp_ocr_is_cached_and_never_establishes_approval) ... ok
+test_timeout_remains_unresolved_without_fake_stamp_reading (test_pdf_inspection.PDFInspectionTests.test_timeout_remains_unresolved_without_fake_stamp_reading) ... ok
+test_valid_corrupt_empty_and_encrypted_sources (test_pdf_upload_validation.PdfUploadValidationTests.test_valid_corrupt_empty_and_encrypted_sources) ... ok
+test_legacy_ready_flag_does_not_override_incomplete_evidence (test_release_database.ReleaseDatabase.test_legacy_ready_flag_does_not_override_incomplete_evidence) ... ok
+test_quality_does_not_automatically_verify_or_publish (test_release_database.ReleaseDatabase.test_quality_does_not_automatically_verify_or_publish) ... ok
+test_quantities_replace_updated_values_and_preserve_multiple_dimensions (test_release_database.ReleaseDatabase.test_quantities_replace_updated_values_and_preserve_multiple_dimensions) ... ok
+test_quantity_commit_failure_restores_previous_source_version (test_release_database.ReleaseDatabase.test_quantity_commit_failure_restores_previous_source_version) ... ok
+test_structured_query_rejects_unverified_vision_incomplete_sources_and_unit_conflicts (test_release_database.ReleaseDatabase.test_structured_query_rejects_unverified_vision_incomplete_sources_and_unit_conflicts) ... ok
+test_visual_rows_never_gain_verified_confidence_and_stale_rows_are_cleared (test_release_database.ReleaseDatabase.test_visual_rows_never_gain_verified_confidence_and_stale_rows_are_cleared) ... ok
+test_configured_page_limit_and_truncation_cannot_publish_ready (test_release_recovery.ReleaseRecovery.test_configured_page_limit_and_truncation_cannot_publish_ready) ... ERROR
+test_crash_restart_does_not_reset_retry_budget (test_release_recovery.ReleaseRecovery.test_crash_restart_does_not_reset_retry_budget) ... ok
+test_geometry_does_not_auto_discard_small_labels_or_long_strips (test_release_recovery.ReleaseRecovery.test_geometry_does_not_auto_discard_small_labels_or_long_strips) ... ok
+test_high_confidence_model_output_remains_review_required (test_release_recovery.ReleaseRecovery.test_high_confidence_model_output_remains_review_required) ... ok
+test_index_flush_failure_preserves_published_generation (test_release_recovery.ReleaseRecovery.test_index_flush_failure_preserves_published_generation) ... ok
+test_metadata_write_is_atomic_and_original_survives_failure (test_release_recovery.ReleaseRecovery.test_metadata_write_is_atomic_and_original_survives_failure) ... ok
+test_ocr_resume_is_idempotent_and_clears_stale_error (test_release_recovery.ReleaseRecovery.test_ocr_resume_is_idempotent_and_clears_stale_error) ... ok
+test_pipeline_does_not_publish_ready_or_skip_failed_pages (test_release_recovery.ReleaseRecovery.test_pipeline_does_not_publish_ready_or_skip_failed_pages) ... ok
+test_source_mutation_in_handler_never_completes (test_release_recovery.ReleaseRecovery.test_source_mutation_in_handler_never_completes) ... ok
+test_approval_is_not_assumed_or_carried_into_calculation (test_release_semantics.ReleaseSemantics.test_approval_is_not_assumed_or_carried_into_calculation) ... ok
+test_explicit_statuses_and_negative_approval (test_release_semantics.ReleaseSemantics.test_explicit_statuses_and_negative_approval) ... ok
+test_formula_operands_sources_and_units (test_release_semantics.ReleaseSemantics.test_formula_operands_sources_and_units) ... ok
+test_identifier_lookup_preserves_requested_approval (test_release_semantics.ReleaseSemantics.test_identifier_lookup_preserves_requested_approval) ... ok
+test_negative_and_positive_values_do_not_collapse_into_agreement (test_release_semantics.ReleaseSemantics.test_negative_and_positive_values_do_not_collapse_into_agreement) ... ok
+test_quantity_entities_are_not_associated_by_list_order_or_assumed_units (test_release_semantics.ReleaseSemantics.test_quantity_entities_are_not_associated_by_list_order_or_assumed_units) ... ok
+test_same_number_with_incompatible_unit_is_rejected (test_release_units.ReleaseUnitGate.test_same_number_with_incompatible_unit_is_rejected) ... ok
+test_filename_order_does_not_claim_approval_or_supersession (test_revision_notice.RevisionNoticeTests.test_filename_order_does_not_claim_approval_or_supersession) ... ok
+test_cors_both_formats (test_runtime_config.RuntimeConfigTests.test_cors_both_formats) ... ok
+test_no_32b_or_arbitrary_models (test_runtime_config.RuntimeConfigTests.test_no_32b_or_arbitrary_models) ... ok
+test_active_staging_is_preserved_then_abandoned_bytes_quarantined (test_upload_recovery.UploadRecoveryTests.test_active_staging_is_preserved_then_abandoned_bytes_quarantined) ... ok
+test_child_process_exit_releases_lease_for_safe_quarantine (test_upload_recovery.UploadRecoveryTests.test_child_process_exit_releases_lease_for_safe_quarantine) ... ok
+test_unleased_and_unrecognized_files_are_not_moved (test_upload_recovery.UploadRecoveryTests.test_unleased_and_unrecognized_files_are_not_moved) ... ok
+
+======================================================================
+ERROR: test_unsupported_calculation_never_falls_through_to_model (test_calculations.Calculations.test_unsupported_calculation_never_falls_through_to_model)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\3EH\ExpoDesignAI - Copy\tests\test_calculations.py", line 24, in test_unsupported_calculation_never_falls_through_to_model
+    self.assertEqual(exact_answer(query,[])['status'],'UNSUPPORTED')
+                     ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^
+TypeError: 'NoneType' object is not subscriptable
+
+======================================================================
+ERROR: test_visual_evidence_is_saved_before_index_publication (test_ingestion_publication_order.IngestionPublicationOrder.test_visual_evidence_is_saved_before_index_publication)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\3EH\ExpoDesignAI - Copy\tests\test_ingestion_publication_order.py", line 44, in test_visual_evidence_is_saved_before_index_publication
+    scope['process_document']('A',path,'source.pdf','','Reports')
+  File "audited-ingestion-function", line 2562, in process_document
+AttributeError: 'types.SimpleNamespace' object has no attribute 'set_progress'
+
+======================================================================
+ERROR: test_configured_page_limit_and_truncation_cannot_publish_ready (test_release_recovery.ReleaseRecovery.test_configured_page_limit_and_truncation_cannot_publish_ready)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\3EH\ExpoDesignAI - Copy\tests\test_release_recovery.py", line 23, in test_configured_page_limit_and_truncation_cannot_publish_ready
+    scope['process_document']('Synthetic',path,'source.pdf','','Reports')
+  File "document-pipeline", line 2562, in process_document
+AttributeError: 'types.SimpleNamespace' object has no attribute 'set_progress'
+
+======================================================================
+FAIL: test_parking_missing_or_conflicting_category_is_not_guessed (test_exact_answers.SourceTableAnswers.test_parking_missing_or_conflicting_category_is_not_guessed)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\3EH\ExpoDesignAI - Copy\tests\test_exact_answers.py", line 24, in test_parking_missing_or_conflicting_category_is_not_guessed
+    self.assertEqual(self.answer('parking required normal bays',table)['status'],'AMBIGUOUS')
+AssertionError: 'NOT_FOUND' != 'AMBIGUOUS'
+- NOT_FOUND
++ AMBIGUOUS
+
+
+======================================================================
+FAIL: test_conditional_approval_cannot_be_promoted_to_unconditional (test_interpretation_gate.InterpretationGateTests.test_conditional_approval_cannot_be_promoted_to_unconditional)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\3EH\ExpoDesignAI - Copy\tests\test_interpretation_gate.py", line 24, in test_conditional_approval_cannot_be_promoted_to_unconditional
+    self.assertTrue(publication_issues('Approved. [SOURCE: synthetic.pdf | PAGE 1]',evidence,sources))
+AssertionError: [] is not true
+
+======================================================================
+FAIL: test_generic_approved_column_does_not_establish_authority (test_interpretation_gate.InterpretationGateTests.test_generic_approved_column_does_not_establish_authority)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\3EH\ExpoDesignAI - Copy\tests\test_interpretation_gate.py", line 29, in test_generic_approved_column_does_not_establish_authority
+    self.assertTrue(publication_issues('The design is approved. [SOURCE: synthetic.pdf | PAGE 1]',evidence,[{'source':'synthetic.pdf','page':1}]))
+AssertionError: [] is not true
+
+----------------------------------------------------------------------
+Ran 82 tests in 2.954s
+
+FAILED (failures=3, errors=3)

@@ -1,0 +1,11 @@
+2026-10-10 11:58:12 | INFO    | Knowledge Hub tables initialized
+2026-10-10 11:58:12 | INFO    | DB ready at sqlite:///C:\3EH\ExpoDesignAI - Copy\output\audit-2026-10-06\regression-runtime-a81853ae\test.db
+2026-10-10 11:58:12 | INFO    | AUDIT project.create user=system project=A target=None detail={'discipline': None}
+2026-10-10 11:58:12 | INFO    | AUDIT project.create user=system project=B target=None detail={'discipline': None}
+2026-10-10 11:58:12 | INFO    | AUDIT folder.create user=system project=A target=Allowed detail=None
+2026-10-10 11:58:12 | INFO    | AUDIT document.upload user=system project=A target=schedule.pdf detail={'chunks': 1}
+2026-10-10 11:58:12 | INFO    | Phase 5B: Starting bounded visual pipeline for retry.pdf
+2026-10-10 11:58:12 | INFO    | Phase 5B: Starting bounded visual pipeline for retry.pdf
+2026-10-10 11:58:12 | INFO    | AUDIT document.upload user=system project=A target=failure.pdf detail={'chunks': 1}
+2026-10-10 11:58:12 | INFO    | Phase 5B: Starting bounded visual pipeline for failure.pdf
+2026-10-10 11:58:12 | INFO    | Phase 5B: Starting bounded visual pipeline for failure.pdf

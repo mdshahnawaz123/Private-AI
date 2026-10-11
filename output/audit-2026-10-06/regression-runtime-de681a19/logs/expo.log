@@ -1,0 +1,43 @@
+2026-10-10 17:24:22 | INFO    | Knowledge Hub tables initialized
+2026-10-10 17:24:22 | INFO    | DB ready at sqlite:///C:\3EH\ExpoDesignAI - Copy\output\audit-2026-10-06\regression-runtime-de681a19\test.db
+2026-10-10 17:24:22 | INFO    | AUDIT project.create user=system project=A target=None detail={'discipline': None}
+2026-10-10 17:24:22 | INFO    | AUDIT project.create user=system project=B target=None detail={'discipline': None}
+2026-10-10 17:24:22 | INFO    | AUDIT folder.create user=system project=A target=Allowed detail=None
+2026-10-10 17:24:22 | INFO    | AUDIT document.upload user=system project=A target=schedule.pdf detail={'chunks': 1}
+2026-10-10 17:24:23 | INFO    | Phase 5B: Starting bounded visual pipeline for retry.pdf
+2026-10-10 17:24:23 | INFO    | Phase 5B: Starting bounded visual pipeline for retry.pdf
+2026-10-10 17:24:23 | INFO    | AUDIT document.upload user=system project=A target=failure.pdf detail={'chunks': 1}
+2026-10-10 17:24:23 | INFO    | Phase 5B: Starting bounded visual pipeline for failure.pdf
+2026-10-10 17:24:23 | INFO    | Phase 5B: Starting bounded visual pipeline for failure.pdf
+2026-10-10 17:24:23 | INFO    | AUDIT user.create user=system project=None target=limited-audit detail={'role': 'user'}
+2026-10-10 17:24:23 | INFO    | AUDIT member.add user=system project=A target=2 detail=None
+2026-10-10 17:24:26 | ERROR   | chat attempt 1/3 failed: Local model exceeded the answer deadline
+Traceback (most recent call last):
+  File "C:\3EH\ExpoDesignAI - Copy\local_chat.py", line 117, in stream
+    raise TimeoutError('Local model exceeded the answer deadline')
+TimeoutError: Local model exceeded the answer deadline
+2026-10-10 17:24:26 | INFO    | chat attempt 1/3: model=test promptChars=8 tokens=0 outChars=0 done_reason=None
+2026-10-10 17:24:26 | INFO    | chat attempt 2/3: model=test promptChars=8 tokens=0 outChars=0 done_reason=None
+2026-10-10 17:24:26 | INFO    | chat attempt 3/3: model=test promptChars=8 tokens=0 outChars=0 done_reason=None
+2026-10-10 17:24:26 | WARNING | chat produced no tokens after 3 attempts (done_reason=None)
+2026-10-10 17:24:26 | ERROR   | chat attempt 3/3 failed: Local model returned no answer
+Traceback (most recent call last):
+  File "C:\3EH\ExpoDesignAI - Copy\local_chat.py", line 158, in stream
+    raise RuntimeError('Local model returned no answer')
+RuntimeError: Local model returned no answer
+2026-10-10 17:24:26 | ERROR   | chat attempt 1/3 failed: offline
+Traceback (most recent call last):
+  File "C:\3EH\ExpoDesignAI - Copy\local_chat.py", line 125, in stream
+    raise RuntimeError(str(obj.get("error")))
+RuntimeError: offline
+2026-10-10 17:24:30 | INFO    | Indexed 2 quantities for fixture.pdf
+2026-10-10 17:24:30 | INFO    | Indexed 2 quantities for fixture.pdf
+2026-10-10 17:24:30 | INFO    | Indexed 0 quantities for fixture.pdf
+2026-10-10 17:24:30 | INFO    | Indexed 1 quantities for fixture.pdf
+2026-10-10 17:24:30 | INFO    | AUDIT document.upload user=system project=Synthetic release target=source.pdf detail={'chunks': 3}
+2026-10-10 17:24:30 | INFO    | AUDIT document.upload user=system project=Synthetic release target=source.pdf detail={'chunks': 0}
+2026-10-10 17:24:30 | INFO    | Indexed 1 visual structured records for fixture.pdf
+2026-10-10 17:24:30 | INFO    | Indexed 0 visual structured records for fixture.pdf
+2026-10-10 17:24:30 | INFO    | Extracted 2 dimensions from drawing text
+2026-10-10 17:24:30 | INFO    | Detected 2 elements from drawing text
+2026-10-10 17:24:30 | INFO    | Extracted 2 dimensions from drawing text

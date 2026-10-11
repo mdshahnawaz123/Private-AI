@@ -1,0 +1,11 @@
+test_conditional_approval_cannot_be_promoted_to_unconditional (test_interpretation_gate.InterpretationGateTests.test_conditional_approval_cannot_be_promoted_to_unconditional) ... ok
+test_focused_page_context_marks_legacy_plain_vision_unverified (test_interpretation_gate.InterpretationGateTests.test_focused_page_context_marks_legacy_plain_vision_unverified) ... ok
+test_generic_approved_column_does_not_establish_authority (test_interpretation_gate.InterpretationGateTests.test_generic_approved_column_does_not_establish_authority) ... ok
+test_native_value_before_legacy_visual_section_remains_supported (test_interpretation_gate.InterpretationGateTests.test_native_value_before_legacy_visual_section_remains_supported) ... ok
+test_same_page_native_excerpt_does_not_validate_different_visual_value (test_interpretation_gate.InterpretationGateTests.test_same_page_native_excerpt_does_not_validate_different_visual_value) ... ok
+test_visual_only_value_and_identifier_cannot_support_claim (test_interpretation_gate.InterpretationGateTests.test_visual_only_value_and_identifier_cannot_support_claim) ... ok
+
+----------------------------------------------------------------------
+Ran 6 tests in 0.041s
+
+OK

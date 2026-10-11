@@ -1,0 +1,2622 @@
+[
+  {
+    "concurrency": 4,
+    "answers": [
+      {
+        "project": "SYNTH-A",
+        "query": "What design pressure is specified for AHU-017?",
+        "http": 200,
+        "seconds": 18.921999999991385,
+        "answer": "The design pressure specified for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document context labeled as **[SOURCE: native-a.pdf | PAGE 1]**, within the section titled \"SYNTHETIC TEST DOCUMENT - SYNTH-A\".",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "The design pressure specified for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document context labeled as **[SOURCE: native-a.pdf | PAGE 1]**, within the section titled \"SYNTHETIC TEST DOCUMENT - SYNTH-A\"."
+          },
+          {
+            "type": "structured",
+            "data": {
+              "type": "simple_answer",
+              "title": "",
+              "subtitle": "",
+              "summary": "The design pressure specified for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document context labeled as ****, within the section titled \"SYNTHETIC TEST DOCUMENT - SYNTH-A\".",
+              "metrics": [],
+              "tables": [],
+              "calculations": [],
+              "issues": [],
+              "sources": [
+                {
+                  "document": "native-a.pdf",
+                  "rel": "Documents/native-a.pdf",
+                  "page": 1,
+                  "section": "",
+                  "tile_id": "native-a-P01",
+                  "bounding_box": null,
+                  "revision": "B"
+                }
+              ],
+              "confidence": "high"
+            }
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What design pressure is specified for AHU-017?",
+        "http": 200,
+        "seconds": 15.952999999994063,
+        "answer": "The design pressure specified for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document excerpt labeled **[SOURCE: native-a.pdf | PAGE 1]**, which states: \"The design pressure for equipment AHU-017 is 250 Pa.\"",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "The design pressure specified for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document excerpt labeled **[SOURCE: native-a.pdf | PAGE 1]**, which states: \"The design pressure for equipment AHU-017 is 250 Pa.\""
+          },
+          {
+            "type": "structured",
+            "data": {
+              "type": "simple_answer",
+              "title": "",
+              "subtitle": "",
+              "summary": "The design pressure specified for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document excerpt labeled ****, which states: \"The design pressure for equipment AHU-017 is 250 Pa.\"",
+              "metrics": [],
+              "tables": [],
+              "calculations": [],
+              "issues": [],
+              "sources": [
+                {
+                  "document": "native-a.pdf",
+                  "rel": "Documents/native-a.pdf",
+                  "page": 1,
+                  "section": "",
+                  "tile_id": "native-a-P01",
+                  "bounding_box": null,
+                  "revision": "B"
+                }
+              ],
+              "confidence": "high"
+            }
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What design pressure is specified for AHU-017?",
+        "http": 200,
+        "seconds": 16.905999999988126,
+        "answer": "The design pressure specified for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document context labeled as **[SOURCE: native-a.pdf | PAGE 1]**, within the section titled \"SYNTHETIC TEST DOCUMENT - SYNTH-A\".",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "The design pressure specified for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document context labeled as **[SOURCE: native-a.pdf | PAGE 1]**, within the section titled \"SYNTHETIC TEST DOCUMENT - SYNTH-A\"."
+          },
+          {
+            "type": "structured",
+            "data": {
+              "type": "simple_answer",
+              "title": "",
+              "subtitle": "",
+              "summary": "The design pressure specified for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document context labeled as ****, within the section titled \"SYNTHETIC TEST DOCUMENT - SYNTH-A\".",
+              "metrics": [],
+              "tables": [],
+              "calculations": [],
+              "issues": [],
+              "sources": [
+                {
+                  "document": "native-a.pdf",
+                  "rel": "Documents/native-a.pdf",
+                  "page": 1,
+                  "section": "",
+                  "tile_id": "native-a-P01",
+                  "bounding_box": null,
+                  "revision": "B"
+                }
+              ],
+              "confidence": "high"
+            }
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What design pressure is specified for AHU-017?",
+        "http": 200,
+        "seconds": 18.046999999991385,
+        "answer": "The design pressure specified for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document context labeled as a synthetic test document (SYNTH-A), which states: \"The design pressure for equipment AHU-017 is 250 Pa.\"\n\n[Citation: [SOURCE: native-a.pdf | PAGE 1]]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "The design pressure specified for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document context labeled as a synthetic test document (SYNTH-A), which states: \"The design pressure for equipment AHU-017 is 250 Pa.\"\n\n[Citation: [SOURCE: native-a.pdf | PAGE 1]]"
+          },
+          {
+            "type": "structured",
+            "data": {
+              "type": "simple_answer",
+              "title": "",
+              "subtitle": "",
+              "summary": "The design pressure specified for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document context labeled as a synthetic test document (SYNTH-A), which states: \"The design pressure for equipment AHU-017 is 250 Pa.\"\n\n[Citation: ]",
+              "metrics": [],
+              "tables": [],
+              "calculations": [],
+              "issues": [],
+              "sources": [
+                {
+                  "document": "native-a.pdf",
+                  "rel": "Documents/native-a.pdf",
+                  "page": 1,
+                  "section": "",
+                  "tile_id": "native-a-P01",
+                  "bounding_box": null,
+                  "revision": "B"
+                }
+              ],
+              "confidence": "high"
+            }
+          },
+          {
+            "type": "done"
+          }
+        ]
+      }
+    ],
+    "max_seconds": 18.921999999991385,
+    "errors": 0
+  },
+  {
+    "concurrency": 8,
+    "answers": [
+      {
+        "project": "SYNTH-A",
+        "query": "What design pressure is specified for AHU-017?",
+        "http": 200,
+        "seconds": 27.01600000000326,
+        "answer": "The design pressure specified for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document context labeled as a synthetic test document (SYNTH-A), which states: \"The design pressure for equipment AHU-017 is 250 Pa.\"\n\n[Citation: [SOURCE: native-a.pdf | PAGE 1]]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "The design pressure specified for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document context labeled as a synthetic test document (SYNTH-A), which states: \"The design pressure for equipment AHU-017 is 250 Pa.\"\n\n[Citation: [SOURCE: native-a.pdf | PAGE 1]]"
+          },
+          {
+            "type": "structured",
+            "data": {
+              "type": "simple_answer",
+              "title": "",
+              "subtitle": "",
+              "summary": "The design pressure specified for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document context labeled as a synthetic test document (SYNTH-A), which states: \"The design pressure for equipment AHU-017 is 250 Pa.\"\n\n[Citation: ]",
+              "metrics": [],
+              "tables": [],
+              "calculations": [],
+              "issues": [],
+              "sources": [
+                {
+                  "document": "native-a.pdf",
+                  "rel": "Documents/native-a.pdf",
+                  "page": 1,
+                  "section": "",
+                  "tile_id": "native-a-P01",
+                  "bounding_box": null,
+                  "revision": "B"
+                }
+              ],
+              "confidence": "high"
+            }
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What design pressure is specified for AHU-017?",
+        "http": 200,
+        "seconds": 22.89100000000326,
+        "answer": "The design pressure specified for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document context labeled as:\n*   **[SOURCE: native-a.pdf | PAGE 1]** (specifically within the section titled \"SYNTHETIC TEST DOCUMENT - SYNTH-A\").",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "The design pressure specified for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document context labeled as:\n*   **[SOURCE: native-a.pdf | PAGE 1]** (specifically within the section titled \"SYNTHETIC TEST DOCUMENT - SYNTH-A\")."
+          },
+          {
+            "type": "structured",
+            "data": {
+              "type": "simple_answer",
+              "title": "",
+              "subtitle": "",
+              "summary": "The design pressure specified for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document context labeled as:\n*   **** (specifically within the section titled \"SYNTHETIC TEST DOCUMENT - SYNTH-A\").",
+              "metrics": [],
+              "tables": [],
+              "calculations": [],
+              "issues": [],
+              "sources": [
+                {
+                  "document": "native-a.pdf",
+                  "rel": "Documents/native-a.pdf",
+                  "page": 1,
+                  "section": "",
+                  "tile_id": "native-a-P01",
+                  "bounding_box": null,
+                  "revision": "B"
+                }
+              ],
+              "confidence": "high"
+            }
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What design pressure is specified for AHU-017?",
+        "http": 200,
+        "seconds": 25.843999999997322,
+        "answer": "The design pressure specified for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document context labeled as **[SOURCE: native-a.pdf | PAGE 1]**, within the section titled \"SYNTHETIC TEST DOCUMENT - SYNTH-A\".",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "The design pressure specified for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document context labeled as **[SOURCE: native-a.pdf | PAGE 1]**, within the section titled \"SYNTHETIC TEST DOCUMENT - SYNTH-A\"."
+          },
+          {
+            "type": "structured",
+            "data": {
+              "type": "simple_answer",
+              "title": "",
+              "subtitle": "",
+              "summary": "The design pressure specified for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document context labeled as ****, within the section titled \"SYNTHETIC TEST DOCUMENT - SYNTH-A\".",
+              "metrics": [],
+              "tables": [],
+              "calculations": [],
+              "issues": [],
+              "sources": [
+                {
+                  "document": "native-a.pdf",
+                  "rel": "Documents/native-a.pdf",
+                  "page": 1,
+                  "section": "",
+                  "tile_id": "native-a-P01",
+                  "bounding_box": null,
+                  "revision": "B"
+                }
+              ],
+              "confidence": "high"
+            }
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What design pressure is specified for AHU-017?",
+        "http": 200,
+        "seconds": 20.89100000000326,
+        "answer": "The design pressure specified for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document context labeled as **[SOURCE: native-a.pdf | PAGE 1]**, within the section titled \"SYNTHETIC TEST DOCUMENT - SYNTH-A\".",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "The design pressure specified for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document context labeled as **[SOURCE: native-a.pdf | PAGE 1]**, within the section titled \"SYNTHETIC TEST DOCUMENT - SYNTH-A\"."
+          },
+          {
+            "type": "structured",
+            "data": {
+              "type": "simple_answer",
+              "title": "",
+              "subtitle": "",
+              "summary": "The design pressure specified for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document context labeled as ****, within the section titled \"SYNTHETIC TEST DOCUMENT - SYNTH-A\".",
+              "metrics": [],
+              "tables": [],
+              "calculations": [],
+              "issues": [],
+              "sources": [
+                {
+                  "document": "native-a.pdf",
+                  "rel": "Documents/native-a.pdf",
+                  "page": 1,
+                  "section": "",
+                  "tile_id": "native-a-P01",
+                  "bounding_box": null,
+                  "revision": "B"
+                }
+              ],
+              "confidence": "high"
+            }
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What design pressure is specified for AHU-017?",
+        "http": 200,
+        "seconds": 24.047000000005937,
+        "answer": "The design pressure specified for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document context labeled as a synthetic test document (SYNTH-A), specifically on **[SOURCE: native-a.pdf | PAGE 1]**, which states: \"The design pressure for equipment AHU-017 is 250 Pa.\"",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "The design pressure specified for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document context labeled as a synthetic test document (SYNTH-A), specifically on **[SOURCE: native-a.pdf | PAGE 1]**, which states: \"The design pressure for equipment AHU-017 is 250 Pa.\""
+          },
+          {
+            "type": "structured",
+            "data": {
+              "type": "simple_answer",
+              "title": "",
+              "subtitle": "",
+              "summary": "The design pressure specified for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document context labeled as a synthetic test document (SYNTH-A), specifically on ****, which states: \"The design pressure for equipment AHU-017 is 250 Pa.\"",
+              "metrics": [],
+              "tables": [],
+              "calculations": [],
+              "issues": [],
+              "sources": [
+                {
+                  "document": "native-a.pdf",
+                  "rel": "Documents/native-a.pdf",
+                  "page": 1,
+                  "section": "",
+                  "tile_id": "native-a-P01",
+                  "bounding_box": null,
+                  "revision": "B"
+                }
+              ],
+              "confidence": "high"
+            }
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What design pressure is specified for AHU-017?",
+        "http": 200,
+        "seconds": 21.89100000000326,
+        "answer": "The design pressure specified for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document excerpt labeled **[SOURCE: native-a.pdf | PAGE 1]**, which states: \"The design pressure for equipment AHU-017 is 250 Pa.\"",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "The design pressure specified for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document excerpt labeled **[SOURCE: native-a.pdf | PAGE 1]**, which states: \"The design pressure for equipment AHU-017 is 250 Pa.\""
+          },
+          {
+            "type": "structured",
+            "data": {
+              "type": "simple_answer",
+              "title": "",
+              "subtitle": "",
+              "summary": "The design pressure specified for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document excerpt labeled ****, which states: \"The design pressure for equipment AHU-017 is 250 Pa.\"",
+              "metrics": [],
+              "tables": [],
+              "calculations": [],
+              "issues": [],
+              "sources": [
+                {
+                  "document": "native-a.pdf",
+                  "rel": "Documents/native-a.pdf",
+                  "page": 1,
+                  "section": "",
+                  "tile_id": "native-a-P01",
+                  "bounding_box": null,
+                  "revision": "B"
+                }
+              ],
+              "confidence": "high"
+            }
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What design pressure is specified for AHU-017?",
+        "http": 200,
+        "seconds": 27.968999999997322,
+        "answer": "The design pressure specified for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document excerpt labeled **[SOURCE: native-a.pdf | PAGE 1]**, which states: \"The design pressure for equipment AHU-017 is 250 Pa.\"",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "The design pressure specified for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document excerpt labeled **[SOURCE: native-a.pdf | PAGE 1]**, which states: \"The design pressure for equipment AHU-017 is 250 Pa.\""
+          },
+          {
+            "type": "structured",
+            "data": {
+              "type": "simple_answer",
+              "title": "",
+              "subtitle": "",
+              "summary": "The design pressure specified for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document excerpt labeled ****, which states: \"The design pressure for equipment AHU-017 is 250 Pa.\"",
+              "metrics": [],
+              "tables": [],
+              "calculations": [],
+              "issues": [],
+              "sources": [
+                {
+                  "document": "native-a.pdf",
+                  "rel": "Documents/native-a.pdf",
+                  "page": 1,
+                  "section": "",
+                  "tile_id": "native-a-P01",
+                  "bounding_box": null,
+                  "revision": "B"
+                }
+              ],
+              "confidence": "high"
+            }
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What design pressure is specified for AHU-017?",
+        "http": 200,
+        "seconds": 24.968999999997322,
+        "answer": "The design pressure specified for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document context labeled as **[SOURCE: native-a.pdf | PAGE 1]**, within the section titled \"SYNTHETIC TEST DOCUMENT - SYNTH-A\".",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "The design pressure specified for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document context labeled as **[SOURCE: native-a.pdf | PAGE 1]**, within the section titled \"SYNTHETIC TEST DOCUMENT - SYNTH-A\"."
+          },
+          {
+            "type": "structured",
+            "data": {
+              "type": "simple_answer",
+              "title": "",
+              "subtitle": "",
+              "summary": "The design pressure specified for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document context labeled as ****, within the section titled \"SYNTHETIC TEST DOCUMENT - SYNTH-A\".",
+              "metrics": [],
+              "tables": [],
+              "calculations": [],
+              "issues": [],
+              "sources": [
+                {
+                  "document": "native-a.pdf",
+                  "rel": "Documents/native-a.pdf",
+                  "page": 1,
+                  "section": "",
+                  "tile_id": "native-a-P01",
+                  "bounding_box": null,
+                  "revision": "B"
+                }
+              ],
+              "confidence": "high"
+            }
+          },
+          {
+            "type": "done"
+          }
+        ]
+      }
+    ],
+    "max_seconds": 27.968999999997322,
+    "errors": 0
+  },
+  {
+    "concurrency": 16,
+    "answers": [
+      {
+        "project": "SYNTH-A",
+        "query": "What design pressure is specified for AHU-017?",
+        "http": 200,
+        "seconds": 31.812000000005355,
+        "answer": "The design pressure specified for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document excerpt labeled **[SOURCE: native-a.pdf | PAGE 1]**, which states: \"The design pressure for equipment AHU-017 is 250 Pa.\"",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "The design pressure specified for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document excerpt labeled **[SOURCE: native-a.pdf | PAGE 1]**, which states: \"The design pressure for equipment AHU-017 is 250 Pa.\""
+          },
+          {
+            "type": "structured",
+            "data": {
+              "type": "simple_answer",
+              "title": "",
+              "subtitle": "",
+              "summary": "The design pressure specified for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document excerpt labeled ****, which states: \"The design pressure for equipment AHU-017 is 250 Pa.\"",
+              "metrics": [],
+              "tables": [],
+              "calculations": [],
+              "issues": [],
+              "sources": [
+                {
+                  "document": "native-a.pdf",
+                  "rel": "Documents/native-a.pdf",
+                  "page": 1,
+                  "section": "",
+                  "tile_id": "native-a-P01",
+                  "bounding_box": null,
+                  "revision": "B"
+                }
+              ],
+              "confidence": "high"
+            }
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What design pressure is specified for AHU-017?",
+        "http": 200,
+        "seconds": 37.90600000000268,
+        "answer": "The design pressure specified for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document excerpt labeled **[SOURCE: native-a.pdf | PAGE 1]**, which states: \"The design pressure for equipment AHU-017 is 250 Pa.\"",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "The design pressure specified for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document excerpt labeled **[SOURCE: native-a.pdf | PAGE 1]**, which states: \"The design pressure for equipment AHU-017 is 250 Pa.\""
+          },
+          {
+            "type": "structured",
+            "data": {
+              "type": "simple_answer",
+              "title": "",
+              "subtitle": "",
+              "summary": "The design pressure specified for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document excerpt labeled ****, which states: \"The design pressure for equipment AHU-017 is 250 Pa.\"",
+              "metrics": [],
+              "tables": [],
+              "calculations": [],
+              "issues": [],
+              "sources": [
+                {
+                  "document": "native-a.pdf",
+                  "rel": "Documents/native-a.pdf",
+                  "page": 1,
+                  "section": "",
+                  "tile_id": "native-a-P01",
+                  "bounding_box": null,
+                  "revision": "B"
+                }
+              ],
+              "confidence": "high"
+            }
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What design pressure is specified for AHU-017?",
+        "http": 200,
+        "seconds": 30.828000000008615,
+        "answer": "The design pressure specified for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document context labeled as **[SOURCE: native-a.pdf | PAGE 1]**, within the section titled \"SYNTHETIC TEST DOCUMENT - SYNTH-A\".",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "The design pressure specified for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document context labeled as **[SOURCE: native-a.pdf | PAGE 1]**, within the section titled \"SYNTHETIC TEST DOCUMENT - SYNTH-A\"."
+          },
+          {
+            "type": "structured",
+            "data": {
+              "type": "simple_answer",
+              "title": "",
+              "subtitle": "",
+              "summary": "The design pressure specified for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document context labeled as ****, within the section titled \"SYNTHETIC TEST DOCUMENT - SYNTH-A\".",
+              "metrics": [],
+              "tables": [],
+              "calculations": [],
+              "issues": [],
+              "sources": [
+                {
+                  "document": "native-a.pdf",
+                  "rel": "Documents/native-a.pdf",
+                  "page": 1,
+                  "section": "",
+                  "tile_id": "native-a-P01",
+                  "bounding_box": null,
+                  "revision": "B"
+                }
+              ],
+              "confidence": "high"
+            }
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What design pressure is specified for AHU-017?",
+        "http": 200,
+        "seconds": 33.84300000000803,
+        "answer": "The design pressure specified for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document context labeled as a synthetic test document (SYNTH-A), which states: \"The design pressure for equipment AHU-017 is 250 Pa.\"\n\n[Citation: [SOURCE: native-a.pdf | PAGE 1]]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "The design pressure specified for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document context labeled as a synthetic test document (SYNTH-A), which states: \"The design pressure for equipment AHU-017 is 250 Pa.\"\n\n[Citation: [SOURCE: native-a.pdf | PAGE 1]]"
+          },
+          {
+            "type": "structured",
+            "data": {
+              "type": "simple_answer",
+              "title": "",
+              "subtitle": "",
+              "summary": "The design pressure specified for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document context labeled as a synthetic test document (SYNTH-A), which states: \"The design pressure for equipment AHU-017 is 250 Pa.\"\n\n[Citation: ]",
+              "metrics": [],
+              "tables": [],
+              "calculations": [],
+              "issues": [],
+              "sources": [
+                {
+                  "document": "native-a.pdf",
+                  "rel": "Documents/native-a.pdf",
+                  "page": 1,
+                  "section": "",
+                  "tile_id": "native-a-P01",
+                  "bounding_box": null,
+                  "revision": "B"
+                }
+              ],
+              "confidence": "high"
+            }
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What design pressure is specified for AHU-017?",
+        "http": 200,
+        "seconds": 29.922000000005937,
+        "answer": "The design pressure specified for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document excerpt labeled **[SOURCE: native-a.pdf | PAGE 1]**, which states: \"The design pressure for equipment AHU-017 is 250 Pa.\"",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "The design pressure specified for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document excerpt labeled **[SOURCE: native-a.pdf | PAGE 1]**, which states: \"The design pressure for equipment AHU-017 is 250 Pa.\""
+          },
+          {
+            "type": "structured",
+            "data": {
+              "type": "simple_answer",
+              "title": "",
+              "subtitle": "",
+              "summary": "The design pressure specified for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document excerpt labeled ****, which states: \"The design pressure for equipment AHU-017 is 250 Pa.\"",
+              "metrics": [],
+              "tables": [],
+              "calculations": [],
+              "issues": [],
+              "sources": [
+                {
+                  "document": "native-a.pdf",
+                  "rel": "Documents/native-a.pdf",
+                  "page": 1,
+                  "section": "",
+                  "tile_id": "native-a-P01",
+                  "bounding_box": null,
+                  "revision": "B"
+                }
+              ],
+              "confidence": "high"
+            }
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What design pressure is specified for AHU-017?",
+        "http": 200,
+        "seconds": 44.17200000000594,
+        "answer": "The design pressure specified for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document excerpt labeled **[SOURCE: native-a.pdf | PAGE 1]**, which states: \"The design pressure for equipment AHU-017 is 250 Pa.\"",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "The design pressure specified for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document excerpt labeled **[SOURCE: native-a.pdf | PAGE 1]**, which states: \"The design pressure for equipment AHU-017 is 250 Pa.\""
+          },
+          {
+            "type": "structured",
+            "data": {
+              "type": "simple_answer",
+              "title": "",
+              "subtitle": "",
+              "summary": "The design pressure specified for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document excerpt labeled ****, which states: \"The design pressure for equipment AHU-017 is 250 Pa.\"",
+              "metrics": [],
+              "tables": [],
+              "calculations": [],
+              "issues": [],
+              "sources": [
+                {
+                  "document": "native-a.pdf",
+                  "rel": "Documents/native-a.pdf",
+                  "page": 1,
+                  "section": "",
+                  "tile_id": "native-a-P01",
+                  "bounding_box": null,
+                  "revision": "B"
+                }
+              ],
+              "confidence": "high"
+            }
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What design pressure is specified for AHU-017?",
+        "http": 200,
+        "seconds": 35.01499999999942,
+        "answer": "The design pressure specified for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document context labeled as a synthetic test document (SYNTH-A), which states: \"The design pressure for equipment AHU-017 is 250 Pa.\"\n\n[Citation: [SOURCE: native-a.pdf | PAGE 1]]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "The design pressure specified for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document context labeled as a synthetic test document (SYNTH-A), which states: \"The design pressure for equipment AHU-017 is 250 Pa.\"\n\n[Citation: [SOURCE: native-a.pdf | PAGE 1]]"
+          },
+          {
+            "type": "structured",
+            "data": {
+              "type": "simple_answer",
+              "title": "",
+              "subtitle": "",
+              "summary": "The design pressure specified for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document context labeled as a synthetic test document (SYNTH-A), which states: \"The design pressure for equipment AHU-017 is 250 Pa.\"\n\n[Citation: ]",
+              "metrics": [],
+              "tables": [],
+              "calculations": [],
+              "issues": [],
+              "sources": [
+                {
+                  "document": "native-a.pdf",
+                  "rel": "Documents/native-a.pdf",
+                  "page": 1,
+                  "section": "",
+                  "tile_id": "native-a-P01",
+                  "bounding_box": null,
+                  "revision": "B"
+                }
+              ],
+              "confidence": "high"
+            }
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What design pressure is specified for AHU-017?",
+        "http": 200,
+        "seconds": 39.98400000001129,
+        "answer": "The design pressure specified for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document excerpt labeled **[SOURCE: native-a.pdf | PAGE 1]**, which states: \"The design pressure for equipment AHU-017 is 250 Pa.\"",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "The design pressure specified for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document excerpt labeled **[SOURCE: native-a.pdf | PAGE 1]**, which states: \"The design pressure for equipment AHU-017 is 250 Pa.\""
+          },
+          {
+            "type": "structured",
+            "data": {
+              "type": "simple_answer",
+              "title": "",
+              "subtitle": "",
+              "summary": "The design pressure specified for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document excerpt labeled ****, which states: \"The design pressure for equipment AHU-017 is 250 Pa.\"",
+              "metrics": [],
+              "tables": [],
+              "calculations": [],
+              "issues": [],
+              "sources": [
+                {
+                  "document": "native-a.pdf",
+                  "rel": "Documents/native-a.pdf",
+                  "page": 1,
+                  "section": "",
+                  "tile_id": "native-a-P01",
+                  "bounding_box": null,
+                  "revision": "B"
+                }
+              ],
+              "confidence": "high"
+            }
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What design pressure is specified for AHU-017?",
+        "http": 200,
+        "seconds": 35.92200000000594,
+        "answer": "The design pressure specified for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document excerpt labeled **[SOURCE: native-a.pdf | PAGE 1]**, which states: \"The design pressure for equipment AHU-017 is 250 Pa.\"",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "The design pressure specified for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document excerpt labeled **[SOURCE: native-a.pdf | PAGE 1]**, which states: \"The design pressure for equipment AHU-017 is 250 Pa.\""
+          },
+          {
+            "type": "structured",
+            "data": {
+              "type": "simple_answer",
+              "title": "",
+              "subtitle": "",
+              "summary": "The design pressure specified for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document excerpt labeled ****, which states: \"The design pressure for equipment AHU-017 is 250 Pa.\"",
+              "metrics": [],
+              "tables": [],
+              "calculations": [],
+              "issues": [],
+              "sources": [
+                {
+                  "document": "native-a.pdf",
+                  "rel": "Documents/native-a.pdf",
+                  "page": 1,
+                  "section": "",
+                  "tile_id": "native-a-P01",
+                  "bounding_box": null,
+                  "revision": "B"
+                }
+              ],
+              "confidence": "high"
+            }
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What design pressure is specified for AHU-017?",
+        "http": 200,
+        "seconds": 40.937000000005355,
+        "answer": "The design pressure specified for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document excerpt labeled **[SOURCE: native-a.pdf | PAGE 1]**, which states: \"The design pressure for equipment AHU-017 is 250 Pa.\"",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "The design pressure specified for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document excerpt labeled **[SOURCE: native-a.pdf | PAGE 1]**, which states: \"The design pressure for equipment AHU-017 is 250 Pa.\""
+          },
+          {
+            "type": "structured",
+            "data": {
+              "type": "simple_answer",
+              "title": "",
+              "subtitle": "",
+              "summary": "The design pressure specified for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document excerpt labeled ****, which states: \"The design pressure for equipment AHU-017 is 250 Pa.\"",
+              "metrics": [],
+              "tables": [],
+              "calculations": [],
+              "issues": [],
+              "sources": [
+                {
+                  "document": "native-a.pdf",
+                  "rel": "Documents/native-a.pdf",
+                  "page": 1,
+                  "section": "",
+                  "tile_id": "native-a-P01",
+                  "bounding_box": null,
+                  "revision": "B"
+                }
+              ],
+              "confidence": "high"
+            }
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What design pressure is specified for AHU-017?",
+        "http": 200,
+        "seconds": 39.03200000000652,
+        "answer": "The design pressure specified for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document context labeled as a synthetic test document (SYNTH-A), which states: \"The design pressure for equipment AHU-017 is 250 Pa.\"\n\n[Citation: [SOURCE: native-a.pdf | PAGE 1]]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "The design pressure specified for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document context labeled as a synthetic test document (SYNTH-A), which states: \"The design pressure for equipment AHU-017 is 250 Pa.\"\n\n[Citation: [SOURCE: native-a.pdf | PAGE 1]]"
+          },
+          {
+            "type": "structured",
+            "data": {
+              "type": "simple_answer",
+              "title": "",
+              "subtitle": "",
+              "summary": "The design pressure specified for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document context labeled as a synthetic test document (SYNTH-A), which states: \"The design pressure for equipment AHU-017 is 250 Pa.\"\n\n[Citation: ]",
+              "metrics": [],
+              "tables": [],
+              "calculations": [],
+              "issues": [],
+              "sources": [
+                {
+                  "document": "native-a.pdf",
+                  "rel": "Documents/native-a.pdf",
+                  "page": 1,
+                  "section": "",
+                  "tile_id": "native-a-P01",
+                  "bounding_box": null,
+                  "revision": "B"
+                }
+              ],
+              "confidence": "high"
+            }
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What design pressure is specified for AHU-017?",
+        "http": 200,
+        "seconds": 45.03200000000652,
+        "answer": "The design pressure specified for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document context labeled as **[SOURCE: native-a.pdf | PAGE 1]**, within the section titled \"SYNTHETIC TEST DOCUMENT - SYNTH-A\".",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "The design pressure specified for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document context labeled as **[SOURCE: native-a.pdf | PAGE 1]**, within the section titled \"SYNTHETIC TEST DOCUMENT - SYNTH-A\"."
+          },
+          {
+            "type": "structured",
+            "data": {
+              "type": "simple_answer",
+              "title": "",
+              "subtitle": "",
+              "summary": "The design pressure specified for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document context labeled as ****, within the section titled \"SYNTHETIC TEST DOCUMENT - SYNTH-A\".",
+              "metrics": [],
+              "tables": [],
+              "calculations": [],
+              "issues": [],
+              "sources": [
+                {
+                  "document": "native-a.pdf",
+                  "rel": "Documents/native-a.pdf",
+                  "page": 1,
+                  "section": "",
+                  "tile_id": "native-a-P01",
+                  "bounding_box": null,
+                  "revision": "B"
+                }
+              ],
+              "confidence": "high"
+            }
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What design pressure is specified for AHU-017?",
+        "http": 200,
+        "seconds": 42.11000000000058,
+        "answer": "The design pressure specified for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document context labeled as a synthetic test document (SYNTH-A), which states: \"The design pressure for equipment AHU-017 is 250 Pa.\"\n\n[Citation: [SOURCE: native-a.pdf | PAGE 1]]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "The design pressure specified for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document context labeled as a synthetic test document (SYNTH-A), which states: \"The design pressure for equipment AHU-017 is 250 Pa.\"\n\n[Citation: [SOURCE: native-a.pdf | PAGE 1]]"
+          },
+          {
+            "type": "structured",
+            "data": {
+              "type": "simple_answer",
+              "title": "",
+              "subtitle": "",
+              "summary": "The design pressure specified for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document context labeled as a synthetic test document (SYNTH-A), which states: \"The design pressure for equipment AHU-017 is 250 Pa.\"\n\n[Citation: ]",
+              "metrics": [],
+              "tables": [],
+              "calculations": [],
+              "issues": [],
+              "sources": [
+                {
+                  "document": "native-a.pdf",
+                  "rel": "Documents/native-a.pdf",
+                  "page": 1,
+                  "section": "",
+                  "tile_id": "native-a-P01",
+                  "bounding_box": null,
+                  "revision": "B"
+                }
+              ],
+              "confidence": "high"
+            }
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What design pressure is specified for AHU-017?",
+        "http": 200,
+        "seconds": 36.89100000000326,
+        "answer": "The design pressure specified for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document excerpt labeled **[SOURCE: native-a.pdf | PAGE 1]**, which states: \"The design pressure for equipment AHU-017 is 250 Pa.\"",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "The design pressure specified for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document excerpt labeled **[SOURCE: native-a.pdf | PAGE 1]**, which states: \"The design pressure for equipment AHU-017 is 250 Pa.\""
+          },
+          {
+            "type": "structured",
+            "data": {
+              "type": "simple_answer",
+              "title": "",
+              "subtitle": "",
+              "summary": "The design pressure specified for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document excerpt labeled ****, which states: \"The design pressure for equipment AHU-017 is 250 Pa.\"",
+              "metrics": [],
+              "tables": [],
+              "calculations": [],
+              "issues": [],
+              "sources": [
+                {
+                  "document": "native-a.pdf",
+                  "rel": "Documents/native-a.pdf",
+                  "page": 1,
+                  "section": "",
+                  "tile_id": "native-a-P01",
+                  "bounding_box": null,
+                  "revision": "B"
+                }
+              ],
+              "confidence": "high"
+            }
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What design pressure is specified for AHU-017?",
+        "http": 200,
+        "seconds": 43.25,
+        "answer": "The design pressure specified for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document context labeled as a synthetic test document (SYNTH-A), which states: \"The design pressure for equipment AHU-017 is 250 Pa.\"\n\n[Citation: [SOURCE: native-a.pdf | PAGE 1]]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "The design pressure specified for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document context labeled as a synthetic test document (SYNTH-A), which states: \"The design pressure for equipment AHU-017 is 250 Pa.\"\n\n[Citation: [SOURCE: native-a.pdf | PAGE 1]]"
+          },
+          {
+            "type": "structured",
+            "data": {
+              "type": "simple_answer",
+              "title": "",
+              "subtitle": "",
+              "summary": "The design pressure specified for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document context labeled as a synthetic test document (SYNTH-A), which states: \"The design pressure for equipment AHU-017 is 250 Pa.\"\n\n[Citation: ]",
+              "metrics": [],
+              "tables": [],
+              "calculations": [],
+              "issues": [],
+              "sources": [
+                {
+                  "document": "native-a.pdf",
+                  "rel": "Documents/native-a.pdf",
+                  "page": 1,
+                  "section": "",
+                  "tile_id": "native-a-P01",
+                  "bounding_box": null,
+                  "revision": "B"
+                }
+              ],
+              "confidence": "high"
+            }
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What design pressure is specified for AHU-017?",
+        "http": 200,
+        "seconds": 32.67200000000594,
+        "answer": "The design pressure specified for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document context labeled as **[SOURCE: native-a.pdf | PAGE 1]**, within the section titled \"SYNTHETIC TEST DOCUMENT - SYNTH-A\".",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "The design pressure specified for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document context labeled as **[SOURCE: native-a.pdf | PAGE 1]**, within the section titled \"SYNTHETIC TEST DOCUMENT - SYNTH-A\"."
+          },
+          {
+            "type": "structured",
+            "data": {
+              "type": "simple_answer",
+              "title": "",
+              "subtitle": "",
+              "summary": "The design pressure specified for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document context labeled as ****, within the section titled \"SYNTHETIC TEST DOCUMENT - SYNTH-A\".",
+              "metrics": [],
+              "tables": [],
+              "calculations": [],
+              "issues": [],
+              "sources": [
+                {
+                  "document": "native-a.pdf",
+                  "rel": "Documents/native-a.pdf",
+                  "page": 1,
+                  "section": "",
+                  "tile_id": "native-a-P01",
+                  "bounding_box": null,
+                  "revision": "B"
+                }
+              ],
+              "confidence": "high"
+            }
+          },
+          {
+            "type": "done"
+          }
+        ]
+      }
+    ],
+    "max_seconds": 45.03200000000652,
+    "errors": 0
+  },
+  {
+    "concurrency": 32,
+    "answers": [
+      {
+        "project": "SYNTH-A",
+        "query": "What design pressure is specified for AHU-017?",
+        "http": 503,
+        "seconds": 35.046000000002095,
+        "answer": "",
+        "events": []
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What design pressure is specified for AHU-017?",
+        "http": 503,
+        "seconds": 35.062000000005355,
+        "answer": "",
+        "events": []
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What design pressure is specified for AHU-017?",
+        "http": 200,
+        "seconds": 58.125,
+        "answer": "The design pressure specified for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document context labeled as a synthetic test document (SYNTH-A), which states: \"The design pressure for equipment AHU-017 is 250 Pa.\"\n\n[Citation: [SOURCE: native-a.pdf | PAGE 1]]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "The design pressure specified for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document context labeled as a synthetic test document (SYNTH-A), which states: \"The design pressure for equipment AHU-017 is 250 Pa.\"\n\n[Citation: [SOURCE: native-a.pdf | PAGE 1]]"
+          },
+          {
+            "type": "structured",
+            "data": {
+              "type": "simple_answer",
+              "title": "",
+              "subtitle": "",
+              "summary": "The design pressure specified for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document context labeled as a synthetic test document (SYNTH-A), which states: \"The design pressure for equipment AHU-017 is 250 Pa.\"\n\n[Citation: ]",
+              "metrics": [],
+              "tables": [],
+              "calculations": [],
+              "issues": [],
+              "sources": [
+                {
+                  "document": "native-a.pdf",
+                  "rel": "Documents/native-a.pdf",
+                  "page": 1,
+                  "section": "",
+                  "tile_id": "native-a-P01",
+                  "bounding_box": null,
+                  "revision": "B"
+                }
+              ],
+              "confidence": "high"
+            }
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What design pressure is specified for AHU-017?",
+        "http": 503,
+        "seconds": 35.046000000002095,
+        "answer": "",
+        "events": []
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What design pressure is specified for AHU-017?",
+        "http": 503,
+        "seconds": 35.062000000005355,
+        "answer": "",
+        "events": []
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What design pressure is specified for AHU-017?",
+        "http": 503,
+        "seconds": 35.062000000005355,
+        "answer": "",
+        "events": []
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What design pressure is specified for AHU-017?",
+        "http": 503,
+        "seconds": 35.062000000005355,
+        "answer": "",
+        "events": []
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What design pressure is specified for AHU-017?",
+        "http": 503,
+        "seconds": 35.062000000005355,
+        "answer": "",
+        "events": []
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What design pressure is specified for AHU-017?",
+        "http": 200,
+        "seconds": 49.562000000005355,
+        "answer": "The design pressure specified for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document context labeled as a synthetic test document (SYNTH-A), which states: \"The design pressure for equipment AHU-017 is 250 Pa.\"\n\n[Citation: [SOURCE: native-a.pdf | PAGE 1]]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "The design pressure specified for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document context labeled as a synthetic test document (SYNTH-A), which states: \"The design pressure for equipment AHU-017 is 250 Pa.\"\n\n[Citation: [SOURCE: native-a.pdf | PAGE 1]]"
+          },
+          {
+            "type": "structured",
+            "data": {
+              "type": "simple_answer",
+              "title": "",
+              "subtitle": "",
+              "summary": "The design pressure specified for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document context labeled as a synthetic test document (SYNTH-A), which states: \"The design pressure for equipment AHU-017 is 250 Pa.\"\n\n[Citation: ]",
+              "metrics": [],
+              "tables": [],
+              "calculations": [],
+              "issues": [],
+              "sources": [
+                {
+                  "document": "native-a.pdf",
+                  "rel": "Documents/native-a.pdf",
+                  "page": 1,
+                  "section": "",
+                  "tile_id": "native-a-P01",
+                  "bounding_box": null,
+                  "revision": "B"
+                }
+              ],
+              "confidence": "high"
+            }
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What design pressure is specified for AHU-017?",
+        "http": 200,
+        "seconds": 47.38999999999942,
+        "answer": "The design pressure specified for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document context labeled as \"SYNTHETIC TEST DOCUMENT - SYNTH-A\" (specifically within the content associated with `native-a.pdf`), which states: \"The design pressure for equipment AHU-017 is 250 Pa.\"\n\n**Citation:** [SOURCE: native-a.pdf | PAGE 1]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "The design pressure specified for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document context labeled as \"SYNTHETIC TEST DOCUMENT - SYNTH-A\" (specifically within the content associated with `native-a.pdf`), which states: \"The design pressure for equipment AHU-017 is 250 Pa.\"\n\n**Citation:** [SOURCE: native-a.pdf | PAGE 1]"
+          },
+          {
+            "type": "structured",
+            "data": {
+              "type": "simple_answer",
+              "title": "",
+              "subtitle": "",
+              "summary": "The design pressure specified for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document context labeled as \"SYNTHETIC TEST DOCUMENT - SYNTH-A\" (specifically within the content associated with `native-a.pdf`), which states: \"The design pressure for equipment AHU-017 is 250 Pa.\"\n\n**Citation:**",
+              "metrics": [],
+              "tables": [],
+              "calculations": [],
+              "issues": [],
+              "sources": [
+                {
+                  "document": "native-a.pdf",
+                  "rel": "Documents/native-a.pdf",
+                  "page": 1,
+                  "section": "",
+                  "tile_id": "native-a-P01",
+                  "bounding_box": null,
+                  "revision": "B"
+                }
+              ],
+              "confidence": "high"
+            }
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What design pressure is specified for AHU-017?",
+        "http": 200,
+        "seconds": 48.39100000000326,
+        "answer": "The design pressure specified for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document context labeled as **[SOURCE: native-a.pdf | PAGE 1]**, which states: \"The design pressure for equipment AHU-017 is 250 Pa.\"",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "The design pressure specified for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document context labeled as **[SOURCE: native-a.pdf | PAGE 1]**, which states: \"The design pressure for equipment AHU-017 is 250 Pa.\""
+          },
+          {
+            "type": "structured",
+            "data": {
+              "type": "simple_answer",
+              "title": "",
+              "subtitle": "",
+              "summary": "The design pressure specified for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document context labeled as ****, which states: \"The design pressure for equipment AHU-017 is 250 Pa.\"",
+              "metrics": [],
+              "tables": [],
+              "calculations": [],
+              "issues": [],
+              "sources": [
+                {
+                  "document": "native-a.pdf",
+                  "rel": "Documents/native-a.pdf",
+                  "page": 1,
+                  "section": "",
+                  "tile_id": "native-a-P01",
+                  "bounding_box": null,
+                  "revision": "B"
+                }
+              ],
+              "confidence": "high"
+            }
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What design pressure is specified for AHU-017?",
+        "http": 200,
+        "seconds": 43.17200000000594,
+        "answer": "The design pressure specified for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document excerpt labeled **[SOURCE: native-a.pdf | PAGE 1]**, which states: \"The design pressure for equipment AHU-017 is 250 Pa.\"",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "The design pressure specified for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document excerpt labeled **[SOURCE: native-a.pdf | PAGE 1]**, which states: \"The design pressure for equipment AHU-017 is 250 Pa.\""
+          },
+          {
+            "type": "structured",
+            "data": {
+              "type": "simple_answer",
+              "title": "",
+              "subtitle": "",
+              "summary": "The design pressure specified for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document excerpt labeled ****, which states: \"The design pressure for equipment AHU-017 is 250 Pa.\"",
+              "metrics": [],
+              "tables": [],
+              "calculations": [],
+              "issues": [],
+              "sources": [
+                {
+                  "document": "native-a.pdf",
+                  "rel": "Documents/native-a.pdf",
+                  "page": 1,
+                  "section": "",
+                  "tile_id": "native-a-P01",
+                  "bounding_box": null,
+                  "revision": "B"
+                }
+              ],
+              "confidence": "high"
+            }
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What design pressure is specified for AHU-017?",
+        "http": 503,
+        "seconds": 35.04700000000594,
+        "answer": "",
+        "events": []
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What design pressure is specified for AHU-017?",
+        "http": 200,
+        "seconds": 44.14100000000326,
+        "answer": "The design pressure specified for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document excerpt labeled **[SOURCE: native-a.pdf | PAGE 1]**, which states: \"The design pressure for equipment AHU-017 is 250 Pa.\"",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "The design pressure specified for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document excerpt labeled **[SOURCE: native-a.pdf | PAGE 1]**, which states: \"The design pressure for equipment AHU-017 is 250 Pa.\""
+          },
+          {
+            "type": "structured",
+            "data": {
+              "type": "simple_answer",
+              "title": "",
+              "subtitle": "",
+              "summary": "The design pressure specified for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document excerpt labeled ****, which states: \"The design pressure for equipment AHU-017 is 250 Pa.\"",
+              "metrics": [],
+              "tables": [],
+              "calculations": [],
+              "issues": [],
+              "sources": [
+                {
+                  "document": "native-a.pdf",
+                  "rel": "Documents/native-a.pdf",
+                  "page": 1,
+                  "section": "",
+                  "tile_id": "native-a-P01",
+                  "bounding_box": null,
+                  "revision": "B"
+                }
+              ],
+              "confidence": "high"
+            }
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What design pressure is specified for AHU-017?",
+        "http": 200,
+        "seconds": 56.95299999999406,
+        "answer": "The design pressure specified for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document context labeled as a synthetic test document (SYNTH-A), which states: \"The design pressure for equipment AHU-017 is 250 Pa.\"\n\n[Citation: [SOURCE: native-a.pdf | PAGE 1]]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "The design pressure specified for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document context labeled as a synthetic test document (SYNTH-A), which states: \"The design pressure for equipment AHU-017 is 250 Pa.\"\n\n[Citation: [SOURCE: native-a.pdf | PAGE 1]]"
+          },
+          {
+            "type": "structured",
+            "data": {
+              "type": "simple_answer",
+              "title": "",
+              "subtitle": "",
+              "summary": "The design pressure specified for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document context labeled as a synthetic test document (SYNTH-A), which states: \"The design pressure for equipment AHU-017 is 250 Pa.\"\n\n[Citation: ]",
+              "metrics": [],
+              "tables": [],
+              "calculations": [],
+              "issues": [],
+              "sources": [
+                {
+                  "document": "native-a.pdf",
+                  "rel": "Documents/native-a.pdf",
+                  "page": 1,
+                  "section": "",
+                  "tile_id": "native-a-P01",
+                  "bounding_box": null,
+                  "revision": "B"
+                }
+              ],
+              "confidence": "high"
+            }
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What design pressure is specified for AHU-017?",
+        "http": 200,
+        "seconds": 45.98500000000058,
+        "answer": "The design pressure specified for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document excerpt labeled **[SOURCE: native-a.pdf | PAGE 1]**, which states: \"The design pressure for equipment AHU-017 is 250 Pa.\"",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "The design pressure specified for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document excerpt labeled **[SOURCE: native-a.pdf | PAGE 1]**, which states: \"The design pressure for equipment AHU-017 is 250 Pa.\""
+          },
+          {
+            "type": "structured",
+            "data": {
+              "type": "simple_answer",
+              "title": "",
+              "subtitle": "",
+              "summary": "The design pressure specified for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document excerpt labeled ****, which states: \"The design pressure for equipment AHU-017 is 250 Pa.\"",
+              "metrics": [],
+              "tables": [],
+              "calculations": [],
+              "issues": [],
+              "sources": [
+                {
+                  "document": "native-a.pdf",
+                  "rel": "Documents/native-a.pdf",
+                  "page": 1,
+                  "section": "",
+                  "tile_id": "native-a-P01",
+                  "bounding_box": null,
+                  "revision": "B"
+                }
+              ],
+              "confidence": "high"
+            }
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What design pressure is specified for AHU-017?",
+        "http": 200,
+        "seconds": 54.65600000000268,
+        "answer": "The design pressure specified for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document context labeled as a synthetic test document (SYNTH-A), which states: \"The design pressure for equipment AHU-017 is 250 Pa.\"\n\n[Citation: [SOURCE: native-a.pdf | PAGE 1]]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "The design pressure specified for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document context labeled as a synthetic test document (SYNTH-A), which states: \"The design pressure for equipment AHU-017 is 250 Pa.\"\n\n[Citation: [SOURCE: native-a.pdf | PAGE 1]]"
+          },
+          {
+            "type": "structured",
+            "data": {
+              "type": "simple_answer",
+              "title": "",
+              "subtitle": "",
+              "summary": "The design pressure specified for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document context labeled as a synthetic test document (SYNTH-A), which states: \"The design pressure for equipment AHU-017 is 250 Pa.\"\n\n[Citation: ]",
+              "metrics": [],
+              "tables": [],
+              "calculations": [],
+              "issues": [],
+              "sources": [
+                {
+                  "document": "native-a.pdf",
+                  "rel": "Documents/native-a.pdf",
+                  "page": 1,
+                  "section": "",
+                  "tile_id": "native-a-P01",
+                  "bounding_box": null,
+                  "revision": "B"
+                }
+              ],
+              "confidence": "high"
+            }
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What design pressure is specified for AHU-017?",
+        "http": 200,
+        "seconds": 52.40600000000268,
+        "answer": "The design pressure specified for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document context labeled as **[SOURCE: native-a.pdf | PAGE 1]**, within the section titled \"SYNTHETIC TEST DOCUMENT - SYNTH-A\".",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "The design pressure specified for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document context labeled as **[SOURCE: native-a.pdf | PAGE 1]**, within the section titled \"SYNTHETIC TEST DOCUMENT - SYNTH-A\"."
+          },
+          {
+            "type": "structured",
+            "data": {
+              "type": "simple_answer",
+              "title": "",
+              "subtitle": "",
+              "summary": "The design pressure specified for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document context labeled as ****, within the section titled \"SYNTHETIC TEST DOCUMENT - SYNTH-A\".",
+              "metrics": [],
+              "tables": [],
+              "calculations": [],
+              "issues": [],
+              "sources": [
+                {
+                  "document": "native-a.pdf",
+                  "rel": "Documents/native-a.pdf",
+                  "page": 1,
+                  "section": "",
+                  "tile_id": "native-a-P01",
+                  "bounding_box": null,
+                  "revision": "B"
+                }
+              ],
+              "confidence": "high"
+            }
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What design pressure is specified for AHU-017?",
+        "http": 200,
+        "seconds": 45.01499999999942,
+        "answer": "The design pressure specified for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document context labeled as **[SOURCE: native-a.pdf | PAGE 1]**, within the section titled \"SYNTHETIC TEST DOCUMENT - SYNTH-A\".",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "The design pressure specified for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document context labeled as **[SOURCE: native-a.pdf | PAGE 1]**, within the section titled \"SYNTHETIC TEST DOCUMENT - SYNTH-A\"."
+          },
+          {
+            "type": "structured",
+            "data": {
+              "type": "simple_answer",
+              "title": "",
+              "subtitle": "",
+              "summary": "The design pressure specified for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document context labeled as ****, within the section titled \"SYNTHETIC TEST DOCUMENT - SYNTH-A\".",
+              "metrics": [],
+              "tables": [],
+              "calculations": [],
+              "issues": [],
+              "sources": [
+                {
+                  "document": "native-a.pdf",
+                  "rel": "Documents/native-a.pdf",
+                  "page": 1,
+                  "section": "",
+                  "tile_id": "native-a-P01",
+                  "bounding_box": null,
+                  "revision": "B"
+                }
+              ],
+              "confidence": "high"
+            }
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What design pressure is specified for AHU-017?",
+        "http": 503,
+        "seconds": 35.03100000000268,
+        "answer": "",
+        "events": []
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What design pressure is specified for AHU-017?",
+        "http": 200,
+        "seconds": 59.25,
+        "answer": "The design pressure specified for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document context labeled as a synthetic test document (SYNTH-A), which states: \"The design pressure for equipment AHU-017 is 250 Pa.\"\n\n[Citation: [SOURCE: native-a.pdf | PAGE 1]]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "The design pressure specified for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document context labeled as a synthetic test document (SYNTH-A), which states: \"The design pressure for equipment AHU-017 is 250 Pa.\"\n\n[Citation: [SOURCE: native-a.pdf | PAGE 1]]"
+          },
+          {
+            "type": "structured",
+            "data": {
+              "type": "simple_answer",
+              "title": "",
+              "subtitle": "",
+              "summary": "The design pressure specified for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document context labeled as a synthetic test document (SYNTH-A), which states: \"The design pressure for equipment AHU-017 is 250 Pa.\"\n\n[Citation: ]",
+              "metrics": [],
+              "tables": [],
+              "calculations": [],
+              "issues": [],
+              "sources": [
+                {
+                  "document": "native-a.pdf",
+                  "rel": "Documents/native-a.pdf",
+                  "page": 1,
+                  "section": "",
+                  "tile_id": "native-a-P01",
+                  "bounding_box": null,
+                  "revision": "B"
+                }
+              ],
+              "confidence": "high"
+            }
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What design pressure is specified for AHU-017?",
+        "http": 200,
+        "seconds": 50.51499999999942,
+        "answer": "The design pressure specified for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document excerpt labeled **[SOURCE: native-a.pdf | PAGE 1]**, which states: \"The design pressure for equipment AHU-017 is 250 Pa.\"",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "The design pressure specified for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document excerpt labeled **[SOURCE: native-a.pdf | PAGE 1]**, which states: \"The design pressure for equipment AHU-017 is 250 Pa.\""
+          },
+          {
+            "type": "structured",
+            "data": {
+              "type": "simple_answer",
+              "title": "",
+              "subtitle": "",
+              "summary": "The design pressure specified for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document excerpt labeled ****, which states: \"The design pressure for equipment AHU-017 is 250 Pa.\"",
+              "metrics": [],
+              "tables": [],
+              "calculations": [],
+              "issues": [],
+              "sources": [
+                {
+                  "document": "native-a.pdf",
+                  "rel": "Documents/native-a.pdf",
+                  "page": 1,
+                  "section": "",
+                  "tile_id": "native-a-P01",
+                  "bounding_box": null,
+                  "revision": "B"
+                }
+              ],
+              "confidence": "high"
+            }
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What design pressure is specified for AHU-017?",
+        "http": 200,
+        "seconds": 51.5,
+        "answer": "The design pressure specified for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document context labeled as `SYNTHETIC TEST DOCUMENT - SYNTH-A` (specifically within the content associated with `[SOURCE: native-a.pdf | PAGE 1]`).",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "The design pressure specified for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document context labeled as `SYNTHETIC TEST DOCUMENT - SYNTH-A` (specifically within the content associated with `[SOURCE: native-a.pdf | PAGE 1]`)."
+          },
+          {
+            "type": "structured",
+            "data": {
+              "type": "simple_answer",
+              "title": "",
+              "subtitle": "",
+              "summary": "The design pressure specified for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document context labeled as `SYNTHETIC TEST DOCUMENT - SYNTH-A` (specifically within the content associated with ``).",
+              "metrics": [],
+              "tables": [],
+              "calculations": [],
+              "issues": [],
+              "sources": [
+                {
+                  "document": "native-a.pdf",
+                  "rel": "Documents/native-a.pdf",
+                  "page": 1,
+                  "section": "",
+                  "tile_id": "native-a-P01",
+                  "bounding_box": null,
+                  "revision": "B"
+                }
+              ],
+              "confidence": "high"
+            }
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What design pressure is specified for AHU-017?",
+        "http": 200,
+        "seconds": 53.375,
+        "answer": "The design pressure specified for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document context labeled as **[SOURCE: native-a.pdf | PAGE 1]**, which states: \"The design pressure for equipment AHU-017 is 250 Pa.\"",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "The design pressure specified for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document context labeled as **[SOURCE: native-a.pdf | PAGE 1]**, which states: \"The design pressure for equipment AHU-017 is 250 Pa.\""
+          },
+          {
+            "type": "structured",
+            "data": {
+              "type": "simple_answer",
+              "title": "",
+              "subtitle": "",
+              "summary": "The design pressure specified for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document context labeled as ****, which states: \"The design pressure for equipment AHU-017 is 250 Pa.\"",
+              "metrics": [],
+              "tables": [],
+              "calculations": [],
+              "issues": [],
+              "sources": [
+                {
+                  "document": "native-a.pdf",
+                  "rel": "Documents/native-a.pdf",
+                  "page": 1,
+                  "section": "",
+                  "tile_id": "native-a-P01",
+                  "bounding_box": null,
+                  "revision": "B"
+                }
+              ],
+              "confidence": "high"
+            }
+          },
+          {
+            "type": "done"
+          }
+        ]
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What design pressure is specified for AHU-017?",
+        "http": 503,
+        "seconds": 35.0,
+        "answer": "",
+        "events": []
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What design pressure is specified for AHU-017?",
+        "http": 503,
+        "seconds": 34.98399999999674,
+        "answer": "",
+        "events": []
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What design pressure is specified for AHU-017?",
+        "http": 503,
+        "seconds": 34.96800000000803,
+        "answer": "",
+        "events": []
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What design pressure is specified for AHU-017?",
+        "http": 503,
+        "seconds": 34.98400000001129,
+        "answer": "",
+        "events": []
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What design pressure is specified for AHU-017?",
+        "http": 503,
+        "seconds": 34.969000000011874,
+        "answer": "",
+        "events": []
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What design pressure is specified for AHU-017?",
+        "http": 503,
+        "seconds": 34.953000000008615,
+        "answer": "",
+        "events": []
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What design pressure is specified for AHU-017?",
+        "http": 503,
+        "seconds": 34.921000000002095,
+        "answer": "",
+        "events": []
+      },
+      {
+        "project": "SYNTH-A",
+        "query": "What design pressure is specified for AHU-017?",
+        "http": 200,
+        "seconds": 55.65600000000268,
+        "answer": "The design pressure specified for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document context labeled as a synthetic test document (SYNTH-A), which states: \"The design pressure for equipment AHU-017 is 250 Pa.\"\n\n[Citation: [SOURCE: native-a.pdf | PAGE 1]]",
+        "events": [
+          {
+            "type": "sources",
+            "sources": [
+              {
+                "filename": "native-a.pdf",
+                "rel": "Documents/native-a.pdf",
+                "previewable": true,
+                "exists": true,
+                "revision": "B",
+                "filename_revision_hint": "A",
+                "doctype": null,
+                "page": 1
+              }
+            ]
+          },
+          {
+            "type": "token",
+            "text": "The design pressure specified for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document context labeled as a synthetic test document (SYNTH-A), which states: \"The design pressure for equipment AHU-017 is 250 Pa.\"\n\n[Citation: [SOURCE: native-a.pdf | PAGE 1]]"
+          },
+          {
+            "type": "structured",
+            "data": {
+              "type": "simple_answer",
+              "title": "",
+              "subtitle": "",
+              "summary": "The design pressure specified for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document context labeled as a synthetic test document (SYNTH-A), which states: \"The design pressure for equipment AHU-017 is 250 Pa.\"\n\n[Citation: ]",
+              "metrics": [],
+              "tables": [],
+              "calculations": [],
+              "issues": [],
+              "sources": [
+                {
+                  "document": "native-a.pdf",
+                  "rel": "Documents/native-a.pdf",
+                  "page": 1,
+                  "section": "",
+                  "tile_id": "native-a-P01",
+                  "bounding_box": null,
+                  "revision": "B"
+                }
+              ],
+              "confidence": "high"
+            }
+          },
+          {
+            "type": "done"
+          }
+        ]
+      }
+    ],
+    "max_seconds": 59.25,
+    "errors": 16
+  }
+]

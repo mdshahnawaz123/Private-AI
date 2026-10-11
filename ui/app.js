@@ -24,6 +24,11 @@ let authToken=null, currentUser=null, currentProject=null, projectsData={};
 let allDocs=[], lastSel=null, aiHist=[], lastSources=[], lastUsedSources=[];
 let currentDest='design', currentRevision='';
 let viewerLoaded=false, on3D=false;
+// Admin-only Coding Agent mode: ported from classic.html's coworkMode (see
+// ~line 1113/1353 there) but wired to this Copilot panel instead of a parallel
+// chat UI. When on, /ask_stream is sent mode:'cowork' -- gated admin-only by
+// the server (auth.require_roles) in addition to this client-side check.
+let coworkMode=false;
 
 try{ authToken=localStorage.getItem('expo_token')||null; }catch(e){}
 
@@ -107,6 +112,13 @@ function onAuthed(){
   $('urole').textContent=((currentUser.role||'user').replace(/^\w/,c=>c.toUpperCase()));
   const isAdmin=!!(currentUser&&currentUser.role==='admin');
   const navSettings=$('navSettingsLink'); if(navSettings) navSettings.style.display=isAdmin?'':'none';
+  const coworkBtn=$('aiCoworkToggle');
+  if($('aiCoworkFolder')) $('aiCoworkFolder').hidden=!isAdmin;
+  if($('aiCoworkFiles')) $('aiCoworkFiles').hidden=!isAdmin;
+  if(coworkBtn){
+    coworkBtn.hidden=!isAdmin;
+    if(!isAdmin){ coworkMode=false; coworkBtn.classList.remove('on'); coworkBtn.textContent='Coding Agent'; }
+  }
   loadProjects(); aiGreeting();
 }
 function logout(){ try{localStorage.removeItem('expo_token');}catch(e){} location.reload(); }
@@ -114,6 +126,10 @@ function logout(){ try{localStorage.removeItem('expo_token');}catch(e){} locatio
 // with classic.html's uploadBtn/docsUploadBtn gating and main.py's
 // auth.require_roles(request, "admin", "lead") on /upload.
 function canUpload(){ return !!(currentUser && (currentUser.role==='admin' || currentUser.role==='lead')); }
+// Matches main.py's auth.require_roles(request, "admin") gate on mode:'cowork'
+// in /ask_stream. The toggle itself is also hidden for non-admins (onAuthed),
+// this is the defense-in-depth check at the point the request is built.
+function isAdminUser(){ return !!(currentUser && currentUser.role==='admin'); }
 
 /* ============================================================
    TOP BAR
@@ -295,7 +311,7 @@ function loadModels(relList){
   if(chosen.length>8 && !confirm(`Open ${chosen.length} models together? Large federated sets can be slow to parse and memory-heavy. Continue?`)) return;
   loadedRels = new Set(chosen);
   const rels=chosen.map(r=>'rel='+encodeURIComponent(r)).join('&');
-  const url=`/ui/viewer.html?v=24&embed=1&project=${encodeURIComponent(currentProject)}&token=${encodeURIComponent(authToken||'')}&${rels}`;
+  const url=`/ui/viewer.html?v=42&embed=1&project=${encodeURIComponent(currentProject)}&token=${encodeURIComponent(authToken||'')}&${rels}`;
   $('vpEmpty').style.display='none'; $('viewerFrame').style.display='block'; $('viewerFrame').src=url; viewerLoaded=true;
 }
 // PRIMARY engine: the Fragments viewer (fast .frag loading + federation). This
@@ -308,7 +324,7 @@ function openFragments(relList){
   loadedRels = new Set(chosen);
   navigate('design');
   const rels=chosen.map(r=>'rel='+encodeURIComponent(r)).join('&');
-  const url=`/ui/viewer.html?v=24&embed=1&project=${encodeURIComponent(currentProject)}&token=${encodeURIComponent(authToken||'')}&${rels}`;
+  const url=`/ui/viewer.html?v=42&embed=1&project=${encodeURIComponent(currentProject)}&token=${encodeURIComponent(authToken||'')}&${rels}`;
   $('vpEmpty').style.display='none'; $('viewerFrame').style.display='block'; $('viewerFrame').src=url; viewerLoaded=true;
 }
 // Open exactly the models ticked in the Models table (Fragments engine).
@@ -758,11 +774,64 @@ function wireCopilot(){
   $('aiAttachBtn').onclick=toggleAttachMenu;
   $('attachMenuUpload').onclick=()=>{ hideAttachMenu(); pickChatAttachmentFile(); };
   $('attachClear').onclick=clearAttachment;
+  const coworkBtn=$('aiCoworkToggle');
+  if(coworkBtn) coworkBtn.onclick=toggleCoworkMode;
+  $('aiCoworkFolder').onclick=()=>{
+    if(!currentProject){ toast('Select a project first'); return; }
+    $('aiCoworkFolderInput').click();
+  };
+  $('aiCoworkFolderInput').onchange=()=>importCoworkFiles('aiCoworkFolderInput','aiCoworkFolder','Add folder');
+  $('aiCoworkFiles').onclick=()=>{
+    if(!currentProject){ toast('Select a project first'); return; }
+    $('aiCoworkFilesInput').click();
+  };
+  $('aiCoworkFilesInput').onchange=()=>importCoworkFiles('aiCoworkFilesInput','aiCoworkFiles','Add files');
   document.addEventListener('click',e=>{
     const m=$('attachMenu'); if(m.hidden) return;
     if(e.target.closest('#attachMenu')||e.target.closest('#aiAttachBtn')) return;
     hideAttachMenu();
   });
+}
+/* Admin-only Coding Agent mode: flips mode:'cowork' on for the next /ask_stream
+   call. The server still enforces admin-only (auth.require_roles) -- this is
+   just the UI side of that same gate, and the button is hidden entirely for
+   non-admins in onAuthed(). */
+async function importCoworkFiles(inputId,buttonId,label){
+  const input=$(inputId);
+  const files=Array.from(input.files||[]);
+  const project=currentProject;
+  if(!project||!isAdminUser()||!files.length) return;
+  const button=$(buttonId);button.disabled=true;
+  let imported=0,failed=0;const errors=[];
+  try{
+    for(const file of files){
+      button.textContent=`Adding ${imported+failed+1}/${files.length}`;
+      const body=new FormData();body.append('file',file);
+      body.append('relative_path',file.webkitRelativePath||file.name);
+      try{
+        const response=await fetch(`${API}/projects/${encodeURIComponent(project)}/agent/workspace-file`,{method:'POST',body});
+        if(!response.ok){const data=await response.json();throw new Error(data.detail||`HTTP ${response.status}`);}
+        imported++;
+      }catch(error){failed++;if(errors.length<5)errors.push(`${file.webkitRelativePath||file.name}: ${error.message}`);}
+    }
+    addMsg('a',`Copied ${imported} files into the Cowork workspace for <b>${esc(project)}</b>. ${failed} failed. Original files are unchanged.${errors.length?'<br>'+errors.map(esc).join('<br>'):''}<br>Enable Coding Agent and ask it to list the workspace. These copies are separate from uploaded document evidence.`);
+  }finally{button.disabled=false;button.textContent=label;input.value='';}
+}
+
+function toggleCoworkMode(){
+  if(!isAdminUser()){ coworkMode=false; return; }
+  coworkMode=!coworkMode;
+  const btn=$('aiCoworkToggle');
+  if(btn){
+    btn.classList.toggle('on',coworkMode);
+    btn.textContent=coworkMode?'Coding Agent: ON':'Coding Agent';
+    btn.title=coworkMode
+      ? 'Coding Agent mode is ON — the AI can read/write this project\'s sandboxed workspace and propose shell commands, which you must approve before anything runs.'
+      : 'Turn on Coding Agent mode (admin only)';
+  }
+  if(coworkMode){
+    addMsg('a','<b>Coding Agent mode enabled.</b> I can read and write files in this project’s sandboxed workspace, and propose shell commands — but nothing runs until you click <b>Approve &amp; Run</b> on the card I show you.');
+  }
 }
 function setAiTab(tab){
   document.body.classList.remove('ai-collapsed');
@@ -977,7 +1046,10 @@ async function stream(display,endpoint,body){ const bub=addMsg('a','<span class=
   try{ const r=await fetch(endpoint,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
     if(!r.ok){
       let message='Error '+r.status;
-      if(r.status===503 && endpoint==='/ask_stream'){
+      // Covers 503 (busy) and, since mode:'cowork' is admin-gated server-side
+      // (auth.require_roles), a 403 for a non-admin who somehow sent it --
+      // show the server's actual reason instead of a bare status code.
+      if(endpoint.endsWith('/ask_stream')){
         try{ const failure=await r.json(); if(typeof failure.detail==='string') message=failure.detail; }catch(e){}
       }
       bub.innerHTML='<span style="color:var(--red)">'+esc(message)+'</span>'; return;
@@ -990,6 +1062,13 @@ async function stream(display,endpoint,body){ const bub=addMsg('a','<span class=
         else if(d.type==='token'){ ans+=d.text; bub.innerHTML=mdLite(ans)+(bub._ev||''); $('aiMsgs').scrollTop=$('aiMsgs').scrollHeight; }
         else if(d.type==='error'){ ans+='\n[error] '+d.message; bub.innerHTML=mdLite(ans); }
         else if(d.type==='structured'){ structured=d.data||null; }
+        else if(d.type==='command_pending'){
+          // Cowork mode's run_command proposal. Nothing has executed -- this is
+          // purely a notice that the server queued it under d.pending_id. Render
+          // the approval card; the server only runs it once a human clicks
+          // Approve & Run on THIS card (see addCommandCard).
+          addCommandCard(d);
+        }
       } }
     // Handle 3D Viewer AI Commands
       let displayAns = ans;
@@ -1027,6 +1106,68 @@ async function stream(display,endpoint,body){ const bub=addMsg('a','<span class=
     }catch(e){ /* never let the renderer break the plain answer that already rendered */ }
     aiHist.push({role:'user',content:body.query}); aiHist.push({role:'assistant',content:ans});
   }catch(e){ bub.innerHTML='<span style="color:var(--red)">Request failed: '+esc(e.message||e)+'</span>'; } }
+
+/* --- Cowork run_command approval card ---------------------------------
+   Renders a command_pending SSE event as its OWN chat message (never reuses
+   the streaming answer bubble, so the later `bub.innerHTML=...` in stream()
+   above can't clobber it). Nothing the model proposed has run yet -- the
+   buttons are the ONLY way this command can execute, each doing exactly one
+   POST naming d.pending_id; the server re-reads its own stored command/cwd
+   for that id rather than trusting anything this card sends back. */
+function addCommandCard(d){
+  const pid=d.pending_id;
+  const cmdStr=(Array.isArray(d.command)?d.command:[]).map(String).join(' ');
+  const html=`<div class="cmd-card" data-pid="${esc(pid)}">
+      <div class="cc-h">Command proposed — approval required</div>
+      ${d.reason?`<div class="cc-reason">${esc(d.reason)}</div>`:''}
+      <pre>${esc(cmdStr||'(empty command)')}</pre>
+      ${d.cwd?`<div class="cc-reason">cwd: ${esc(d.cwd)}</div>`:''}
+      <div class="cc-actions">
+        <button type="button" class="cc-btn cc-approve">Approve &amp; Run</button>
+        <button type="button" class="cc-btn cc-reject">Reject</button>
+      </div>
+      <div class="cc-result" hidden></div>
+    </div>`;
+  const bub=addMsg('a',html);
+  const card=bub.querySelector('.cmd-card');
+  const approveBtn=card.querySelector('.cc-approve');
+  const rejectBtn=card.querySelector('.cc-reject');
+  const resultBox=card.querySelector('.cc-result');
+  const lockButtons=()=>{ approveBtn.disabled=true; rejectBtn.disabled=true; }; // prevent double-submit; pending_id is single-use server-side too
+  approveBtn.onclick=async()=>{
+    lockButtons(); approveBtn.textContent='Running…';
+    resultBox.hidden=false; resultBox.innerHTML='<div class="muted">Running — this can take up to a minute…</div>';
+    try{
+      const r=await fetch(`${API}/projects/${encodeURIComponent(currentProject)}/agent/run-command`,
+        {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pending_id:pid})});
+      const j=await r.json().catch(()=>({}));
+      if(!r.ok){
+        resultBox.innerHTML=`<div class="cc-status err">Failed: ${esc((j&&j.detail)||('HTTP '+r.status))}</div>`;
+        approveBtn.textContent='Approve & Run';
+        return;
+      }
+      const ec=(j.exit_code===null||j.exit_code===undefined)?'—':j.exit_code;
+      resultBox.innerHTML=`<div class="cc-status ${j.exit_code===0?'ok':'err'}">Exit code: ${esc(ec)}</div>`
+        +(j.stdout?`<div class="muted" style="margin-top:6px;font-size:11px">stdout</div><pre>${esc(j.stdout)}</pre>`:'')
+        +(j.stderr?`<div class="muted" style="margin-top:6px;font-size:11px">stderr</div><pre>${esc(j.stderr)}</pre>`:'');
+      approveBtn.textContent='Ran';
+    }catch(e){
+      resultBox.innerHTML=`<div class="cc-status err">Failed: ${esc(e.message||e)}</div>`;
+      approveBtn.textContent='Approve & Run';
+    }
+    $('aiMsgs').scrollTop=$('aiMsgs').scrollHeight;
+  };
+  rejectBtn.onclick=async()=>{
+    lockButtons(); rejectBtn.textContent='Rejecting…';
+    try{
+      await fetch(`${API}/projects/${encodeURIComponent(currentProject)}/agent/reject-command`,
+        {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pending_id:pid})});
+    }catch(e){ /* best-effort: it also just expires server-side via TTL */ }
+    resultBox.hidden=false; resultBox.innerHTML='<div class="cc-status rej">Rejected — not run.</div>';
+    rejectBtn.textContent='Rejected';
+  };
+  $('aiMsgs').scrollTop=$('aiMsgs').scrollHeight;
+}
 
 /* Open a cited source at its page using the EXISTING document viewer (no second viewer). */
 function openSourceTile(rel, page){
@@ -1101,16 +1242,22 @@ function evHTML(sources){
 async function sendAi(standards){ const t=$('aiIn'); const q=t.value.trim();
   if(!q){ return; } if(!currentProject){ toast('Select a project'); return; }
   t.value=''; addMsg('u',esc(q));
+  // Defense-in-depth: only ever request mode:'cowork' when the toggle is on
+  // AND the user is actually an admin (the server re-checks this itself via
+  // auth.require_roles -- this just avoids sending a mode the user can't use).
+  const useCowork=coworkMode&&isAdminUser();
   const revNote=currentRevision?` (revision ${currentRevision})`:'';
   const documentQuestion=/\b(pdf|document|schedule|specification|uploaded|gfa|nsa|nisa|bua|area schedule)\b/i.test(q);
-  if(currentDest==='design'&&on3D&&viewerLoaded&&!documentQuestion&&!standards&&!currentAttachment){ const ctx=await getViewerCtx();
+  if(!useCowork&&currentDest==='design'&&on3D&&viewerLoaded&&!documentQuestion&&!standards&&!currentAttachment){ const ctx=await getViewerCtx();
     await stream(q,`${API}/ask_model`,{project:currentProject,query:q+revNote,context:ctx.context||'',selection:ctx.selection||(lastSel&&lastSel.text)||'',messages:aiHist.slice(-6)}); }
   else { const prefix=(standards||currentDest==='codes')?'Using the codes/standards knowledge base, ':'';
     let scoped=q+revNote;
-    const _focus=(ctxDoc&&['documents','specifications','drawings','schedules'].includes(currentDest))?(ctxDoc.rel||''):'';
+    const _focus=(ctxDoc&&!useCowork&&['documents','specifications','drawings','schedules'].includes(currentDest))?(ctxDoc.rel||''):'';
     if(_focus) scoped=`Regarding "${ctxDoc.filename}": `+scoped;
-    const _attId=(currentAttachment&&currentAttachment.id)||null;
-    await stream(q,`${API}/ask_stream`,{project:currentProject,query:prefix+scoped,messages:aiHist.slice(-8),k:8,focus_doc:_focus,attachment_id:_attId}); }
+    const _attId=useCowork?null:((currentAttachment&&currentAttachment.id)||null);
+    const askBody={project:currentProject,query:prefix+scoped,messages:aiHist.slice(-8),k:8,focus_doc:_focus,attachment_id:_attId};
+    if(useCowork) askBody.mode='cowork';
+    await stream(q,`${API}/ask_stream`,askBody); }
 }
 
 /* --- References pane --- */

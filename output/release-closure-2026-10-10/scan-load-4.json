@@ -1,0 +1,99 @@
+{
+  "concurrency": 4,
+  "seconds": 339.96800000000803,
+  "uploads": [
+    {
+      "file": "scan-4-0.pdf",
+      "http": 200,
+      "seconds": 1.5470000000059372,
+      "response": {
+        "message": "Processing started",
+        "filename": "scan-4-0.pdf",
+        "category": "Reports",
+        "folder": "Documents",
+        "status": "processing"
+      }
+    },
+    {
+      "file": "scan-4-1.pdf",
+      "http": 200,
+      "seconds": 1.5470000000059372,
+      "response": {
+        "message": "Processing started",
+        "filename": "scan-4-1.pdf",
+        "category": "Reports",
+        "folder": "Documents",
+        "status": "processing"
+      }
+    },
+    {
+      "file": "scan-4-2.pdf",
+      "http": 200,
+      "seconds": 1.5470000000059372,
+      "response": {
+        "message": "Processing started",
+        "filename": "scan-4-2.pdf",
+        "category": "Reports",
+        "folder": "Documents",
+        "status": "processing"
+      }
+    },
+    {
+      "file": "scan-4-3.pdf",
+      "http": 200,
+      "seconds": 1.6090000000112923,
+      "response": {
+        "message": "Processing started",
+        "filename": "scan-4-3.pdf",
+        "category": "Reports",
+        "folder": "Documents",
+        "status": "processing"
+      }
+    }
+  ],
+  "queue": {
+    "completed": 11
+  },
+  "states": [
+    {
+      "file": "scan-4-1.pdf",
+      "status": "ready_with_warnings",
+      "pages": [
+        {
+          "ocr": "EXTRACTED_REVIEW_REQUIRED",
+          "verification": "REVIEW_REQUIRED"
+        }
+      ]
+    },
+    {
+      "file": "scan-4-0.pdf",
+      "status": "ready_with_warnings",
+      "pages": [
+        {
+          "ocr": "EXTRACTED_REVIEW_REQUIRED",
+          "verification": "REVIEW_REQUIRED"
+        }
+      ]
+    },
+    {
+      "file": "scan-4-2.pdf",
+      "status": "ready_with_warnings",
+      "pages": [
+        {
+          "ocr": "EXTRACTED_REVIEW_REQUIRED",
+          "verification": "REVIEW_REQUIRED"
+        }
+      ]
+    },
+    {
+      "file": "scan-4-3.pdf",
+      "status": "ready_with_warnings",
+      "pages": [
+        {
+          "ocr": "EXTRACTED_REVIEW_REQUIRED",
+          "verification": "REVIEW_REQUIRED"
+        }
+      ]
+    }
+  ]
+}

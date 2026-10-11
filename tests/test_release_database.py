@@ -7,6 +7,17 @@ from knowledge.extraction import index_quantities,index_visual_structured_record
 from services.ingestion import IngestionPipeline,DocumentState
 
 class ReleaseDatabase(unittest.TestCase):
+    def test_reupload_reuses_active_document_identity_and_invalidates_ready(self):
+        db.record_document('Synthetic release','source.pdf','synthetic/source.pdf',3,status='ready')
+        with self.session() as s:first_id=s.query(db.Document).one().id
+        db.record_document('Synthetic release','source.pdf','synthetic/source.pdf',0,status='processing')
+        with self.session() as s:
+            rows=s.query(db.Document).all()
+            self.assertEqual(len(rows),1)
+            self.assertEqual(rows[0].id,first_id)
+            self.assertEqual(rows[0].status,'processing')
+            self.assertEqual(rows[0].chunks,0)
+
     def test_structured_query_rejects_unverified_vision_incomplete_sources_and_unit_conflicts(self):
         from intelligence.document_query import execute_structured_query,robust_parse_query
         plan=robust_parse_query('Tower 7 Level 02 GFA',self.pid)

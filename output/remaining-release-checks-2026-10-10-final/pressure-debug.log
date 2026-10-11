@@ -1,0 +1,40 @@
+2026-10-10 11:55:40.843 | INFO     | db:init_knowledge_tables:1524 - Knowledge Hub tables initialized
+2026-10-10 11:55:40.843 | INFO     | db:init_db:258 - DB ready at sqlite:///C:\3EH\ExpoDesignAI - Copy\output\remaining-release-checks-2026-10-10-final\data\expo.db
+2026-10-10 11:55:40.923 | INFO     | core.model_registry:register:254 - Registered model: role=REASONING_LLM name=qwen3.5:9b provider=ollama
+2026-10-10 11:55:40.924 | INFO     | core.model_registry:register:254 - Registered model: role=VISION_MODEL name=qwen2.5vl:7b provider=ollama
+2026-10-10 11:55:40.924 | INFO     | core.model_registry:register:254 - Registered model: role=EMBEDDING_MODEL name=bge-m3 provider=ollama
+2026-10-10 11:55:40.925 | INFO     | core.model_registry:register:254 - Registered model: role=FAST_LLM name=qwen2.5:7b provider=ollama
+2026-10-10 11:55:40.925 | INFO     | core.model_registry:register:254 - Registered model: role=RERANKER_MODEL name=bge-reranker-v2-m3 provider=ollama
+2026-10-10 11:55:40.955 | INFO     | intelligence.compliance:add_rule:636 - Added compliance rule: DOOR-MIN-WIDTH (Minimum Door Width)
+2026-10-10 11:55:40.956 | INFO     | intelligence.compliance:add_rule:636 - Added compliance rule: CORRIDOR-MIN-WIDTH (Minimum Corridor Width)
+2026-10-10 11:55:40.956 | INFO     | intelligence.compliance:add_rule:636 - Added compliance rule: CEILING-MIN-HEIGHT (Minimum Ceiling Height)
+2026-10-10 11:55:40.956 | INFO     | intelligence.compliance:add_rule:636 - Added compliance rule: TRAVEL-MAX-DISTANCE (Maximum Travel Distance)
+2026-10-10 11:55:40.956 | INFO     | intelligence.compliance:add_rule:636 - Added compliance rule: ROOM-MIN-AREA (Minimum Room Area)
+2026-10-10 11:55:40.957 | INFO     | intelligence.compliance:add_rule:636 - Added compliance rule: FIRE-RATING-MIN (Minimum Fire Rating)
+2026-10-10 11:55:40.957 | INFO     | intelligence.compliance:add_rule:636 - Added compliance rule: STAIR-MIN-WIDTH (Minimum Stair Width)
+2026-10-10 11:55:40.958 | INFO     | intelligence.compliance:add_rule:636 - Added compliance rule: RISER-MAX-HEIGHT (Maximum Riser Height)
+2026-10-10 11:55:40.958 | INFO     | intelligence.compliance:add_rule:636 - Added compliance rule: TREAD-MIN-DEPTH (Minimum Tread Depth)
+2026-10-10 11:55:40.958 | INFO     | intelligence.compliance:add_rule:636 - Added compliance rule: HEADROOM-MIN (Minimum Headroom)
+2026-10-10 11:55:45.513 | INFO     | engines.layout_engine:_check_backends:78 - PP-DocLayout not available
+2026-10-10 11:55:45.513 | INFO     | engines.layout_engine:_check_backends:81 - Vision model layout detection available
+2026-10-10 11:55:45.521 | INFO     | agents.tools:register:245 - Registered tool: read_document (permission: read)
+2026-10-10 11:55:45.521 | INFO     | agents.tools:register:245 - Registered tool: search_knowledge (permission: read)
+2026-10-10 11:55:45.521 | INFO     | agents.tools:register:245 - Registered tool: search_code (permission: read)
+2026-10-10 11:55:45.521 | INFO     | agents.tools:register:245 - Registered tool: get_drawing (permission: read)
+2026-10-10 11:55:45.522 | INFO     | agents.tools:register:245 - Registered tool: get_bim_element (permission: read)
+2026-10-10 11:55:45.522 | INFO     | agents.tools:register:245 - Registered tool: measure_geometry (permission: read)
+2026-10-10 11:55:45.522 | INFO     | agents.tools:register:245 - Registered tool: query_ifc (permission: read)
+2026-10-10 11:55:45.522 | INFO     | agents.tools:register:245 - Registered tool: run_rule (permission: execute)
+2026-10-10 11:55:45.522 | INFO     | agents.tools:register:245 - Registered tool: calculate (permission: execute)
+2026-10-10 11:55:45.522 | INFO     | agents.tools:register:245 - Registered tool: create_finding (permission: write)
+2026-10-10 11:55:45.522 | INFO     | agents.tools:register:245 - Registered tool: generate_report (permission: write)
+2026-10-10 11:55:45.524 | INFO     | agents.runtime:register_agent:259 - Registered agent: compliance_agent (Checks compliance against building codes)
+2026-10-10 11:55:45.525 | INFO     | agents.runtime:register_agent:259 - Registered agent: drawing_qa_agent (Reviews drawings for quality and compliance)
+2026-10-10 11:55:45.525 | INFO     | agents.runtime:register_agent:259 - Registered agent: knowledge_agent (Searches and retrieves engineering knowledge)
+2026-10-10 11:55:45.531 | INFO     | engines.ifc_engine:_check_backend:77 - IfcOpenShell not available � use browser-extracted data
+2026-10-10 11:55:45.651 | INFO     | db:audit:311 - AUDIT ask.stream user=admin project=SYNTH-A target=None detail={'model': 'qwen2.5vl:7b', 'mode': 'chat', 'chars': 46}
+2026-10-10 11:55:49.501 | INFO     | main:_get_bm25:2019 - BM25 index built for SYNTH-A (377 chunks)
+2026-10-10 11:55:49.511 | INFO     | main:ask_stream:3444 - focus_doc injected: native-a.pdf (710 chars)
+2026-10-10 11:55:57.613 | INFO     | local_chat:stream:147 - chat attempt 1/3: model=qwen3.5:9b promptChars=3537 tokens=55 outChars=199 done_reason=stop
+2026-10-10 11:56:05.458 | INFO     | local_chat:stream:147 - chat attempt 1/3: model=qwen3.5:9b promptChars=4355 tokens=41 outChars=147 done_reason=stop
+2026-10-10 11:56:05.460 | WARNING  | main:gen:3575 - Answer withheld by evidence checks: ['Citation outside retrieved sources', 'Numeric values absent from cited page excerpts', 'Value/unit pair absent from cited page excerpts', 'Identifier absent from cited page excerpts']

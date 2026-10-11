@@ -167,19 +167,26 @@ class LocalChatOllama:
 # ── Wave 1: Model Tiering ───────────────────────────────────
 
 def _get_model_config():
-    """Get model configuration from settings."""
+    """Get model configuration (name + serving endpoint) from settings,
+    resolved per role via config.resolve_role (Pilot blueprint Sec 6.1) so
+    the worker/author roles can later ride a separate Ollama process/port
+    (Sec 6.2) with no change here."""
     try:
-        from config import get_settings
+        from config import get_settings, resolve_role
         s = get_settings()
+        worker = resolve_role("worker")
+        author = resolve_role("author")
         return {
-            "worker_model": s.worker_model,
-            "author_model": s.author_model,
+            "worker_model": worker["model"],
+            "worker_url": worker["base_url"],
+            "author_model": author["model"],
+            "author_url": author["base_url"],
             "enable_model_tiering": s.enable_model_tiering,
         }
     except Exception:
         return {
-            "worker_model": "qwen2.5vl:7b",
-            "author_model": "qwen2.5vl:7b",
+            "worker_model": "qwen2.5vl:7b", "worker_url": OLLAMA_URL,
+            "author_model": "qwen2.5vl:7b", "author_url": OLLAMA_URL,
             "enable_model_tiering": False,
         }
 
@@ -194,10 +201,12 @@ def chat_worker(msgs, **kwargs):
     """
     cfg = _get_model_config()
     model = cfg["worker_model"] if cfg["enable_model_tiering"] else cfg["author_model"]
+    url = cfg["worker_url"] if cfg["enable_model_tiering"] else cfg["author_url"]
     role = "worker" if cfg["enable_model_tiering"] else "author"
 
-    logger.info("MODEL_ROLE={} MODEL_NAME={}", role, model)
+    logger.info("MODEL_ROLE={} MODEL_NAME={} MODEL_URL={}", role, model, url)
 
+    kwargs.setdefault("url", url)
     llm = LocalChatOllama(model=model, **kwargs)
     return llm.stream(msgs)
 
@@ -211,9 +220,11 @@ def chat_author(msgs, **kwargs):
     """
     cfg = _get_model_config()
     model = cfg["author_model"]
+    url = cfg["author_url"]
 
-    logger.info("MODEL_ROLE=author MODEL_NAME={}", model)
+    logger.info("MODEL_ROLE=author MODEL_NAME={} MODEL_URL={}", model, url)
 
+    kwargs.setdefault("url", url)
     llm = LocalChatOllama(model=model, **kwargs)
     return llm.stream(msgs)
 

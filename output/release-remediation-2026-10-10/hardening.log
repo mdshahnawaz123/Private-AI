@@ -1,0 +1,15 @@
+test_empty_evidence_never_calls_model (test_audit_hardening.AuditHardening.test_empty_evidence_never_calls_model) ... ok
+test_explicit_retry_recovers_failed_images_without_repeating_completed_pages (test_audit_hardening.AuditHardening.test_explicit_retry_recovers_failed_images_without_repeating_completed_pages) ... ok
+test_failed_image_does_not_abort_remaining_pages_or_claim_ready (test_audit_hardening.AuditHardening.test_failed_image_does_not_abort_remaining_pages_or_claim_ready) ... ok
+test_health_route_is_unique (test_audit_hardening.AuditHardening.test_health_route_is_unique) ... ok
+test_model_failure_is_error_not_placeholder (test_audit_hardening.AuditHardening.test_model_failure_is_error_not_placeholder) ... ok
+test_no_actor_and_no_folder_cannot_read_records (test_audit_hardening.AuditHardening.test_no_actor_and_no_folder_cannot_read_records) ... ok
+test_project_name_and_id_resolve_same_boundary (test_audit_hardening.AuditHardening.test_project_name_and_id_resolve_same_boundary) ... ok
+test_table_row_retains_tower_header_and_value (test_audit_hardening.AuditHardening.test_table_row_retains_tower_header_and_value) ... ok
+test_tower_and_level_intersect (test_audit_hardening.AuditHardening.test_tower_and_level_intersect) ... ok
+test_upload_rejects_escape_components (test_audit_hardening.AuditHardening.test_upload_rejects_escape_components) ... ok
+
+----------------------------------------------------------------------
+Ran 10 tests in 1.183s
+
+OK

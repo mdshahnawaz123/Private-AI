@@ -1,0 +1,32 @@
+{
+  "before_kill": {
+    "filename": "interrupted-scan.pdf",
+    "path": "C:\\3EH\\ExpoDesignAI - Copy\\output\\release-closure-2026-10-10\\recovery\\data\\docs\\SYNTH-RECOVERY\\Documents\\interrupted-scan.pdf",
+    "status": "processing",
+    "chunks": 0
+  },
+  "first_stage": "OCR",
+  "ocr_child_observed": true,
+  "after_kill": {
+    "filename": "interrupted-scan.pdf",
+    "path": "C:\\3EH\\ExpoDesignAI - Copy\\output\\release-closure-2026-10-10\\recovery\\data\\docs\\SYNTH-RECOVERY\\Documents\\interrupted-scan.pdf",
+    "status": "processing",
+    "chunks": 0
+  },
+  "job": {
+    "state": "completed",
+    "attempts": 2,
+    "sha256": "efe30195e4b355f9604d7ca6e274b15675affbac909606ca1eefab0ea70ace2d",
+    "error": null
+  },
+  "after_restart": {
+    "filename": "interrupted-scan.pdf",
+    "path": "C:\\3EH\\ExpoDesignAI - Copy\\output\\release-closure-2026-10-10\\recovery\\data\\docs\\SYNTH-RECOVERY\\Documents\\interrupted-scan.pdf",
+    "status": "ready_with_warnings",
+    "chunks": 9
+  },
+  "source_hash_unchanged": true,
+  "integrity": "ok",
+  "duplicate_documents": false,
+  "pass": true
+}

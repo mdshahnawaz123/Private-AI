@@ -1,0 +1,28 @@
+{
+  "samples": 622,
+  "probe_errors": 0,
+  "peak_rss": 5881131008,
+  "peak_host_cpu_percent": 76.0,
+  "min_available_ram": 36335960064,
+  "max_db_write_lock_probe_seconds": 0.09400000001187436,
+  "peak_queue": 8,
+  "disk_read_bytes_delta": 17587155456,
+  "disk_write_bytes_delta": 1371082752,
+  "sampled_seconds": 1311.1814632415771,
+  "scan_batches": [
+    {
+      "concurrency": 4,
+      "seconds": 339.96800000000803,
+      "queue": {
+        "completed": 11
+      }
+    },
+    {
+      "concurrency": 8,
+      "seconds": 746.8910000000033,
+      "queue": {
+        "completed": 19
+      }
+    }
+  ]
+}

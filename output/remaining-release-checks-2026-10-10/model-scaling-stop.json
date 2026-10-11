@@ -1,0 +1,4 @@
+{
+  "at_concurrency": 32,
+  "reason": "latency above 60 seconds or request failures; hardware saturation boundary, higher levels not exercised"
+}

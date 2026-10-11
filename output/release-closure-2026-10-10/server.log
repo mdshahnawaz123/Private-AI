@@ -1,0 +1,287 @@
+[32m2026-10-10 16:54:15.816[0m | [1mINFO    [0m | [36mdb[0m:[36minit_knowledge_tables[0m:[36m1524[0m - [1mKnowledge Hub tables initialized[0m
+[32m2026-10-10 16:54:15.816[0m | [1mINFO    [0m | [36mdb[0m:[36minit_db[0m:[36m258[0m - [1mDB ready at sqlite:///C:\3EH\ExpoDesignAI - Copy\output\release-closure-2026-10-10\data\expo.db[0m
+[32m2026-10-10 16:54:15.871[0m | [1mINFO    [0m | [36mcore.model_registry[0m:[36mregister[0m:[36m254[0m - [1mRegistered model: role=REASONING_LLM name=qwen3.5:9b provider=ollama[0m
+[32m2026-10-10 16:54:15.872[0m | [1mINFO    [0m | [36mcore.model_registry[0m:[36mregister[0m:[36m254[0m - [1mRegistered model: role=VISION_MODEL name=qwen2.5vl:7b provider=ollama[0m
+[32m2026-10-10 16:54:15.872[0m | [1mINFO    [0m | [36mcore.model_registry[0m:[36mregister[0m:[36m254[0m - [1mRegistered model: role=EMBEDDING_MODEL name=bge-m3 provider=ollama[0m
+[32m2026-10-10 16:54:15.872[0m | [1mINFO    [0m | [36mcore.model_registry[0m:[36mregister[0m:[36m254[0m - [1mRegistered model: role=FAST_LLM name=qwen2.5:7b provider=ollama[0m
+[32m2026-10-10 16:54:15.873[0m | [1mINFO    [0m | [36mcore.model_registry[0m:[36mregister[0m:[36m254[0m - [1mRegistered model: role=RERANKER_MODEL name=bge-reranker-v2-m3 provider=ollama[0m
+[32m2026-10-10 16:54:15.900[0m | [1mINFO    [0m | [36mintelligence.compliance[0m:[36madd_rule[0m:[36m636[0m - [1mAdded compliance rule: DOOR-MIN-WIDTH (Minimum Door Width)[0m
+[32m2026-10-10 16:54:15.900[0m | [1mINFO    [0m | [36mintelligence.compliance[0m:[36madd_rule[0m:[36m636[0m - [1mAdded compliance rule: CORRIDOR-MIN-WIDTH (Minimum Corridor Width)[0m
+[32m2026-10-10 16:54:15.900[0m | [1mINFO    [0m | [36mintelligence.compliance[0m:[36madd_rule[0m:[36m636[0m - [1mAdded compliance rule: CEILING-MIN-HEIGHT (Minimum Ceiling Height)[0m
+[32m2026-10-10 16:54:15.900[0m | [1mINFO    [0m | [36mintelligence.compliance[0m:[36madd_rule[0m:[36m636[0m - [1mAdded compliance rule: TRAVEL-MAX-DISTANCE (Maximum Travel Distance)[0m
+[32m2026-10-10 16:54:15.900[0m | [1mINFO    [0m | [36mintelligence.compliance[0m:[36madd_rule[0m:[36m636[0m - [1mAdded compliance rule: ROOM-MIN-AREA (Minimum Room Area)[0m
+[32m2026-10-10 16:54:15.900[0m | [1mINFO    [0m | [36mintelligence.compliance[0m:[36madd_rule[0m:[36m636[0m - [1mAdded compliance rule: FIRE-RATING-MIN (Minimum Fire Rating)[0m
+[32m2026-10-10 16:54:15.900[0m | [1mINFO    [0m | [36mintelligence.compliance[0m:[36madd_rule[0m:[36m636[0m - [1mAdded compliance rule: STAIR-MIN-WIDTH (Minimum Stair Width)[0m
+[32m2026-10-10 16:54:15.900[0m | [1mINFO    [0m | [36mintelligence.compliance[0m:[36madd_rule[0m:[36m636[0m - [1mAdded compliance rule: RISER-MAX-HEIGHT (Maximum Riser Height)[0m
+[32m2026-10-10 16:54:15.900[0m | [1mINFO    [0m | [36mintelligence.compliance[0m:[36madd_rule[0m:[36m636[0m - [1mAdded compliance rule: TREAD-MIN-DEPTH (Minimum Tread Depth)[0m
+[32m2026-10-10 16:54:15.901[0m | [1mINFO    [0m | [36mintelligence.compliance[0m:[36madd_rule[0m:[36m636[0m - [1mAdded compliance rule: HEADROOM-MIN (Minimum Headroom)[0m
+[32m2026-10-10 16:54:19.659[0m | [1mINFO    [0m | [36mengines.layout_engine[0m:[36m_check_backends[0m:[36m78[0m - [1mPP-DocLayout not available[0m
+[32m2026-10-10 16:54:19.660[0m | [1mINFO    [0m | [36mengines.layout_engine[0m:[36m_check_backends[0m:[36m81[0m - [1mVision model layout detection available[0m
+[32m2026-10-10 16:54:19.668[0m | [1mINFO    [0m | [36magents.tools[0m:[36mregister[0m:[36m245[0m - [1mRegistered tool: read_document (permission: read)[0m
+[32m2026-10-10 16:54:19.669[0m | [1mINFO    [0m | [36magents.tools[0m:[36mregister[0m:[36m245[0m - [1mRegistered tool: search_knowledge (permission: read)[0m
+[32m2026-10-10 16:54:19.669[0m | [1mINFO    [0m | [36magents.tools[0m:[36mregister[0m:[36m245[0m - [1mRegistered tool: search_code (permission: read)[0m
+[32m2026-10-10 16:54:19.670[0m | [1mINFO    [0m | [36magents.tools[0m:[36mregister[0m:[36m245[0m - [1mRegistered tool: get_drawing (permission: read)[0m
+[32m2026-10-10 16:54:19.670[0m | [1mINFO    [0m | [36magents.tools[0m:[36mregister[0m:[36m245[0m - [1mRegistered tool: get_bim_element (permission: read)[0m
+[32m2026-10-10 16:54:19.670[0m | [1mINFO    [0m | [36magents.tools[0m:[36mregister[0m:[36m245[0m - [1mRegistered tool: measure_geometry (permission: read)[0m
+[32m2026-10-10 16:54:19.670[0m | [1mINFO    [0m | [36magents.tools[0m:[36mregister[0m:[36m245[0m - [1mRegistered tool: query_ifc (permission: read)[0m
+[32m2026-10-10 16:54:19.671[0m | [1mINFO    [0m | [36magents.tools[0m:[36mregister[0m:[36m245[0m - [1mRegistered tool: run_rule (permission: execute)[0m
+[32m2026-10-10 16:54:19.671[0m | [1mINFO    [0m | [36magents.tools[0m:[36mregister[0m:[36m245[0m - [1mRegistered tool: calculate (permission: execute)[0m
+[32m2026-10-10 16:54:19.671[0m | [1mINFO    [0m | [36magents.tools[0m:[36mregister[0m:[36m245[0m - [1mRegistered tool: create_finding (permission: write)[0m
+[32m2026-10-10 16:54:19.672[0m | [1mINFO    [0m | [36magents.tools[0m:[36mregister[0m:[36m245[0m - [1mRegistered tool: generate_report (permission: write)[0m
+[32m2026-10-10 16:54:19.674[0m | [1mINFO    [0m | [36magents.runtime[0m:[36mregister_agent[0m:[36m259[0m - [1mRegistered agent: compliance_agent (Checks compliance against building codes)[0m
+[32m2026-10-10 16:54:19.675[0m | [1mINFO    [0m | [36magents.runtime[0m:[36mregister_agent[0m:[36m259[0m - [1mRegistered agent: drawing_qa_agent (Reviews drawings for quality and compliance)[0m
+[32m2026-10-10 16:54:19.675[0m | [1mINFO    [0m | [36magents.runtime[0m:[36mregister_agent[0m:[36m259[0m - [1mRegistered agent: knowledge_agent (Searches and retrieves engineering knowledge)[0m
+[32m2026-10-10 16:54:19.679[0m | [1mINFO    [0m | [36mengines.ifc_engine[0m:[36m_check_backend[0m:[36m77[0m - [1mIfcOpenShell not available — use browser-extracted data[0m
+INFO:     Started server process [22544]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8093 (Press CTRL+C to quit)
+INFO:     127.0.0.1:54920 - "GET /health/ready HTTP/1.1" 200 OK
+[32m2026-10-10 16:54:22.681[0m | [1mINFO    [0m | [36mdb[0m:[36maudit[0m:[36m311[0m - [1mAUDIT document.upload user=admin project=SYNTH-CLOSURE target=pipe-register.pdf detail={'chunks': 0}[0m
+INFO:     127.0.0.1:54926 - "POST /upload HTTP/1.1" 200 OK
+[32m2026-10-10 16:54:23.003[0m | [1mINFO    [0m | [36mdb[0m:[36maudit[0m:[36m311[0m - [1mAUDIT document.upload user=admin project=SYNTH-CLOSURE target=pump-spec.pdf detail={'chunks': 0}[0m
+warning: The `fitz` API is deprecated and will be removed in future. Use `import pymupdf` instead.
+[32m2026-10-10 16:54:23.074[0m | [1mINFO    [0m | [36mdb[0m:[36maudit[0m:[36m311[0m - [1mAUDIT document.upload user=admin project=SYNTH-CLOSURE target=duct-detail.pdf detail={'chunks': 0}[0m
+[32m2026-10-10 16:54:23.097[0m | [1mINFO    [0m | [36mservices.pipeline[0m:[36mprocess_document_pipeline[0m:[36m121[0m - [1mPhase 5B: Starting bounded visual pipeline for pipe-register.pdf[0m
+[32m2026-10-10 16:54:23.152[0m | [1mINFO    [0m | [36mdb[0m:[36maudit[0m:[36m311[0m - [1mAUDIT document.upload user=admin project=SYNTH-CLOSURE target=ventilation.pdf detail={'chunks': 0}[0m
+Consider using the pymupdf_layout package for a greatly improved page layout analysis.
+INFO:     127.0.0.1:54927 - "POST /upload HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54928 - "POST /upload HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54925 - "POST /upload HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54923 - "GET /health/ready HTTP/1.1" 200 OK
+[32m2026-10-10 16:54:23.185[0m | [1mINFO    [0m | [36mdb[0m:[36maudit[0m:[36m311[0m - [1mAUDIT document.upload user=admin project=SYNTH-CLOSURE target=tank-note.pdf detail={'chunks': 0}[0m
+INFO:     127.0.0.1:54930 - "POST /upload HTTP/1.1" 200 OK
+[32m2026-10-10 16:54:23.743[0m | [1mINFO    [0m | [36mdb[0m:[36maudit[0m:[36m311[0m - [1mAUDIT document.upload user=admin project=SYNTH-CLOSURE target=wall-detail.pdf detail={'chunks': 0}[0m
+INFO:     127.0.0.1:54934 - "POST /upload HTTP/1.1" 200 OK
+[32m2026-10-10 16:54:29.078[0m | [33m[1mWARNING [0m | [36mmain[0m:[36mget_vectorstore[0m:[36m1645[0m - [33m[1mget_vectorstore: no index for SYNTH-CLOSURE at C:\3EH\ExpoDesignAI - Copy\output\release-closure-2026-10-10\data\faiss_index\SYNTH-CLOSURE[0m
+[32m2026-10-10 16:54:29.112[0m | [1mINFO    [0m | [36mknowledge.extraction[0m:[36mindex_structured_tables[0m:[36m509[0m - [1mIndexed 0 structured table rows for pipe-register.pdf[0m
+[32m2026-10-10 16:54:29.114[0m | [1mINFO    [0m | [36mknowledge.extraction[0m:[36mindex_visual_structured_records[0m:[36m718[0m - [1mIndexed 0 visual structured records for pipe-register.pdf[0m
+[32m2026-10-10 16:54:29.117[0m | [1mINFO    [0m | [36mknowledge.extraction[0m:[36mindex_quantities[0m:[36m611[0m - [1mIndexed 0 quantities for pipe-register.pdf[0m
+[32m2026-10-10 16:54:29.129[0m | [1mINFO    [0m | [36mmain[0m:[36mprocess_document[0m:[36m2825[0m - [1mProcessed pipe-register.pdf -> 1 chunks (page-aware), status: ready[0m
+[32m2026-10-10 16:54:29.179[0m | [1mINFO    [0m | [36mservices.pipeline[0m:[36mprocess_document_pipeline[0m:[36m121[0m - [1mPhase 5B: Starting bounded visual pipeline for pump-spec.pdf[0m
+[32m2026-10-10 16:54:29.749[0m | [1mINFO    [0m | [36mknowledge.extraction[0m:[36mindex_structured_tables[0m:[36m509[0m - [1mIndexed 0 structured table rows for pump-spec.pdf[0m
+[32m2026-10-10 16:54:29.750[0m | [1mINFO    [0m | [36mknowledge.extraction[0m:[36mindex_visual_structured_records[0m:[36m718[0m - [1mIndexed 0 visual structured records for pump-spec.pdf[0m
+[32m2026-10-10 16:54:29.753[0m | [1mINFO    [0m | [36mknowledge.extraction[0m:[36mindex_quantities[0m:[36m611[0m - [1mIndexed 0 quantities for pump-spec.pdf[0m
+[32m2026-10-10 16:54:29.760[0m | [1mINFO    [0m | [36mmain[0m:[36mprocess_document[0m:[36m2825[0m - [1mProcessed pump-spec.pdf -> 1 chunks (page-aware), status: ready[0m
+[32m2026-10-10 16:54:29.824[0m | [1mINFO    [0m | [36mservices.pipeline[0m:[36mprocess_document_pipeline[0m:[36m121[0m - [1mPhase 5B: Starting bounded visual pipeline for duct-detail.pdf[0m
+[32m2026-10-10 16:54:30.345[0m | [1mINFO    [0m | [36mknowledge.extraction[0m:[36mindex_structured_tables[0m:[36m509[0m - [1mIndexed 0 structured table rows for duct-detail.pdf[0m
+[32m2026-10-10 16:54:30.346[0m | [1mINFO    [0m | [36mknowledge.extraction[0m:[36mindex_visual_structured_records[0m:[36m718[0m - [1mIndexed 0 visual structured records for duct-detail.pdf[0m
+[32m2026-10-10 16:54:30.348[0m | [1mINFO    [0m | [36mknowledge.extraction[0m:[36mindex_quantities[0m:[36m611[0m - [1mIndexed 0 quantities for duct-detail.pdf[0m
+[32m2026-10-10 16:54:30.355[0m | [1mINFO    [0m | [36mmain[0m:[36mprocess_document[0m:[36m2825[0m - [1mProcessed duct-detail.pdf -> 1 chunks (page-aware), status: ready[0m
+[32m2026-10-10 16:54:30.407[0m | [1mINFO    [0m | [36mservices.pipeline[0m:[36mprocess_document_pipeline[0m:[36m121[0m - [1mPhase 5B: Starting bounded visual pipeline for ventilation.pdf[0m
+[32m2026-10-10 16:54:30.875[0m | [1mINFO    [0m | [36mknowledge.extraction[0m:[36mindex_structured_tables[0m:[36m509[0m - [1mIndexed 0 structured table rows for ventilation.pdf[0m
+[32m2026-10-10 16:54:30.876[0m | [1mINFO    [0m | [36mknowledge.extraction[0m:[36mindex_visual_structured_records[0m:[36m718[0m - [1mIndexed 0 visual structured records for ventilation.pdf[0m
+[32m2026-10-10 16:54:30.880[0m | [1mINFO    [0m | [36mknowledge.extraction[0m:[36mindex_quantities[0m:[36m611[0m - [1mIndexed 0 quantities for ventilation.pdf[0m
+[32m2026-10-10 16:54:30.888[0m | [1mINFO    [0m | [36mmain[0m:[36mprocess_document[0m:[36m2825[0m - [1mProcessed ventilation.pdf -> 1 chunks (page-aware), status: ready[0m
+[32m2026-10-10 16:54:30.944[0m | [1mINFO    [0m | [36mservices.pipeline[0m:[36mprocess_document_pipeline[0m:[36m121[0m - [1mPhase 5B: Starting bounded visual pipeline for tank-note.pdf[0m
+[32m2026-10-10 16:54:31.426[0m | [1mINFO    [0m | [36mknowledge.extraction[0m:[36mindex_structured_tables[0m:[36m509[0m - [1mIndexed 0 structured table rows for tank-note.pdf[0m
+[32m2026-10-10 16:54:31.427[0m | [1mINFO    [0m | [36mknowledge.extraction[0m:[36mindex_visual_structured_records[0m:[36m718[0m - [1mIndexed 0 visual structured records for tank-note.pdf[0m
+[32m2026-10-10 16:54:31.430[0m | [1mINFO    [0m | [36mknowledge.extraction[0m:[36mindex_quantities[0m:[36m611[0m - [1mIndexed 0 quantities for tank-note.pdf[0m
+[32m2026-10-10 16:54:31.439[0m | [1mINFO    [0m | [36mmain[0m:[36mprocess_document[0m:[36m2825[0m - [1mProcessed tank-note.pdf -> 1 chunks (page-aware), status: ready[0m
+[32m2026-10-10 16:54:31.495[0m | [1mINFO    [0m | [36mservices.pipeline[0m:[36mprocess_document_pipeline[0m:[36m121[0m - [1mPhase 5B: Starting bounded visual pipeline for wall-detail.pdf[0m
+[32m2026-10-10 16:54:31.936[0m | [1mINFO    [0m | [36mknowledge.extraction[0m:[36mindex_structured_tables[0m:[36m509[0m - [1mIndexed 0 structured table rows for wall-detail.pdf[0m
+[32m2026-10-10 16:54:31.938[0m | [1mINFO    [0m | [36mknowledge.extraction[0m:[36mindex_visual_structured_records[0m:[36m718[0m - [1mIndexed 0 visual structured records for wall-detail.pdf[0m
+[32m2026-10-10 16:54:31.940[0m | [1mINFO    [0m | [36mknowledge.extraction[0m:[36mindex_quantities[0m:[36m611[0m - [1mIndexed 0 quantities for wall-detail.pdf[0m
+[32m2026-10-10 16:54:31.948[0m | [1mINFO    [0m | [36mmain[0m:[36mprocess_document[0m:[36m2825[0m - [1mProcessed wall-detail.pdf -> 1 chunks (page-aware), status: ready[0m
+[32m2026-10-10 16:54:34.202[0m | [1mINFO    [0m | [36mdb[0m:[36maudit[0m:[36m311[0m - [1mAUDIT ask.stream user=admin project=SYNTH-CLOSURE target=None detail={'model': 'qwen2.5vl:7b', 'mode': 'chat', 'chars': 39}[0m
+[32m2026-10-10 16:54:34.779[0m | [1mINFO    [0m | [36mmain[0m:[36m_get_bm25[0m:[36m2019[0m - [1mBM25 index built for SYNTH-CLOSURE (6 chunks)[0m
+[32m2026-10-10 16:54:34.780[0m | [1mINFO    [0m | [36mintelligence.reranker[0m:[36m_load_model[0m:[36m59[0m - [1mLoading reranker model: BAAI/bge-reranker-v2-m3 (CPU)[0m
+Loading weights:   0%|          | 0/393 [00:00<?, ?it/s]Loading weights:   5%|5         | 20/393 [00:00<00:02, 172.24it/s]Loading weights:  13%|#2        | 50/393 [00:00<00:01, 219.83it/s]Loading weights:  18%|#8        | 72/393 [00:00<00:01, 204.49it/s]Loading weights:  25%|##5       | 99/393 [00:00<00:01, 196.95it/s]Loading weights:  30%|###       | 119/393 [00:00<00:01, 140.64it/s]Loading weights:  34%|###4      | 135/393 [00:00<00:01, 129.33it/s]Loading weights:  38%|###7      | 149/393 [00:00<00:01, 126.79it/s]Loading weights:  41%|####1     | 163/393 [00:01<00:01, 127.26it/s]Loading weights:  45%|####5     | 177/393 [00:01<00:01, 117.39it/s]Loading weights:  50%|#####     | 197/393 [00:01<00:01, 134.81it/s]Loading weights:  54%|#####3    | 212/393 [00:01<00:01, 132.73it/s]Loading weights:  61%|######    | 239/393 [00:01<00:00, 167.49it/s]Loading weights: 100%|##########| 393/393 [00:01<00:00, 241.58it/s]
+[32m2026-10-10 16:54:40.891[0m | [1mINFO    [0m | [36mintelligence.reranker[0m:[36m_load_model[0m:[36m61[0m - [1mReranker model loaded successfully[0m
+[32m2026-10-10 16:54:41.223[0m | [1mINFO    [0m | [36mintelligence.reranker[0m:[36mrerank[0m:[36m102[0m - [1mReranked 1 documents (top score: 0.9985)[0m
+[32m2026-10-10 16:54:41.233[0m | [1mINFO    [0m | [36mmain[0m:[36mask_stream[0m:[36m3444[0m - [1mfocus_doc injected: pump-spec.pdf (256 chars)[0m
+INFO:     127.0.0.1:54998 - "POST /ask_stream HTTP/1.1" 200 OK
+[32m2026-10-10 16:54:56.071[0m | [1mINFO    [0m | [36mlocal_chat[0m:[36mstream[0m:[36m147[0m - [1mchat attempt 1/3: model=qwen3.5:9b promptChars=3687 tokens=74 outChars=256 done_reason=stop[0m
+[32m2026-10-10 16:54:56.418[0m | [1mINFO    [0m | [36mdb[0m:[36maudit[0m:[36m311[0m - [1mAUDIT ask.stream user=admin project=SYNTH-CLOSURE target=None detail={'model': 'qwen2.5vl:7b', 'mode': 'chat', 'chars': 51}[0m
+[32m2026-10-10 16:55:01.226[0m | [1mINFO    [0m | [36mintelligence.reranker[0m:[36mrerank[0m:[36m102[0m - [1mReranked 1 documents (top score: 0.9872)[0m
+[32m2026-10-10 16:55:01.233[0m | [1mINFO    [0m | [36mmain[0m:[36mask_stream[0m:[36m3444[0m - [1mfocus_doc injected: pump-spec.pdf (256 chars)[0m
+INFO:     127.0.0.1:54293 - "POST /ask_stream HTTP/1.1" 200 OK
+[32m2026-10-10 16:55:09.578[0m | [1mINFO    [0m | [36mlocal_chat[0m:[36mstream[0m:[36m147[0m - [1mchat attempt 1/3: model=qwen3.5:9b promptChars=3699 tokens=40 outChars=133 done_reason=stop[0m
+[32m2026-10-10 16:55:09.942[0m | [1mINFO    [0m | [36mdb[0m:[36maudit[0m:[36m311[0m - [1mAUDIT ask.stream user=admin project=SYNTH-CLOSURE target=None detail={'model': 'qwen2.5vl:7b', 'mode': 'chat', 'chars': 39}[0m
+[32m2026-10-10 16:55:14.608[0m | [1mINFO    [0m | [36mintelligence.reranker[0m:[36mrerank[0m:[36m102[0m - [1mReranked 1 documents (top score: 0.9986)[0m
+[32m2026-10-10 16:55:14.618[0m | [1mINFO    [0m | [36mmain[0m:[36mask_stream[0m:[36m3444[0m - [1mfocus_doc injected: ventilation.pdf (260 chars)[0m
+INFO:     127.0.0.1:54356 - "POST /ask_stream HTTP/1.1" 200 OK
+[32m2026-10-10 16:55:23.669[0m | [1mINFO    [0m | [36mlocal_chat[0m:[36mstream[0m:[36m147[0m - [1mchat attempt 1/3: model=qwen3.5:9b promptChars=3691 tokens=98 outChars=308 done_reason=stop[0m
+[32m2026-10-10 16:55:31.237[0m | [1mINFO    [0m | [36mlocal_chat[0m:[36mstream[0m:[36m147[0m - [1mchat attempt 1/3: model=qwen3.5:9b promptChars=4489 tokens=31 outChars=84 done_reason=stop[0m
+[32m2026-10-10 16:55:31.588[0m | [1mINFO    [0m | [36mdb[0m:[36maudit[0m:[36m311[0m - [1mAUDIT ask.stream user=admin project=SYNTH-CLOSURE target=None detail={'model': 'qwen2.5vl:7b', 'mode': 'chat', 'chars': 51}[0m
+[32m2026-10-10 16:55:36.466[0m | [1mINFO    [0m | [36mintelligence.reranker[0m:[36mrerank[0m:[36m102[0m - [1mReranked 1 documents (top score: 0.9901)[0m
+[32m2026-10-10 16:55:36.473[0m | [1mINFO    [0m | [36mmain[0m:[36mask_stream[0m:[36m3444[0m - [1mfocus_doc injected: ventilation.pdf (260 chars)[0m
+INFO:     127.0.0.1:54444 - "POST /ask_stream HTTP/1.1" 200 OK
+[32m2026-10-10 16:55:45.177[0m | [1mINFO    [0m | [36mlocal_chat[0m:[36mstream[0m:[36m147[0m - [1mchat attempt 1/3: model=qwen3.5:9b promptChars=3703 tokens=39 outChars=132 done_reason=stop[0m
+[32m2026-10-10 16:55:45.538[0m | [1mINFO    [0m | [36mdb[0m:[36maudit[0m:[36m311[0m - [1mAUDIT ask.stream user=admin project=SYNTH-CLOSURE target=None detail={'model': 'qwen2.5vl:7b', 'mode': 'chat', 'chars': 36}[0m
+[32m2026-10-10 16:55:50.620[0m | [1mINFO    [0m | [36mintelligence.reranker[0m:[36mrerank[0m:[36m102[0m - [1mReranked 1 documents (top score: 0.9980)[0m
+[32m2026-10-10 16:55:50.628[0m | [1mINFO    [0m | [36mmain[0m:[36mask_stream[0m:[36m3444[0m - [1mfocus_doc injected: duct-detail.pdf (256 chars)[0m
+INFO:     127.0.0.1:54509 - "POST /ask_stream HTTP/1.1" 200 OK
+[32m2026-10-10 16:56:00.334[0m | [1mINFO    [0m | [36mlocal_chat[0m:[36mstream[0m:[36m147[0m - [1mchat attempt 1/3: model=qwen3.5:9b promptChars=3680 tokens=98 outChars=302 done_reason=stop[0m
+[32m2026-10-10 16:56:08.187[0m | [1mINFO    [0m | [36mlocal_chat[0m:[36mstream[0m:[36m147[0m - [1mchat attempt 1/3: model=qwen3.5:9b promptChars=4472 tokens=31 outChars=81 done_reason=stop[0m
+[32m2026-10-10 16:56:08.584[0m | [1mINFO    [0m | [36mdb[0m:[36maudit[0m:[36m311[0m - [1mAUDIT ask.stream user=admin project=SYNTH-CLOSURE target=None detail={'model': 'qwen2.5vl:7b', 'mode': 'chat', 'chars': 48}[0m
+[32m2026-10-10 16:56:13.590[0m | [1mINFO    [0m | [36mintelligence.reranker[0m:[36mrerank[0m:[36m102[0m - [1mReranked 1 documents (top score: 0.9875)[0m
+[32m2026-10-10 16:56:13.601[0m | [1mINFO    [0m | [36mmain[0m:[36mask_stream[0m:[36m3444[0m - [1mfocus_doc injected: duct-detail.pdf (256 chars)[0m
+INFO:     127.0.0.1:57778 - "POST /ask_stream HTTP/1.1" 200 OK
+[32m2026-10-10 16:56:22.229[0m | [1mINFO    [0m | [36mlocal_chat[0m:[36mstream[0m:[36m147[0m - [1mchat attempt 1/3: model=qwen3.5:9b promptChars=3692 tokens=39 outChars=129 done_reason=stop[0m
+[32m2026-10-10 16:56:22.619[0m | [1mINFO    [0m | [36mdb[0m:[36maudit[0m:[36m311[0m - [1mAUDIT ask.stream user=admin project=SYNTH-CLOSURE target=None detail={'model': 'qwen2.5vl:7b', 'mode': 'chat', 'chars': 39}[0m
+[32m2026-10-10 16:56:27.446[0m | [1mINFO    [0m | [36mintelligence.reranker[0m:[36mrerank[0m:[36m102[0m - [1mReranked 1 documents (top score: 0.9982)[0m
+[32m2026-10-10 16:56:27.453[0m | [1mINFO    [0m | [36mmain[0m:[36mask_stream[0m:[36m3444[0m - [1mfocus_doc injected: pipe-register.pdf (262 chars)[0m
+INFO:     127.0.0.1:57846 - "POST /ask_stream HTTP/1.1" 200 OK
+[32m2026-10-10 16:56:36.672[0m | [1mINFO    [0m | [36mlocal_chat[0m:[36mstream[0m:[36m147[0m - [1mchat attempt 1/3: model=qwen3.5:9b promptChars=3691 tokens=97 outChars=308 done_reason=stop[0m
+[32m2026-10-10 16:56:44.234[0m | [1mINFO    [0m | [36mlocal_chat[0m:[36mstream[0m:[36m147[0m - [1mchat attempt 1/3: model=qwen3.5:9b promptChars=4489 tokens=30 outChars=84 done_reason=stop[0m
+[32m2026-10-10 16:56:44.582[0m | [1mINFO    [0m | [36mdb[0m:[36maudit[0m:[36m311[0m - [1mAUDIT ask.stream user=admin project=SYNTH-CLOSURE target=None detail={'model': 'qwen2.5vl:7b', 'mode': 'chat', 'chars': 51}[0m
+[32m2026-10-10 16:56:49.099[0m | [1mINFO    [0m | [36mintelligence.reranker[0m:[36mrerank[0m:[36m102[0m - [1mReranked 1 documents (top score: 0.9877)[0m
+[32m2026-10-10 16:56:49.104[0m | [1mINFO    [0m | [36mmain[0m:[36mask_stream[0m:[36m3444[0m - [1mfocus_doc injected: pipe-register.pdf (262 chars)[0m
+INFO:     127.0.0.1:54373 - "POST /ask_stream HTTP/1.1" 200 OK
+[32m2026-10-10 16:56:57.575[0m | [1mINFO    [0m | [36mlocal_chat[0m:[36mstream[0m:[36m147[0m - [1mchat attempt 1/3: model=qwen3.5:9b promptChars=3703 tokens=54 outChars=190 done_reason=stop[0m
+[32m2026-10-10 16:56:57.896[0m | [1mINFO    [0m | [36mdb[0m:[36maudit[0m:[36m311[0m - [1mAUDIT ask.stream user=admin project=SYNTH-CLOSURE target=None detail={'model': 'qwen2.5vl:7b', 'mode': 'chat', 'chars': 37}[0m
+[32m2026-10-10 16:57:02.429[0m | [1mINFO    [0m | [36mintelligence.reranker[0m:[36mrerank[0m:[36m102[0m - [1mReranked 1 documents (top score: 0.9973)[0m
+[32m2026-10-10 16:57:02.435[0m | [1mINFO    [0m | [36mmain[0m:[36mask_stream[0m:[36m3444[0m - [1mfocus_doc injected: tank-note.pdf (248 chars)[0m
+INFO:     127.0.0.1:54453 - "POST /ask_stream HTTP/1.1" 200 OK
+[32m2026-10-10 16:57:11.215[0m | [1mINFO    [0m | [36mlocal_chat[0m:[36mstream[0m:[36m147[0m - [1mchat attempt 1/3: model=qwen3.5:9b promptChars=3669 tokens=71 outChars=250 done_reason=stop[0m
+[32m2026-10-10 16:57:11.599[0m | [1mINFO    [0m | [36mdb[0m:[36maudit[0m:[36m311[0m - [1mAUDIT ask.stream user=admin project=SYNTH-CLOSURE target=None detail={'model': 'qwen2.5vl:7b', 'mode': 'chat', 'chars': 49}[0m
+[32m2026-10-10 16:57:16.359[0m | [1mINFO    [0m | [36mintelligence.reranker[0m:[36mrerank[0m:[36m102[0m - [1mReranked 1 documents (top score: 0.9882)[0m
+[32m2026-10-10 16:57:16.366[0m | [1mINFO    [0m | [36mmain[0m:[36mask_stream[0m:[36m3444[0m - [1mfocus_doc injected: tank-note.pdf (248 chars)[0m
+INFO:     127.0.0.1:54542 - "POST /ask_stream HTTP/1.1" 200 OK
+[32m2026-10-10 16:57:24.799[0m | [1mINFO    [0m | [36mlocal_chat[0m:[36mstream[0m:[36m147[0m - [1mchat attempt 1/3: model=qwen3.5:9b promptChars=3681 tokens=56 outChars=196 done_reason=stop[0m
+[32m2026-10-10 16:57:25.178[0m | [1mINFO    [0m | [36mdb[0m:[36maudit[0m:[36m311[0m - [1mAUDIT ask.stream user=admin project=SYNTH-CLOSURE target=None detail={'model': 'qwen2.5vl:7b', 'mode': 'chat', 'chars': 40}[0m
+[32m2026-10-10 16:57:30.515[0m | [1mINFO    [0m | [36mintelligence.reranker[0m:[36mrerank[0m:[36m102[0m - [1mReranked 1 documents (top score: 0.9983)[0m
+[32m2026-10-10 16:57:30.522[0m | [1mINFO    [0m | [36mmain[0m:[36mask_stream[0m:[36m3444[0m - [1mfocus_doc injected: wall-detail.pdf (258 chars)[0m
+INFO:     127.0.0.1:54598 - "POST /ask_stream HTTP/1.1" 200 OK
+[32m2026-10-10 16:57:40.030[0m | [1mINFO    [0m | [36mlocal_chat[0m:[36mstream[0m:[36m147[0m - [1mchat attempt 1/3: model=qwen3.5:9b promptChars=3688 tokens=78 outChars=301 done_reason=stop[0m
+[32m2026-10-10 16:57:40.634[0m | [1mINFO    [0m | [36mdb[0m:[36maudit[0m:[36m311[0m - [1mAUDIT ask.stream user=admin project=SYNTH-CLOSURE target=None detail={'model': 'qwen2.5vl:7b', 'mode': 'chat', 'chars': 52}[0m
+[32m2026-10-10 16:57:45.356[0m | [1mINFO    [0m | [36mintelligence.reranker[0m:[36mrerank[0m:[36m102[0m - [1mReranked 1 documents (top score: 0.9914)[0m
+[32m2026-10-10 16:57:45.363[0m | [1mINFO    [0m | [36mmain[0m:[36mask_stream[0m:[36m3444[0m - [1mfocus_doc injected: wall-detail.pdf (258 chars)[0m
+INFO:     127.0.0.1:54671 - "POST /ask_stream HTTP/1.1" 200 OK
+[32m2026-10-10 16:57:55.030[0m | [1mINFO    [0m | [36mlocal_chat[0m:[36mstream[0m:[36m147[0m - [1mchat attempt 1/3: model=qwen3.5:9b promptChars=3700 tokens=97 outChars=315 done_reason=stop[0m
+[32m2026-10-10 16:58:03.461[0m | [1mINFO    [0m | [36mlocal_chat[0m:[36mstream[0m:[36m147[0m - [1mchat attempt 1/3: model=qwen3.5:9b promptChars=4505 tokens=32 outChars=96 done_reason=stop[0m
+[32m2026-10-10 16:58:03.920[0m | [1mINFO    [0m | [36mdb[0m:[36maudit[0m:[36m311[0m - [1mAUDIT document.upload user=admin project=SYNTH-CLOSURE target=pump-spec.pdf detail={'chunks': 0}[0m
+INFO:     127.0.0.1:54775 - "POST /upload HTTP/1.1" 200 OK
+[32m2026-10-10 16:58:04.197[0m | [1mINFO    [0m | [36mservices.pipeline[0m:[36mprocess_document_pipeline[0m:[36m121[0m - [1mPhase 5B: Starting bounded visual pipeline for pump-spec.pdf[0m
+[32m2026-10-10 16:58:09.027[0m | [1mINFO    [0m | [36mknowledge.extraction[0m:[36mindex_structured_tables[0m:[36m509[0m - [1mIndexed 0 structured table rows for pump-spec.pdf[0m
+[32m2026-10-10 16:58:09.028[0m | [1mINFO    [0m | [36mknowledge.extraction[0m:[36mindex_visual_structured_records[0m:[36m718[0m - [1mIndexed 0 visual structured records for pump-spec.pdf[0m
+[32m2026-10-10 16:58:09.030[0m | [1mINFO    [0m | [36mknowledge.extraction[0m:[36mindex_quantities[0m:[36m611[0m - [1mIndexed 0 quantities for pump-spec.pdf[0m
+[32m2026-10-10 16:58:09.038[0m | [1mINFO    [0m | [36mmain[0m:[36mprocess_document[0m:[36m2825[0m - [1mProcessed pump-spec.pdf -> 1 chunks (page-aware), status: ready[0m
+[32m2026-10-10 16:58:11.381[0m | [1mINFO    [0m | [36mdb[0m:[36maudit[0m:[36m311[0m - [1mAUDIT document.upload user=admin project=SYNTH-CLOSURE target=scan-4-1.pdf detail={'chunks': 0}[0m
+[32m2026-10-10 16:58:11.443[0m | [1mINFO    [0m | [36mdb[0m:[36maudit[0m:[36m311[0m - [1mAUDIT document.upload user=admin project=SYNTH-CLOSURE target=scan-4-0.pdf detail={'chunks': 0}[0m
+[32m2026-10-10 16:58:11.500[0m | [1mINFO    [0m | [36mdb[0m:[36maudit[0m:[36m311[0m - [1mAUDIT document.upload user=admin project=SYNTH-CLOSURE target=scan-4-2.pdf detail={'chunks': 0}[0m
+INFO:     127.0.0.1:54807 - "POST /upload HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54809 - "POST /upload HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54810 - "POST /upload HTTP/1.1" 200 OK
+[32m2026-10-10 16:58:11.558[0m | [1mINFO    [0m | [36mdb[0m:[36maudit[0m:[36m311[0m - [1mAUDIT document.upload user=admin project=SYNTH-CLOSURE target=scan-4-3.pdf detail={'chunks': 0}[0m
+INFO:     127.0.0.1:54808 - "POST /upload HTTP/1.1" 200 OK
+[32m2026-10-10 16:59:17.227[0m | [1mINFO    [0m | [36mservices.pipeline[0m:[36mprocess_document_pipeline[0m:[36m121[0m - [1mPhase 5B: Starting bounded visual pipeline for scan-4-1.pdf[0m
+[32m2026-10-10 16:59:38.458[0m | [1mINFO    [0m | [36mknowledge.extraction[0m:[36mindex_structured_tables[0m:[36m509[0m - [1mIndexed 0 structured table rows for scan-4-1.pdf[0m
+[32m2026-10-10 16:59:38.476[0m | [1mINFO    [0m | [36mknowledge.extraction[0m:[36mindex_visual_structured_records[0m:[36m718[0m - [1mIndexed 113 visual structured records for scan-4-1.pdf[0m
+[32m2026-10-10 16:59:38.476[0m | [1mINFO    [0m | [36mmain[0m:[36mprocess_document[0m:[36m2765[0m - [1mExtracted 113 structured table rows for scan-4-1.pdf[0m
+[32m2026-10-10 16:59:38.479[0m | [1mINFO    [0m | [36mknowledge.extraction[0m:[36mindex_quantities[0m:[36m611[0m - [1mIndexed 0 quantities for scan-4-1.pdf[0m
+[32m2026-10-10 16:59:38.490[0m | [1mINFO    [0m | [36mmain[0m:[36mprocess_document[0m:[36m2825[0m - [1mProcessed scan-4-1.pdf -> 9 chunks (page-aware), status: ready_with_warnings[0m
+[32m2026-10-10 17:00:36.234[0m | [1mINFO    [0m | [36mservices.pipeline[0m:[36mprocess_document_pipeline[0m:[36m121[0m - [1mPhase 5B: Starting bounded visual pipeline for scan-4-0.pdf[0m
+[32m2026-10-10 17:00:58.014[0m | [1mINFO    [0m | [36mknowledge.extraction[0m:[36mindex_structured_tables[0m:[36m509[0m - [1mIndexed 0 structured table rows for scan-4-0.pdf[0m
+[32m2026-10-10 17:00:58.030[0m | [1mINFO    [0m | [36mknowledge.extraction[0m:[36mindex_visual_structured_records[0m:[36m718[0m - [1mIndexed 113 visual structured records for scan-4-0.pdf[0m
+[32m2026-10-10 17:00:58.030[0m | [1mINFO    [0m | [36mmain[0m:[36mprocess_document[0m:[36m2765[0m - [1mExtracted 113 structured table rows for scan-4-0.pdf[0m
+[32m2026-10-10 17:00:58.033[0m | [1mINFO    [0m | [36mknowledge.extraction[0m:[36mindex_quantities[0m:[36m611[0m - [1mIndexed 0 quantities for scan-4-0.pdf[0m
+[32m2026-10-10 17:00:58.043[0m | [1mINFO    [0m | [36mmain[0m:[36mprocess_document[0m:[36m2825[0m - [1mProcessed scan-4-0.pdf -> 9 chunks (page-aware), status: ready_with_warnings[0m
+[32m2026-10-10 17:02:07.510[0m | [1mINFO    [0m | [36mservices.pipeline[0m:[36mprocess_document_pipeline[0m:[36m121[0m - [1mPhase 5B: Starting bounded visual pipeline for scan-4-2.pdf[0m
+[32m2026-10-10 17:02:29.750[0m | [1mINFO    [0m | [36mknowledge.extraction[0m:[36mindex_structured_tables[0m:[36m509[0m - [1mIndexed 0 structured table rows for scan-4-2.pdf[0m
+[32m2026-10-10 17:02:29.765[0m | [1mINFO    [0m | [36mknowledge.extraction[0m:[36mindex_visual_structured_records[0m:[36m718[0m - [1mIndexed 113 visual structured records for scan-4-2.pdf[0m
+[32m2026-10-10 17:02:29.765[0m | [1mINFO    [0m | [36mmain[0m:[36mprocess_document[0m:[36m2765[0m - [1mExtracted 113 structured table rows for scan-4-2.pdf[0m
+[32m2026-10-10 17:02:29.767[0m | [1mINFO    [0m | [36mknowledge.extraction[0m:[36mindex_quantities[0m:[36m611[0m - [1mIndexed 0 quantities for scan-4-2.pdf[0m
+[32m2026-10-10 17:02:29.778[0m | [1mINFO    [0m | [36mmain[0m:[36mprocess_document[0m:[36m2825[0m - [1mProcessed scan-4-2.pdf -> 9 chunks (page-aware), status: ready_with_warnings[0m
+[32m2026-10-10 17:03:23.774[0m | [1mINFO    [0m | [36mservices.pipeline[0m:[36mprocess_document_pipeline[0m:[36m121[0m - [1mPhase 5B: Starting bounded visual pipeline for scan-4-3.pdf[0m
+[32m2026-10-10 17:03:47.908[0m | [1mINFO    [0m | [36mknowledge.extraction[0m:[36mindex_structured_tables[0m:[36m509[0m - [1mIndexed 0 structured table rows for scan-4-3.pdf[0m
+[32m2026-10-10 17:03:47.927[0m | [1mINFO    [0m | [36mknowledge.extraction[0m:[36mindex_visual_structured_records[0m:[36m718[0m - [1mIndexed 113 visual structured records for scan-4-3.pdf[0m
+[32m2026-10-10 17:03:47.928[0m | [1mINFO    [0m | [36mmain[0m:[36mprocess_document[0m:[36m2765[0m - [1mExtracted 113 structured table rows for scan-4-3.pdf[0m
+[32m2026-10-10 17:03:47.930[0m | [1mINFO    [0m | [36mknowledge.extraction[0m:[36mindex_quantities[0m:[36m611[0m - [1mIndexed 0 quantities for scan-4-3.pdf[0m
+[32m2026-10-10 17:03:47.941[0m | [1mINFO    [0m | [36mmain[0m:[36mprocess_document[0m:[36m2825[0m - [1mProcessed scan-4-3.pdf -> 9 chunks (page-aware), status: ready_with_warnings[0m
+[32m2026-10-10 17:03:51.448[0m | [1mINFO    [0m | [36mdb[0m:[36maudit[0m:[36m311[0m - [1mAUDIT document.upload user=admin project=SYNTH-CLOSURE target=scan-8-0.pdf detail={'chunks': 0}[0m
+INFO:     127.0.0.1:64957 - "POST /upload HTTP/1.1" 200 OK
+[32m2026-10-10 17:03:51.529[0m | [1mINFO    [0m | [36mdb[0m:[36maudit[0m:[36m311[0m - [1mAUDIT document.upload user=admin project=SYNTH-CLOSURE target=scan-8-1.pdf detail={'chunks': 0}[0m
+INFO:     127.0.0.1:64958 - "POST /upload HTTP/1.1" 200 OK
+[32m2026-10-10 17:03:51.604[0m | [1mINFO    [0m | [36mdb[0m:[36maudit[0m:[36m311[0m - [1mAUDIT document.upload user=admin project=SYNTH-CLOSURE target=scan-8-6.pdf detail={'chunks': 0}[0m
+INFO:     127.0.0.1:64963 - "POST /upload HTTP/1.1" 200 OK
+[32m2026-10-10 17:03:51.660[0m | [1mINFO    [0m | [36mdb[0m:[36maudit[0m:[36m311[0m - [1mAUDIT document.upload user=admin project=SYNTH-CLOSURE target=scan-8-7.pdf detail={'chunks': 0}[0m
+[32m2026-10-10 17:03:51.713[0m | [1mINFO    [0m | [36mdb[0m:[36maudit[0m:[36m311[0m - [1mAUDIT document.upload user=admin project=SYNTH-CLOSURE target=scan-8-2.pdf detail={'chunks': 0}[0m
+[32m2026-10-10 17:03:51.761[0m | [1mINFO    [0m | [36mdb[0m:[36maudit[0m:[36m311[0m - [1mAUDIT document.upload user=admin project=SYNTH-CLOSURE target=scan-8-4.pdf detail={'chunks': 0}[0m
+INFO:     127.0.0.1:64960 - "POST /upload HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64961 - "POST /upload HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64962 - "POST /upload HTTP/1.1" 200 OK
+[32m2026-10-10 17:03:51.816[0m | [1mINFO    [0m | [36mdb[0m:[36maudit[0m:[36m311[0m - [1mAUDIT document.upload user=admin project=SYNTH-CLOSURE target=scan-8-5.pdf detail={'chunks': 0}[0m
+[32m2026-10-10 17:03:51.865[0m | [1mINFO    [0m | [36mdb[0m:[36maudit[0m:[36m311[0m - [1mAUDIT document.upload user=admin project=SYNTH-CLOSURE target=scan-8-3.pdf detail={'chunks': 0}[0m
+INFO:     127.0.0.1:64964 - "POST /upload HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64959 - "POST /upload HTTP/1.1" 200 OK
+[32m2026-10-10 17:04:53.319[0m | [1mINFO    [0m | [36mservices.pipeline[0m:[36mprocess_document_pipeline[0m:[36m121[0m - [1mPhase 5B: Starting bounded visual pipeline for scan-8-0.pdf[0m
+[32m2026-10-10 17:05:17.919[0m | [1mINFO    [0m | [36mknowledge.extraction[0m:[36mindex_structured_tables[0m:[36m509[0m - [1mIndexed 0 structured table rows for scan-8-0.pdf[0m
+[32m2026-10-10 17:05:17.937[0m | [1mINFO    [0m | [36mknowledge.extraction[0m:[36mindex_visual_structured_records[0m:[36m718[0m - [1mIndexed 113 visual structured records for scan-8-0.pdf[0m
+[32m2026-10-10 17:05:17.938[0m | [1mINFO    [0m | [36mmain[0m:[36mprocess_document[0m:[36m2765[0m - [1mExtracted 113 structured table rows for scan-8-0.pdf[0m
+[32m2026-10-10 17:05:17.941[0m | [1mINFO    [0m | [36mknowledge.extraction[0m:[36mindex_quantities[0m:[36m611[0m - [1mIndexed 0 quantities for scan-8-0.pdf[0m
+[32m2026-10-10 17:05:17.951[0m | [1mINFO    [0m | [36mmain[0m:[36mprocess_document[0m:[36m2825[0m - [1mProcessed scan-8-0.pdf -> 9 chunks (page-aware), status: ready_with_warnings[0m
+[32m2026-10-10 17:06:18.836[0m | [1mINFO    [0m | [36mservices.pipeline[0m:[36mprocess_document_pipeline[0m:[36m121[0m - [1mPhase 5B: Starting bounded visual pipeline for scan-8-1.pdf[0m
+[32m2026-10-10 17:06:45.933[0m | [1mINFO    [0m | [36mknowledge.extraction[0m:[36mindex_structured_tables[0m:[36m509[0m - [1mIndexed 0 structured table rows for scan-8-1.pdf[0m
+[32m2026-10-10 17:06:45.951[0m | [1mINFO    [0m | [36mknowledge.extraction[0m:[36mindex_visual_structured_records[0m:[36m718[0m - [1mIndexed 113 visual structured records for scan-8-1.pdf[0m
+[32m2026-10-10 17:06:45.951[0m | [1mINFO    [0m | [36mmain[0m:[36mprocess_document[0m:[36m2765[0m - [1mExtracted 113 structured table rows for scan-8-1.pdf[0m
+[32m2026-10-10 17:06:45.956[0m | [1mINFO    [0m | [36mknowledge.extraction[0m:[36mindex_quantities[0m:[36m611[0m - [1mIndexed 0 quantities for scan-8-1.pdf[0m
+[32m2026-10-10 17:06:45.970[0m | [1mINFO    [0m | [36mmain[0m:[36mprocess_document[0m:[36m2825[0m - [1mProcessed scan-8-1.pdf -> 9 chunks (page-aware), status: ready_with_warnings[0m
+[32m2026-10-10 17:07:48.128[0m | [1mINFO    [0m | [36mservices.pipeline[0m:[36mprocess_document_pipeline[0m:[36m121[0m - [1mPhase 5B: Starting bounded visual pipeline for scan-8-6.pdf[0m
+[32m2026-10-10 17:08:11.193[0m | [1mINFO    [0m | [36mknowledge.extraction[0m:[36mindex_structured_tables[0m:[36m509[0m - [1mIndexed 0 structured table rows for scan-8-6.pdf[0m
+[32m2026-10-10 17:08:11.206[0m | [1mINFO    [0m | [36mknowledge.extraction[0m:[36mindex_visual_structured_records[0m:[36m718[0m - [1mIndexed 113 visual structured records for scan-8-6.pdf[0m
+[32m2026-10-10 17:08:11.206[0m | [1mINFO    [0m | [36mmain[0m:[36mprocess_document[0m:[36m2765[0m - [1mExtracted 113 structured table rows for scan-8-6.pdf[0m
+[32m2026-10-10 17:08:11.209[0m | [1mINFO    [0m | [36mknowledge.extraction[0m:[36mindex_quantities[0m:[36m611[0m - [1mIndexed 0 quantities for scan-8-6.pdf[0m
+[32m2026-10-10 17:08:11.218[0m | [1mINFO    [0m | [36mmain[0m:[36mprocess_document[0m:[36m2825[0m - [1mProcessed scan-8-6.pdf -> 9 chunks (page-aware), status: ready_with_warnings[0m
+[32m2026-10-10 17:09:15.501[0m | [1mINFO    [0m | [36mservices.pipeline[0m:[36mprocess_document_pipeline[0m:[36m121[0m - [1mPhase 5B: Starting bounded visual pipeline for scan-8-7.pdf[0m
+INFO:     127.0.0.1:50966 - "GET /health/ready HTTP/1.1" 200 OK
+[32m2026-10-10 17:09:36.412[0m | [1mINFO    [0m | [36mdb[0m:[36maudit[0m:[36m311[0m - [1mAUDIT ask.stream user=admin project=SYNTH-CLOSURE target=None detail={'model': 'qwen2.5vl:7b', 'mode': 'chat', 'chars': 39}[0m
+[32m2026-10-10 17:09:42.925[0m | [1mINFO    [0m | [36mmain[0m:[36m_get_bm25[0m:[36m2019[0m - [1mBM25 index built for SYNTH-CLOSURE (69 chunks)[0m
+[32m2026-10-10 17:09:43.260[0m | [1mINFO    [0m | [36mintelligence.reranker[0m:[36mrerank[0m:[36m102[0m - [1mReranked 1 documents (top score: 0.9985)[0m
+[32m2026-10-10 17:09:43.267[0m | [1mINFO    [0m | [36mmain[0m:[36mask_stream[0m:[36m3444[0m - [1mfocus_doc injected: pump-spec.pdf (256 chars)[0m
+INFO:     127.0.0.1:50966 - "POST /ask_stream HTTP/1.1" 200 OK
+[32m2026-10-10 17:09:43.854[0m | [1mINFO    [0m | [36mknowledge.extraction[0m:[36mindex_structured_tables[0m:[36m509[0m - [1mIndexed 0 structured table rows for scan-8-7.pdf[0m
+[32m2026-10-10 17:09:43.870[0m | [1mINFO    [0m | [36mknowledge.extraction[0m:[36mindex_visual_structured_records[0m:[36m718[0m - [1mIndexed 113 visual structured records for scan-8-7.pdf[0m
+[32m2026-10-10 17:09:43.870[0m | [1mINFO    [0m | [36mmain[0m:[36mprocess_document[0m:[36m2765[0m - [1mExtracted 113 structured table rows for scan-8-7.pdf[0m
+[32m2026-10-10 17:09:43.873[0m | [1mINFO    [0m | [36mknowledge.extraction[0m:[36mindex_quantities[0m:[36m611[0m - [1mIndexed 0 quantities for scan-8-7.pdf[0m
+[32m2026-10-10 17:09:43.887[0m | [1mINFO    [0m | [36mmain[0m:[36mprocess_document[0m:[36m2825[0m - [1mProcessed scan-8-7.pdf -> 9 chunks (page-aware), status: ready_with_warnings[0m
+[32m2026-10-10 17:09:53.177[0m | [1mINFO    [0m | [36mlocal_chat[0m:[36mstream[0m:[36m147[0m - [1mchat attempt 1/3: model=qwen3.5:9b promptChars=3687 tokens=58 outChars=191 done_reason=stop[0m
+[32m2026-10-10 17:09:53.197[0m | [1mINFO    [0m | [36mdb[0m:[36maudit[0m:[36m311[0m - [1mAUDIT ask.stream user=admin project=SYNTH-CLOSURE target=None detail={'model': 'qwen2.5vl:7b', 'mode': 'chat', 'chars': 37}[0m
+[32m2026-10-10 17:10:09.792[0m | [1mINFO    [0m | [36mmain[0m:[36m_get_bm25[0m:[36m2019[0m - [1mBM25 index built for SYNTH-CLOSURE (78 chunks)[0m
+[32m2026-10-10 17:10:10.086[0m | [1mINFO    [0m | [36mintelligence.reranker[0m:[36mrerank[0m:[36m102[0m - [1mReranked 1 documents (top score: 0.9973)[0m
+[32m2026-10-10 17:10:10.098[0m | [1mINFO    [0m | [36mmain[0m:[36mask_stream[0m:[36m3444[0m - [1mfocus_doc injected: tank-note.pdf (248 chars)[0m
+INFO:     127.0.0.1:50966 - "POST /ask_stream HTTP/1.1" 200 OK
+[32m2026-10-10 17:10:29.135[0m | [1mINFO    [0m | [36mlocal_chat[0m:[36mstream[0m:[36m147[0m - [1mchat attempt 1/3: model=qwen3.5:9b promptChars=3669 tokens=71 outChars=250 done_reason=stop[0m
+[32m2026-10-10 17:10:29.150[0m | [1mINFO    [0m | [36mdb[0m:[36maudit[0m:[36m311[0m - [1mAUDIT ask.stream user=admin project=SYNTH-CLOSURE target=None detail={'model': 'qwen2.5vl:7b', 'mode': 'chat', 'chars': 39}[0m
+[32m2026-10-10 17:10:45.743[0m | [1mINFO    [0m | [36mintelligence.reranker[0m:[36mrerank[0m:[36m102[0m - [1mReranked 1 documents (top score: 0.5089)[0m
+[32m2026-10-10 17:10:45.755[0m | [1mINFO    [0m | [36mmain[0m:[36mask_stream[0m:[36m3444[0m - [1mfocus_doc injected: pump-spec.pdf (256 chars)[0m
+INFO:     127.0.0.1:50966 - "POST /ask_stream HTTP/1.1" 200 OK
+[32m2026-10-10 17:11:20.117[0m | [1mINFO    [0m | [36mlocal_chat[0m:[36mstream[0m:[36m147[0m - [1mchat attempt 1/3: model=qwen3.5:9b promptChars=3687 tokens=73 outChars=281 done_reason=stop[0m
+[32m2026-10-10 17:11:29.334[0m | [1mINFO    [0m | [36mlocal_chat[0m:[36mstream[0m:[36m147[0m - [1mchat attempt 1/3: model=qwen3.5:9b promptChars=4502 tokens=59 outChars=233 done_reason=stop[0m
+[32m2026-10-10 17:11:29.336[0m | [33m[1mWARNING [0m | [36mmain[0m:[36mgen[0m:[36m3589[0m - [33m[1mAnswer withheld by evidence checks: ['Numeric values absent from cited page excerpts', 'Identifier absent from cited page excerpts'][0m
+[32m2026-10-10 17:11:29.351[0m | [1mINFO    [0m | [36mdb[0m:[36maudit[0m:[36m311[0m - [1mAUDIT ask.stream user=admin project=SYNTH-CLOSURE target=None detail={'model': 'qwen2.5vl:7b', 'mode': 'chat', 'chars': 40}[0m
+INFO:     127.0.0.1:50966 - "POST /ask_stream HTTP/1.1" 200 OK
+[32m2026-10-10 17:11:29.384[0m | [1mINFO    [0m | [36mdb[0m:[36maudit[0m:[36m311[0m - [1mAUDIT ask.stream user=admin project=SYNTH-CLOSURE target=None detail={'model': 'qwen2.5vl:7b', 'mode': 'chat', 'chars': 62}[0m
+INFO:     127.0.0.1:50966 - "POST /ask_stream HTTP/1.1" 200 OK
+[32m2026-10-10 17:11:29.419[0m | [1mINFO    [0m | [36mdb[0m:[36maudit[0m:[36m311[0m - [1mAUDIT ask.stream user=admin project=SYNTH-CLOSURE target=None detail={'model': 'qwen2.5vl:7b', 'mode': 'chat', 'chars': 39}[0m
+[32m2026-10-10 17:11:36.776[0m | [1mINFO    [0m | [36mintelligence.reranker[0m:[36mrerank[0m:[36m102[0m - [1mReranked 3 documents (top score: 0.9969)[0m
+[32m2026-10-10 17:11:36.784[0m | [1mINFO    [0m | [36mmain[0m:[36mask_stream[0m:[36m3444[0m - [1mfocus_doc injected: scan-4-0.pdf (4079 chars)[0m
+INFO:     127.0.0.1:50966 - "POST /ask_stream HTTP/1.1" 200 OK
+[32m2026-10-10 17:11:38.351[0m | [1mINFO    [0m | [36mservices.pipeline[0m:[36mprocess_document_pipeline[0m:[36m121[0m - [1mPhase 5B: Starting bounded visual pipeline for scan-8-2.pdf[0m
+[32m2026-10-10 17:11:47.627[0m | [1mINFO    [0m | [36mlocal_chat[0m:[36mstream[0m:[36m147[0m - [1mchat attempt 1/3: model=qwen3.5:9b promptChars=9537 tokens=97 outChars=321 done_reason=stop[0m
+[32m2026-10-10 17:11:57.245[0m | [1mINFO    [0m | [36mlocal_chat[0m:[36mstream[0m:[36m147[0m - [1mchat attempt 1/3: model=qwen3.5:9b promptChars=10441 tokens=35 outChars=97 done_reason=stop[0m
+[32m2026-10-10 17:11:57.246[0m | [33m[1mWARNING [0m | [36mmain[0m:[36mgen[0m:[36m3589[0m - [33m[1mAnswer withheld by evidence checks: ['Numeric values absent from cited page excerpts', 'Value/unit pair absent from cited page excerpts', 'Identifier absent from cited page excerpts'][0m
+[32m2026-10-10 17:12:03.089[0m | [1mINFO    [0m | [36mknowledge.extraction[0m:[36mindex_structured_tables[0m:[36m509[0m - [1mIndexed 0 structured table rows for scan-8-2.pdf[0m
+[32m2026-10-10 17:12:03.102[0m | [1mINFO    [0m | [36mknowledge.extraction[0m:[36mindex_visual_structured_records[0m:[36m718[0m - [1mIndexed 113 visual structured records for scan-8-2.pdf[0m
+[32m2026-10-10 17:12:03.102[0m | [1mINFO    [0m | [36mmain[0m:[36mprocess_document[0m:[36m2765[0m - [1mExtracted 113 structured table rows for scan-8-2.pdf[0m
+[32m2026-10-10 17:12:03.103[0m | [1mINFO    [0m | [36mknowledge.extraction[0m:[36mindex_quantities[0m:[36m611[0m - [1mIndexed 0 quantities for scan-8-2.pdf[0m
+[32m2026-10-10 17:12:03.115[0m | [1mINFO    [0m | [36mmain[0m:[36mprocess_document[0m:[36m2825[0m - [1mProcessed scan-8-2.pdf -> 9 chunks (page-aware), status: ready_with_warnings[0m
+[32m2026-10-10 17:12:59.488[0m | [1mINFO    [0m | [36mservices.pipeline[0m:[36mprocess_document_pipeline[0m:[36m121[0m - [1mPhase 5B: Starting bounded visual pipeline for scan-8-4.pdf[0m
+[32m2026-10-10 17:13:23.324[0m | [1mINFO    [0m | [36mknowledge.extraction[0m:[36mindex_structured_tables[0m:[36m509[0m - [1mIndexed 0 structured table rows for scan-8-4.pdf[0m
+[32m2026-10-10 17:13:23.340[0m | [1mINFO    [0m | [36mknowledge.extraction[0m:[36mindex_visual_structured_records[0m:[36m718[0m - [1mIndexed 113 visual structured records for scan-8-4.pdf[0m
+[32m2026-10-10 17:13:23.340[0m | [1mINFO    [0m | [36mmain[0m:[36mprocess_document[0m:[36m2765[0m - [1mExtracted 113 structured table rows for scan-8-4.pdf[0m
+[32m2026-10-10 17:13:23.343[0m | [1mINFO    [0m | [36mknowledge.extraction[0m:[36mindex_quantities[0m:[36m611[0m - [1mIndexed 0 quantities for scan-8-4.pdf[0m
+[32m2026-10-10 17:13:23.353[0m | [1mINFO    [0m | [36mmain[0m:[36mprocess_document[0m:[36m2825[0m - [1mProcessed scan-8-4.pdf -> 9 chunks (page-aware), status: ready_with_warnings[0m
+[32m2026-10-10 17:14:25.623[0m | [1mINFO    [0m | [36mservices.pipeline[0m:[36mprocess_document_pipeline[0m:[36m121[0m - [1mPhase 5B: Starting bounded visual pipeline for scan-8-5.pdf[0m
+[32m2026-10-10 17:14:46.911[0m | [1mINFO    [0m | [36mknowledge.extraction[0m:[36mindex_structured_tables[0m:[36m509[0m - [1mIndexed 0 structured table rows for scan-8-5.pdf[0m
+[32m2026-10-10 17:14:46.931[0m | [1mINFO    [0m | [36mknowledge.extraction[0m:[36mindex_visual_structured_records[0m:[36m718[0m - [1mIndexed 113 visual structured records for scan-8-5.pdf[0m
+[32m2026-10-10 17:14:46.931[0m | [1mINFO    [0m | [36mmain[0m:[36mprocess_document[0m:[36m2765[0m - [1mExtracted 113 structured table rows for scan-8-5.pdf[0m
+[32m2026-10-10 17:14:46.934[0m | [1mINFO    [0m | [36mknowledge.extraction[0m:[36mindex_quantities[0m:[36m611[0m - [1mIndexed 0 quantities for scan-8-5.pdf[0m
+[32m2026-10-10 17:14:46.948[0m | [1mINFO    [0m | [36mmain[0m:[36mprocess_document[0m:[36m2825[0m - [1mProcessed scan-8-5.pdf -> 9 chunks (page-aware), status: ready_with_warnings[0m
+[32m2026-10-10 17:15:53.910[0m | [1mINFO    [0m | [36mservices.pipeline[0m:[36mprocess_document_pipeline[0m:[36m121[0m - [1mPhase 5B: Starting bounded visual pipeline for scan-8-3.pdf[0m
+[32m2026-10-10 17:16:15.213[0m | [1mINFO    [0m | [36mknowledge.extraction[0m:[36mindex_structured_tables[0m:[36m509[0m - [1mIndexed 0 structured table rows for scan-8-3.pdf[0m
+[32m2026-10-10 17:16:15.235[0m | [1mINFO    [0m | [36mknowledge.extraction[0m:[36mindex_visual_structured_records[0m:[36m718[0m - [1mIndexed 113 visual structured records for scan-8-3.pdf[0m
+[32m2026-10-10 17:16:15.235[0m | [1mINFO    [0m | [36mmain[0m:[36mprocess_document[0m:[36m2765[0m - [1mExtracted 113 structured table rows for scan-8-3.pdf[0m
+[32m2026-10-10 17:16:15.238[0m | [1mINFO    [0m | [36mknowledge.extraction[0m:[36mindex_quantities[0m:[36m611[0m - [1mIndexed 0 quantities for scan-8-3.pdf[0m
+[32m2026-10-10 17:16:15.253[0m | [1mINFO    [0m | [36mmain[0m:[36mprocess_document[0m:[36m2825[0m - [1mProcessed scan-8-3.pdf -> 9 chunks (page-aware), status: ready_with_warnings[0m

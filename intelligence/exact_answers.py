@@ -13,7 +13,7 @@ def _normal(s):
     return re.sub(r'[^a-z0-9]+',' ',str(s).lower()).strip()
 
 
-def _rows(documents):
+def _rows(documents, project_code=None):
     rows=[]
     for doc in documents:
         path=Path(doc.get('path','')+'.index.json')
@@ -21,9 +21,25 @@ def _rows(documents):
             meta=json.loads(path.read_text(encoding='utf-8'))
         except (OSError,ValueError):
             continue
+        if meta.get('truncated') or meta.get('processing_complete') is False:
+            continue
+        if meta.get('source_sha256'):
+            import hashlib
+            try:
+                with open(doc['path'],'rb') as handle:
+                    if hashlib.file_digest(handle,'sha256').hexdigest()!=meta['source_sha256']:continue
+            except OSError:
+                continue
         for page in meta.get('pages',[]):
+            if project_code:
+                from intelligence.source_semantics import native_project_codes
+                codes=native_project_codes(meta)
+                if codes!={project_code} and native_project_codes({'pages':[page]})!={project_code}:
+                    continue
             from intelligence.source_semantics import explicit_states
             states=explicit_states(page.get('text',''))
+            from intelligence.source_semantics import native_revision
+            revision=native_revision(meta,page.get('page'))
             for text in table_row_units(page.get('tables','')):
                 lines=text.splitlines()
                 fields=[]
@@ -41,24 +57,39 @@ def _rows(documents):
                 if len(groups)>1:
                     for group in groups:
                         rows.append({'doc':doc['filename'],'page':page['page'],
-                                     'text':text,'normal':_normal(text),'fields':group,'states':states,'revision':meta.get('revision')})
+                                     'text':text,'normal':_normal(text),'fields':group,'states':states,'revision':revision})
                     continue
                 rows.append({'doc':doc['filename'],'page':page['page'],
-                             'text':text,'normal':_normal(text),'fields':fields,'states':states,'revision':meta.get('revision')})
+                             'text':text,'normal':_normal(text),'fields':fields,'states':states,'revision':revision})
     return rows
 
 
 def exact_answer(question,documents):
     documents=[doc for doc in documents if doc.get('status','ready') in ('ready','ready_with_warnings','verified','published')]
+    from intelligence.source_semantics import requested_project_code,native_project_codes
+    project_code=requested_project_code(question)
+    if project_code:
+        scoped=[]
+        for doc in documents:
+            try:meta=json.loads(Path(doc['path']+'.index.json').read_text(encoding='utf-8'))
+            except (OSError,ValueError,KeyError):continue
+            if project_code in native_project_codes(meta):scoped.append(doc)
+        documents=scoped
+        if not documents:
+            return {'status':'NOT_FOUND','answer':'The available native source evidence does not establish the project code requested in this question. Select the correct project/document or provide explicit source evidence.','sources':[]}
+    if re.search(r'\b(?:is|was|has)\b.*\b(?:revision|document|drawing)\b.*\bapproved\b',question,re.I):
+        return native_disposition_answer(question,documents)
     from intelligence.inspection_answers import inspection_answer
     inspected=inspection_answer(question,documents)
     if inspected:return inspected
     q=_normal(question)
+    if ('gfa' in q or 'gross floor area' in q or re.search(r'\bfar\b',q)) and 'proposed' in q and 'allowed' in q:
+        return limit_comparison(question, documents)
     if 'equipment identifier' in q and not re.search(r'\b(status|approval|compare|sum|count|all)\b',q):
         return equipment_identifier_answer(question,documents)
     if re.search(r'\b(sum|average|maximum|minimum|difference|compare|calculate)\b',q):
         return calculated_answer(question,documents)
-    rows=_rows(documents)
+    rows=_rows(documents,project_code)
     from intelligence.source_semantics import requested_authority,supports_authority
     authority=requested_authority(question)
     if authority:
@@ -94,6 +125,35 @@ def exact_answer(question,documents):
             requests.append({'label':label,'conflict':True})
         else:
             requests.append({'label':label,'missing':True})
+
+    for category in ('retail', 'f b'):
+        if category in q and re.search(r'\b(units|count|many)\b', q):
+            find(category.upper()+' units',
+                 lambda r,c=category:any(_normal(v)==c+' units' for _,v in r['fields']),
+                 lambda r:field_value(r,r'^no$'),'units')
+
+    scalar_labels=[]
+    if 'plot area' in q:scalar_labels.append(('Plot Area','sqm'))
+    if re.search(r'\bfar\b',q):
+        qualifier='allowed' if 'allowed' in q else 'proposed' if 'proposed' in q else None
+        if qualifier:scalar_labels.append(('FAR '+qualifier.title(),'ratio'))
+    if re.search(r'\bbua\b|built up area',q) and 'proposed' in q and not re.search(r'\b(podium|towers|floor|level)\b',q):
+        scalar_labels.append(('BUA Proposed','sqm'))
+    for label,unit in scalar_labels:
+        find(label,lambda r,l=label:any(_normal(v)==_normal(l) for _,v in r['fields']),
+             lambda r:field_value(r,r'^sq m$'),unit)
+
+    floor_match=re.search(r'\b(\d+)(?:st|nd|rd|th)?\s+floor\b',q)
+    if floor_match and 'area' in q and not towers:
+        floor=floor_match.group(1)
+        area_types={'BUA':'built up area breakdown','GFA':'gross floor area breakdown',
+                    'NSA':'net sellable area breakdown'}
+        for metric, heading in area_types.items():
+            if not any(m.lower() in q for m in area_types) or metric.lower() in q:
+                find(f'{floor} floor {metric}',
+                     lambda r,h=heading: h in r['normal'] and any(
+                         re.fullmatch(floor+r'(?:st|nd|rd|th)? floor',_normal(v)) for _,v in r['fields']),
+                     lambda r:field_value(r,r'^sq m$'),'sqm')
 
     if towers and levels:
         tower_unit='sqft' if 'sqft' in q or 'square feet' in q else 'sqm'
@@ -199,9 +259,75 @@ def exact_answer(question,documents):
     if any(r.get('conflict') for r in requests):
         return {'status':'AMBIGUOUS','answer':'Conflicting source values were found. Specify the document/revision.',
                 'sources':[],'facts':requests}
-    answer='\n'.join(f"- **{r['label']}:** {r['value']} {r['unit']}. [SOURCE: {r['source']} | PAGE {r['page']}]" for r in requests)
+    def qualification(r):
+        details=[]
+        if r.get('revision'):details.append('Revision '+r['revision'])
+        states=[s for s in r.get('qualification',[]) if s!='UNKNOWN']
+        if states:details.append('status: '+', '.join(states))
+        return ' ('+'; '.join(details)+')' if details else ''
+    answer='\n'.join(f"- **{r['label']}:** {r['value']} {r['unit']}{qualification(r)}. [SOURCE: {r['source']} | PAGE {r['page']}]" for r in requests)
     return {'status':'SUCCESS','answer':answer,'facts':requests,
             'sources':list({(r['source'],r['page']):{'source':r['source'],'page':r['page']} for r in requests}.values())}
+
+
+def native_disposition_answer(question,documents):
+    """Report explicit dispositions, without certifying construction authority."""
+    import hashlib
+    from intelligence.source_semantics import native_revision,explicit_states
+    match=re.search(r'\brevision\s+([A-Za-z0-9-]+)\b',question,re.I)
+    requested=match.group(1).upper() if match else None
+    facts=[]
+    for doc in documents:
+        try:
+            meta=json.loads(Path(doc['path']+'.index.json').read_text(encoding='utf-8'))
+            if meta.get('truncated') or meta.get('processing_complete') is False:continue
+            if meta.get('source_sha256'):
+                with open(doc['path'],'rb') as handle:
+                    if hashlib.file_digest(handle,'sha256').hexdigest()!=meta['source_sha256']:continue
+        except (OSError,ValueError,KeyError):continue
+        for page in meta.get('pages',[]):
+            revision=native_revision(meta,page.get('page'))
+            if requested and revision!=requested:continue
+            states=explicit_states(page.get('text',''))
+            if states=={'UNKNOWN'}:continue
+            facts.append({'source':doc['filename'],'page':page['page'],'revision':revision,'qualification':sorted(states)})
+    if not facts:
+        return {'status':'NOT_FOUND','answer':'No unique matching native revision and explicit status evidence establishes the requested approval. Review the authoritative issue record.','sources':[]}
+    sources=[{'source':f['source'],'page':f['page']} for f in facts]
+    dispositions={tuple(f['qualification']) for f in facts}
+    if len(dispositions)!=1 or len(next(iter(dispositions)))!=1:
+        return {'status':'AMBIGUOUS','answer':'Conflicting explicit source dispositions were found. No approval is established; review the authoritative issue record.','sources':sources,'facts':facts}
+    fact=facts[0];state=fact['qualification'][0]
+    label='Revision '+fact['revision'] if fact['revision'] else 'The source'
+    return {'status':'SUCCESS','answer':f"{label} explicitly states **status: {state}**. [SOURCE: {fact['source']} | PAGE {fact['page']}]\nThis reports the source disposition; it does not independently certify authorization for construction.",'sources':sources,'facts':facts}
+
+
+def limit_comparison(question, documents):
+    """Resolve both operands through the same native-table lookup; no inferred inputs."""
+    from decimal import Decimal, InvalidOperation
+    suffix=' square feet' if re.search(r'\bsqft\b|square feet',question,re.I) else ' square meters'
+    pages=' '.join('page '+p for p in re.findall(r'\bpage\s+(\d+)\b',question,re.I))
+    metric='FAR' if re.search(r'\bfar\b',question,re.I) else 'GFA'
+    results=[exact_answer(metric+' '+qualifier+suffix+' '+pages,documents) for qualifier in ('Proposed','Allowed')]
+    for result in results:
+        if not result or result['status']!='SUCCESS':
+            return result or {'status':'NOT_FOUND','answer':'Both comparison operands require source evidence.','sources':[]}
+    facts=[r['facts'][0] for r in results]
+    if len({(f['source'],f.get('revision'),tuple(f.get('qualification',[])),f['unit']) for f in facts})!=1:
+        return {'status':'AMBIGUOUS','answer':'Comparison inputs have incompatible source, revision, status or units.','sources':[]}
+    try:
+        proposed,allowed=[Decimal(f['value'].replace(',','')) for f in facts]
+        if not all(v.is_finite() for v in (proposed,allowed)): raise InvalidOperation
+    except InvalidOperation:
+        return {'status':'NOT_FOUND','answer':'Both comparison inputs must be explicitly stated finite numbers.','sources':[]}
+    margin=allowed-proposed
+    answer='\n'.join(r['answer'] for r in results)
+    answer+=f"\n\n{'Yes' if proposed<=allowed else 'No'}, numerically: {proposed} {'<=' if proposed<=allowed else '>'} {allowed} {facts[0]['unit']}. Headroom = allowed - proposed = {margin} {facts[0]['unit']}. This does not establish engineering approval or overall compliance."
+    return {'status':'SUCCESS','answer':answer,'facts':facts,
+            'sources':[s for r in results for s in r['sources']],
+            'calculation':{'operation':'limit_comparison','operands':[str(proposed),str(allowed)],
+                           'formula':'allowed - proposed','result':str(margin),'unit':facts[0]['unit'],
+                           'sources':[s for r in results for s in r['sources']]}}
 
 
 def equipment_identifier_answer(question,documents):
@@ -249,7 +375,7 @@ def calculated_answer(question,documents):
         # the explicit refusal when there is already some genuine per-tower/
         # level comparison intent (a tower or level was actually named); with
         # neither, this was never a calculation request in the first place.
-        if not towers and not levels:
+        if not towers and not levels and not re.search(r'\b(calculate|sum|difference|compare)\b',q):
             return None
         return unsupported
     # A Cartesian plan with both multiple towers and levels may pair operands

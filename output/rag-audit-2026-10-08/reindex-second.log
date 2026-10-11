@@ -1,0 +1,36 @@
+2026-10-08 12:17:38.576 | INFO     | db:init_knowledge_tables:1449 - Knowledge Hub tables initialized
+2026-10-08 12:17:38.576 | INFO     | db:init_db:258 - DB ready at sqlite:///C:\3EH\ExpoDesignAI - Copy\output\rag-audit-2026-10-08\reindex-data-second\expo.db
+2026-10-08 12:17:38.614 | INFO     | core.model_registry:register:254 - Registered model: role=REASONING_LLM name=qwen3.5:9b provider=ollama
+2026-10-08 12:17:38.614 | INFO     | core.model_registry:register:254 - Registered model: role=VISION_MODEL name=qwen2.5vl:7b provider=ollama
+2026-10-08 12:17:38.614 | INFO     | core.model_registry:register:254 - Registered model: role=EMBEDDING_MODEL name=bge-m3 provider=ollama
+2026-10-08 12:17:38.614 | INFO     | core.model_registry:register:254 - Registered model: role=FAST_LLM name=qwen2.5:7b provider=ollama
+2026-10-08 12:17:38.614 | INFO     | core.model_registry:register:254 - Registered model: role=RERANKER_MODEL name=bge-reranker-v2-m3 provider=ollama
+2026-10-08 12:17:38.627 | INFO     | intelligence.compliance:add_rule:636 - Added compliance rule: DOOR-MIN-WIDTH (Minimum Door Width)
+2026-10-08 12:17:38.627 | INFO     | intelligence.compliance:add_rule:636 - Added compliance rule: CORRIDOR-MIN-WIDTH (Minimum Corridor Width)
+2026-10-08 12:17:38.627 | INFO     | intelligence.compliance:add_rule:636 - Added compliance rule: CEILING-MIN-HEIGHT (Minimum Ceiling Height)
+2026-10-08 12:17:38.627 | INFO     | intelligence.compliance:add_rule:636 - Added compliance rule: TRAVEL-MAX-DISTANCE (Maximum Travel Distance)
+2026-10-08 12:17:38.627 | INFO     | intelligence.compliance:add_rule:636 - Added compliance rule: ROOM-MIN-AREA (Minimum Room Area)
+2026-10-08 12:17:38.627 | INFO     | intelligence.compliance:add_rule:636 - Added compliance rule: FIRE-RATING-MIN (Minimum Fire Rating)
+2026-10-08 12:17:38.627 | INFO     | intelligence.compliance:add_rule:636 - Added compliance rule: STAIR-MIN-WIDTH (Minimum Stair Width)
+2026-10-08 12:17:38.628 | INFO     | intelligence.compliance:add_rule:636 - Added compliance rule: RISER-MAX-HEIGHT (Maximum Riser Height)
+2026-10-08 12:17:38.628 | INFO     | intelligence.compliance:add_rule:636 - Added compliance rule: TREAD-MIN-DEPTH (Minimum Tread Depth)
+2026-10-08 12:17:38.628 | INFO     | intelligence.compliance:add_rule:636 - Added compliance rule: HEADROOM-MIN (Minimum Headroom)
+2026-10-08 12:17:40.604 | INFO     | engines.layout_engine:_check_backends:78 - PP-DocLayout not available
+2026-10-08 12:17:40.606 | INFO     | engines.layout_engine:_check_backends:81 - Vision model layout detection available
+2026-10-08 12:17:40.609 | INFO     | agents.tools:register:245 - Registered tool: read_document (permission: read)
+2026-10-08 12:17:40.609 | INFO     | agents.tools:register:245 - Registered tool: search_knowledge (permission: read)
+2026-10-08 12:17:40.609 | INFO     | agents.tools:register:245 - Registered tool: search_code (permission: read)
+2026-10-08 12:17:40.609 | INFO     | agents.tools:register:245 - Registered tool: get_drawing (permission: read)
+2026-10-08 12:17:40.610 | INFO     | agents.tools:register:245 - Registered tool: get_bim_element (permission: read)
+2026-10-08 12:17:40.610 | INFO     | agents.tools:register:245 - Registered tool: measure_geometry (permission: read)
+2026-10-08 12:17:40.610 | INFO     | agents.tools:register:245 - Registered tool: query_ifc (permission: read)
+2026-10-08 12:17:40.610 | INFO     | agents.tools:register:245 - Registered tool: run_rule (permission: execute)
+2026-10-08 12:17:40.610 | INFO     | agents.tools:register:245 - Registered tool: calculate (permission: execute)
+2026-10-08 12:17:40.610 | INFO     | agents.tools:register:245 - Registered tool: create_finding (permission: write)
+2026-10-08 12:17:40.610 | INFO     | agents.tools:register:245 - Registered tool: generate_report (permission: write)
+2026-10-08 12:17:40.612 | INFO     | agents.runtime:register_agent:259 - Registered agent: compliance_agent (Checks compliance against building codes)
+2026-10-08 12:17:40.612 | INFO     | agents.runtime:register_agent:259 - Registered agent: drawing_qa_agent (Reviews drawings for quality and compliance)
+2026-10-08 12:17:40.612 | INFO     | agents.runtime:register_agent:259 - Registered agent: knowledge_agent (Searches and retrieves engineering knowledge)
+2026-10-08 12:17:40.615 | INFO     | engines.ifc_engine:_check_backend:77 - IfcOpenShell not available � use browser-extracted data
+REINDEX 1 218 2026 218
+REINDEX 2 218 2026 218

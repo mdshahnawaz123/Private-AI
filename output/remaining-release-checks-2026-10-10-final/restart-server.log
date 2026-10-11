@@ -1,0 +1,52 @@
+[32m2026-10-10 12:10:39.906[0m | [1mINFO    [0m | [36mdb[0m:[36minit_knowledge_tables[0m:[36m1524[0m - [1mKnowledge Hub tables initialized[0m
+[32m2026-10-10 12:10:39.906[0m | [1mINFO    [0m | [36mdb[0m:[36minit_db[0m:[36m258[0m - [1mDB ready at sqlite:///C:\3EH\ExpoDesignAI - Copy\output\remaining-release-checks-2026-10-10-final\data\expo.db[0m
+[32m2026-10-10 12:10:39.955[0m | [1mINFO    [0m | [36mcore.model_registry[0m:[36mregister[0m:[36m254[0m - [1mRegistered model: role=REASONING_LLM name=qwen3.5:9b provider=ollama[0m
+[32m2026-10-10 12:10:39.955[0m | [1mINFO    [0m | [36mcore.model_registry[0m:[36mregister[0m:[36m254[0m - [1mRegistered model: role=VISION_MODEL name=qwen2.5vl:7b provider=ollama[0m
+[32m2026-10-10 12:10:39.955[0m | [1mINFO    [0m | [36mcore.model_registry[0m:[36mregister[0m:[36m254[0m - [1mRegistered model: role=EMBEDDING_MODEL name=bge-m3 provider=ollama[0m
+[32m2026-10-10 12:10:39.956[0m | [1mINFO    [0m | [36mcore.model_registry[0m:[36mregister[0m:[36m254[0m - [1mRegistered model: role=FAST_LLM name=qwen2.5:7b provider=ollama[0m
+[32m2026-10-10 12:10:39.956[0m | [1mINFO    [0m | [36mcore.model_registry[0m:[36mregister[0m:[36m254[0m - [1mRegistered model: role=RERANKER_MODEL name=bge-reranker-v2-m3 provider=ollama[0m
+[32m2026-10-10 12:10:39.976[0m | [1mINFO    [0m | [36mintelligence.compliance[0m:[36madd_rule[0m:[36m636[0m - [1mAdded compliance rule: DOOR-MIN-WIDTH (Minimum Door Width)[0m
+[32m2026-10-10 12:10:39.976[0m | [1mINFO    [0m | [36mintelligence.compliance[0m:[36madd_rule[0m:[36m636[0m - [1mAdded compliance rule: CORRIDOR-MIN-WIDTH (Minimum Corridor Width)[0m
+[32m2026-10-10 12:10:39.977[0m | [1mINFO    [0m | [36mintelligence.compliance[0m:[36madd_rule[0m:[36m636[0m - [1mAdded compliance rule: CEILING-MIN-HEIGHT (Minimum Ceiling Height)[0m
+[32m2026-10-10 12:10:39.977[0m | [1mINFO    [0m | [36mintelligence.compliance[0m:[36madd_rule[0m:[36m636[0m - [1mAdded compliance rule: TRAVEL-MAX-DISTANCE (Maximum Travel Distance)[0m
+[32m2026-10-10 12:10:39.977[0m | [1mINFO    [0m | [36mintelligence.compliance[0m:[36madd_rule[0m:[36m636[0m - [1mAdded compliance rule: ROOM-MIN-AREA (Minimum Room Area)[0m
+[32m2026-10-10 12:10:39.977[0m | [1mINFO    [0m | [36mintelligence.compliance[0m:[36madd_rule[0m:[36m636[0m - [1mAdded compliance rule: FIRE-RATING-MIN (Minimum Fire Rating)[0m
+[32m2026-10-10 12:10:39.977[0m | [1mINFO    [0m | [36mintelligence.compliance[0m:[36madd_rule[0m:[36m636[0m - [1mAdded compliance rule: STAIR-MIN-WIDTH (Minimum Stair Width)[0m
+[32m2026-10-10 12:10:39.977[0m | [1mINFO    [0m | [36mintelligence.compliance[0m:[36madd_rule[0m:[36m636[0m - [1mAdded compliance rule: RISER-MAX-HEIGHT (Maximum Riser Height)[0m
+[32m2026-10-10 12:10:39.978[0m | [1mINFO    [0m | [36mintelligence.compliance[0m:[36madd_rule[0m:[36m636[0m - [1mAdded compliance rule: TREAD-MIN-DEPTH (Minimum Tread Depth)[0m
+[32m2026-10-10 12:10:39.978[0m | [1mINFO    [0m | [36mintelligence.compliance[0m:[36madd_rule[0m:[36m636[0m - [1mAdded compliance rule: HEADROOM-MIN (Minimum Headroom)[0m
+[32m2026-10-10 12:10:43.228[0m | [1mINFO    [0m | [36mengines.layout_engine[0m:[36m_check_backends[0m:[36m78[0m - [1mPP-DocLayout not available[0m
+[32m2026-10-10 12:10:43.229[0m | [1mINFO    [0m | [36mengines.layout_engine[0m:[36m_check_backends[0m:[36m81[0m - [1mVision model layout detection available[0m
+[32m2026-10-10 12:10:43.239[0m | [1mINFO    [0m | [36magents.tools[0m:[36mregister[0m:[36m245[0m - [1mRegistered tool: read_document (permission: read)[0m
+[32m2026-10-10 12:10:43.239[0m | [1mINFO    [0m | [36magents.tools[0m:[36mregister[0m:[36m245[0m - [1mRegistered tool: search_knowledge (permission: read)[0m
+[32m2026-10-10 12:10:43.240[0m | [1mINFO    [0m | [36magents.tools[0m:[36mregister[0m:[36m245[0m - [1mRegistered tool: search_code (permission: read)[0m
+[32m2026-10-10 12:10:43.240[0m | [1mINFO    [0m | [36magents.tools[0m:[36mregister[0m:[36m245[0m - [1mRegistered tool: get_drawing (permission: read)[0m
+[32m2026-10-10 12:10:43.240[0m | [1mINFO    [0m | [36magents.tools[0m:[36mregister[0m:[36m245[0m - [1mRegistered tool: get_bim_element (permission: read)[0m
+[32m2026-10-10 12:10:43.240[0m | [1mINFO    [0m | [36magents.tools[0m:[36mregister[0m:[36m245[0m - [1mRegistered tool: measure_geometry (permission: read)[0m
+[32m2026-10-10 12:10:43.242[0m | [1mINFO    [0m | [36magents.tools[0m:[36mregister[0m:[36m245[0m - [1mRegistered tool: query_ifc (permission: read)[0m
+[32m2026-10-10 12:10:43.242[0m | [1mINFO    [0m | [36magents.tools[0m:[36mregister[0m:[36m245[0m - [1mRegistered tool: run_rule (permission: execute)[0m
+[32m2026-10-10 12:10:43.242[0m | [1mINFO    [0m | [36magents.tools[0m:[36mregister[0m:[36m245[0m - [1mRegistered tool: calculate (permission: execute)[0m
+[32m2026-10-10 12:10:43.242[0m | [1mINFO    [0m | [36magents.tools[0m:[36mregister[0m:[36m245[0m - [1mRegistered tool: create_finding (permission: write)[0m
+[32m2026-10-10 12:10:43.242[0m | [1mINFO    [0m | [36magents.tools[0m:[36mregister[0m:[36m245[0m - [1mRegistered tool: generate_report (permission: write)[0m
+[32m2026-10-10 12:10:43.246[0m | [1mINFO    [0m | [36magents.runtime[0m:[36mregister_agent[0m:[36m259[0m - [1mRegistered agent: compliance_agent (Checks compliance against building codes)[0m
+[32m2026-10-10 12:10:43.246[0m | [1mINFO    [0m | [36magents.runtime[0m:[36mregister_agent[0m:[36m259[0m - [1mRegistered agent: drawing_qa_agent (Reviews drawings for quality and compliance)[0m
+[32m2026-10-10 12:10:43.246[0m | [1mINFO    [0m | [36magents.runtime[0m:[36mregister_agent[0m:[36m259[0m - [1mRegistered agent: knowledge_agent (Searches and retrieves engineering knowledge)[0m
+[32m2026-10-10 12:10:43.252[0m | [1mINFO    [0m | [36mengines.ifc_engine[0m:[36m_check_backend[0m:[36m77[0m - [1mIfcOpenShell not available — use browser-extracted data[0m
+INFO:     Started server process [18496]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8092 (Press CTRL+C to quit)
+INFO:     127.0.0.1:63868 - "GET /health/ready HTTP/1.1" 200 OK
+[32m2026-10-10 12:10:44.151[0m | [1mINFO    [0m | [36mdb[0m:[36maudit[0m:[36m311[0m - [1mAUDIT ask.stream user=admin project=SYNTH-A target=None detail={'model': 'qwen2.5vl:7b', 'mode': 'chat', 'chars': 22}[0m
+INFO:     127.0.0.1:63868 - "POST /ask_stream HTTP/1.1" 200 OK
+[32m2026-10-10 12:10:44.197[0m | [1mINFO    [0m | [36mdb[0m:[36maudit[0m:[36m311[0m - [1mAUDIT ask.stream user=admin project=SYNTH-B target=None detail={'model': 'qwen2.5vl:7b', 'mode': 'chat', 'chars': 22}[0m
+INFO:     127.0.0.1:63868 - "POST /ask_stream HTTP/1.1" 200 OK
+[32m2026-10-10 12:10:44.211[0m | [1mINFO    [0m | [36mdb[0m:[36maudit[0m:[36m311[0m - [1mAUDIT ask.stream user=admin project=SYNTH-A target=None detail={'model': 'qwen2.5vl:7b', 'mode': 'chat', 'chars': 41}[0m
+INFO:     127.0.0.1:63868 - "POST /ask_stream HTTP/1.1" 200 OK
+[32m2026-10-10 12:10:44.250[0m | [1mINFO    [0m | [36mdb[0m:[36maudit[0m:[36m311[0m - [1mAUDIT ask.stream user=admin project=SYNTH-A target=None detail={'model': 'qwen2.5vl:7b', 'mode': 'chat', 'chars': 40}[0m
+INFO:     127.0.0.1:63868 - "POST /ask_stream HTTP/1.1" 200 OK
+[32m2026-10-10 12:10:44.282[0m | [1mINFO    [0m | [36mdb[0m:[36maudit[0m:[36m311[0m - [1mAUDIT ask.stream user=admin project=SYNTH-A target=None detail={'model': 'qwen2.5vl:7b', 'mode': 'chat', 'chars': 46}[0m
+[32m2026-10-10 12:10:47.680[0m | [1mINFO    [0m | [36mmain[0m:[36m_get_bm25[0m:[36m2019[0m - [1mBM25 index built for SYNTH-A (377 chunks)[0m
+[32m2026-10-10 12:10:47.691[0m | [1mINFO    [0m | [36mmain[0m:[36mask_stream[0m:[36m3444[0m - [1mfocus_doc injected: native-a.pdf (710 chars)[0m
+INFO:     127.0.0.1:63868 - "POST /ask_stream HTTP/1.1" 200 OK
+[32m2026-10-10 12:10:55.282[0m | [1mINFO    [0m | [36mlocal_chat[0m:[36mstream[0m:[36m147[0m - [1mchat attempt 1/3: model=qwen3.5:9b promptChars=3850 tokens=71 outChars=255 done_reason=stop[0m

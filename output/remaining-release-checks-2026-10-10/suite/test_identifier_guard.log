@@ -1,0 +1,6 @@
+test_tag_is_not_verified_by_numeric_suffix_alone (test_identifier_guard.IdentifierGuardTests.test_tag_is_not_verified_by_numeric_suffix_alone) ... ok
+
+----------------------------------------------------------------------
+Ran 1 test in 0.009s
+
+OK

@@ -8,6 +8,32 @@ from intelligence.page_context import select_page_context
 
 
 class DurableJobsTests(unittest.TestCase):
+    def test_exhausted_interrupted_job_invalidates_ready_before_terminal_failure(self):
+        with tempfile.TemporaryDirectory() as root:
+            source=Path(root)/'source';source.write_text('data')
+            queue=JobQueue(root)
+            queue.enqueue('document',str(source),{'document':7})
+            queue.claim()
+            with queue.connect() as conn:conn.execute('UPDATE jobs SET attempts=3')
+            calls=[]
+            queue.failure_handlers['document']=lambda payload,error:calls.append((payload,error))
+            queue.start();queue.stop()
+            self.assertEqual(queue.status(),{'failed':1})
+            self.assertEqual(calls[0][0],{'document':7})
+            self.assertEqual(len(calls),1)
+
+    def test_failed_restart_invalidation_does_not_consume_retry_or_keep_lock(self):
+        with tempfile.TemporaryDirectory() as root:
+            source=Path(root)/'source';source.write_text('data')
+            queue=JobQueue(root);queue.enqueue('document',str(source),{});queue.claim()
+            def fail(*args):raise RuntimeError('database unavailable')
+            queue.failure_handlers['document']=fail
+            with self.assertRaises(RuntimeError):queue.start()
+            self.assertEqual(queue.status(),{'running':1})
+            queue.failure_handlers['document']=lambda *args:None
+            queue.handlers['document']=lambda payload:None
+            queue.start();queue.stop()
+
     def test_reopen_deduplicate_and_finish(self):
         with tempfile.TemporaryDirectory() as root:
             source = Path(root)/'source.pdf'

@@ -1,0 +1,707 @@
+[
+  {
+    "id": 1,
+    "question": "What is the project ID?",
+    "expected": "C3045",
+    "section": "GENERAL INFORMATION / PROJECT DATA",
+    "evidence": "Project ID: C3045",
+    "http": 200,
+    "seconds": 33.42,
+    "answer": "The Project ID is **C3045**.\n\n[SOURCE: 260610_C3045_2VA_PROJECT_DATA_SHEET_-_STAGE_4.pdf | PAGE 1]",
+    "events": [
+      {
+        "type": "sources",
+        "sources": [
+          {
+            "filename": "260610_C3045_2VA_PROJECT_DATA_SHEET_-_STAGE_4.pdf",
+            "rel": "Documents/260610_C3045_2VA_PROJECT_DATA_SHEET_-_STAGE_4.pdf",
+            "previewable": true,
+            "exists": true,
+            "revision": null,
+            "doctype": null,
+            "page": 1
+          },
+          {
+            "filename": "C3085-RPT-3EH6105-FP-0000001(5).pdf",
+            "rel": "Documents/C3085-RPT-3EH6105-FP-0000001(5).pdf",
+            "previewable": true,
+            "exists": true,
+            "revision": "5",
+            "doctype": "report",
+            "page": 8
+          }
+        ]
+      },
+      {
+        "type": "token",
+        "text": "The Project ID is **C3045**.\n\n[SOURCE: 260610_C3045_2VA_PROJECT_DATA_SHEET_-_STAGE_4.pdf | PAGE 1]"
+      },
+      {
+        "type": "structured",
+        "data": {
+          "type": "simple_answer",
+          "title": "",
+          "subtitle": "",
+          "summary": "The Project ID is **C3045**.",
+          "metrics": [],
+          "tables": [],
+          "calculations": [],
+          "issues": [],
+          "sources": [
+            {
+              "document": "260610_C3045_2VA_PROJECT_DATA_SHEET_-_STAGE_4.pdf",
+              "rel": "Documents/260610_C3045_2VA_PROJECT_DATA_SHEET_-_STAGE_4.pdf",
+              "page": 1,
+              "section": "",
+              "tile_id": "260610_C3045_2VA_PROJECT_DATA_SHEET_-_STAGE_4-P01",
+              "bounding_box": null,
+              "revision": ""
+            },
+            {
+              "document": "C3085-RPT-3EH6105-FP-0000001(5).pdf",
+              "rel": "Documents/C3085-RPT-3EH6105-FP-0000001(5).pdf",
+              "page": 8,
+              "section": "",
+              "tile_id": "C3085-RPT-3EH6105-FP-0000001(5)-P08",
+              "bounding_box": null,
+              "revision": "5"
+            }
+          ],
+          "confidence": "high"
+        }
+      },
+      {
+        "type": "done"
+      }
+    ],
+    "request": {
+      "project": "C3085 - 3EH -Expo",
+      "focus_doc": "Documents/260610_C3045_2VA_PROJECT_DATA_SHEET_-_STAGE_4.pdf",
+      "query": "What is the project ID?",
+      "messages": [],
+      "k": 8
+    }
+  },
+  {
+    "id": 4,
+    "question": "What is the FAR Allowed value?",
+    "expected": "2.77 (dimensionless FAR; not an area)",
+    "section": "AREA STATEMENT SUMMARY",
+    "evidence": "FAR Allowed: 2.77; SQ.FT. -",
+    "http": 200,
+    "seconds": 1.84,
+    "answer": "The FAR allowed is 2.77. [SOURCE: 260610_C3045_2VA_PROJECT_DATA_SHEET_-_STAGE_4.pdf | PAGE 1]",
+    "events": [
+      {
+        "type": "sources",
+        "sources": [
+          {
+            "filename": "260610_C3045_2VA_PROJECT_DATA_SHEET_-_STAGE_4.pdf",
+            "rel": "Documents/260610_C3045_2VA_PROJECT_DATA_SHEET_-_STAGE_4.pdf",
+            "previewable": true,
+            "exists": true,
+            "revision": null,
+            "doctype": null,
+            "page": 1
+          }
+        ]
+      },
+      {
+        "type": "token",
+        "text": "The FAR allowed is 2.77. [SOURCE: 260610_C3045_2VA_PROJECT_DATA_SHEET_-_STAGE_4.pdf | PAGE 1]"
+      },
+      {
+        "type": "done"
+      }
+    ],
+    "request": {
+      "project": "C3085 - 3EH -Expo",
+      "focus_doc": "Documents/260610_C3045_2VA_PROJECT_DATA_SHEET_-_STAGE_4.pdf",
+      "query": "What is the FAR Allowed value?",
+      "messages": [],
+      "k": 8
+    }
+  },
+  {
+    "id": 6,
+    "question": "What is the total BUA Proposed in square meters?",
+    "expected": "173,494.10 m²",
+    "section": "AREA STATEMENT SUMMARY",
+    "evidence": "BUA Proposed: SQ.M. 173,494.10",
+    "http": 200,
+    "seconds": 2.0,
+    "answer": "The BUA proposed is 173,494.10 sq.m. [SOURCE: 260610_C3045_2VA_PROJECT_DATA_SHEET_-_STAGE_4.pdf | PAGE 1]",
+    "events": [
+      {
+        "type": "sources",
+        "sources": [
+          {
+            "filename": "260610_C3045_2VA_PROJECT_DATA_SHEET_-_STAGE_4.pdf",
+            "rel": "Documents/260610_C3045_2VA_PROJECT_DATA_SHEET_-_STAGE_4.pdf",
+            "previewable": true,
+            "exists": true,
+            "revision": null,
+            "doctype": null,
+            "page": 1
+          }
+        ]
+      },
+      {
+        "type": "token",
+        "text": "The BUA proposed is 173,494.10 sq.m. [SOURCE: 260610_C3045_2VA_PROJECT_DATA_SHEET_-_STAGE_4.pdf | PAGE 1]"
+      },
+      {
+        "type": "done"
+      }
+    ],
+    "request": {
+      "project": "C3085 - 3EH -Expo",
+      "focus_doc": "Documents/260610_C3045_2VA_PROJECT_DATA_SHEET_-_STAGE_4.pdf",
+      "query": "What is the total BUA Proposed in square meters?",
+      "messages": [],
+      "k": 8
+    }
+  },
+  {
+    "id": 11,
+    "question": "What is the 5th floor area in square meters?",
+    "expected": "Ambiguous area type: BUA 11,811.89 m²; GFA 9,567.31 m²; NSA 9,663.88 m². Ask which area type or identify the type explicitly.",
+    "section": "BUILT-UP AREA / GROSS FLOOR AREA / NET SELLABLE AREA BREAKDOWN",
+    "evidence": "5th Floor: BUA SQ.M. 11,811.89; GFA SQ.M. 9,567.31; NSA SQ.M. 9,663.88",
+    "http": 200,
+    "seconds": 14.25,
+    "answer": "The 5th Floor gross floor area is 9,567.31 sq.m. [SOURCE: 260610_C3045_2VA_PROJECT_DATA_SHEET_-_STAGE_4.pdf | PAGE 1]",
+    "events": [
+      {
+        "type": "sources",
+        "sources": [
+          {
+            "filename": "260610_C3045_2VA_PROJECT_DATA_SHEET_-_STAGE_4.pdf",
+            "rel": "Documents/260610_C3045_2VA_PROJECT_DATA_SHEET_-_STAGE_4.pdf",
+            "previewable": true,
+            "exists": true,
+            "revision": null,
+            "doctype": null,
+            "page": 1
+          }
+        ]
+      },
+      {
+        "type": "token",
+        "text": "The 5th Floor gross floor area is 9,567.31 sq.m. [SOURCE: 260610_C3045_2VA_PROJECT_DATA_SHEET_-_STAGE_4.pdf | PAGE 1]"
+      },
+      {
+        "type": "done"
+      }
+    ],
+    "request": {
+      "project": "C3085 - 3EH -Expo",
+      "focus_doc": "Documents/260610_C3045_2VA_PROJECT_DATA_SHEET_-_STAGE_4.pdf",
+      "query": "What is the 5th floor area in square meters?",
+      "messages": [],
+      "k": 8
+    }
+  },
+  {
+    "id": 12,
+    "question": "What is the 2BR-Type 2 unit size excluding balcony?",
+    "expected": "116.64 m² (1,255.50 sq.ft.), 2BR-Type 2 (Square)",
+    "section": "RESIDENTIAL UNIT BREAKDOWN",
+    "evidence": "2BR-Type 2 (Square): EXCL. BALCONY SQ.M. 116.64; SQ.FT. 1,255.50; INCL. BALCONY SQ.M. 137.24",
+    "http": 200,
+    "seconds": 29.19,
+    "answer": "Based on the provided document context, here are the details for the **2BR-Type 2 (Square)** unit:\n\n*   **Unit Size Excluding Balcony:** **1,255.50 SQ.FT** (or **116.64 SQ.M.**).\n    *   *Source:* [SOURCE: 260610_C3045_2VA_PROJECT_DATA_SHEET_-_STAGE_4.pdf | PAGE 1]\n\nThis information is found in the \"RESIDENTIAL UNIT BREAKDOWN\" table where **ITEM 4** corresponds to **2BR-Type 2 (Square)**.",
+    "events": [
+      {
+        "type": "sources",
+        "sources": [
+          {
+            "filename": "260610_C3045_2VA_PROJECT_DATA_SHEET_-_STAGE_4.pdf",
+            "rel": "Documents/260610_C3045_2VA_PROJECT_DATA_SHEET_-_STAGE_4.pdf",
+            "previewable": true,
+            "exists": true,
+            "revision": null,
+            "doctype": null,
+            "page": 1
+          }
+        ]
+      },
+      {
+        "type": "token",
+        "text": "Based on the provided document context, here are the details for the **2BR-Type 2 (Square)** unit:\n\n*   **Unit Size Excluding Balcony:** **1,255.50 SQ.FT** (or **116.64 SQ.M.**).\n    *   *Source:* [SOURCE: 260610_C3045_2VA_PROJECT_DATA_SHEET_-_STAGE_4.pdf | PAGE 1]\n\nThis information is found in the \"RESIDENTIAL UNIT BREAKDOWN\" table where **ITEM 4** corresponds to **2BR-Type 2 (Square)**."
+      },
+      {
+        "type": "structured",
+        "data": {
+          "type": "simple_answer",
+          "title": "",
+          "subtitle": "",
+          "summary": "Based on the provided document context, here are the details for the **2BR-Type 2 (Square)** unit:\n\n*   **Unit Size Excluding Balcony:** **1,255.50 SQ.FT** (or **116.64 SQ.M.**).\n    *   *Source:* \n\nThis information is found in the \"RESIDENTIAL UNIT BREAKDOWN\" table where **ITEM 4** corresponds to **2BR-Type 2 (Square)**.",
+          "metrics": [],
+          "tables": [],
+          "calculations": [],
+          "issues": [],
+          "sources": [
+            {
+              "document": "260610_C3045_2VA_PROJECT_DATA_SHEET_-_STAGE_4.pdf",
+              "rel": "Documents/260610_C3045_2VA_PROJECT_DATA_SHEET_-_STAGE_4.pdf",
+              "page": 1,
+              "section": "",
+              "tile_id": "260610_C3045_2VA_PROJECT_DATA_SHEET_-_STAGE_4-P01",
+              "bounding_box": null,
+              "revision": ""
+            }
+          ],
+          "confidence": "high"
+        }
+      },
+      {
+        "type": "done"
+      }
+    ],
+    "request": {
+      "project": "C3085 - 3EH -Expo",
+      "focus_doc": "Documents/260610_C3045_2VA_PROJECT_DATA_SHEET_-_STAGE_4.pdf",
+      "query": "What is the 2BR-Type 2 unit size excluding balcony?",
+      "messages": [],
+      "k": 8
+    }
+  },
+  {
+    "id": 14,
+    "question": "How many F&B units are there?",
+    "expected": "5 F&B units",
+    "section": "UNIT TYPE SUMMARY and RETAIL UNIT BREAKDOWN",
+    "evidence": "F&B Units: NO. 5; F&B 1 through F&B 5",
+    "http": 200,
+    "seconds": 46.55,
+    "answer": "Based on the provided documents, there are **10** F&B units in total.\n\n*   **Total Count:** The document explicitly states \"TOTAL\" for F&B Units is **NO.: 10**. [SOURCE: 260610_C3045_2VA_PROJECT_DATA_SHEET_-_STAGE_4.pdf | PAGE 1]\n*   **Individual Listings:** The breakdown table lists the following specific items under F&B Units:\n    *   F&B 1\n    *   F&B 2\n    *   F&B 3\n    *   F&B 4\n    *   F&B 5\n    *   (Plus additional entries implied by the total count in the detailed breakdown). [SOURCE: 260610_C3045_2VA_PROJECT_DATA_SHEET_-_STAGE_4.pdf | PAGE 1]",
+    "events": [
+      {
+        "type": "sources",
+        "sources": [
+          {
+            "filename": "260610_C3045_2VA_PROJECT_DATA_SHEET_-_STAGE_4.pdf",
+            "rel": "Documents/260610_C3045_2VA_PROJECT_DATA_SHEET_-_STAGE_4.pdf",
+            "previewable": true,
+            "exists": true,
+            "revision": null,
+            "doctype": null,
+            "page": 1
+          },
+          {
+            "filename": "C3085-RPT-3EH6105-FP-0000001(5).pdf",
+            "rel": "Documents/C3085-RPT-3EH6105-FP-0000001(5).pdf",
+            "previewable": true,
+            "exists": true,
+            "revision": "5",
+            "doctype": "report",
+            "page": 48
+          }
+        ]
+      },
+      {
+        "type": "token",
+        "text": "Based on the provided documents, there are **10** F&B units in total.\n\n*   **Total Count:** The document explicitly states \"TOTAL\" for F&B Units is **NO.: 10**. [SOURCE: 260610_C3045_2VA_PROJECT_DATA_SHEET_-_STAGE_4.pdf | PAGE 1]\n*   **Individual Listings:** The breakdown table lists the following specific items under F&B Units:\n    *   F&B 1\n    *   F&B 2\n    *   F&B 3\n    *   F&B 4\n    *   F&B 5\n    *   (Plus additional entries implied by the total count in the detailed breakdown). [SOURCE: 260610_C3045_2VA_PROJECT_DATA_SHEET_-_STAGE_4.pdf | PAGE 1]"
+      },
+      {
+        "type": "structured",
+        "data": {
+          "type": "simple_answer",
+          "title": "",
+          "subtitle": "",
+          "summary": "Based on the provided documents, there are **10** F&B units in total.\n\n*   **Total Count:** The document explicitly states \"TOTAL\" for F&B Units is **NO.: 10**. \n*   **Individual Listings:** The breakdown table lists the following specific items under F&B Units:\n    *   F&B 1\n    *   F&B 2\n    *   F&B 3\n    *   F&B 4\n    *   F&B 5\n    *   (Plus additional entries implied by the total count in the detailed breakdown).",
+          "metrics": [],
+          "tables": [],
+          "calculations": [],
+          "issues": [],
+          "sources": [
+            {
+              "document": "260610_C3045_2VA_PROJECT_DATA_SHEET_-_STAGE_4.pdf",
+              "rel": "Documents/260610_C3045_2VA_PROJECT_DATA_SHEET_-_STAGE_4.pdf",
+              "page": 1,
+              "section": "",
+              "tile_id": "260610_C3045_2VA_PROJECT_DATA_SHEET_-_STAGE_4-P01",
+              "bounding_box": null,
+              "revision": ""
+            },
+            {
+              "document": "C3085-RPT-3EH6105-FP-0000001(5).pdf",
+              "rel": "Documents/C3085-RPT-3EH6105-FP-0000001(5).pdf",
+              "page": 48,
+              "section": "",
+              "tile_id": "C3085-RPT-3EH6105-FP-0000001(5)-P48",
+              "bounding_box": null,
+              "revision": "5"
+            }
+          ],
+          "confidence": "high"
+        }
+      },
+      {
+        "type": "done"
+      }
+    ],
+    "request": {
+      "project": "C3085 - 3EH -Expo",
+      "focus_doc": "Documents/260610_C3045_2VA_PROJECT_DATA_SHEET_-_STAGE_4.pdf",
+      "query": "How many F&B units are there?",
+      "messages": [],
+      "k": 8
+    }
+  },
+  {
+    "id": 15,
+    "question": "What consultants are listed?",
+    "expected": "SSH; Inhabit (Acoustic); Fencon (Façade & BMU); Design Confidence (Fire & Life Safety); LET (Lighting); The Design Company (Signage & Wayfinding); Platinum (Sustainability); Al Turath (Traffic Impact); Dunbar & Boardman (Vertical Transportation). Several other roles are blank. SSH covers Main Consultant, Architect-of-Record, Infrastructure, Interior Design, Landscape, MEP, Security, Structural and Supervision Consultant.",
+    "section": "CONSULTANTS",
+    "evidence": "Main Consultant SSH; Acoustic Inhabit; Façade & BMU Fencon; Fire & Life Safety Design Confidence; Lighting LET; Signage & Wayfinding The Design Company; Sustainability Platinum; Traffic Impact (TIS) Al Turath; Vertical Transportation Dunbar & Boardman",
+    "http": 200,
+    "seconds": 24.17,
+    "answer": "Based on the provided document context, the following consultants are listed under the **DESIGN** and **CONSTRUCTION** categories:\n\n**Design Consultants:**\n*   **Main Consultant:** SSH\n*   **Architect-of-Record:** SSH\n*   **Acoustic:** Inhabit\n*   **Civil Works:** (Not specified)\n*   **Façade & BMU:** Fencon\n*   **Fire & Life Safety:** Design Confidence\n*   **Infrastructure:** SSH\n*   **Interior Design:** SSH\n*   **Landscape:** SSH\n*   **Lighting:** LET\n*   **MEP:** SSH\n*   **Security:** SSH\n*   **Signage & Wayfinding:** The Design Company\n*   **Structural:** SSH\n*   **Structural (3rd Party):** (Not specified)\n*   **Sustainability:** Platinum\n*   **Traffic Impact (TIS):** Al Turath\n*   **Vertical Transportation:** Dunbar & Boardman\n\n**Construction Consultants:**\n*   **Supervision Consultant:** SSH\n*   **Main Contractor:** (Not specified)\n\nThis information is extracted from the table titled \"CONSULTANTS\" in the document **[SOURCE: 260610_C3045_2VA_PROJECT_DATA_SHEET_-_STAGE_4.pdf | PAGE 1]**.",
+    "events": [
+      {
+        "type": "sources",
+        "sources": [
+          {
+            "filename": "260610_C3045_2VA_PROJECT_DATA_SHEET_-_STAGE_4.pdf",
+            "rel": "Documents/260610_C3045_2VA_PROJECT_DATA_SHEET_-_STAGE_4.pdf",
+            "previewable": true,
+            "exists": true,
+            "revision": null,
+            "doctype": null,
+            "page": 1
+          },
+          {
+            "filename": "C3085-RPT-3EH6105-FP-0000001(5).pdf",
+            "rel": "Documents/C3085-RPT-3EH6105-FP-0000001(5).pdf",
+            "previewable": true,
+            "exists": true,
+            "revision": "5",
+            "doctype": "report",
+            "page": 45
+          },
+          {
+            "filename": "C3085-RPT-3EH6105-FP-0000001(5).pdf",
+            "rel": "Documents/C3085-RPT-3EH6105-FP-0000001(5).pdf",
+            "previewable": true,
+            "exists": true,
+            "revision": "5",
+            "doctype": "report",
+            "page": 40
+          },
+          {
+            "filename": "C3085-RPT-3EH6105-FP-0000001(5).pdf",
+            "rel": "Documents/C3085-RPT-3EH6105-FP-0000001(5).pdf",
+            "previewable": true,
+            "exists": true,
+            "revision": "5",
+            "doctype": "report",
+            "page": 37
+          }
+        ]
+      },
+      {
+        "type": "token",
+        "text": "Based on the provided document context, the following consultants are listed under the **DESIGN** and **CONSTRUCTION** categories:\n\n**Design Consultants:**\n*   **Main Consultant:** SSH\n*   **Architect-of-Record:** SSH\n*   **Acoustic:** Inhabit\n*   **Civil Works:** (Not specified)\n*   **Façade & BMU:** Fencon\n*   **Fire & Life Safety:** Design Confidence\n*   **Infrastructure:** SSH\n*   **Interior Design:** SSH\n*   **Landscape:** SSH\n*   **Lighting:** LET\n*   **MEP:** SSH\n*   **Security:** SSH\n*   **Signage & Wayfinding:** The Design Company\n*   **Structural:** SSH\n*   **Structural (3rd Party):** (Not specified)\n*   **Sustainability:** Platinum\n*   **Traffic Impact (TIS):** Al Turath\n*   **Vertical Transportation:** Dunbar & Boardman\n\n**Construction Consultants:**\n*   **Supervision Consultant:** SSH\n*   **Main Contractor:** (Not specified)\n\nThis information is extracted from the table titled \"CONSULTANTS\" in the document **[SOURCE: 260610_C3045_2VA_PROJECT_DATA_SHEET_-_STAGE_4.pdf | PAGE 1]**."
+      },
+      {
+        "type": "structured",
+        "data": {
+          "type": "simple_answer",
+          "title": "",
+          "subtitle": "",
+          "summary": "Based on the provided document context, the following consultants are listed under the **DESIGN** and **CONSTRUCTION** categories:\n\n**Design Consultants:**\n*   **Main Consultant:** SSH\n*   **Architect-of-Record:** SSH\n*   **Acoustic:** Inhabit\n*   **Civil Works:** (Not specified)\n*   **Façade & BMU:** Fencon\n*   **Fire & Life Safety:** Design Confidence\n*   **Infrastructure:** SSH\n*   **Interior Design:** SSH\n*   **Landscape:** SSH\n*   **Lighting:** LET\n*   **MEP:** SSH\n*   **Security:** SSH\n*   **Signage & Wayfinding:** The Design Company\n*   **Structural:** SSH\n*   **Structural (3rd Party):** (Not specified)\n*   **Sustainability:** Platinum\n*   **Traffic Impact (TIS):** Al Turath\n*   **Vertical Transportation:** Dunbar & Boardman\n\n**Construction Consultants:**\n*   **Supervision Consultant:** SSH\n*   **Main Contractor:** (Not specified)\n\nThis information is extracted from the table titled \"CONSULTANTS\" in the document ****.",
+          "metrics": [],
+          "tables": [],
+          "calculations": [],
+          "issues": [],
+          "sources": [
+            {
+              "document": "260610_C3045_2VA_PROJECT_DATA_SHEET_-_STAGE_4.pdf",
+              "rel": "Documents/260610_C3045_2VA_PROJECT_DATA_SHEET_-_STAGE_4.pdf",
+              "page": 1,
+              "section": "",
+              "tile_id": "260610_C3045_2VA_PROJECT_DATA_SHEET_-_STAGE_4-P01",
+              "bounding_box": null,
+              "revision": ""
+            },
+            {
+              "document": "C3085-RPT-3EH6105-FP-0000001(5).pdf",
+              "rel": "Documents/C3085-RPT-3EH6105-FP-0000001(5).pdf",
+              "page": 45,
+              "section": "",
+              "tile_id": "C3085-RPT-3EH6105-FP-0000001(5)-P45",
+              "bounding_box": null,
+              "revision": "5"
+            },
+            {
+              "document": "C3085-RPT-3EH6105-FP-0000001(5).pdf",
+              "rel": "Documents/C3085-RPT-3EH6105-FP-0000001(5).pdf",
+              "page": 40,
+              "section": "",
+              "tile_id": "C3085-RPT-3EH6105-FP-0000001(5)-P40",
+              "bounding_box": null,
+              "revision": "5"
+            },
+            {
+              "document": "C3085-RPT-3EH6105-FP-0000001(5).pdf",
+              "rel": "Documents/C3085-RPT-3EH6105-FP-0000001(5).pdf",
+              "page": 37,
+              "section": "",
+              "tile_id": "C3085-RPT-3EH6105-FP-0000001(5)-P37",
+              "bounding_box": null,
+              "revision": "5"
+            }
+          ],
+          "confidence": "high"
+        }
+      },
+      {
+        "type": "done"
+      }
+    ],
+    "request": {
+      "project": "C3085 - 3EH -Expo",
+      "focus_doc": "Documents/260610_C3045_2VA_PROJECT_DATA_SHEET_-_STAGE_4.pdf",
+      "query": "What consultants are listed?",
+      "messages": [],
+      "k": 8
+    }
+  },
+  {
+    "id": 18,
+    "question": "Is the GFA Proposed within the GFA Allowed limit?",
+    "expected": "Yes numerically: 105,175.30 m² <= 110,000.00 m²; margin 4,824.70 m². Not a general compliance or approval certification.",
+    "section": "AREA STATEMENT SUMMARY",
+    "evidence": "GFA Proposed: 105,175.30 m²; GFA Allowed: 110,000.00 m²",
+    "http": 200,
+    "seconds": 0.03,
+    "answer": "- **Proposed GFA:** 105,175.30 sqm. [SOURCE: 260610_C3045_2VA_PROJECT_DATA_SHEET_-_STAGE_4.pdf | PAGE 1]",
+    "events": [
+      {
+        "type": "sources",
+        "sources": [
+          {
+            "filename": "260610_C3045_2VA_PROJECT_DATA_SHEET_-_STAGE_4.pdf",
+            "rel": "Documents/260610_C3045_2VA_PROJECT_DATA_SHEET_-_STAGE_4.pdf",
+            "previewable": true,
+            "exists": true,
+            "revision": null,
+            "doctype": null,
+            "page": 1
+          }
+        ]
+      },
+      {
+        "type": "token",
+        "text": "- **Proposed GFA:** 105,175.30 sqm. [SOURCE: 260610_C3045_2VA_PROJECT_DATA_SHEET_-_STAGE_4.pdf | PAGE 1]"
+      },
+      {
+        "type": "done"
+      }
+    ],
+    "request": {
+      "project": "C3085 - 3EH -Expo",
+      "focus_doc": "Documents/260610_C3045_2VA_PROJECT_DATA_SHEET_-_STAGE_4.pdf",
+      "query": "Is the GFA Proposed within the GFA Allowed limit?",
+      "messages": [],
+      "k": 8
+    }
+  },
+  {
+    "id": 19,
+    "question": "Is the FAR Proposed within the FAR Allowed limit?",
+    "expected": "Cannot establish from a stated FAR Proposed: FAR Proposed is '-', FAR Allowed is 2.77. Do not invent a proposed FAR.",
+    "section": "AREA STATEMENT SUMMARY",
+    "evidence": "FAR Proposed: -; FAR Allowed: 2.77",
+    "http": 200,
+    "seconds": 51.39,
+    "answer": "Based on the provided document context, **I could not determine if the FAR Proposed is within the FAR Allowed limit** because the specific value for \"FAR Proposed\" is missing from the documents.\n\n*   **FAR Allowed:** The document explicitly states the allowed Floor Area Ratio is **2.77** [SOURCE: 260610_C3045_2VA_PROJECT_DATA_SHEET_-_STAGE_4.pdf | PAGE 1].\n*   **FAR Proposed:** The table entry for \"FAR Proposed\" shows a value of **-** (indicating it is not provided or not yet calculated) [SOURCE: 260610_C3045_2VA_PROJECT_DATA_SHEET_-_STAGE_4.pdf | PAGE 1].\n\nWithout the numerical value for the proposed FAR, a comparison cannot be made.",
+    "events": [
+      {
+        "type": "sources",
+        "sources": [
+          {
+            "filename": "260610_C3045_2VA_PROJECT_DATA_SHEET_-_STAGE_4.pdf",
+            "rel": "Documents/260610_C3045_2VA_PROJECT_DATA_SHEET_-_STAGE_4.pdf",
+            "previewable": true,
+            "exists": true,
+            "revision": null,
+            "doctype": null,
+            "page": 1
+          },
+          {
+            "filename": "C3085-RPT-3EH6105-FP-0000001(5).pdf",
+            "rel": "Documents/C3085-RPT-3EH6105-FP-0000001(5).pdf",
+            "previewable": true,
+            "exists": true,
+            "revision": "5",
+            "doctype": "report",
+            "page": 28
+          },
+          {
+            "filename": "C3085-RPT-3EH6105-FP-0000001(5).pdf",
+            "rel": "Documents/C3085-RPT-3EH6105-FP-0000001(5).pdf",
+            "previewable": true,
+            "exists": true,
+            "revision": "5",
+            "doctype": "report",
+            "page": 29
+          },
+          {
+            "filename": "C3085-RPT-3EH6105-FP-0000001(5).pdf",
+            "rel": "Documents/C3085-RPT-3EH6105-FP-0000001(5).pdf",
+            "previewable": true,
+            "exists": true,
+            "revision": "5",
+            "doctype": "report",
+            "page": 12
+          },
+          {
+            "filename": "C3085-RPT-3EH6105-FP-0000001(5).pdf",
+            "rel": "Documents/C3085-RPT-3EH6105-FP-0000001(5).pdf",
+            "previewable": true,
+            "exists": true,
+            "revision": "5",
+            "doctype": "report",
+            "page": 26
+          },
+          {
+            "filename": "C3085-RPT-3EH6105-FP-0000001(5).pdf",
+            "rel": "Documents/C3085-RPT-3EH6105-FP-0000001(5).pdf",
+            "previewable": true,
+            "exists": true,
+            "revision": "5",
+            "doctype": "report",
+            "page": 30
+          }
+        ]
+      },
+      {
+        "type": "token",
+        "text": "Based on the provided document context, **I could not determine if the FAR Proposed is within the FAR Allowed limit** because the specific value for \"FAR Proposed\" is missing from the documents.\n\n*   **FAR Allowed:** The document explicitly states the allowed Floor Area Ratio is **2.77** [SOURCE: 260610_C3045_2VA_PROJECT_DATA_SHEET_-_STAGE_4.pdf | PAGE 1].\n*   **FAR Proposed:** The table entry for \"FAR Proposed\" shows a value of **-** (indicating it is not provided or not yet calculated) [SOURCE: 260610_C3045_2VA_PROJECT_DATA_SHEET_-_STAGE_4.pdf | PAGE 1].\n\nWithout the numerical value for the proposed FAR, a comparison cannot be made."
+      },
+      {
+        "type": "structured",
+        "data": {
+          "type": "simple_answer",
+          "title": "",
+          "subtitle": "",
+          "summary": "Based on the provided document context, **I could not determine if the FAR Proposed is within the FAR Allowed limit** because the specific value for \"FAR Proposed\" is missing from the documents.\n\n*   **FAR Allowed:** The document explicitly states the allowed Floor Area Ratio is **2.77** .\n*   **FAR Proposed:** The table entry for \"FAR Proposed\" shows a value of **-** (indicating it is not provided or not yet calculated) .\n\nWithout the numerical value for the proposed FAR, a comparison cannot be made.",
+          "metrics": [],
+          "tables": [],
+          "calculations": [],
+          "issues": [],
+          "sources": [
+            {
+              "document": "260610_C3045_2VA_PROJECT_DATA_SHEET_-_STAGE_4.pdf",
+              "rel": "Documents/260610_C3045_2VA_PROJECT_DATA_SHEET_-_STAGE_4.pdf",
+              "page": 1,
+              "section": "",
+              "tile_id": "260610_C3045_2VA_PROJECT_DATA_SHEET_-_STAGE_4-P01",
+              "bounding_box": null,
+              "revision": ""
+            },
+            {
+              "document": "C3085-RPT-3EH6105-FP-0000001(5).pdf",
+              "rel": "Documents/C3085-RPT-3EH6105-FP-0000001(5).pdf",
+              "page": 28,
+              "section": "",
+              "tile_id": "C3085-RPT-3EH6105-FP-0000001(5)-P28",
+              "bounding_box": null,
+              "revision": "5"
+            },
+            {
+              "document": "C3085-RPT-3EH6105-FP-0000001(5).pdf",
+              "rel": "Documents/C3085-RPT-3EH6105-FP-0000001(5).pdf",
+              "page": 29,
+              "section": "",
+              "tile_id": "C3085-RPT-3EH6105-FP-0000001(5)-P29",
+              "bounding_box": null,
+              "revision": "5"
+            },
+            {
+              "document": "C3085-RPT-3EH6105-FP-0000001(5).pdf",
+              "rel": "Documents/C3085-RPT-3EH6105-FP-0000001(5).pdf",
+              "page": 12,
+              "section": "",
+              "tile_id": "C3085-RPT-3EH6105-FP-0000001(5)-P12",
+              "bounding_box": null,
+              "revision": "5"
+            },
+            {
+              "document": "C3085-RPT-3EH6105-FP-0000001(5).pdf",
+              "rel": "Documents/C3085-RPT-3EH6105-FP-0000001(5).pdf",
+              "page": 26,
+              "section": "",
+              "tile_id": "C3085-RPT-3EH6105-FP-0000001(5)-P26",
+              "bounding_box": null,
+              "revision": "5"
+            },
+            {
+              "document": "C3085-RPT-3EH6105-FP-0000001(5).pdf",
+              "rel": "Documents/C3085-RPT-3EH6105-FP-0000001(5).pdf",
+              "page": 30,
+              "section": "",
+              "tile_id": "C3085-RPT-3EH6105-FP-0000001(5)-P30",
+              "bounding_box": null,
+              "revision": "5"
+            }
+          ],
+          "confidence": "high"
+        }
+      },
+      {
+        "type": "done"
+      }
+    ],
+    "request": {
+      "project": "C3085 - 3EH -Expo",
+      "focus_doc": "Documents/260610_C3045_2VA_PROJECT_DATA_SHEET_-_STAGE_4.pdf",
+      "query": "Is the FAR Proposed within the FAR Allowed limit?",
+      "messages": [],
+      "k": 8
+    }
+  },
+  {
+    "id": 20,
+    "question": "What information is NOT available in this document regarding fire safety requirements?",
+    "expected": "The sheet does not provide detailed fire-safety requirements such as evacuation/egress design, fire ratings, alarm/suppression or strategy criteria. It names Design Confidence as Fire & Life Safety consultant and includes a Service Lift/Fireman's Lift row; these do not establish full fire compliance. Limit the answer to this sheet.",
+    "section": "Entire page; CONSULTANTS and LIFT CALCULATION",
+    "evidence": "Fire & Life Safety: Design Confidence; Service Lift/Fireman's Lift: 8 (Multipurpose/SE/PE/FL). Detailed fire-safety criteria are not supplied in this one-page data sheet.",
+    "http": 200,
+    "seconds": 0.05,
+    "answer": "The Fire & Life Safety consultant is Design Confidence. [SOURCE: 260610_C3045_2VA_PROJECT_DATA_SHEET_-_STAGE_4.pdf | PAGE 1]",
+    "events": [
+      {
+        "type": "sources",
+        "sources": [
+          {
+            "filename": "260610_C3045_2VA_PROJECT_DATA_SHEET_-_STAGE_4.pdf",
+            "rel": "Documents/260610_C3045_2VA_PROJECT_DATA_SHEET_-_STAGE_4.pdf",
+            "previewable": true,
+            "exists": true,
+            "revision": null,
+            "doctype": null,
+            "page": 1
+          }
+        ]
+      },
+      {
+        "type": "token",
+        "text": "The Fire & Life Safety consultant is Design Confidence. [SOURCE: 260610_C3045_2VA_PROJECT_DATA_SHEET_-_STAGE_4.pdf | PAGE 1]"
+      },
+      {
+        "type": "done"
+      }
+    ],
+    "request": {
+      "project": "C3085 - 3EH -Expo",
+      "focus_doc": "Documents/260610_C3045_2VA_PROJECT_DATA_SHEET_-_STAGE_4.pdf",
+      "query": "What information is NOT available in this document regarding fire safety requirements?",
+      "messages": [],
+      "k": 8
+    }
+  }
+]

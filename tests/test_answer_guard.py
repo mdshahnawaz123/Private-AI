@@ -3,6 +3,12 @@ from intelligence.answer_guard import publication_issues,guarded_answer,guarded_
 
 
 class AnswerGuardTests(unittest.TestCase):
+    def test_other_entity_value_on_same_page_is_not_support(self):
+        evidence='[SOURCE: a.pdf | PAGE 1]\nThe pressure for AHU-813 is 275 Pa.\nThe pressure for AHU-922 is 400 Pa.'
+        sources=[{'source':'a.pdf','page':1}]
+        self.assertEqual(publication_issues('AHU-813 pressure is 275 Pa [SOURCE: a.pdf | PAGE 1]',evidence,sources),[])
+        self.assertIn('Entity/property quantity conflicts with explicit native evidence',publication_issues('AHU-813 pressure is 400 Pa [SOURCE: a.pdf | PAGE 1]',evidence,sources))
+
     def test_repair_is_single_and_checked_before_publication(self):
         from unittest.mock import Mock
         repair=Mock(return_value='2054 sqm [SOURCE: a.pdf | PAGE 6]')

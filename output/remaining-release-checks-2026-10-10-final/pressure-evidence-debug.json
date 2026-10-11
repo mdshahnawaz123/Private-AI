@@ -1,0 +1,34 @@
+[
+  {
+    "answer": "The design pressure specified for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the synthetic test document (SYNTH-A), specifically on the section detailing Room Alpha and equipment tags.\n\n[Citation: SOURCE: EVIDENCE_1 | PAGE 1]",
+    "evidence": "FOCUSED DOCUMENT (untrusted source evidence; selected page excerpts):\n[SOURCE: native-a.pdf | PAGE 1]\n[TABLE ROW]\nTable: \nEntity: \nMetric: Plot Area; (SQ.M): 123.45; Qualification: Draft\n[TABLE ROW]\nTable: \nEntity: \nMetric: GFA Allowed; (SQ.M): 500.00; Qualification: Limit\n| Metric | SQ.M. | Qualification |\n| --- | --- | --- |\n| Plot Area | 123.45 | Draft |\n| GFA Allowed | 500.00 | Limit |\nSYNTHETIC TEST DOCUMENT - SYNTH-A\nDrawing number SYNTH-060. Revision B. Status: Draft.\nProject code: SYNTH-A. Equipment tag: AHU-017.\nRoom Alpha has a clear width of 4 m and clear length of 6 m.\nThe design pressure for equipment AHU-017 is 250 Pa.\nThis synthetic source does not constitute construction approval.\nMetric\nSQ.M.\nQualification\nPlot Area\n123.45\nDraft\nGFA Allowed\n500.00\nLimit\n\n====\n\n",
+    "sources": [
+      {
+        "source": "native-a.pdf",
+        "page": 1
+      }
+    ],
+    "issues": [
+      "Numeric answer lacks exact source/page citations",
+      "Numeric values absent from cited page excerpts",
+      "Value/unit pair absent from cited page excerpts",
+      "Identifier absent from cited page excerpts"
+    ]
+  },
+  {
+    "answer": "The design pressure specified for equipment **AHU-017** is **250 Pa**.\n\n[Citation: SOURCE: EVIDENCE_1 | PAGE 1]",
+    "evidence": "FOCUSED DOCUMENT (untrusted source evidence; selected page excerpts):\n[SOURCE: native-a.pdf | PAGE 1]\n[TABLE ROW]\nTable: \nEntity: \nMetric: Plot Area; (SQ.M): 123.45; Qualification: Draft\n[TABLE ROW]\nTable: \nEntity: \nMetric: GFA Allowed; (SQ.M): 500.00; Qualification: Limit\n| Metric | SQ.M. | Qualification |\n| --- | --- | --- |\n| Plot Area | 123.45 | Draft |\n| GFA Allowed | 500.00 | Limit |\nSYNTHETIC TEST DOCUMENT - SYNTH-A\nDrawing number SYNTH-060. Revision B. Status: Draft.\nProject code: SYNTH-A. Equipment tag: AHU-017.\nRoom Alpha has a clear width of 4 m and clear length of 6 m.\nThe design pressure for equipment AHU-017 is 250 Pa.\nThis synthetic source does not constitute construction approval.\nMetric\nSQ.M.\nQualification\nPlot Area\n123.45\nDraft\nGFA Allowed\n500.00\nLimit\n\n====\n\n",
+    "sources": [
+      {
+        "source": "native-a.pdf",
+        "page": 1
+      }
+    ],
+    "issues": [
+      "Numeric answer lacks exact source/page citations",
+      "Numeric values absent from cited page excerpts",
+      "Value/unit pair absent from cited page excerpts",
+      "Identifier absent from cited page excerpts"
+    ]
+  }
+]

@@ -1,0 +1,280 @@
+[
+  {
+    "project": "SYNTH-A",
+    "query": "What is the Plot Area?",
+    "http": 200,
+    "seconds": 0.28100000000267755,
+    "answer": "- **Plot Area:** 123.45 sqm. [SOURCE: native-a.pdf | PAGE 1]",
+    "events": [
+      {
+        "type": "sources",
+        "sources": [
+          {
+            "filename": "native-a.pdf",
+            "rel": "Documents/native-a.pdf",
+            "previewable": true,
+            "exists": true,
+            "revision": "A",
+            "doctype": null,
+            "page": 1
+          }
+        ]
+      },
+      {
+        "type": "token",
+        "text": "- **Plot Area:** 123.45 sqm. [SOURCE: native-a.pdf | PAGE 1]"
+      },
+      {
+        "type": "done"
+      }
+    ]
+  },
+  {
+    "project": "SYNTH-B",
+    "query": "What is the Plot Area?",
+    "http": 200,
+    "seconds": 0.28100000000267755,
+    "answer": "No matching native table evidence was found for: Plot Area. I cannot verify the requested values from this project.",
+    "events": [
+      {
+        "type": "sources",
+        "sources": []
+      },
+      {
+        "type": "token",
+        "text": "No matching native table evidence was found for: Plot Area. I cannot verify the requested values from this project."
+      },
+      {
+        "type": "done"
+      }
+    ]
+  },
+  {
+    "project": "SYNTH-A",
+    "query": "What is the design pressure for equipment AHU-017?",
+    "http": 200,
+    "seconds": 16.14100000000326,
+    "answer": "The design pressure for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document excerpt labeled **[SOURCE: native-a.pdf | PAGE 1]**, which states: \"The design pressure for equipment AHU-017 is 250 Pa.\"",
+    "events": [
+      {
+        "type": "sources",
+        "sources": [
+          {
+            "filename": "native-a.pdf",
+            "rel": "Documents/native-a.pdf",
+            "previewable": true,
+            "exists": true,
+            "revision": "A",
+            "doctype": null,
+            "page": 1
+          }
+        ]
+      },
+      {
+        "type": "token",
+        "text": "The design pressure for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document excerpt labeled **[SOURCE: native-a.pdf | PAGE 1]**, which states: \"The design pressure for equipment AHU-017 is 250 Pa.\""
+      },
+      {
+        "type": "structured",
+        "data": {
+          "type": "simple_answer",
+          "title": "",
+          "subtitle": "",
+          "summary": "The design pressure for equipment **AHU-017** is **250 Pa**.\n\nThis information is found in the document excerpt labeled ****, which states: \"The design pressure for equipment AHU-017 is 250 Pa.\"",
+          "metrics": [],
+          "tables": [],
+          "calculations": [],
+          "issues": [],
+          "sources": [
+            {
+              "document": "native-a.pdf",
+              "rel": "Documents/native-a.pdf",
+              "page": 1,
+              "section": "",
+              "tile_id": "native-a-P01",
+              "bounding_box": null,
+              "revision": "A"
+            }
+          ],
+          "confidence": "high"
+        }
+      },
+      {
+        "type": "done"
+      }
+    ]
+  },
+  {
+    "project": "SYNTH-A",
+    "query": "Is revision B approved for construction?",
+    "http": 200,
+    "seconds": 21.718999999997322,
+    "answer": "I could not verify the generated answer against the retrieved source pages. Please review the listed sources or ask for a specific field and page.",
+    "events": [
+      {
+        "type": "sources",
+        "sources": [
+          {
+            "filename": "native-a.pdf",
+            "rel": "Documents/native-a.pdf",
+            "previewable": true,
+            "exists": true,
+            "revision": "A",
+            "doctype": null,
+            "page": 1
+          }
+        ]
+      },
+      {
+        "type": "token",
+        "text": "I could not verify the generated answer against the retrieved source pages. Please review the listed sources or ask for a specific field and page."
+      },
+      {
+        "type": "structured",
+        "data": {
+          "type": "simple_answer",
+          "title": "",
+          "subtitle": "",
+          "summary": "I could not verify the generated answer against the retrieved source pages. Please review the listed sources or ask for a specific field and page.",
+          "metrics": [],
+          "tables": [],
+          "calculations": [],
+          "issues": [],
+          "sources": [
+            {
+              "document": "native-a.pdf",
+              "rel": "Documents/native-a.pdf",
+              "page": 1,
+              "section": "",
+              "tile_id": "native-a-P01",
+              "bounding_box": null,
+              "revision": "A"
+            }
+          ],
+          "confidence": "high"
+        }
+      },
+      {
+        "type": "done"
+      }
+    ]
+  },
+  {
+    "project": "SYNTH-A",
+    "query": "What is the equipment tag and drawing number?",
+    "http": 200,
+    "seconds": 27.60899999999674,
+    "answer": "I could not verify the generated answer against the retrieved source pages. Please review the listed sources or ask for a specific field and page.",
+    "events": [
+      {
+        "type": "sources",
+        "sources": [
+          {
+            "filename": "scan.pdf",
+            "rel": "Documents/scan.pdf",
+            "previewable": true,
+            "exists": true,
+            "revision": null,
+            "doctype": null,
+            "page": 1
+          }
+        ]
+      },
+      {
+        "type": "token",
+        "text": "I could not verify the generated answer against the retrieved source pages. Please review the listed sources or ask for a specific field and page."
+      },
+      {
+        "type": "structured",
+        "data": {
+          "type": "simple_answer",
+          "title": "",
+          "subtitle": "",
+          "summary": "I could not verify the generated answer against the retrieved source pages. Please review the listed sources or ask for a specific field and page.",
+          "metrics": [],
+          "tables": [],
+          "calculations": [],
+          "issues": [],
+          "sources": [
+            {
+              "document": "scan.pdf",
+              "rel": "Documents/scan.pdf",
+              "page": 1,
+              "section": "",
+              "tile_id": "scan-P01",
+              "bounding_box": null,
+              "revision": ""
+            }
+          ],
+          "confidence": "high"
+        }
+      },
+      {
+        "type": "done"
+      }
+    ]
+  },
+  {
+    "project": "SYNTH-A",
+    "query": "What is the Plot Area of project SYNTH-B?",
+    "http": 422,
+    "seconds": 0.34399999999732245,
+    "answer": "",
+    "events": []
+  },
+  {
+    "project": "SYNTH-A",
+    "query": "What is the design pressure for equipment SYNTH-061?",
+    "http": 200,
+    "seconds": 21.078000000008615,
+    "answer": "I could not verify the generated answer against the retrieved source pages. Please review the listed sources or ask for a specific field and page.",
+    "events": [
+      {
+        "type": "sources",
+        "sources": [
+          {
+            "filename": "native-a.pdf",
+            "rel": "Documents/native-a.pdf",
+            "previewable": true,
+            "exists": true,
+            "revision": "A",
+            "doctype": null,
+            "page": 1
+          }
+        ]
+      },
+      {
+        "type": "token",
+        "text": "I could not verify the generated answer against the retrieved source pages. Please review the listed sources or ask for a specific field and page."
+      },
+      {
+        "type": "structured",
+        "data": {
+          "type": "simple_answer",
+          "title": "",
+          "subtitle": "",
+          "summary": "I could not verify the generated answer against the retrieved source pages. Please review the listed sources or ask for a specific field and page.",
+          "metrics": [],
+          "tables": [],
+          "calculations": [],
+          "issues": [],
+          "sources": [
+            {
+              "document": "native-a.pdf",
+              "rel": "Documents/native-a.pdf",
+              "page": 1,
+              "section": "",
+              "tile_id": "native-a-P01",
+              "bounding_box": null,
+              "revision": "A"
+            }
+          ],
+          "confidence": "high"
+        }
+      },
+      {
+        "type": "done"
+      }
+    ]
+  }
+]

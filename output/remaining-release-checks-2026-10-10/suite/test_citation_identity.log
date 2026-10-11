@@ -1,0 +1,12 @@
+test_exact_identity_roundtrip_and_claim_validation (test_citation_identity.CitationIdentityTests.test_exact_identity_roundtrip_and_claim_validation) ... ok
+test_handles_never_repair_wrong_page_value_unit_or_entity (test_citation_identity.CitationIdentityTests.test_handles_never_repair_wrong_page_value_unit_or_entity) ... ok
+test_native_disposition_retained_even_when_model_omits_it (test_citation_identity.CitationIdentityTests.test_native_disposition_retained_even_when_model_omits_it) ... ok
+test_observed_citation_prefix_normalizes_only_assigned_exact_page (test_citation_identity.CitationIdentityTests.test_observed_citation_prefix_normalizes_only_assigned_exact_page) ... ok
+test_request_local_allowlist_and_duplicate_pages (test_citation_identity.CitationIdentityTests.test_request_local_allowlist_and_duplicate_pages) ... ok
+test_review_word_is_not_a_revision (test_citation_identity.CitationIdentityTests.test_review_word_is_not_a_revision) ... ok
+test_unverified_observations_cannot_support_handles (test_citation_identity.CitationIdentityTests.test_unverified_observations_cannot_support_handles) ... ok
+
+----------------------------------------------------------------------
+Ran 7 tests in 0.010s
+
+OK

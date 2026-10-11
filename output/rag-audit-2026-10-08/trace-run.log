@@ -1,0 +1,191 @@
+2026-10-08 12:04:10.946 | INFO     | db:init_knowledge_tables:1449 - Knowledge Hub tables initialized
+2026-10-08 12:04:10.946 | INFO     | db:init_db:258 - DB ready at sqlite:///C:\3EH\ExpoDesignAI - Copy\output\rag-audit-2026-10-08\snapshot\expo.db
+2026-10-08 12:04:10.986 | INFO     | core.model_registry:register:254 - Registered model: role=REASONING_LLM name=qwen3.5:9b provider=ollama
+2026-10-08 12:04:10.986 | INFO     | core.model_registry:register:254 - Registered model: role=VISION_MODEL name=qwen2.5vl:7b provider=ollama
+2026-10-08 12:04:10.986 | INFO     | core.model_registry:register:254 - Registered model: role=EMBEDDING_MODEL name=bge-m3 provider=ollama
+2026-10-08 12:04:10.986 | INFO     | core.model_registry:register:254 - Registered model: role=FAST_LLM name=qwen2.5:7b provider=ollama
+2026-10-08 12:04:10.986 | INFO     | core.model_registry:register:254 - Registered model: role=RERANKER_MODEL name=bge-reranker-v2-m3 provider=ollama
+2026-10-08 12:04:10.999 | INFO     | intelligence.compliance:add_rule:636 - Added compliance rule: DOOR-MIN-WIDTH (Minimum Door Width)
+2026-10-08 12:04:10.999 | INFO     | intelligence.compliance:add_rule:636 - Added compliance rule: CORRIDOR-MIN-WIDTH (Minimum Corridor Width)
+2026-10-08 12:04:10.999 | INFO     | intelligence.compliance:add_rule:636 - Added compliance rule: CEILING-MIN-HEIGHT (Minimum Ceiling Height)
+2026-10-08 12:04:10.999 | INFO     | intelligence.compliance:add_rule:636 - Added compliance rule: TRAVEL-MAX-DISTANCE (Maximum Travel Distance)
+2026-10-08 12:04:10.999 | INFO     | intelligence.compliance:add_rule:636 - Added compliance rule: ROOM-MIN-AREA (Minimum Room Area)
+2026-10-08 12:04:11.000 | INFO     | intelligence.compliance:add_rule:636 - Added compliance rule: FIRE-RATING-MIN (Minimum Fire Rating)
+2026-10-08 12:04:11.000 | INFO     | intelligence.compliance:add_rule:636 - Added compliance rule: STAIR-MIN-WIDTH (Minimum Stair Width)
+2026-10-08 12:04:11.000 | INFO     | intelligence.compliance:add_rule:636 - Added compliance rule: RISER-MAX-HEIGHT (Maximum Riser Height)
+2026-10-08 12:04:11.000 | INFO     | intelligence.compliance:add_rule:636 - Added compliance rule: TREAD-MIN-DEPTH (Minimum Tread Depth)
+2026-10-08 12:04:11.000 | INFO     | intelligence.compliance:add_rule:636 - Added compliance rule: HEADROOM-MIN (Minimum Headroom)
+2026-10-08 12:04:14.646 | INFO     | engines.layout_engine:_check_backends:78 - PP-DocLayout not available
+2026-10-08 12:04:14.647 | INFO     | engines.layout_engine:_check_backends:81 - Vision model layout detection available
+2026-10-08 12:04:14.650 | INFO     | agents.tools:register:245 - Registered tool: read_document (permission: read)
+2026-10-08 12:04:14.650 | INFO     | agents.tools:register:245 - Registered tool: search_knowledge (permission: read)
+2026-10-08 12:04:14.650 | INFO     | agents.tools:register:245 - Registered tool: search_code (permission: read)
+2026-10-08 12:04:14.650 | INFO     | agents.tools:register:245 - Registered tool: get_drawing (permission: read)
+2026-10-08 12:04:14.650 | INFO     | agents.tools:register:245 - Registered tool: get_bim_element (permission: read)
+2026-10-08 12:04:14.650 | INFO     | agents.tools:register:245 - Registered tool: measure_geometry (permission: read)
+2026-10-08 12:04:14.650 | INFO     | agents.tools:register:245 - Registered tool: query_ifc (permission: read)
+2026-10-08 12:04:14.650 | INFO     | agents.tools:register:245 - Registered tool: run_rule (permission: execute)
+2026-10-08 12:04:14.650 | INFO     | agents.tools:register:245 - Registered tool: calculate (permission: execute)
+2026-10-08 12:04:14.650 | INFO     | agents.tools:register:245 - Registered tool: create_finding (permission: write)
+2026-10-08 12:04:14.650 | INFO     | agents.tools:register:245 - Registered tool: generate_report (permission: write)
+2026-10-08 12:04:14.652 | INFO     | agents.runtime:register_agent:259 - Registered agent: compliance_agent (Checks compliance against building codes)
+2026-10-08 12:04:14.652 | INFO     | agents.runtime:register_agent:259 - Registered agent: drawing_qa_agent (Reviews drawings for quality and compliance)
+2026-10-08 12:04:14.652 | INFO     | agents.runtime:register_agent:259 - Registered agent: knowledge_agent (Searches and retrieves engineering knowledge)
+2026-10-08 12:04:14.655 | INFO     | engines.ifc_engine:_check_backend:77 - IfcOpenShell not available � use browser-extracted data
+2026-10-08 12:04:14.740 | INFO     | db:audit:311 - AUDIT ask.stream user=admin project=C3085 - 3EH -Expo target=None detail={'model': 'qwen2.5vl:7b', 'mode': 'chat', 'chars': 23}
+2026-10-08 12:04:17.161 | INFO     | main:_get_bm25:1932 - BM25 index built for C3085 - 3EH -Expo (2026 chunks)
+2026-10-08 12:04:17.162 | INFO     | intelligence.reranker:_load_model:59 - Loading reranker model: BAAI/bge-reranker-v2-m3 (CPU)
+
+Loading weights:   0%|          | 0/393 [00:00<?, ?it/s]
+Loading weights:   7%|6         | 27/393 [00:00<00:01, 260.40it/s]
+Loading weights:  14%|#3        | 54/393 [00:00<00:01, 193.28it/s]
+Loading weights:  19%|#9        | 75/393 [00:00<00:02, 157.91it/s]
+Loading weights:  23%|##3       | 92/393 [00:00<00:02, 141.68it/s]
+Loading weights: 100%|##########| 393/393 [00:00<00:00, 590.67it/s]
+2026-10-08 12:04:20.261 | INFO     | intelligence.reranker:_load_model:61 - Reranker model loaded successfully
+2026-10-08 12:04:24.652 | INFO     | intelligence.reranker:rerank:102 - Reranked 20 documents (top score: 0.8673)
+2026-10-08 12:04:24.654 | WARNING  | main:get_vectorstore:1645 - get_vectorstore: no index for __codes__ at C:\3EH\ExpoDesignAI - Copy\output\rag-audit-2026-10-08\snapshot\faiss_index\__codes__
+2026-10-08 12:04:24.663 | INFO     | main:ask_stream:3263 - focus_doc injected: 260610_C3045_2VA_PROJECT_DATA_SHEET_-_STAGE_4.pdf (4116 chars)
+2026-10-08 12:04:31.282 | INFO     | local_chat:stream:147 - chat attempt 1/3: model=qwen3.5:9b promptChars=12657 tokens=42 outChars=98 done_reason=stop
+{"id": 1, "seconds": 16.546999999991385, "path": "FOCUSED_DOCUMENT_RAG", "answer": "The Project ID is **C3045**.\n\n[SOURCE: 260610_C3045_2VA_PROJECT_DATA_SHEET_-_STAGE_4.pdf | PAGE 1]", "error": null}
+2026-10-08 12:04:31.293 | INFO     | db:audit:311 - AUDIT ask.stream user=admin project=C3085 - 3EH -Expo target=None detail={'model': 'qwen2.5vl:7b', 'mode': 'chat', 'chars': 37}
+2026-10-08 12:04:39.737 | INFO     | intelligence.reranker:rerank:102 - Reranked 20 documents (top score: 0.6074)
+2026-10-08 12:04:39.739 | WARNING  | main:get_vectorstore:1645 - get_vectorstore: no index for __codes__ at C:\3EH\ExpoDesignAI - Copy\output\rag-audit-2026-10-08\snapshot\faiss_index\__codes__
+2026-10-08 12:04:39.749 | INFO     | main:ask_stream:3263 - focus_doc injected: 260610_C3045_2VA_PROJECT_DATA_SHEET_-_STAGE_4.pdf (4116 chars)
+2026-10-08 12:04:46.853 | INFO     | local_chat:stream:147 - chat attempt 1/3: model=qwen3.5:9b promptChars=12099 tokens=65 outChars=219 done_reason=stop
+{"id": 2, "seconds": 15.578000000008615, "path": "FOCUSED_DOCUMENT_RAG", "answer": "The document revision number is **3**.\n\nThis information is found in the \"PROJECT DATA\" table within the project data sheet for Project ID C3045.\n\n*   [SOURCE: 260610_C3045_2VA_PROJECT_DATA_SHEET_-_STAGE_4.pdf | PAGE 1]", "error": null}
+2026-10-08 12:04:46.860 | INFO     | db:audit:311 - AUDIT ask.stream user=admin project=C3085 - 3EH -Expo target=None detail={'model': 'qwen2.5vl:7b', 'mode': 'chat', 'chars': 39}
+2026-10-08 12:04:57.534 | INFO     | intelligence.reranker:rerank:102 - Reranked 20 documents (top score: 0.9349)
+2026-10-08 12:04:57.535 | WARNING  | main:get_vectorstore:1645 - get_vectorstore: no index for __codes__ at C:\3EH\ExpoDesignAI - Copy\output\rag-audit-2026-10-08\snapshot\faiss_index\__codes__
+2026-10-08 12:04:57.547 | INFO     | main:ask_stream:3263 - focus_doc injected: 260610_C3045_2VA_PROJECT_DATA_SHEET_-_STAGE_4.pdf (4116 chars)
+2026-10-08 12:05:11.342 | INFO     | local_chat:stream:147 - chat attempt 1/3: model=qwen3.5:9b promptChars=12118 tokens=73 outChars=220 done_reason=stop
+2026-10-08 12:05:23.287 | INFO     | local_chat:stream:147 - chat attempt 1/3: model=qwen3.5:9b promptChars=12927 tokens=66 outChars=185 done_reason=stop
+{"id": 3, "seconds": 36.421999999991385, "path": "FOCUSED_DOCUMENT_RAG", "answer": "The **Plot Area** is **39,681.19 SQ.M.**\n\nThis value is found in the \"AREA STATEMENT SUMMARY\" table in the document [SOURCE: 260610_C3045_2VA_PROJECT_DATA_SHEET_-_STAGE_4.pdf | PAGE 1].", "error": null}
+2026-10-08 12:05:23.296 | INFO     | db:audit:311 - AUDIT ask.stream user=admin project=C3085 - 3EH -Expo target=None detail={'model': 'qwen2.5vl:7b', 'mode': 'chat', 'chars': 30}
+2026-10-08 12:05:39.463 | INFO     | intelligence.reranker:rerank:102 - Reranked 20 documents (top score: 0.8005)
+2026-10-08 12:05:39.464 | WARNING  | main:get_vectorstore:1645 - get_vectorstore: no index for __codes__ at C:\3EH\ExpoDesignAI - Copy\output\rag-audit-2026-10-08\snapshot\faiss_index\__codes__
+2026-10-08 12:05:39.473 | INFO     | main:ask_stream:3263 - focus_doc injected: 260610_C3045_2VA_PROJECT_DATA_SHEET_-_STAGE_4.pdf (4116 chars)
+2026-10-08 12:05:53.085 | INFO     | local_chat:stream:147 - chat attempt 1/3: model=qwen3.5:9b promptChars=11121 tokens=241 outChars=738 done_reason=stop
+{"id": 4, "seconds": 29.79700000002049, "path": "FOCUSED_DOCUMENT_RAG", "answer": "Based on the provided documents, the **FAR Allowed** values are:\n\n*   **2.77** (in SQ.M units) [SOURCE: 260610_C3045_2VA_PROJECT_DATA_SHEET_-_STAGE_4.pdf | PAGE 1]\n*   **3** (in SQ.FT units, inferred from the \"FAR Proposed\" column header context in the same document where FAR Allowed is listed as 3) [SOURCE: 260610_C3045_2VA_PROJECT_DATA_SHEET_-_STAGE_4.pdf | PAGE 1]\n\n*Note: The document lists \"FAR Allowed: 2.77\" under SQ.M and \"FAR Proposed: 10\" under SQ.FT in one table, while another section shows \"FAR Allowed: 3\". The specific value for FAR Allowed is explicitly stated as **2.77** in the Area Statement Summary.*\n\n**Summary:**\n*   **FAR Allowed:** 2.77 (SQ.M) [SOURCE: 260610_C3045_2VA_PROJECT_DATA_SHEET_-_STAGE_4.pdf | PAGE 1]", "error": null}
+2026-10-08 12:05:53.098 | INFO     | db:audit:311 - AUDIT ask.stream user=admin project=C3085 - 3EH -Expo target=None detail={'model': 'qwen2.5vl:7b', 'mode': 'chat', 'chars': 42}
+{"id": 5, "seconds": 0.01600000000325963, "path": "DETERMINISTIC_EXACT", "answer": "- **Proposed GFA:** 105,175.30 sqm. [SOURCE: 260610_C3045_2VA_PROJECT_DATA_SHEET_-_STAGE_4.pdf | PAGE 1]", "error": null}
+2026-10-08 12:05:53.115 | INFO     | db:audit:311 - AUDIT ask.stream user=admin project=C3085 - 3EH -Expo target=None detail={'model': 'qwen2.5vl:7b', 'mode': 'chat', 'chars': 48}
+2026-10-08 12:06:12.258 | INFO     | intelligence.reranker:rerank:102 - Reranked 20 documents (top score: 0.9943)
+2026-10-08 12:06:12.260 | WARNING  | main:get_vectorstore:1645 - get_vectorstore: no index for __codes__ at C:\3EH\ExpoDesignAI - Copy\output\rag-audit-2026-10-08\snapshot\faiss_index\__codes__
+2026-10-08 12:06:12.271 | INFO     | main:ask_stream:3263 - focus_doc injected: 260610_C3045_2VA_PROJECT_DATA_SHEET_-_STAGE_4.pdf (4116 chars)
+2026-10-08 12:06:23.381 | INFO     | local_chat:stream:147 - chat attempt 1/3: model=qwen3.5:9b promptChars=10822 tokens=89 outChars=284 done_reason=stop
+{"id": 6, "seconds": 30.26600000000326, "path": "FOCUSED_DOCUMENT_RAG", "answer": "Based on the provided document context, the **Total BUA Proposed** is:\n\n*   **173,494.10 SQ.M.** (Square Meters)\n\nThis value is found in the \"AREA STATEMENT SUMMARY\" table within the project data sheet.\n\n[Citation: [SOURCE: 260610_C3045_2VA_PROJECT_DATA_SHEET_-_STAGE_4.pdf | PAGE 1]]", "error": null}
+2026-10-08 12:06:23.392 | INFO     | db:audit:311 - AUDIT ask.stream user=admin project=C3085 - 3EH -Expo target=None detail={'model': 'qwen2.5vl:7b', 'mode': 'chat', 'chars': 40}
+2026-10-08 12:06:37.096 | INFO     | intelligence.reranker:rerank:102 - Reranked 20 documents (top score: 0.2607)
+2026-10-08 12:06:37.301 | WARNING  | main:get_vectorstore:1645 - get_vectorstore: no index for __codes__ at C:\3EH\ExpoDesignAI - Copy\output\rag-audit-2026-10-08\snapshot\faiss_index\__codes__
+2026-10-08 12:06:37.314 | INFO     | main:ask_stream:3263 - focus_doc injected: 260610_C3045_2VA_PROJECT_DATA_SHEET_-_STAGE_4.pdf (4116 chars)
+2026-10-08 12:06:48.381 | INFO     | local_chat:stream:147 - chat attempt 1/3: model=qwen3.5:9b promptChars=12052 tokens=78 outChars=239 done_reason=stop
+2026-10-08 12:07:00.322 | INFO     | local_chat:stream:147 - chat attempt 1/3: model=qwen3.5:9b promptChars=12880 tokens=55 outChars=123 done_reason=stop
+{"id": 7, "seconds": 36.921999999991385, "path": "FOCUSED_DOCUMENT_RAG", "answer": "The Podium Built-Up Area (BUA) is **37,809.20 sq.m.**\n\n[SOURCE: 260610_C3045_2VA_PROJECT_DATA_SHEET_-_STAGE_4.pdf | PAGE 1]", "error": null}
+2026-10-08 12:07:00.339 | INFO     | db:audit:311 - AUDIT ask.stream user=admin project=C3085 - 3EH -Expo target=None detail={'model': 'qwen2.5vl:7b', 'mode': 'chat', 'chars': 40}
+2026-10-08 12:07:12.132 | INFO     | intelligence.reranker:rerank:102 - Reranked 20 documents (top score: 0.5975)
+2026-10-08 12:07:12.133 | WARNING  | main:get_vectorstore:1645 - get_vectorstore: no index for __codes__ at C:\3EH\ExpoDesignAI - Copy\output\rag-audit-2026-10-08\snapshot\faiss_index\__codes__
+2026-10-08 12:07:12.145 | INFO     | main:ask_stream:3263 - focus_doc injected: 260610_C3045_2VA_PROJECT_DATA_SHEET_-_STAGE_4.pdf (4116 chars)
+2026-10-08 12:07:16.155 | INFO     | local_chat:stream:147 - chat attempt 1/3: model=qwen3.5:9b promptChars=11537 tokens=85 outChars=255 done_reason=stop
+2026-10-08 12:07:21.826 | INFO     | local_chat:stream:147 - chat attempt 1/3: model=qwen3.5:9b promptChars=12381 tokens=108 outChars=286 done_reason=stop
+{"id": 8, "seconds": 21.5, "path": "FOCUSED_DOCUMENT_RAG", "answer": "The **Built-Up Area (BUA)** for the **Towers** is **135,684.90 SQ.M.**\n\nThis value is found in the \"AREA STATEMENT SUMMARY\" table within the document `260610_C3045_2VA_PROJECT_DATA_SHEET_-_STAGE_4.pdf` on **PAGE 1**.\n\n[SOURCE: 260610_C3045_2VA_PROJECT_DATA_SHEET_-_STAGE_4.pdf | PAGE 1]", "error": null}
+2026-10-08 12:07:21.836 | INFO     | db:audit:311 - AUDIT ask.stream user=admin project=C3085 - 3EH -Expo target=None detail={'model': 'qwen2.5vl:7b', 'mode': 'chat', 'chars': 37}
+{"id": 9, "seconds": 0.014999999984866008, "path": "DETERMINISTIC_EXACT", "answer": "- **Total residential units:** 804 units. [SOURCE: 260610_C3045_2VA_PROJECT_DATA_SHEET_-_STAGE_4.pdf | PAGE 1]", "error": null}
+2026-10-08 12:07:21.854 | INFO     | db:audit:311 - AUDIT ask.stream user=admin project=C3085 - 3EH -Expo target=None detail={'model': 'qwen2.5vl:7b', 'mode': 'chat', 'chars': 35}
+2026-10-08 12:07:36.502 | INFO     | intelligence.reranker:rerank:102 - Reranked 20 documents (top score: 0.7737)
+2026-10-08 12:07:36.504 | WARNING  | main:get_vectorstore:1645 - get_vectorstore: no index for __codes__ at C:\3EH\ExpoDesignAI - Copy\output\rag-audit-2026-10-08\snapshot\faiss_index\__codes__
+2026-10-08 12:07:36.517 | INFO     | main:ask_stream:3263 - focus_doc injected: 260610_C3045_2VA_PROJECT_DATA_SHEET_-_STAGE_4.pdf (4116 chars)
+2026-10-08 12:07:49.625 | INFO     | local_chat:stream:147 - chat attempt 1/3: model=qwen3.5:9b promptChars=12616 tokens=114 outChars=369 done_reason=stop
+{"id": 10, "seconds": 27.78200000000652, "path": "FOCUSED_DOCUMENT_RAG", "answer": "Based on the provided documents, there are **227** 1-bedroom units.\n\n*   **Source:** [SOURCE: 260610_C3045_2VA_PROJECT_DATA_SHEET_-_STAGE_4.pdf | PAGE 1]\n    *   In the \"Residential Units\" table, the row for \"ITEM: 1; Column 2: 1 Bedroom\" lists **NO.: 227**.\n    *   This is confirmed in the \"UNIT TYPE SUMMARY\" table where the \"1-Bedroom\" row shows a count of **227**.", "error": null}
+2026-10-08 12:07:49.639 | INFO     | db:audit:311 - AUDIT ask.stream user=admin project=C3085 - 3EH -Expo target=None detail={'model': 'qwen2.5vl:7b', 'mode': 'chat', 'chars': 44}
+2026-10-08 12:08:07.473 | INFO     | intelligence.reranker:rerank:102 - Reranked 20 documents (top score: 0.9127)
+2026-10-08 12:08:07.475 | WARNING  | main:get_vectorstore:1645 - get_vectorstore: no index for __codes__ at C:\3EH\ExpoDesignAI - Copy\output\rag-audit-2026-10-08\snapshot\faiss_index\__codes__
+2026-10-08 12:08:07.487 | INFO     | main:ask_stream:3263 - focus_doc injected: 260610_C3045_2VA_PROJECT_DATA_SHEET_-_STAGE_4.pdf (4116 chars)
+2026-10-08 12:08:19.017 | INFO     | local_chat:stream:147 - chat attempt 1/3: model=qwen3.5:9b promptChars=11860 tokens=173 outChars=440 done_reason=stop
+{"id": 11, "seconds": 29.39000000001397, "path": "FOCUSED_DOCUMENT_RAG", "answer": "Based on the provided document context, here are the area values for the **5th Floor** in square meters:\n\n*   **Built-Up Area:** 11,811.89 SQ.M. [SOURCE: 260610_C3045_2VA_PROJECT_DATA_SHEET_-_STAGE_4.pdf | PAGE 1]\n*   **Gross Floor Area (GFA):** 9,567.31 SQ.M. [SOURCE: 260610_C3045_2VA_PROJECT_DATA_SHEET_-_STAGE_4.pdf | PAGE 1]\n*   **Net Sellable Area:** 9,663.88 SQ.M. [SOURCE: 260610_C3045_2VA_PROJECT_DATA_SHEET_-_STAGE_4.pdf | PAGE 1]", "error": null}
+2026-10-08 12:08:19.034 | INFO     | db:audit:311 - AUDIT ask.stream user=admin project=C3085 - 3EH -Expo target=None detail={'model': 'qwen2.5vl:7b', 'mode': 'chat', 'chars': 51}
+2026-10-08 12:08:39.493 | INFO     | intelligence.reranker:rerank:102 - Reranked 20 documents (top score: 0.9935)
+2026-10-08 12:08:39.495 | WARNING  | main:get_vectorstore:1645 - get_vectorstore: no index for __codes__ at C:\3EH\ExpoDesignAI - Copy\output\rag-audit-2026-10-08\snapshot\faiss_index\__codes__
+2026-10-08 12:08:39.510 | INFO     | main:ask_stream:3263 - focus_doc injected: 260610_C3045_2VA_PROJECT_DATA_SHEET_-_STAGE_4.pdf (4116 chars)
+2026-10-08 12:08:51.853 | INFO     | local_chat:stream:147 - chat attempt 1/3: model=qwen3.5:9b promptChars=10278 tokens=196 outChars=542 done_reason=stop
+2026-10-08 12:08:56.905 | INFO     | local_chat:stream:147 - chat attempt 1/3: model=qwen3.5:9b promptChars=11311 tokens=69 outChars=161 done_reason=stop
+2026-10-08 12:08:56.906 | WARNING  | main:gen:3387 - Answer withheld by evidence checks: ['Value/unit pair absent from cited page excerpts']
+{"id": 12, "seconds": 37.875, "path": "FOCUSED_DOCUMENT_RAG", "answer": "I could not verify the generated answer against the retrieved source pages. Please review the listed sources or ask for a specific field and page.", "error": null}
+2026-10-08 12:08:56.920 | INFO     | db:audit:311 - AUDIT ask.stream user=admin project=C3085 - 3EH -Expo target=None detail={'model': 'qwen2.5vl:7b', 'mode': 'chat', 'chars': 32}
+2026-10-08 12:09:14.714 | INFO     | intelligence.reranker:rerank:102 - Reranked 20 documents (top score: 0.6515)
+2026-10-08 12:09:14.715 | WARNING  | main:get_vectorstore:1645 - get_vectorstore: no index for __codes__ at C:\3EH\ExpoDesignAI - Copy\output\rag-audit-2026-10-08\snapshot\faiss_index\__codes__
+2026-10-08 12:09:14.727 | INFO     | main:ask_stream:3263 - focus_doc injected: 260610_C3045_2VA_PROJECT_DATA_SHEET_-_STAGE_4.pdf (4116 chars)
+2026-10-08 12:09:26.204 | INFO     | local_chat:stream:147 - chat attempt 1/3: model=qwen3.5:9b promptChars=10343 tokens=133 outChars=446 done_reason=stop
+{"id": 13, "seconds": 29.29700000002049, "path": "FOCUSED_DOCUMENT_RAG", "answer": "Based on the provided document context, there are **5** retail units.\n\n*   **Count:** 5\n*   **Source:** [SOURCE: 260610_C3045_2VA_PROJECT_DATA_SHEET_-_STAGE_4.pdf | PAGE 1] (Table: Retail Units) and [SOURCE: 260610_C3045_2VA_PROJECT_DATA_SHEET_-_STAGE_4.pdf | PAGE 1] (Table: RETAIL UNIT BREAKDOWN).\n\nThe document also lists a specific breakdown item for \"Retail visitor toilets\" as Item 11, but the primary count for retail units is stated as 5.", "error": null}
+2026-10-08 12:09:26.223 | INFO     | db:audit:311 - AUDIT ask.stream user=admin project=C3085 - 3EH -Expo target=None detail={'model': 'qwen2.5vl:7b', 'mode': 'chat', 'chars': 29}
+2026-10-08 12:09:47.823 | INFO     | intelligence.reranker:rerank:102 - Reranked 20 documents (top score: 0.8993)
+2026-10-08 12:09:47.825 | WARNING  | main:get_vectorstore:1645 - get_vectorstore: no index for __codes__ at C:\3EH\ExpoDesignAI - Copy\output\rag-audit-2026-10-08\snapshot\faiss_index\__codes__
+2026-10-08 12:09:47.840 | INFO     | main:ask_stream:3263 - focus_doc injected: 260610_C3045_2VA_PROJECT_DATA_SHEET_-_STAGE_4.pdf (4116 chars)
+2026-10-08 12:09:55.822 | INFO     | local_chat:stream:147 - chat attempt 1/3: model=qwen3.5:9b promptChars=11055 tokens=255 outChars=772 done_reason=stop
+2026-10-08 12:10:03.301 | INFO     | local_chat:stream:147 - chat attempt 1/3: model=qwen3.5:9b promptChars=12313 tokens=70 outChars=214 done_reason=stop
+{"id": 14, "seconds": 37.078000000008615, "path": "FOCUSED_DOCUMENT_RAG", "answer": "Based on the provided documents, there are **10** F&B units in total.\n\n*   The \"F&B Units\" table explicitly states: **ITEM: TOTAL; NO.: 10**.\n    [SOURCE: 260610_C3045_2VA_PROJECT_DATA_SHEET_-_STAGE_4.pdf | PAGE 1]", "error": null}
+2026-10-08 12:10:03.319 | INFO     | db:audit:311 - AUDIT ask.stream user=admin project=C3085 - 3EH -Expo target=None detail={'model': 'qwen2.5vl:7b', 'mode': 'chat', 'chars': 28}
+2026-10-08 12:10:22.612 | INFO     | intelligence.reranker:rerank:102 - Reranked 20 documents (top score: 0.6319)
+2026-10-08 12:10:22.613 | WARNING  | main:get_vectorstore:1645 - get_vectorstore: no index for __codes__ at C:\3EH\ExpoDesignAI - Copy\output\rag-audit-2026-10-08\snapshot\faiss_index\__codes__
+2026-10-08 12:10:22.625 | INFO     | main:ask_stream:3263 - focus_doc injected: 260610_C3045_2VA_PROJECT_DATA_SHEET_-_STAGE_4.pdf (4116 chars)
+2026-10-08 12:10:36.018 | INFO     | local_chat:stream:147 - chat attempt 1/3: model=qwen3.5:9b promptChars=11195 tokens=240 outChars=1006 done_reason=stop
+{"id": 15, "seconds": 32.703000000008615, "path": "FOCUSED_DOCUMENT_RAG", "answer": "Based on the provided document context, the following consultants are listed under the **DESIGN** and **CONSTRUCTION** categories:\n\n**Design Consultants:**\n*   **Main Consultant:** SSH\n*   **Architect-of-Record:** SSH\n*   **Acoustic:** Inhabit\n*   **Civil Works:** (Not specified)\n*   **Fa�ade & BMU:** Fencon\n*   **Fire & Life Safety:** Design Confidence\n*   **Infrastructure:** SSH\n*   **Interior Design:** SSH\n*   **Landscape:** SSH\n*   **Lighting:** LET\n*   **MEP:** SSH\n*   **Security:** SSH\n*   **Signage & Wayfinding:** The Design Company\n*   **Structural:** SSH\n*   **Structural (3rd Party):** (Not specified)\n*   **Sustainability:** Platinum\n*   **Traffic Impact (TIS):** Al Turath\n*   **Vertical Transportation:** Dunbar & Boardman\n\n**Construction Consultants:**\n*   **Supervision Consultant:** SSH\n*   **Main Contractor:** (Not specified)\n\nThis information is extracted from the table titled \"CONSULTANTS\" in the document **[SOURCE: 260610_C3045_2VA_PROJECT_DATA_SHEET_-_STAGE_4.pdf | PAGE 1]**.", "error": null}
+2026-10-08 12:10:36.034 | INFO     | db:audit:311 - AUDIT ask.stream user=admin project=C3085 - 3EH -Expo target=None detail={'model': 'qwen2.5vl:7b', 'mode': 'chat', 'chars': 32}
+2026-10-08 12:10:57.150 | INFO     | intelligence.reranker:rerank:102 - Reranked 20 documents (top score: 0.9395)
+2026-10-08 12:10:57.151 | WARNING  | main:get_vectorstore:1645 - get_vectorstore: no index for __codes__ at C:\3EH\ExpoDesignAI - Copy\output\rag-audit-2026-10-08\snapshot\faiss_index\__codes__
+2026-10-08 12:10:57.159 | INFO     | main:ask_stream:3263 - focus_doc injected: 260610_C3045_2VA_PROJECT_DATA_SHEET_-_STAGE_4.pdf (4116 chars)
+2026-10-08 12:11:09.703 | INFO     | local_chat:stream:147 - chat attempt 1/3: model=qwen3.5:9b promptChars=12555 tokens=77 outChars=293 done_reason=stop
+{"id": 16, "seconds": 33.67200000002049, "path": "FOCUSED_DOCUMENT_RAG", "answer": "Based on the provided documents, here is the project description:\n\n*   **Project Description:** \"8 residential buildings on partial podium area and one basement floor with 2000 sq.m. retail area including 804 units.\"\n    *   [SOURCE: 260610_C3045_2VA_PROJECT_DATA_SHEET_-_STAGE_4.pdf | PAGE 1]", "error": null}
+2026-10-08 12:11:09.730 | INFO     | db:audit:311 - AUDIT ask.stream user=admin project=C3085 - 3EH -Expo target=None detail={'model': 'qwen2.5vl:7b', 'mode': 'chat', 'chars': 32}
+2026-10-08 12:11:30.392 | INFO     | intelligence.reranker:rerank:102 - Reranked 20 documents (top score: 0.8951)
+2026-10-08 12:11:30.392 | WARNING  | main:get_vectorstore:1645 - get_vectorstore: no index for __codes__ at C:\3EH\ExpoDesignAI - Copy\output\rag-audit-2026-10-08\snapshot\faiss_index\__codes__
+2026-10-08 12:11:30.404 | INFO     | main:ask_stream:3263 - focus_doc injected: 260610_C3045_2VA_PROJECT_DATA_SHEET_-_STAGE_4.pdf (4116 chars)
+2026-10-08 12:11:39.228 | INFO     | local_chat:stream:147 - chat attempt 1/3: model=qwen3.5:9b promptChars=11284 tokens=99 outChars=274 done_reason=stop
+{"id": 17, "seconds": 29.51600000000326, "path": "FOCUSED_DOCUMENT_RAG", "answer": "Based on the provided documents, the **Maximum Allowed GFA** is:\n\n*   **110,000.00 sq.m.** (or 1,184,029.00 sq.ft.)\n\nThis value is found in the \"AREA STATEMENT SUMMARY\" table under the item \"GFA Allowed\".\n\n[SOURCE: 260610_C3045_2VA_PROJECT_DATA_SHEET_-_STAGE_4.pdf | PAGE 1]", "error": null}
+2026-10-08 12:11:39.248 | INFO     | db:audit:311 - AUDIT ask.stream user=admin project=C3085 - 3EH -Expo target=None detail={'model': 'qwen2.5vl:7b', 'mode': 'chat', 'chars': 49}
+{"id": 18, "seconds": 0.01600000000325963, "path": "DETERMINISTIC_EXACT", "answer": "- **Proposed GFA:** 105,175.30 sqm. [SOURCE: 260610_C3045_2VA_PROJECT_DATA_SHEET_-_STAGE_4.pdf | PAGE 1]", "error": null}
+2026-10-08 12:11:39.275 | INFO     | db:audit:311 - AUDIT ask.stream user=admin project=C3085 - 3EH -Expo target=None detail={'model': 'qwen2.5vl:7b', 'mode': 'chat', 'chars': 49}
+2026-10-08 12:12:02.850 | INFO     | intelligence.reranker:rerank:102 - Reranked 20 documents (top score: 0.6435)
+2026-10-08 12:12:02.851 | WARNING  | main:get_vectorstore:1645 - get_vectorstore: no index for __codes__ at C:\3EH\ExpoDesignAI - Copy\output\rag-audit-2026-10-08\snapshot\faiss_index\__codes__
+2026-10-08 12:12:02.863 | INFO     | main:ask_stream:3263 - focus_doc injected: 260610_C3045_2VA_PROJECT_DATA_SHEET_-_STAGE_4.pdf (4116 chars)
+2026-10-08 12:12:14.076 | INFO     | local_chat:stream:147 - chat attempt 1/3: model=qwen3.5:9b promptChars=12149 tokens=233 outChars=821 done_reason=stop
+2026-10-08 12:12:24.859 | INFO     | local_chat:stream:147 - chat attempt 1/3: model=qwen3.5:9b promptChars=13509 tokens=204 outChars=776 done_reason=stop
+{"id": 19, "seconds": 45.59399999998277, "path": "FOCUSED_DOCUMENT_RAG", "answer": "Based on the provided document context, **I could not determine if the \"FAR Proposed\" is within the \"FAR Allowed\" limit** because the specific value for **\"FAR Proposed\"** is missing from the documents.\n\n*   **FAR Allowed:** The document explicitly states the allowed Floor Area Ratio is **2.77** [SOURCE: 260610_C3045_2VA_PROJECT_DATA_SHEET_-_STAGE_4.pdf | PAGE 1].\n*   **FAR Proposed:** The table entry for \"FAR Proposed\" shows a value of **-** (indicating it is not provided) [SOURCE: 260610_C3045_2VA_PROJECT_DATA_SHEET_-_STAGE_4.pdf | PAGE 1].\n\nWhile the document provides the **GFA Proposed** and **Plot Area**, which could theoretically be used to calculate a proposed FAR, the specific \"FAR Proposed\" figure required for a direct comparison is not present in the text.", "error": null}
+2026-10-08 12:12:24.883 | INFO     | db:audit:311 - AUDIT ask.stream user=admin project=C3085 - 3EH -Expo target=None detail={'model': 'qwen2.5vl:7b', 'mode': 'chat', 'chars': 86}
+2026-10-08 12:12:33.575 | INFO     | intelligence.reranker:rerank:102 - Reranked 20 documents (top score: 0.3737)
+2026-10-08 12:12:33.576 | WARNING  | main:get_vectorstore:1645 - get_vectorstore: no index for __codes__ at C:\3EH\ExpoDesignAI - Copy\output\rag-audit-2026-10-08\snapshot\faiss_index\__codes__
+2026-10-08 12:12:33.593 | INFO     | main:ask_stream:3263 - focus_doc injected: 260610_C3045_2VA_PROJECT_DATA_SHEET_-_STAGE_4.pdf (4116 chars)
+2026-10-08 12:12:49.451 | INFO     | local_chat:stream:147 - chat attempt 1/3: model=qwen3.5:9b promptChars=12972 tokens=552 outChars=2252 done_reason=stop
+2026-10-08 12:13:00.526 | INFO     | local_chat:stream:147 - chat attempt 1/3: model=qwen3.5:9b promptChars=15714 tokens=481 outChars=1818 done_reason=stop
+2026-10-08 12:13:00.528 | WARNING  | main:gen:3387 - Answer withheld by evidence checks: ['Numeric values absent from cited page excerpts', 'Value/unit pair absent from cited page excerpts']
+{"id": 20, "seconds": 35.655999999988126, "path": "FOCUSED_DOCUMENT_RAG", "answer": "I could not verify the generated answer against the retrieved source pages. Please review the listed sources or ask for a specific field and page.", "error": null}
+2026-10-08 12:13:16.018 | INFO     | intelligence.reranker:rerank:102 - Reranked 20 documents (top score: 0.8673)
+2026-10-08 12:13:16.019 | WARNING  | main:get_vectorstore:1645 - get_vectorstore: no index for __codes__ at C:\3EH\ExpoDesignAI - Copy\output\rag-audit-2026-10-08\snapshot\faiss_index\__codes__
+2026-10-08 12:13:24.956 | INFO     | intelligence.reranker:rerank:102 - Reranked 20 documents (top score: 0.8673)
+2026-10-08 12:13:24.958 | WARNING  | main:get_vectorstore:1645 - get_vectorstore: no index for __codes__ at C:\3EH\ExpoDesignAI - Copy\output\rag-audit-2026-10-08\snapshot\faiss_index\__codes__
+2026-10-08 12:13:48.320 | INFO     | intelligence.reranker:rerank:102 - Reranked 20 documents (top score: 0.8673)
+2026-10-08 12:13:48.331 | WARNING  | main:get_vectorstore:1645 - get_vectorstore: no index for __codes__ at C:\3EH\ExpoDesignAI - Copy\output\rag-audit-2026-10-08\snapshot\faiss_index\__codes__
+TOPK 1
+2026-10-08 12:14:38.364 | INFO     | intelligence.reranker:rerank:102 - Reranked 20 documents (top score: 0.6074)
+2026-10-08 12:14:38.365 | WARNING  | main:get_vectorstore:1645 - get_vectorstore: no index for __codes__ at C:\3EH\ExpoDesignAI - Copy\output\rag-audit-2026-10-08\snapshot\faiss_index\__codes__
+2026-10-08 12:15:09.850 | INFO     | intelligence.reranker:rerank:102 - Reranked 20 documents (top score: 0.6074)
+2026-10-08 12:15:09.852 | WARNING  | main:get_vectorstore:1645 - get_vectorstore: no index for __codes__ at C:\3EH\ExpoDesignAI - Copy\output\rag-audit-2026-10-08\snapshot\faiss_index\__codes__
+2026-10-08 12:15:39.711 | INFO     | intelligence.reranker:rerank:102 - Reranked 20 documents (top score: 0.6074)
+2026-10-08 12:15:39.712 | WARNING  | main:get_vectorstore:1645 - get_vectorstore: no index for __codes__ at C:\3EH\ExpoDesignAI - Copy\output\rag-audit-2026-10-08\snapshot\faiss_index\__codes__
+TOPK 2
+2026-10-08 12:16:17.281 | INFO     | intelligence.reranker:rerank:102 - Reranked 20 documents (top score: 0.9349)
+2026-10-08 12:16:17.284 | WARNING  | main:get_vectorstore:1645 - get_vectorstore: no index for __codes__ at C:\3EH\ExpoDesignAI - Copy\output\rag-audit-2026-10-08\snapshot\faiss_index\__codes__
+2026-10-08 12:16:47.092 | INFO     | intelligence.reranker:rerank:102 - Reranked 20 documents (top score: 0.9349)
+2026-10-08 12:16:47.094 | WARNING  | main:get_vectorstore:1645 - get_vectorstore: no index for __codes__ at C:\3EH\ExpoDesignAI - Copy\output\rag-audit-2026-10-08\snapshot\faiss_index\__codes__
+2026-10-08 12:17:12.581 | INFO     | intelligence.reranker:rerank:102 - Reranked 20 documents (top score: 0.9349)
+2026-10-08 12:17:12.583 | WARNING  | main:get_vectorstore:1645 - get_vectorstore: no index for __codes__ at C:\3EH\ExpoDesignAI - Copy\output\rag-audit-2026-10-08\snapshot\faiss_index\__codes__
+TOPK 3
+2026-10-08 12:18:04.975 | INFO     | intelligence.reranker:rerank:102 - Reranked 20 documents (top score: 0.8005)
+2026-10-08 12:18:04.977 | WARNING  | main:get_vectorstore:1645 - get_vectorstore: no index for __codes__ at C:\3EH\ExpoDesignAI - Copy\output\rag-audit-2026-10-08\snapshot\faiss_index\__codes__
+2026-10-08 12:18:40.340 | INFO     | intelligence.reranker:rerank:102 - Reranked 20 documents (top score: 0.8005)
+2026-10-08 12:18:40.342 | WARNING  | main:get_vectorstore:1645 - get_vectorstore: no index for __codes__ at C:\3EH\ExpoDesignAI - Copy\output\rag-audit-2026-10-08\snapshot\faiss_index\__codes__
+2026-10-08 12:19:02.171 | INFO     | intelligence.reranker:rerank:102 - Reranked 20 documents (top score: 0.8005)
+2026-10-08 12:19:02.172 | WARNING  | main:get_vectorstore:1645 - get_vectorstore: no index for __codes__ at C:\3EH\ExpoDesignAI - Copy\output\rag-audit-2026-10-08\snapshot\faiss_index\__codes__
+TOPK 4
+2026-10-08 12:19:36.966 | INFO     | intelligence.reranker:rerank:102 - Reranked 20 documents (top score: 0.9824)
+2026-10-08 12:19:36.967 | WARNING  | main:get_vectorstore:1645 - get_vectorstore: no index for __codes__ at C:\3EH\ExpoDesignAI - Copy\output\rag-audit-2026-10-08\snapshot\faiss_index\__codes__

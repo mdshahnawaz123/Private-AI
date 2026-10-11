@@ -141,6 +141,20 @@ class JobQueue:
                 self.lock_file.close()
                 raise RuntimeError("An ingestion runner already owns this data directory")
         # Exclusive OS ownership proves no previous runner can still be working.
+        # Invalidate published readiness before replay or terminal failure. A
+        # crash can occur after a handler's READY commit but before queue commit.
+        # If invalidation fails, do not start serving work under a false state.
+        try:
+            with self.connect() as conn:
+                interrupted=conn.execute("SELECT * FROM jobs WHERE state='running'").fetchall()
+            for job in interrupted:
+                invalidate=self.failure_handlers.get(job['kind'])
+                if invalidate:
+                    invalidate(json.loads(job['payload']), 'Interrupted; readiness requires revalidation')
+        except Exception:
+            self.lock_file.close()
+            self.lock_file=None
+            raise
         with self.connect() as conn:
             conn.execute("UPDATE jobs SET state='failed',updated=?,error='Interrupted; retry limit exhausted' WHERE state='running' AND attempts>=3", (time.time(),))
             conn.execute("UPDATE jobs SET state='retry',available=?,updated=?,error='Interrupted; replaying' WHERE state='running' AND attempts<3", (time.time(),time.time()))
@@ -170,3 +184,14 @@ class JobQueue:
     def status(self):
         with self.connect() as conn:
             return {row['state']:row['n'] for row in conn.execute("SELECT state,COUNT(*) n FROM jobs GROUP BY state")}
+
+    def list_recent(self, limit=100):
+        """Most recent jobs for admin/diagnostic display (Pilot architecture
+        blueprint Sec 6.3: callers outside this class should never write their
+        own SQL against the `jobs` table -- a future backend swap (Celery/RQ)
+        only has to implement this method, not be grepped-for by every caller)."""
+        with self.connect() as conn:
+            rows = conn.execute(
+                'SELECT id,kind,state,attempts,created,updated,error FROM jobs ORDER BY created DESC LIMIT ?',
+                (limit,)).fetchall()
+            return [dict(row) for row in rows]

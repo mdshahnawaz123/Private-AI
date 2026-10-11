@@ -103,6 +103,12 @@ class Settings(BaseSettings):
     num_ctx: int = 16384
     chat_retries: int = 3
 
+    # 3D Render & Diffusion Model (Configurable: Qwen-Image-2.1-Turbo, FLUX.2-klein-4B, etc.)
+    render_model: str = "FLUX.2-klein-4B"
+    render_provider: str = "local"  # 'local' (offline ComfyUI / Diffusers / Ollama endpoint) or 'cloud'
+    render_host: str = "http://127.0.0.1:8188"  # local endpoint (e.g. ComfyUI / Diffusers / SD-WebUI)
+    render_api_key: str = ""  # optional cloud API key if using cloud provider (e.g. DashScope, Replicate, BFL)
+
     # CAD
     oda_converter: str = ""
 
@@ -115,7 +121,13 @@ class Settings(BaseSettings):
 
     # Security
     force_password_change: bool = True
-    max_upload_size_mb: int = 500
+    # Raised from 500 to 2000 (2026-10-09): 3D models (.ifc) for this project
+    # run up to ~770MB on disk, well over the original 500MB cap, which was
+    # sized for PDFs/drawings, not full IFC exports. Still a hard cap (not
+    # unlimited) to keep the disk-fill-DoS protection in save_upload_capped()
+    # meaningful -- raise further via EXPO_MAX_UPLOAD_SIZE_MB in .env if a
+    # future model exceeds this instead of editing this default again.
+    max_upload_size_mb: int = 2000
 
     # Logging
     log_level: str = "INFO"
@@ -168,13 +180,20 @@ def get_settings() -> Settings:
 # instead of reading a settings.*_model / settings.ollama_host field directly,
 # so a future split onto separate processes/ports (Sec 6.2) or a swap to a
 # different serving stack only ever requires a config change here.
-_MODEL_ROLES = ("vision", "chat", "worker", "author", "embed")
+_MODEL_ROLES = ("vision", "chat", "worker", "author", "embed", "render")
 
 def resolve_role(role: str) -> dict:
-    """Resolve a model role to {'model': <name>, 'base_url': <ollama endpoint>}."""
+    """Resolve a model role to {'model': <name>, 'base_url': <endpoint>}."""
     if role not in _MODEL_ROLES:
         raise ValueError(f"Unknown model role: {role!r} (expected one of {_MODEL_ROLES})")
     s = get_settings()
+    if role == "render":
+        return {
+            "model": s.render_model,
+            "provider": s.render_provider,
+            "base_url": s.render_host.rstrip("/"),
+            "api_key": s.render_api_key
+        }
     model = {
         "vision": s.vision_model,
         "chat": s.chat_model,

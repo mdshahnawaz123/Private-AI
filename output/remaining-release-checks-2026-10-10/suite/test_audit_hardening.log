@@ -1,0 +1,30 @@
+warning: The `fitz` API is deprecated and will be removed in future. Use `import pymupdf` instead.
+Consider using the pymupdf_layout package for a greatly improved page layout analysis.
+[32m2026-10-11 10:05:09.821[0m | [1mINFO    [0m | [36mdb[0m:[36minit_knowledge_tables[0m:[36m1524[0m - [1mKnowledge Hub tables initialized[0m
+[32m2026-10-11 10:05:09.821[0m | [1mINFO    [0m | [36mdb[0m:[36minit_db[0m:[36m258[0m - [1mDB ready at sqlite:///C:\3EH\ExpoDesignAI - Copy\output\audit-2026-10-06\regression-runtime-d6cd5027\test.db[0m
+[32m2026-10-11 10:05:09.831[0m | [1mINFO    [0m | [36mdb[0m:[36maudit[0m:[36m311[0m - [1mAUDIT project.create user=system project=A target=None detail={'discipline': None}[0m
+[32m2026-10-11 10:05:09.837[0m | [1mINFO    [0m | [36mdb[0m:[36maudit[0m:[36m311[0m - [1mAUDIT project.create user=system project=B target=None detail={'discipline': None}[0m
+[32m2026-10-11 10:05:09.846[0m | [1mINFO    [0m | [36mdb[0m:[36maudit[0m:[36m311[0m - [1mAUDIT folder.create user=system project=A target=Allowed detail=None[0m
+[32m2026-10-11 10:05:09.855[0m | [1mINFO    [0m | [36mdb[0m:[36maudit[0m:[36m311[0m - [1mAUDIT document.upload user=system project=A target=schedule.pdf detail={'chunks': 1}[0m
+test_empty_evidence_never_calls_model (test_audit_hardening.AuditHardening.test_empty_evidence_never_calls_model) ... ok
+test_explicit_retry_recovers_failed_images_without_repeating_completed_pages (test_audit_hardening.AuditHardening.test_explicit_retry_recovers_failed_images_without_repeating_completed_pages) ... [32m2026-10-11 10:05:10.437[0m | [1mINFO    [0m | [36mservices.pipeline[0m:[36mprocess_document_pipeline[0m:[36m121[0m - [1mPhase 5B: Starting bounded visual pipeline for retry.pdf[0m
+[32m2026-10-11 10:05:10.545[0m | [1mINFO    [0m | [36mservices.pipeline[0m:[36mprocess_document_pipeline[0m:[36m121[0m - [1mPhase 5B: Starting bounded visual pipeline for retry.pdf[0m
+ok
+test_failed_image_does_not_abort_remaining_pages_or_claim_ready (test_audit_hardening.AuditHardening.test_failed_image_does_not_abort_remaining_pages_or_claim_ready) ... [32m2026-10-11 10:05:10.600[0m | [1mINFO    [0m | [36mdb[0m:[36maudit[0m:[36m311[0m - [1mAUDIT document.upload user=system project=A target=failure.pdf detail={'chunks': 1}[0m
+[32m2026-10-11 10:05:10.600[0m | [1mINFO    [0m | [36mservices.pipeline[0m:[36mprocess_document_pipeline[0m:[36m121[0m - [1mPhase 5B: Starting bounded visual pipeline for failure.pdf[0m
+[32m2026-10-11 10:05:10.650[0m | [1mINFO    [0m | [36mservices.pipeline[0m:[36mprocess_document_pipeline[0m:[36m121[0m - [1mPhase 5B: Starting bounded visual pipeline for failure.pdf[0m
+ok
+test_health_route_is_unique (test_audit_hardening.AuditHardening.test_health_route_is_unique) ... ok
+test_model_failure_is_error_not_placeholder (test_audit_hardening.AuditHardening.test_model_failure_is_error_not_placeholder) ... ok
+test_no_actor_and_no_folder_cannot_read_records (test_audit_hardening.AuditHardening.test_no_actor_and_no_folder_cannot_read_records) ... [32m2026-10-11 10:05:11.056[0m | [1mINFO    [0m | [36mdb[0m:[36maudit[0m:[36m311[0m - [1mAUDIT user.create user=system project=None target=limited-audit detail={'role': 'user'}[0m
+[32m2026-10-11 10:05:11.062[0m | [1mINFO    [0m | [36mdb[0m:[36maudit[0m:[36m311[0m - [1mAUDIT member.add user=system project=A target=2 detail=None[0m
+ok
+test_project_name_and_id_resolve_same_boundary (test_audit_hardening.AuditHardening.test_project_name_and_id_resolve_same_boundary) ... ok
+test_table_row_retains_tower_header_and_value (test_audit_hardening.AuditHardening.test_table_row_retains_tower_header_and_value) ... ok
+test_tower_and_level_intersect (test_audit_hardening.AuditHardening.test_tower_and_level_intersect) ... ok
+test_upload_rejects_escape_components (test_audit_hardening.AuditHardening.test_upload_rejects_escape_components) ... ok
+
+----------------------------------------------------------------------
+Ran 10 tests in 1.403s
+
+OK

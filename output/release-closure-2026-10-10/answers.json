@@ -1,0 +1,758 @@
+[
+  {
+    "question": "What pressure is specified for PMP-483?",
+    "focus": "pump-spec.pdf",
+    "http": 200,
+    "seconds": 21.906999999991967,
+    "answer": "The pressure specified for **PMP-483** is **685 kPa**.\n\nThis information is found in the document excerpt labeled as a \"SYNTHETIC ENGINEERING TEST - NOT FOR CONSTRUCTION\" (Project code: SYNTH-CLOSURE, Revision C).\n\n[Citation: [SOURCE: pump-spec.pdf | PAGE 1]]\n\nSource qualifications: status DRAFT [SOURCE: pump-spec.pdf | PAGE 1]",
+    "events": [
+      {
+        "type": "sources",
+        "sources": [
+          {
+            "filename": "pump-spec.pdf",
+            "rel": "Documents/pump-spec.pdf",
+            "previewable": true,
+            "exists": true,
+            "revision": null,
+            "filename_revision_hint": null,
+            "doctype": "spec",
+            "page": 1
+          }
+        ]
+      },
+      {
+        "type": "token",
+        "text": "The pressure specified for **PMP-483** is **685 kPa**.\n\nThis information is found in the document excerpt labeled as a \"SYNTHETIC ENGINEERING TEST - NOT FOR CONSTRUCTION\" (Project code: SYNTH-CLOSURE, Revision C).\n\n[Citation: [SOURCE: pump-spec.pdf | PAGE 1]]\n\nSource qualifications: status DRAFT [SOURCE: pump-spec.pdf | PAGE 1]"
+      },
+      {
+        "type": "structured",
+        "data": {
+          "type": "simple_answer",
+          "title": "",
+          "subtitle": "",
+          "summary": "The pressure specified for **PMP-483** is **685 kPa**.\n\nThis information is found in the document excerpt labeled as a \"SYNTHETIC ENGINEERING TEST - NOT FOR CONSTRUCTION\" (Project code: SYNTH-CLOSURE, Revision C).\n\n[Citation: ]\n\nSource qualifications: status DRAFT",
+          "metrics": [],
+          "tables": [],
+          "calculations": [],
+          "issues": [],
+          "sources": [
+            {
+              "document": "pump-spec.pdf",
+              "rel": "Documents/pump-spec.pdf",
+              "page": 1,
+              "section": "",
+              "tile_id": "pump-spec-P01",
+              "bounding_box": null,
+              "revision": ""
+            }
+          ],
+          "confidence": "high"
+        }
+      },
+      {
+        "type": "done"
+      }
+    ],
+    "expected": {
+      "value": "685",
+      "unit": "kPa",
+      "file": "pump-spec.pdf",
+      "page": 1
+    },
+    "pass": true
+  },
+  {
+    "question": "Give the documented pressure for equipment PMP-483.",
+    "focus": "pump-spec.pdf",
+    "http": 200,
+    "seconds": 13.171999999991385,
+    "answer": "Based on the provided documents, the documented pressure for equipment **PMP-483** is **685 kPa**.\n\n*   [SOURCE: pump-spec.pdf | PAGE 1]\n\nSource qualifications: status DRAFT [SOURCE: pump-spec.pdf | PAGE 1]",
+    "events": [
+      {
+        "type": "sources",
+        "sources": [
+          {
+            "filename": "pump-spec.pdf",
+            "rel": "Documents/pump-spec.pdf",
+            "previewable": true,
+            "exists": true,
+            "revision": null,
+            "filename_revision_hint": null,
+            "doctype": "spec",
+            "page": 1
+          }
+        ]
+      },
+      {
+        "type": "token",
+        "text": "Based on the provided documents, the documented pressure for equipment **PMP-483** is **685 kPa**.\n\n*   [SOURCE: pump-spec.pdf | PAGE 1]\n\nSource qualifications: status DRAFT [SOURCE: pump-spec.pdf | PAGE 1]"
+      },
+      {
+        "type": "structured",
+        "data": {
+          "type": "simple_answer",
+          "title": "",
+          "subtitle": "",
+          "summary": "Based on the provided documents, the documented pressure for equipment **PMP-483** is **685 kPa**.\n\n*   \n\nSource qualifications: status DRAFT",
+          "metrics": [],
+          "tables": [],
+          "calculations": [],
+          "issues": [],
+          "sources": [
+            {
+              "document": "pump-spec.pdf",
+              "rel": "Documents/pump-spec.pdf",
+              "page": 1,
+              "section": "",
+              "tile_id": "pump-spec-P01",
+              "bounding_box": null,
+              "revision": ""
+            }
+          ],
+          "confidence": "high"
+        }
+      },
+      {
+        "type": "done"
+      }
+    ],
+    "expected": {
+      "value": "685",
+      "unit": "kPa",
+      "file": "pump-spec.pdf",
+      "page": 1
+    },
+    "pass": true
+  },
+  {
+    "question": "What pressure is specified for AHU-926?",
+    "focus": "ventilation.pdf",
+    "http": 200,
+    "seconds": 21.327999999994063,
+    "answer": "The pressure specified for **AHU-926** is **315 Pa**.\n\n[SOURCE: ventilation.pdf | PAGE 1]\n\nSource qualifications: status PROPOSED [SOURCE: ventilation.pdf | PAGE 1]",
+    "events": [
+      {
+        "type": "sources",
+        "sources": [
+          {
+            "filename": "ventilation.pdf",
+            "rel": "Documents/ventilation.pdf",
+            "previewable": true,
+            "exists": true,
+            "revision": null,
+            "filename_revision_hint": null,
+            "doctype": null,
+            "page": 1
+          }
+        ]
+      },
+      {
+        "type": "token",
+        "text": "The pressure specified for **AHU-926** is **315 Pa**.\n\n[SOURCE: ventilation.pdf | PAGE 1]\n\nSource qualifications: status PROPOSED [SOURCE: ventilation.pdf | PAGE 1]"
+      },
+      {
+        "type": "structured",
+        "data": {
+          "type": "simple_answer",
+          "title": "",
+          "subtitle": "",
+          "summary": "The pressure specified for **AHU-926** is **315 Pa**.\n\n\n\nSource qualifications: status PROPOSED",
+          "metrics": [],
+          "tables": [],
+          "calculations": [],
+          "issues": [],
+          "sources": [
+            {
+              "document": "ventilation.pdf",
+              "rel": "Documents/ventilation.pdf",
+              "page": 1,
+              "section": "",
+              "tile_id": "ventilation-P01",
+              "bounding_box": null,
+              "revision": ""
+            }
+          ],
+          "confidence": "high"
+        }
+      },
+      {
+        "type": "done"
+      }
+    ],
+    "expected": {
+      "value": "315",
+      "unit": "Pa",
+      "file": "ventilation.pdf",
+      "page": 1
+    },
+    "pass": true
+  },
+  {
+    "question": "Give the documented pressure for equipment AHU-926.",
+    "focus": "ventilation.pdf",
+    "http": 200,
+    "seconds": 13.593000000008033,
+    "answer": "Based on the provided documents, the documented pressure for equipment **AHU-926** is **315 Pa**.\n\n*   [SOURCE: ventilation.pdf | PAGE 1]\n\nSource qualifications: status PROPOSED [SOURCE: ventilation.pdf | PAGE 1]",
+    "events": [
+      {
+        "type": "sources",
+        "sources": [
+          {
+            "filename": "ventilation.pdf",
+            "rel": "Documents/ventilation.pdf",
+            "previewable": true,
+            "exists": true,
+            "revision": null,
+            "filename_revision_hint": null,
+            "doctype": null,
+            "page": 1
+          }
+        ]
+      },
+      {
+        "type": "token",
+        "text": "Based on the provided documents, the documented pressure for equipment **AHU-926** is **315 Pa**.\n\n*   [SOURCE: ventilation.pdf | PAGE 1]\n\nSource qualifications: status PROPOSED [SOURCE: ventilation.pdf | PAGE 1]"
+      },
+      {
+        "type": "structured",
+        "data": {
+          "type": "simple_answer",
+          "title": "",
+          "subtitle": "",
+          "summary": "Based on the provided documents, the documented pressure for equipment **AHU-926** is **315 Pa**.\n\n*   \n\nSource qualifications: status PROPOSED",
+          "metrics": [],
+          "tables": [],
+          "calculations": [],
+          "issues": [],
+          "sources": [
+            {
+              "document": "ventilation.pdf",
+              "rel": "Documents/ventilation.pdf",
+              "page": 1,
+              "section": "",
+              "tile_id": "ventilation-P01",
+              "bounding_box": null,
+              "revision": ""
+            }
+          ],
+          "confidence": "high"
+        }
+      },
+      {
+        "type": "done"
+      }
+    ],
+    "expected": {
+      "value": "315",
+      "unit": "Pa",
+      "file": "ventilation.pdf",
+      "page": 1
+    },
+    "pass": true
+  },
+  {
+    "question": "What width is specified for DCT-572?",
+    "focus": "duct-detail.pdf",
+    "http": 200,
+    "seconds": 22.672000000005937,
+    "answer": "The width specified for **DCT-572** is **640 mm**.\n\n[SOURCE: duct-detail.pdf | PAGE 1]\n\nSource qualifications: status PENDING [SOURCE: duct-detail.pdf | PAGE 1]",
+    "events": [
+      {
+        "type": "sources",
+        "sources": [
+          {
+            "filename": "duct-detail.pdf",
+            "rel": "Documents/duct-detail.pdf",
+            "previewable": true,
+            "exists": true,
+            "revision": null,
+            "filename_revision_hint": null,
+            "doctype": "drawing",
+            "page": 1
+          }
+        ]
+      },
+      {
+        "type": "token",
+        "text": "The width specified for **DCT-572** is **640 mm**.\n\n[SOURCE: duct-detail.pdf | PAGE 1]\n\nSource qualifications: status PENDING [SOURCE: duct-detail.pdf | PAGE 1]"
+      },
+      {
+        "type": "structured",
+        "data": {
+          "type": "simple_answer",
+          "title": "",
+          "subtitle": "",
+          "summary": "The width specified for **DCT-572** is **640 mm**.\n\n\n\nSource qualifications: status PENDING",
+          "metrics": [],
+          "tables": [],
+          "calculations": [],
+          "issues": [],
+          "sources": [
+            {
+              "document": "duct-detail.pdf",
+              "rel": "Documents/duct-detail.pdf",
+              "page": 1,
+              "section": "",
+              "tile_id": "duct-detail-P01",
+              "bounding_box": null,
+              "revision": ""
+            }
+          ],
+          "confidence": "high"
+        }
+      },
+      {
+        "type": "done"
+      }
+    ],
+    "expected": {
+      "value": "640",
+      "unit": "mm",
+      "file": "duct-detail.pdf",
+      "page": 1
+    },
+    "pass": true
+  },
+  {
+    "question": "Give the documented width for equipment DCT-572.",
+    "focus": "duct-detail.pdf",
+    "http": 200,
+    "seconds": 13.655999999988126,
+    "answer": "Based on the provided documents, the documented width for equipment **DCT-572** is **640 mm**.\n\n*   [SOURCE: duct-detail.pdf | PAGE 1]\n\nSource qualifications: status PENDING [SOURCE: duct-detail.pdf | PAGE 1]",
+    "events": [
+      {
+        "type": "sources",
+        "sources": [
+          {
+            "filename": "duct-detail.pdf",
+            "rel": "Documents/duct-detail.pdf",
+            "previewable": true,
+            "exists": true,
+            "revision": null,
+            "filename_revision_hint": null,
+            "doctype": "drawing",
+            "page": 1
+          }
+        ]
+      },
+      {
+        "type": "token",
+        "text": "Based on the provided documents, the documented width for equipment **DCT-572** is **640 mm**.\n\n*   [SOURCE: duct-detail.pdf | PAGE 1]\n\nSource qualifications: status PENDING [SOURCE: duct-detail.pdf | PAGE 1]"
+      },
+      {
+        "type": "structured",
+        "data": {
+          "type": "simple_answer",
+          "title": "",
+          "subtitle": "",
+          "summary": "Based on the provided documents, the documented width for equipment **DCT-572** is **640 mm**.\n\n*   \n\nSource qualifications: status PENDING",
+          "metrics": [],
+          "tables": [],
+          "calculations": [],
+          "issues": [],
+          "sources": [
+            {
+              "document": "duct-detail.pdf",
+              "rel": "Documents/duct-detail.pdf",
+              "page": 1,
+              "section": "",
+              "tile_id": "duct-detail-P01",
+              "bounding_box": null,
+              "revision": ""
+            }
+          ],
+          "confidence": "high"
+        }
+      },
+      {
+        "type": "done"
+      }
+    ],
+    "expected": {
+      "value": "640",
+      "unit": "mm",
+      "file": "duct-detail.pdf",
+      "page": 1
+    },
+    "pass": true
+  },
+  {
+    "question": "What diameter is specified for PIP-384?",
+    "focus": "pipe-register.pdf",
+    "http": 200,
+    "seconds": 21.625,
+    "answer": "The diameter specified for **PIP-384** is **125 mm**.\n\n[SOURCE: pipe-register.pdf | PAGE 1]\n\nSource qualifications: status EXISTING [SOURCE: pipe-register.pdf | PAGE 1]",
+    "events": [
+      {
+        "type": "sources",
+        "sources": [
+          {
+            "filename": "pipe-register.pdf",
+            "rel": "Documents/pipe-register.pdf",
+            "previewable": true,
+            "exists": true,
+            "revision": null,
+            "filename_revision_hint": null,
+            "doctype": null,
+            "page": 1
+          }
+        ]
+      },
+      {
+        "type": "token",
+        "text": "The diameter specified for **PIP-384** is **125 mm**.\n\n[SOURCE: pipe-register.pdf | PAGE 1]\n\nSource qualifications: status EXISTING [SOURCE: pipe-register.pdf | PAGE 1]"
+      },
+      {
+        "type": "structured",
+        "data": {
+          "type": "simple_answer",
+          "title": "",
+          "subtitle": "",
+          "summary": "The diameter specified for **PIP-384** is **125 mm**.\n\n\n\nSource qualifications: status EXISTING",
+          "metrics": [],
+          "tables": [],
+          "calculations": [],
+          "issues": [],
+          "sources": [
+            {
+              "document": "pipe-register.pdf",
+              "rel": "Documents/pipe-register.pdf",
+              "page": 1,
+              "section": "",
+              "tile_id": "pipe-register-P01",
+              "bounding_box": null,
+              "revision": ""
+            }
+          ],
+          "confidence": "high"
+        }
+      },
+      {
+        "type": "done"
+      }
+    ],
+    "expected": {
+      "value": "125",
+      "unit": "mm",
+      "file": "pipe-register.pdf",
+      "page": 1
+    },
+    "pass": true
+  },
+  {
+    "question": "Give the documented diameter for equipment PIP-384.",
+    "focus": "pipe-register.pdf",
+    "http": 200,
+    "seconds": 13.015999999988708,
+    "answer": "The documented diameter for equipment **PIP-384** is **125 mm**.\n\nThis information is found in:\n*   [SOURCE: pipe-register.pdf | PAGE 1] (Section: SYNTHETIC ENGINEERING TEST - NOT FOR CONSTRUCTION)\n\nSource qualifications: status EXISTING [SOURCE: pipe-register.pdf | PAGE 1]",
+    "events": [
+      {
+        "type": "sources",
+        "sources": [
+          {
+            "filename": "pipe-register.pdf",
+            "rel": "Documents/pipe-register.pdf",
+            "previewable": true,
+            "exists": true,
+            "revision": null,
+            "filename_revision_hint": null,
+            "doctype": null,
+            "page": 1
+          }
+        ]
+      },
+      {
+        "type": "token",
+        "text": "The documented diameter for equipment **PIP-384** is **125 mm**.\n\nThis information is found in:\n*   [SOURCE: pipe-register.pdf | PAGE 1] (Section: SYNTHETIC ENGINEERING TEST - NOT FOR CONSTRUCTION)\n\nSource qualifications: status EXISTING [SOURCE: pipe-register.pdf | PAGE 1]"
+      },
+      {
+        "type": "structured",
+        "data": {
+          "type": "simple_answer",
+          "title": "",
+          "subtitle": "",
+          "summary": "The documented diameter for equipment **PIP-384** is **125 mm**.\n\nThis information is found in:\n*    (Section: SYNTHETIC ENGINEERING TEST - NOT FOR CONSTRUCTION)\n\nSource qualifications: status EXISTING",
+          "metrics": [],
+          "tables": [],
+          "calculations": [],
+          "issues": [],
+          "sources": [
+            {
+              "document": "pipe-register.pdf",
+              "rel": "Documents/pipe-register.pdf",
+              "page": 1,
+              "section": "",
+              "tile_id": "pipe-register-P01",
+              "bounding_box": null,
+              "revision": ""
+            }
+          ],
+          "confidence": "high"
+        }
+      },
+      {
+        "type": "done"
+      }
+    ],
+    "expected": {
+      "value": "125",
+      "unit": "mm",
+      "file": "pipe-register.pdf",
+      "page": 1
+    },
+    "pass": true
+  },
+  {
+    "question": "What height is specified for TNK-719?",
+    "focus": "tank-note.pdf",
+    "http": 200,
+    "seconds": 13.34299999999348,
+    "answer": "The height specified for **TNK-719** is **8 m**.\n\nThis information is found in the document excerpt labeled as a \"SYNTHETIC ENGINEERING TEST - NOT FOR CONSTRUCTION\" (Project code: SYNTH-CLOSURE, Revision C).\n\n[Citation: [SOURCE: tank-note.pdf | PAGE 1]]\n\nSource qualifications: status TBC [SOURCE: tank-note.pdf | PAGE 1]",
+    "events": [
+      {
+        "type": "sources",
+        "sources": [
+          {
+            "filename": "tank-note.pdf",
+            "rel": "Documents/tank-note.pdf",
+            "previewable": true,
+            "exists": true,
+            "revision": null,
+            "filename_revision_hint": null,
+            "doctype": null,
+            "page": 1
+          }
+        ]
+      },
+      {
+        "type": "token",
+        "text": "The height specified for **TNK-719** is **8 m**.\n\nThis information is found in the document excerpt labeled as a \"SYNTHETIC ENGINEERING TEST - NOT FOR CONSTRUCTION\" (Project code: SYNTH-CLOSURE, Revision C).\n\n[Citation: [SOURCE: tank-note.pdf | PAGE 1]]\n\nSource qualifications: status TBC [SOURCE: tank-note.pdf | PAGE 1]"
+      },
+      {
+        "type": "structured",
+        "data": {
+          "type": "simple_answer",
+          "title": "",
+          "subtitle": "",
+          "summary": "The height specified for **TNK-719** is **8 m**.\n\nThis information is found in the document excerpt labeled as a \"SYNTHETIC ENGINEERING TEST - NOT FOR CONSTRUCTION\" (Project code: SYNTH-CLOSURE, Revision C).\n\n[Citation: ]\n\nSource qualifications: status TBC",
+          "metrics": [],
+          "tables": [],
+          "calculations": [],
+          "issues": [],
+          "sources": [
+            {
+              "document": "tank-note.pdf",
+              "rel": "Documents/tank-note.pdf",
+              "page": 1,
+              "section": "",
+              "tile_id": "tank-note-P01",
+              "bounding_box": null,
+              "revision": ""
+            }
+          ],
+          "confidence": "high"
+        }
+      },
+      {
+        "type": "done"
+      }
+    ],
+    "expected": {
+      "value": "8",
+      "unit": "m",
+      "file": "tank-note.pdf",
+      "page": 1
+    },
+    "pass": true
+  },
+  {
+    "question": "Give the documented height for equipment TNK-719.",
+    "focus": "tank-note.pdf",
+    "http": 200,
+    "seconds": 13.218000000008033,
+    "answer": "The documented height for equipment **TNK-719** is **8 m**.\n\nThis information is found in:\n*   [SOURCE: tank-note.pdf | PAGE 1] (under the section \"SYNTHETIC ENGINEERING TEST - NOT FOR CONSTRUCTION\")\n\nSource qualifications: status TBC [SOURCE: tank-note.pdf | PAGE 1]",
+    "events": [
+      {
+        "type": "sources",
+        "sources": [
+          {
+            "filename": "tank-note.pdf",
+            "rel": "Documents/tank-note.pdf",
+            "previewable": true,
+            "exists": true,
+            "revision": null,
+            "filename_revision_hint": null,
+            "doctype": null,
+            "page": 1
+          }
+        ]
+      },
+      {
+        "type": "token",
+        "text": "The documented height for equipment **TNK-719** is **8 m**.\n\nThis information is found in:\n*   [SOURCE: tank-note.pdf | PAGE 1] (under the section \"SYNTHETIC ENGINEERING TEST - NOT FOR CONSTRUCTION\")\n\nSource qualifications: status TBC [SOURCE: tank-note.pdf | PAGE 1]"
+      },
+      {
+        "type": "structured",
+        "data": {
+          "type": "simple_answer",
+          "title": "",
+          "subtitle": "",
+          "summary": "The documented height for equipment **TNK-719** is **8 m**.\n\nThis information is found in:\n*    (under the section \"SYNTHETIC ENGINEERING TEST - NOT FOR CONSTRUCTION\")\n\nSource qualifications: status TBC",
+          "metrics": [],
+          "tables": [],
+          "calculations": [],
+          "issues": [],
+          "sources": [
+            {
+              "document": "tank-note.pdf",
+              "rel": "Documents/tank-note.pdf",
+              "page": 1,
+              "section": "",
+              "tile_id": "tank-note-P01",
+              "bounding_box": null,
+              "revision": ""
+            }
+          ],
+          "confidence": "high"
+        }
+      },
+      {
+        "type": "done"
+      }
+    ],
+    "expected": {
+      "value": "8",
+      "unit": "m",
+      "file": "tank-note.pdf",
+      "page": 1
+    },
+    "pass": true
+  },
+  {
+    "question": "What thickness is specified for WAL-628?",
+    "focus": "wall-detail.pdf",
+    "http": 200,
+    "seconds": 14.875,
+    "answer": "The thickness specified for **WAL-628** is **225 mm**.\n\nThis information is found in:\n*   [SOURCE: wall-detail.pdf | PAGE 1]\n\n*(Note: The document states this value is from a \"SYNTHETIC ENGINEERING TEST\" and is currently in \"Draft\" status, with values remaining subject to independent engineering review.)*\n\nSource qualifications: status DRAFT [SOURCE: wall-detail.pdf | PAGE 1]",
+    "events": [
+      {
+        "type": "sources",
+        "sources": [
+          {
+            "filename": "wall-detail.pdf",
+            "rel": "Documents/wall-detail.pdf",
+            "previewable": true,
+            "exists": true,
+            "revision": null,
+            "filename_revision_hint": null,
+            "doctype": "drawing",
+            "page": 1
+          }
+        ]
+      },
+      {
+        "type": "token",
+        "text": "The thickness specified for **WAL-628** is **225 mm**.\n\nThis information is found in:\n*   [SOURCE: wall-detail.pdf | PAGE 1]\n\n*(Note: The document states this value is from a \"SYNTHETIC ENGINEERING TEST\" and is currently in \"Draft\" status, with values remaining subject to independent engineering review.)*\n\nSource qualifications: status DRAFT [SOURCE: wall-detail.pdf | PAGE 1]"
+      },
+      {
+        "type": "structured",
+        "data": {
+          "type": "simple_answer",
+          "title": "",
+          "subtitle": "",
+          "summary": "The thickness specified for **WAL-628** is **225 mm**.\n\nThis information is found in:\n*   \n\n*(Note: The document states this value is from a \"SYNTHETIC ENGINEERING TEST\" and is currently in \"Draft\" status, with values remaining subject to independent engineering review.)*\n\nSource qualifications: status DRAFT",
+          "metrics": [],
+          "tables": [],
+          "calculations": [],
+          "issues": [],
+          "sources": [
+            {
+              "document": "wall-detail.pdf",
+              "rel": "Documents/wall-detail.pdf",
+              "page": 1,
+              "section": "",
+              "tile_id": "wall-detail-P01",
+              "bounding_box": null,
+              "revision": ""
+            }
+          ],
+          "confidence": "high"
+        }
+      },
+      {
+        "type": "done"
+      }
+    ],
+    "expected": {
+      "value": "225",
+      "unit": "mm",
+      "file": "wall-detail.pdf",
+      "page": 1
+    },
+    "pass": true
+  },
+  {
+    "question": "Give the documented thickness for equipment WAL-628.",
+    "focus": "wall-detail.pdf",
+    "http": 200,
+    "seconds": 22.860000000000582,
+    "answer": "The documented thickness for equipment **WAL-628** is **225 mm**.\n\n[SOURCE: wall-detail.pdf | PAGE 1]\n\nSource qualifications: status DRAFT [SOURCE: wall-detail.pdf | PAGE 1]",
+    "events": [
+      {
+        "type": "sources",
+        "sources": [
+          {
+            "filename": "wall-detail.pdf",
+            "rel": "Documents/wall-detail.pdf",
+            "previewable": true,
+            "exists": true,
+            "revision": null,
+            "filename_revision_hint": null,
+            "doctype": "drawing",
+            "page": 1
+          }
+        ]
+      },
+      {
+        "type": "token",
+        "text": "The documented thickness for equipment **WAL-628** is **225 mm**.\n\n[SOURCE: wall-detail.pdf | PAGE 1]\n\nSource qualifications: status DRAFT [SOURCE: wall-detail.pdf | PAGE 1]"
+      },
+      {
+        "type": "structured",
+        "data": {
+          "type": "simple_answer",
+          "title": "",
+          "subtitle": "",
+          "summary": "The documented thickness for equipment **WAL-628** is **225 mm**.\n\n\n\nSource qualifications: status DRAFT",
+          "metrics": [],
+          "tables": [],
+          "calculations": [],
+          "issues": [],
+          "sources": [
+            {
+              "document": "wall-detail.pdf",
+              "rel": "Documents/wall-detail.pdf",
+              "page": 1,
+              "section": "",
+              "tile_id": "wall-detail-P01",
+              "bounding_box": null,
+              "revision": ""
+            }
+          ],
+          "confidence": "high"
+        }
+      },
+      {
+        "type": "done"
+      }
+    ],
+    "expected": {
+      "value": "225",
+      "unit": "mm",
+      "file": "wall-detail.pdf",
+      "page": 1
+    },
+    "pass": true
+  }
+]

@@ -1,0 +1,33 @@
+{
+  "run": 82,
+  "failures": [
+    [
+      "test_parking_missing_or_conflicting_category_is_not_guessed (test_exact_answers.SourceTableAnswers.test_parking_missing_or_conflicting_category_is_not_guessed)",
+      "Traceback (most recent call last):\n  File \"C:\\3EH\\ExpoDesignAI - Copy\\tests\\test_exact_answers.py\", line 24, in test_parking_missing_or_conflicting_category_is_not_guessed\n    self.assertEqual(self.answer('parking required normal bays',table)['status'],'AMBIGUOUS')\nAssertionError: 'NOT_FOUND' != 'AMBIGUOUS'\n- NOT_FOUND\n+ AMBIGUOUS\n\n"
+    ],
+    [
+      "test_conditional_approval_cannot_be_promoted_to_unconditional (test_interpretation_gate.InterpretationGateTests.test_conditional_approval_cannot_be_promoted_to_unconditional)",
+      "Traceback (most recent call last):\n  File \"C:\\3EH\\ExpoDesignAI - Copy\\tests\\test_interpretation_gate.py\", line 24, in test_conditional_approval_cannot_be_promoted_to_unconditional\n    self.assertTrue(publication_issues('Approved. [SOURCE: synthetic.pdf | PAGE 1]',evidence,sources))\nAssertionError: [] is not true\n"
+    ],
+    [
+      "test_generic_approved_column_does_not_establish_authority (test_interpretation_gate.InterpretationGateTests.test_generic_approved_column_does_not_establish_authority)",
+      "Traceback (most recent call last):\n  File \"C:\\3EH\\ExpoDesignAI - Copy\\tests\\test_interpretation_gate.py\", line 29, in test_generic_approved_column_does_not_establish_authority\n    self.assertTrue(publication_issues('The design is approved. [SOURCE: synthetic.pdf | PAGE 1]',evidence,[{'source':'synthetic.pdf','page':1}]))\nAssertionError: [] is not true\n"
+    ]
+  ],
+  "errors": [
+    [
+      "test_unsupported_calculation_never_falls_through_to_model (test_calculations.Calculations.test_unsupported_calculation_never_falls_through_to_model)",
+      "Traceback (most recent call last):\n  File \"C:\\3EH\\ExpoDesignAI - Copy\\tests\\test_calculations.py\", line 24, in test_unsupported_calculation_never_falls_through_to_model\n    self.assertEqual(exact_answer(query,[])['status'],'UNSUPPORTED')\n                     ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^\nTypeError: 'NoneType' object is not subscriptable\n"
+    ],
+    [
+      "test_visual_evidence_is_saved_before_index_publication (test_ingestion_publication_order.IngestionPublicationOrder.test_visual_evidence_is_saved_before_index_publication)",
+      "Traceback (most recent call last):\n  File \"C:\\3EH\\ExpoDesignAI - Copy\\tests\\test_ingestion_publication_order.py\", line 44, in test_visual_evidence_is_saved_before_index_publication\n    scope['process_document']('A',path,'source.pdf','','Reports')\n  File \"audited-ingestion-function\", line 2562, in process_document\nAttributeError: 'types.SimpleNamespace' object has no attribute 'set_progress'\n"
+    ],
+    [
+      "test_configured_page_limit_and_truncation_cannot_publish_ready (test_release_recovery.ReleaseRecovery.test_configured_page_limit_and_truncation_cannot_publish_ready)",
+      "Traceback (most recent call last):\n  File \"C:\\3EH\\ExpoDesignAI - Copy\\tests\\test_release_recovery.py\", line 23, in test_configured_page_limit_and_truncation_cannot_publish_ready\n    scope['process_document']('Synthetic',path,'source.pdf','','Reports')\n  File \"document-pipeline\", line 2562, in process_document\nAttributeError: 'types.SimpleNamespace' object has no attribute 'set_progress'\n"
+    ]
+  ],
+  "skipped": [],
+  "excluded": "drawing/BIM/CAD/report/agent/cowork; audit_hardening separately"
+}

@@ -1,0 +1,1817 @@
+[PAGE 1]
+SQ.M.
+SQ.FT.
+SQ.M.
+SQ.FT.
+ITEM
+REQUIRED
+PROPOSED
+SQ.M.
+SQ.FT.
+SQ.M.
+SQ.FT.
+39,681.19
+              
+427,124.36
+           
+1 Basement 1
+32,031.40
+                      
+344,782.79
+                   
+Units less than 150 sqm
+801
+803
+2.77
+                          
+-
+2 Ground Floor
+18,022.20
+                      
+193,989.16
+                   
+Units more than 150 sqm
+6
+6
+1 1 Bedroom
+227
+28.23%
+83.07
+                  
+894.16
+               
+71.48
+                       
+769.40
+                  
+-
+                             
+-
+                             
+3 1st Floor
+11,774.20
+                      
+126,736.31
+                   
+Tandem
+152
+151
+2 2 Bedroom
+422
+52.49%
+157.97
+               
+1,700.42
+           
+135.12
+                    
+1,454.37
+              
+110,000.00
+            
+1,184,029.00
+       
+4 2nd Floor
+12,177.29
+                      
+131,075.13
+                   
+Retail
+29
+29
+3 3 Bedroom
+155
+19.28%
+150.78
+               
+1,622.98
+           
+128.04
+                    
+1,378.21
+              
+5 3rd Floor
+12,177.29
+                      
+131,075.13
+                   
+Visitors
+15
+15
+4 4 Bedroom
+0
+0
+-
+                       
+-
+                       
+-
+                            
+-
+                         
+105,175.30
+            
+1,132,096.41
+       
+6 4th Floor
+12,177.29
+                      
+131,075.13
+                   
+VAN PARKING
+-
+8
+5 5 Bedroom
+0
+0
+-
+                       
+-
+                       
+-
+                            
+-
+                         
+Residential:
+103,175.30
+            
+1,110,568.61
+       
+7 5th Floor
+11,811.89
+                      
+127,142.00
+                   
+TOTAL
+1003
+1012
+804
+100%
+391.82
+                 
+4,217.56
+            
+334.64
+                       
+3,601.98
+               
+Retail:
+2,000.00
+                 
+21,527.80
+              
+8 6th Floor
+10,729.29
+                      
+115,489.00
+                   
+Bicycle Parking
+353 RACKS
+353 RACKS
+5
+-
+                       
+1,129.00
+                
+12,152.44
+           
+9 7th Floor
+10,385.09
+                      
+111,784.07
+                   
+Motorbikes Parking
+5
+5
+5
+-
+                       
+871.00
+                    
+9,375.36
+              
+173,494.10
+            
+1,867,473.14
+       
+10 8th Floor
+10,106.77
+                      
+108,788.26
+                   
+POD Parking
+21
+22
+Project ID:
+10
+0%
+-
+                          
+-
+                          
+2,000.00
+                  
+21,527.80
+            
+Podium:
+37,809.20
+              
+406,974.45
+           
+11 9th Floor
+8,938.94
+                         
+96,217.90
+                      
+EV Parking
+22
+22
+Project Name:
+Towers:
+135,684.90
+            
+1,460,498.70
+       
+12 10th Floor
+7,147.88
+                         
+76,939.09
+                      
+Preferred Parking
+63
+64
+Plot No. :
+13 11th Floor
+7,080.68
+                         
+76,215.75
+                      
+Bldg. Height-DMD Level (M):
+NO.
+%
+103,027.10
+            
+1,108,973.40
+       
+14 12th Floor
+4,054.18
+                         
+43,638.81
+                      
+Bldg. Height-Design Level (M):
+SQ.M.
+SQ.FT.
+SQ.M.
+SQ.FT.
+Residential:
+             101,027.10 
+1,087,445.60
+       
+15 13th Floor
+3,537.30
+                         
+38,075.14
+                      
+1 1BD
+227
+28.2%
+83.08
+                  
+894.26
+               
+71.48
+                       
+769.44
+                  
+Retail:
+2,000.00
+                 
+21,527.80
+              
+16 14th Floor
+1,290.70
+                         
+13,892.97
+                      
+2 2BR-Type 1 (Rectangular)
+84
+10.4%
+126.91
+               
+1,366.05
+           
+107.81
+                    
+1,160.46
+              
+17 Roof
+51.70
+                               
+556.49
+                             
+3 2BR-Type 1A (Rectangular)
+80
+10.0%
+124.38
+               
+1,338.81
+           
+107.78
+                    
+1,160.13
+              
+173,494.10
+                     
+1,867,473.14
+                 
+4 2BR-Type 2 (Square)
+81
+10.1%
+137.24
+               
+1,477.24
+           
+116.64
+                    
+1,255.50
+              
+5 2BR-Type 3 (L Shaped)
+84
+10.4%
+137.00
+               
+1,474.65
+           
+116.40
+                    
+1,252.92
+              
+6 2BR-Type 4 (Corner) 
+81
+10.1%
+126.12
+               
+1,357.59
+           
+107.02
+                    
+1,152.00
+              
+SQ.M.
+SQ.FT.
+LEVEL
+7 2BR-Type 5 (Tower 07)
+12
+1.5%
+137.24
+               
+1,477.24
+           
+116.64
+                    
+1,255.50
+              
+1 Basement 1
+32,031.43
+                      
+344,783.11
+                   
+Basement/Podium 2
+na
+8 3BR-Type1 (Side)
+95
+11.8%
+169.25
+               
+1,821.79
+           
+143.85
+                    
+1,548.39
+              
+NSA/GFA
+2
+Podium Landscape
++Guard House
+5,777.75
+                         
+62,191.12
+                      
+Basement/Podium 1 
+807
+9 3BR-Type2 (Center)
+57
+7.1%
+175.16
+               
+1,885.44
+           
+148.86
+                    
+1,602.35
+              
+3
+Tower - 1
+2951-G+5
+8,932.18
+                         
+96,145.09
+                      
+9 3BR-Type 2A (Center-First Floor)
+3
+0.4%
+177.54
+               
+1,911.04
+           
+151.24
+                    
+1,627.95
+              
+4
+Tower - 2
+2952-G+7
+13,321.91
+                      
+143,395.71
+                   
+804
+100.0%
+1,393.93
+            
+15,004.11
+         
+1,187.73
+                  
+12,784.63
+            
+5
+Tower - 3
+2953-G+8
+14,940.21
+                      
+160,814.93
+                   
+TOTAL
+1012
+6
+Tower - 4
+2954-G+10
+17,771.70
+                      
+191,292.80
+                   
+7
+Tower -5
+2955-G+13
+22,235.75
+                      
+239,343.39
+                   
+SQ.M.
+%
+8
+Tower-6
+2956-G+12
+19,961.69
+                      
+214,865.63
+                   
+LEVEL
+SQ.M.
+SQ.FT.
+SQ.M.
+SQ.FT.
+4846.89
+25.49%
+9
+Tower -7
+2957-G+12
+21,215.84
+                      
+228,365.18
+                   
+Basement/Podium 1
+1 Retail 1
+217.00
+               
+2,335.77
+           
+217.00
+                    
+2,335.77
+              
+14171.38
+74.51%
+10 Tower - 8
+2958-G+10
+17,305.64
+                      
+186,276.18
+                   
+Ground Floor
+2 F&B 1
+184.00
+               
+1,980.56
+           
+184.00
+                    
+1,980.56
+              
+19,018.27
+              
+173,494.10
+                     
+1,867,473.14
+                 
+TOTAL
+3 F&B 2
+204.00
+               
+2,195.84
+           
+204.00
+                    
+2,195.84
+              
+4 Retail 2
+339.00
+               
+3,648.96
+           
+339.00
+                    
+3,648.96
+              
+5 Retail 3
+148.00
+               
+1,593.06
+           
+148.00
+                    
+1,593.06
+              
+SQ.M.
+SQ.FT.
+SQ.M.
+SQ.FT.
+LEVEL
+6 Retail 4
+215.00
+               
+2,314.24
+           
+215.00
+                    
+2,314.24
+              
+1
+Basement 1
+80.70
+                        
+868.65
+                     
+1 Basement 1
+-
+                                    
+-
+                                    
+Basement/Podium 1
+7 Retail 5
+160.00
+               
+1,722.22
+           
+160.00
+                    
+1,722.22
+              
+2
+Ground Floor
+5,382.10
+                 
+57,932.39
+              
+2 Ground Floor
+1,883.72
+                         
+20,276.17
+                      
+Ground Floor
+8 F&B 3
+203.00
+               
+2,185.07
+           
+203.00
+                    
+2,185.07
+              
+3
+1st Floor
+9,753.10
+                 
+104,981.39
+           
+3 1st Floor
+10,310.40
+                      
+110,980.11
+                   
+TOTAL
+9 F&B 4
+150.00
+               
+1,614.59
+           
+150.00
+                    
+1,614.59
+              
+4
+2nd Floor
+9,873.51
+                 
+106,277.45
+           
+4 2nd Floor
+10,010.88
+                      
+107,756.11
+                   
+10 F&B 5
+130.00
+               
+1,399.31
+           
+130.00
+                    
+1,399.31
+              
+5
+3rd Floor
+9,873.51
+                 
+106,277.45
+           
+5 3rd Floor
+10,010.88
+                      
+107,756.11
+                   
+11 Retail visitor toilets
+50.00
+                  
+538.20
+               
+50.00
+                       
+538.20
+                  
+6
+4th Floor
+9,873.51
+                 
+106,277.45
+           
+6 4th Floor
+10,010.88
+                      
+107,756.11
+                   
+USAGE
+2,000.00
+            
+21,527.80
+         
+2,000.00
+                  
+21,527.80
+            
+7
+5th Floor
+9,567.31
+                 
+102,981.55
+           
+7 5th Floor
+9,663.88
+                         
+104,020.98
+                   
+Residential Area
+8
+6th Floor
+8,644.11
+                 
+93,044.31
+              
+8 6th Floor
+8,764.48
+                         
+94,339.93
+                      
+Retail Area
+9
+7th Floor
+8,410.69
+                 
+90,531.80
+              
+9 7th Floor
+8,507.85
+                         
+91,577.59
+                      
+TOTAL
+SQ.M.
+SQ.FT.
+SQ.M.
+SQ.FT.
+10 8th Floor
+8,176.34
+                 
+88,009.28
+              
+10 8th Floor
+8,251.13
+                         
+88,814.32
+                      
+1 Multipurpose Hall
+221.00
+               
+2,378.82
+           
+221.00
+                    
+2,378.82
+              
+11 9th Floor
+7,182.24
+                 
+77,308.89
+              
+11 9th Floor
+7,262.28
+                         
+78,170.43
+                      
+2 Indoor Games Room
+69.55
+                  
+748.63
+               
+69.55
+                       
+748.63
+                  
+12 10th Floor
+5,719.81
+                 
+61,567.50
+              
+12 10th Floor
+5,758.89
+                         
+61,988.13
+                      
+USAGE
+3 Kids Club, Play area & Toilets
+377.83
+               
+4,066.92
+           
+377.83
+                    
+4,066.92
+              
+13 11th Floor
+5,719.81
+                 
+61,567.50
+              
+13 11th Floor
+5,758.89
+                         
+61,988.13
+                      
+Passenger Lift
+4 Main Gym
+348.39
+               
+3,750.04
+           
+348.39
+                    
+3,750.04
+              
+14 12th Floor
+3,147.94
+                 
+33,884.10
+              
+14 12th Floor
+3,137.17
+                         
+33,768.23
+                      
+Service Lift/Fireman's Lift
+5 Sattelite Gym 01
+153.19
+               
+1,648.92
+           
+153.19
+                    
+1,648.92
+              
+15 13th Floor
+2,843.97
+                 
+30,612.18
+              
+15 13th Floor
+2,790.78
+                         
+30,039.71
+                      
+Waste Transfer Lift
+6 Sattelite Gym 02
+112.88
+               
+1,215.03
+           
+112.88
+                    
+1,215.03
+              
+16 14th Floor
+926.67
+                     
+9,974.55
+                 
+16 14th Floor
+905.00
+                             
+9,741.33
+                         
+External Lift
+7 Prayer Rooms
+76.25
+                  
+820.75
+               
+76.25
+                       
+820.75
+                  
+17 Roof
+-
+                             
+-
+                             
+17 Roof
+-
+                                    
+-
+                                    
+1,359.09
+            
+14,629.11
+         
+1,359.09
+                  
+14,629.11
+            
+105,175.30
+             
+1,132,096.44
+        
+103,027.10
+                     
+1,108,973.40
+                 
+TOTAL
+188 sqm Leasable store in GF, 12 sqm in B
+24
+BICYCLE PARKING DISTRIBUTION
+269 RACKS
+84 RACKS
+353
+GARBAGE CALCULATION
+31
+31
+1
+1
+9
+8 (Multipurpose/ SE/PE/FL)
+8(Multipurpose/ SE/PE/FL)
+1
+1
+REQUIRED
+9
+REQUIRED
+PROPOSED
+TOTAL
+CONSULTANTS
+SSH
+19
+19
+Including 22 slots for Tandem
+Notes:-
+EV, POD, Prefered Parking  (Distributed proportionately near each building)
+- 2% POD
+- 2 % Electric Vehicles parking  
+- 7% preferred parking per asset ( Hybrid/ Car share )
+SSH
+Fire & Life Safety
+Design Confidence
+Civil Works
+Interior Design
+SSH
+Lighting
+Landscape
+Supervision Consultant
+SSH
+CONSTRUCTION:
+MEP
+Structural (3rd Party)
+Platinum
+Signage & Wayfinding
+The Design Company
+Security
+Sustainability
+Traffic Impact (TIS)
+Al Turath
+Dunbar & Boardman
+NAME
+CONTACT PERSON
+EMAIL
+LET
+Infrastructure
+SSH
+Façade & BMU
+Fencon
+SSH
+DESIGN:
+Acoustic
+Inhabit
+Main Consultant
+Structural
+Main Contractor
+AMENITIES AREA BREAKDOWN
+SSH
+10.75%
+8.00%
+10.15%
+7.50%
+6.50%
+2.50%
+TOTAL
+100%
+SSH
+16.26%
+27.80%
+Vertical Transportation
+Others
+25.63%
+Architect-of-Record
+Project Phase:
+Stage 1
+(Initiation)
+Stage 2
+(Concept)
+SSH
+Building Usage:
+Residential
+10.85%
+Stage 3
+(Development)
+Stage 4
+(Technical)
+Stage 5
+(Construction)
+TOTAL
+LANDSCAPE AREA RATIO
+Mixed-Use
+Building Area Coverage Percentage:
+97.75 m
+97.96%
+97.00 m
+60.62%
+GFA/BUA 
+NSA/BUA
+AREA EFFICIENCY
+ITEM
+%
+Max. allowed height 97 m from DMD level (97.7 m as per DCAA NOC)
+Affection Plan Restrictions:
+(e.g. Setbacks, Parking, Building Height)
+Project Description:
+8 residential buildings on partial podium area and one basement floor with 2000 sq.m. 
+retail area including 804 units. 
+Max. GFA 110000 sq.m. 
+Commercial
+Hotel
+Others
+59.38%
+801
+TOTAL
+RESIDENTIAL UNIT BREAKDOWN
+ITEM
+INCL. BALCONY
+EXCL. BALCONY
+TOTAL
+C3045
+EXPO VALLEY VIEWS
+5210986
+FAR Allowed:
+3
+FAR Proposed:
+10
+GFA Allowed:
+Residential Units:
+Retail Units:
+F&B Units:
+5.12%
+Date:
+10/06/2026
+ITEM
+ITEM
+NO.
+"C3045 Expo Valley Views"
+PROJECT DATA SHEET
+GENERAL INFORMATION
+AREA STATEMENT SUMMARY
+PARKING/GARBAGE/LIFT SUMMARY
+PROJECT DATA
+AREA STATEMENT SUMMARY
+BUILT-UP AREA BREAKDOWN (Per Level)
+PARKING CALCULATION
+ITEM
+NO.
+%
+INCL. BALCONY
+EXCL. BALCONY
+UNIT TYPE SUMMARY
+ASSETS MATRIX
+Document Revision No.:
+3
+Plot Area:
+ITEM
+%
+EXCL. OUTDOOR
+TOTAL
+ITEM
+%
+INCL. OUTDOOR
+EXCL. OUTDOOR
+9.20%
+ITEM
+GROSS FLOOR AREA BREAKDOWN
+Softscape
+ITEM
+Hardscape
+INCL. OUTDOOR
+1
+1
+1 per Lobby, 1 in Retail zone, 1 in visitor zone
+PROPOSED
+1-3 per Lobby as per calculations
+NO.
+NO.
+32
+32
+ACCESIBLE PARKING DISTRIBUTION
+BUILT-UP AREA BREAKDOWN (Per Tower)
+ITEM
+Including 129 slots for Tandem & 8 slots for Van parking
+RETAIL UNIT BREAKDOWN
+NET SELLABLE AREA BREAKDOWN
+ITEM
+8.31%
+5.61%
+100%
+TOTAL
+10.20%
+16.95%
+7.40%
+LIFT CALCULATION
+TOTAL
+TOTAL
+TOTAL
+11.27%
+GFA Proposed:
+BUA Proposed:
+NSA Proposed: 
+PARKING DISTRIBUTION
+NO.
+Ground Floor
+205
+              10/06/2026
+PROJECT DATA SHEET-2025 (V1)
+[TABLES]
+"C3045 Expo Valley Views" PROJECT DATA SHEET
+| GENERAL INFORMATION |  |  |
+| --- | --- | --- |
+| PROJECT DATA |  |  |
+| Date: |  | 10/06/2026 |
+| Document Revision No.: |  | 3 |
+| Project ID: |  | C3045 |
+| Project Name: |  | EXPO VALLEY VIEWS |
+| Plot No. : |  | 5210986 |
+| Bldg. Height-DMD Level (M): |  | 97.75 m |
+| Bldg. Height-Design Level (M): |  | 97.00 m |
+| Project Description: |  | 8 residential buildings on partial podium area and one basement floor with 2000 sq.m. retail area including 804 units. |
+| Building Area Coverage Percentage: |  |  |
+| Affection Plan Restrictions: |  | Max. GFA 110000 sq.m. |
+| (e.g. Setbacks, Parking, Building Height) |  | Max. allowed height 97 m from DMD level (97.7 m as per DCAA NOC) |
+
+| ASSETS MATRIX |  |  |  |  |  |  |  |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| UNIT TYPE SUMMARY |  |  |  |  |  |  |  |
+| ITEM |  | NO. | % | INCL. BALCONY |  | EXCL. BALCONY |  |
+|  |  |  |  | SQ.M. | SQ.FT. | SQ.M. | SQ.FT. |
+| Residential Units: |  |  |  |  |  |  |  |
+| 1 | 1 Bedroom | 227 | 28.23% | 83.07 | 894.16 | 71.48 | 769.40 |
+| 2 | 2 Bedroom | 422 | 52.49% | 157.97 | 1,700.42 | 135.12 | 1,454.37 |
+| 3 | 3 Bedroom | 155 | 19.28% | 150.78 | 1,622.98 | 128.04 | 1,378.21 |
+| 4 | 4 Bedroom | 0 | 0 | - | - | - | - |
+| 5 | 5 Bedroom | 0 | 0 | - | - | - | - |
+| TOTAL |  | 804 | 100% | 391.82 | 4,217.56 | 334.64 | 3,601.98 |
+| Retail Units: |  | 5 |  |  | - | 1,129.00 | 12,152.44 |
+| F&B Units: |  | 5 |  |  | - | 871.00 | 9,375.36 |
+| TOTAL |  | 10 | 0% | - | - | 2,000.00 | 21,527.80 |
+| RESIDENTIAL UNIT BREAKDOWN |  |  |  |  |  |  |  |
+| ITEM |  | NO. | % | INCL. BALCONY |  | EXCL. BALCONY |  |
+|  |  |  |  | SQ.M. | SQ.FT. | SQ.M. | SQ.FT. |
+| 1 | 1BD | 227 | 28.2% | 83.08 | 894.26 | 71.48 | 769.44 |
+| 2 | 2BR-Type 1 (Rectangular) | 84 | 10.4% | 126.91 | 1,366.05 | 107.81 | 1,160.46 |
+| 3 | 2BR-Type 1A (Rectangular) | 80 | 10.0% | 124.38 | 1,338.81 | 107.78 | 1,160.13 |
+| 4 | 2BR-Type 2 (Square) | 81 | 10.1% | 137.24 | 1,477.24 | 116.64 | 1,255.50 |
+| 5 | 2BR-Type 3 (L Shaped) | 84 | 10.4% | 137.00 | 1,474.65 | 116.40 | 1,252.92 |
+| 6 | 2BR-Type 4 (Corner) | 81 | 10.1% | 126.12 | 1,357.59 | 107.02 | 1,152.00 |
+| 7 | 2BR-Type 5 (Tower 07) | 12 | 1.5% | 137.24 | 1,477.24 | 116.64 | 1,255.50 |
+| 8 | 3BR-Type1 (Side) | 95 | 11.8% | 169.25 | 1,821.79 | 143.85 | 1,548.39 |
+| 9 | 3BR-Type2 (Center) | 57 | 7.1% | 175.16 | 1,885.44 | 148.86 | 1,602.35 |
+| 9 | 3BR-Type 2A (Center-First Floor) | 3 | 0.4% | 177.54 | 1,911.04 | 151.24 | 1,627.95 |
+| TOTAL |  | 804 | 100.0% | 1,393.93 | 15,004.11 | 1,187.73 | 12,784.63 |
+
+| AREA STATEMENT SUMMARY |  |  |  |  |  |  |  |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| AREA STATEMENT SUMMARY |  |  |  | BUILT-UP AREA BREAKDOWN (Per Level) |  |  |  |
+| ITEM |  | SQ.M. | SQ.FT. | ITEM |  | SQ.M. | SQ.FT. |
+| Plot Area: |  | 39,681.19 | 427,124.36 | 1 | Basement 1 | 32,031.40 | 344,782.79 |
+| FAR Allowed: |  | 2.77 | - | 2 | Ground Floor | 18,022.20 | 193,989.16 |
+| FAR Proposed: |  | - | - | 3 | 1st Floor | 11,774.20 | 126,736.31 |
+| GFA Allowed: |  | 110,000.00 | 1,184,029.00 | 4 | 2nd Floor | 12,177.29 | 131,075.13 |
+|  |  |  |  | 5 | 3rd Floor | 12,177.29 | 131,075.13 |
+| GFA Proposed: |  | 105,175.30 | 1,132,096.41 | 6 | 4th Floor | 12,177.29 | 131,075.13 |
+|  | Residential: | 103,175.30 | 1,110,568.61 | 7 | 5th Floor | 11,811.89 | 127,142.00 |
+|  | Retail: | 2,000.00 | 21,527.80 | 8 | 6th Floor | 10,729.29 | 115,489.00 |
+|  |  |  |  | 9 | 7th Floor | 10,385.09 | 111,784.07 |
+| BUA Proposed: |  | 173,494.10 | 1,867,473.14 | 10 | 8th Floor | 10,106.77 | 108,788.26 |
+|  | Podium: | 37,809.20 | 406,974.45 | 11 | 9th Floor | 8,938.94 | 96,217.90 |
+|  | Towers: | 135,684.90 | 1,460,498.70 | 12 | 10th Floor | 7,147.88 | 76,939.09 |
+|  |  |  |  | 13 | 11th Floor | 7,080.68 | 76,215.75 |
+| NSA Proposed: |  | 103,027.10 | 1,108,973.40 | 14 | 12th Floor | 4,054.18 | 43,638.81 |
+|  | Residential: | 101,027.10 | 1,087,445.60 | 15 | 13th Floor | 3,537.30 | 38,075.14 |
+|  | Retail: | 2,000.00 | 21,527.80 | 16 | 14th Floor | 1,290.70 | 13,892.97 |
+|  |  |  |  | 17 | Roof | 51.70 | 556.49 |
+|  |  |  |  | TOTAL |  | 173,494.10 | 1,867,473.14 |
+
+| PARKING/GARBAGE/LIFT SUMMARY |  |  |  |
+| --- | --- | --- | --- |
+| PARKING CALCULATION |  |  |  |
+| ITEM | NO. | REQUIRED | PROPOSED |
+| Units less than 150 sqm | 801 | 801 | 803 |
+| Units more than 150 sqm | 3 | 6 | 6 |
+| Tandem |  | 152 | 151 |
+| Retail | 10 | 29 | 29 |
+| Visitors |  | 15 | 15 |
+| VAN PARKING |  | - | 8 |
+| TOTAL |  | 1003 | 1012 |
+| Bicycle Parking |  | 353 RACKS | 353 RACKS |
+| Motorbikes Parking |  | 5 | 5 |
+| POD Parking |  | 21 | 22 |
+| EV Parking |  | 22 | 22 |
+| Preferred Parking |  | 63 | 64 |
+| Notes:- EV, POD, Prefered Parking (Distributed proportionately near each building) - 2% POD - 2 % Electric Vehicles parking - 7% preferred parking per asset ( Hybrid/ Car share ) |  |  |  |
+| PARKING DISTRIBUTION |  |  |  |
+| LEVEL | NO. |  |  |
+| Basement/Podium 2 | na |  |  |
+| Basement/Podium 1 | 807 Including 129 slots for Tandem & 8 slots for Van parking |  |  |
+| Ground Floor | 205 Including 22 slots for Tandem |  |  |
+| TOTAL | 1012 |  |  |
+
+Retail: 2,000.00 21,527.80
+| AREA EFFICIENCY |  |
+| --- | --- |
+| ITEM | % |
+| GFA/BUA | 60.62% |
+| NSA/GFA | 97.96% |
+| NSA/BUA | 59.38% |
+
+16 14th Floor 1,290.70 13,892.97 17 Roof 51.70 556.49 173,494.10 1,867
+| BUILT-UP AREA BREAKDOWN (Per Tower) |  |  |  |
+| --- | --- | --- | --- |
+| ITEM |  | SQ.M. | SQ.FT. |
+| 1 | Basement 1 | 32,031.43 | 344,783.11 |
+| 2 | Podium Landscape +Guard House | 5,777.75 | 62,191.12 |
+| 3 | Tower - 1 2951-G+5 | 8,932.18 | 96,145.09 |
+| 4 | Tower - 2 2952-G+7 | 13,321.91 | 143,395.71 |
+| 5 | Tower - 3 2953-G+8 | 14,940.21 | 160,814.93 |
+| 6 | Tower - 4 2954-G+10 | 17,771.70 | 191,292.80 |
+| 7 | Tower -5 2955-G+13 | 22,235.75 | 239,343.39 |
+| 8 | Tower-6 2956-G+12 | 19,961.69 | 214,865.63 |
+| 9 | Tower -7 2957-G+12 | 21,215.84 | 228,365.18 |
+| 10 | Tower - 8 2958-G+10 | 17,305.64 | 186,276.18 |
+| TOTAL |  | 173,494.10 | 1,867,473.14 |
+
+Building Usage: Residential Mixed-Use Commercial Hotel Others
+| Project Phase: | Stage 1 (Initiation) | Stage 2 (Concept) | Stage 3 | Stage 4 | Stage 5 (Construction) |
+| --- | --- | --- | --- | --- | --- |
+|  |  |  | (Development) | (Technical) |  |
+
+Project Phase: Stage 1 (Initiation) Stage 2 (Concept) Stage 3 (Develop
+| CONSULTANTS |  |  |
+| --- | --- | --- |
+| NAME | CONTACT PERSON | EMAIL |
+| DESIGN: |  |  |
+| Main Consultant | SSH |  |
+| Architect-of-Record | SSH |  |
+| Acoustic | Inhabit |  |
+| Civil Works |  |  |
+| Façade & BMU | Fencon |  |
+| Fire & Life Safety | Design Confidence |  |
+| Infrastructure | SSH |  |
+| Interior Design | SSH |  |
+| Landscape | SSH |  |
+| Lighting | LET |  |
+| MEP | SSH |  |
+| Security | SSH |  |
+| Signage & Wayfinding | The Design Company |  |
+| Structural | SSH |  |
+| Structural (3rd Party) |  |  |
+| Sustainability | Platinum |  |
+| Traffic Impact (TIS) | Al Turath |  |
+| Vertical Transportation | Dunbar & Boardman |  |
+| Others |  |  |
+| CONSTRUCTION: |  |  |
+| Supervision Consultant | SSH |  |
+| Main Contractor |  |  |
+
+9 3BR-Type2 (Center) 57 7.1% 175.16 1,885.44 148.86 1,602.35 9 3BR-Typ
+| RETAIL UNIT BREAKDOWN |  |  |  |  |  |  |
+| --- | --- | --- | --- | --- | --- | --- |
+| ITEM |  | % | INCL. OUTDOOR |  | EXCL. OUTDOOR |  |
+|  |  |  | SQ.M. | SQ.FT. | SQ.M. | SQ.FT. |
+| 1 | Retail 1 | 10.85% | 217.00 | 2,335.77 | 217.00 | 2,335.77 |
+| 2 | F&B 1 | 9.20% | 184.00 | 1,980.56 | 184.00 | 1,980.56 |
+| 3 | F&B 2 | 10.20% | 204.00 | 2,195.84 | 204.00 | 2,195.84 |
+| 4 | Retail 2 | 16.95% | 339.00 | 3,648.96 | 339.00 | 3,648.96 |
+| 5 | Retail 3 | 7.40% | 148.00 | 1,593.06 | 148.00 | 1,593.06 |
+| 6 | Retail 4 | 10.75% | 215.00 | 2,314.24 | 215.00 | 2,314.24 |
+| 7 | Retail 5 | 8.00% | 160.00 | 1,722.22 | 160.00 | 1,722.22 |
+| 8 | F&B 3 | 10.15% | 203.00 | 2,185.07 | 203.00 | 2,185.07 |
+| 9 | F&B 4 | 7.50% | 150.00 | 1,614.59 | 150.00 | 1,614.59 |
+| 10 | F&B 5 | 6.50% | 130.00 | 1,399.31 | 130.00 | 1,399.31 |
+| 11 | Retail visitor toilets | 2.50% | 50.00 | 538.20 | 50.00 | 538.20 |
+| TOTAL |  | 100% | 2,000.00 | 21,527.80 | 2,000.00 | 21,527.80 |
+| AMENITIES AREA BREAKDOWN |  |  |  |  |  |  |
+| ITEM |  | % | INCL. OUTDOOR |  | EXCL. OUTDOOR |  |
+|  |  |  | SQ.M. | SQ.FT. | SQ.M. | SQ.FT. |
+| 1 | Multipurpose Hall | 16.26% | 221.00 | 2,378.82 | 221.00 | 2,378.82 |
+| 2 | Indoor Games Room | 5.12% | 69.55 | 748.63 | 69.55 | 748.63 |
+| 3 | Kids Club, Play area & Toilets | 27.80% | 377.83 | 4,066.92 | 377.83 | 4,066.92 |
+| 4 | Main Gym | 25.63% | 348.39 | 3,750.04 | 348.39 | 3,750.04 |
+| 5 | Sattelite Gym 01 | 11.27% | 153.19 | 1,648.92 | 153.19 | 1,648.92 |
+| 6 | Sattelite Gym 02 | 8.31% | 112.88 | 1,215.03 | 112.88 | 1,215.03 |
+| 7 | Prayer Rooms | 5.61% | 76.25 | 820.75 | 76.25 | 820.75 |
+| TOTAL |  | 100% | 1,359.09 | 14,629.11 | 1,359.09 | 14,629.11 |
+
+NSA/BUA 59.38%
+| LANDSCAPE AREA RATIO |  |  |
+| --- | --- | --- |
+| ITEM | SQ.M. | % |
+| Softscape | 4846.89 | 25.49% |
+| Hardscape | 14171.38 | 74.51% |
+| TOTAL | 19,018.27 |  |
+
+TOTAL 1012 Including 22 slots for Tandem Ground Floor 205
+| ACCESIBLE PARKING DISTRIBUTION |  |
+| --- | --- |
+| LEVEL | NO. |
+| Basement/Podium 1 | 1-3 per Lobby as per calculations |
+| Ground Floor | 1 per Lobby, 1 in Retail zone, 1 in visitor zone |
+| TOTAL | 24 |
+
+4846.89 25.49% 14171.38 74.51% 19,018.27 TOTAL Softscape Hardscape
+| GROSS FLOOR AREA BREAKDOWN |  |  |  |
+| --- | --- | --- | --- |
+| ITEM |  | SQ.M. | SQ.FT. |
+| 1 | Basement 1 | 80.70 | 868.65 |
+| 2 | Ground Floor | 5,382.10 | 57,932.39 |
+| 3 | 1st Floor | 9,753.10 | 104,981.39 |
+| 4 | 2nd Floor | 9,873.51 | 106,277.45 |
+| 5 | 3rd Floor | 9,873.51 | 106,277.45 |
+| 6 | 4th Floor | 9,873.51 | 106,277.45 |
+| 7 | 5th Floor | 9,567.31 | 102,981.55 |
+| 8 | 6th Floor | 8,644.11 | 93,044.31 |
+| 9 | 7th Floor | 8,410.69 | 90,531.80 |
+| 10 | 8th Floor | 8,176.34 | 88,009.28 |
+| 11 | 9th Floor | 7,182.24 | 77,308.89 |
+| 12 | 10th Floor | 5,719.81 | 61,567.50 |
+| 13 | 11th Floor | 5,719.81 | 61,567.50 |
+| 14 | 12th Floor | 3,147.94 | 33,884.10 |
+| 15 | 13th Floor | 2,843.97 | 30,612.18 |
+| 16 | 14th Floor | 926.67 | 9,974.55 |
+| 17 | Roof | - | - |
+| TOTAL |  | 105,175.30 | 1,132,096.44 |
+
+9 Tower -7 2957-G+12 21,215.84 228,365.18 10 Tower - 8 2958-G+10 17,30
+| NET SELLABLE AREA BREAKDOWN |  |  |  |
+| --- | --- | --- | --- |
+| ITEM |  | SQ.M. | SQ.FT. |
+| 1 | Basement 1 | - | - |
+| 2 | Ground Floor | 1,883.72 | 20,276.17 |
+| 3 | 1st Floor | 10,310.40 | 110,980.11 |
+| 4 | 2nd Floor | 10,010.88 | 107,756.11 |
+| 5 | 3rd Floor | 10,010.88 | 107,756.11 |
+| 6 | 4th Floor | 10,010.88 | 107,756.11 |
+| 7 | 5th Floor | 9,663.88 | 104,020.98 |
+| 8 | 6th Floor | 8,764.48 | 94,339.93 |
+| 9 | 7th Floor | 8,507.85 | 91,577.59 |
+| 10 | 8th Floor | 8,251.13 | 88,814.32 |
+| 11 | 9th Floor | 7,262.28 | 78,170.43 |
+| 12 | 10th Floor | 5,758.89 | 61,988.13 |
+| 13 | 11th Floor | 5,758.89 | 61,988.13 |
+| 14 | 12th Floor | 3,137.17 | 33,768.23 |
+| 15 | 13th Floor | 2,790.78 | 30,039.71 |
+| 16 | 14th Floor | 905.00 | 9,741.33 |
+| 17 | Roof | - | - |
+| TOTAL |  | 103,027.10 | 1,108,973.40 |
+
+Basement/Podium 1 Ground Floor TOTAL 24 1 per Lobby, 1 in Retail zone,
+| BICYCLE PARKING DISTRIBUTION |  |  |
+| --- | --- | --- |
+| LEVEL | NO. |  |
+| Basement/Podium 1 | 269 RACKS |  |
+| Ground Floor | 84 RACKS |  |
+| TOTAL | 353 |  |
+| GARBAGE CALCULATION |  |  |
+| USAGE | REQUIRED | PROPOSED |
+| Residential Area | 31 | 31 |
+| Retail Area | 1 | 1 |
+| TOTAL | 32 | 32 |
+| LIFT CALCULATION |  |  |
+| USAGE | REQUIRED | PROPOSED |
+| Passenger Lift | 9 | 9 |
+| Service Lift/Fireman's Lift | 8 (Multipurpose/ SE/PE/FL) | 8(Multipurpose/ SE/PE/FL) |
+| Waste Transfer Lift | 1 | 1 |
+| External Lift | 1 | 1 |
+| TOTAL | 19 | 19 |
+[DRAWING/VISION]
+[REGION 1/6]
+### VERBATIM TEXT
+
+**GENERAL INFORMATION**
+
+| PROJECT DATA |
+| --- |
+| Date: | 10/06/2026 |
+| Document Revision No.: | 3 |
+| Project ID: | C3045 |
+| Project Name: | EXPO VALLEY VIEWS |
+| Plot No.: | 5210986 |
+| Bldg. Height-DMD Level (M): | 97.75 m |
+| Bldg. Height-Design Level (M): | 97.00 m |
+| Project Description: | 8 residential buildings on partial podium area and one basement floor with 2000 sq.m. retail area including 804 units. |
+| Building Area Coverage Percentage: | - |
+| Affection Plan Restrictions: | Max. GFA 110000 sq.m. |
+| (e.g. Setbacks, Parking, Building Height) | Max. allowed height 97 m from DMD level (97.7 m as per DCAA NOC) |
+| Building Usage: | Residential | Mixed-Use | Commercial | Hotel | Others |
+| Project Phase: | Stage 1 (Initiation) | Stage 2 (Concept) | Stage 3 (Development) | Stage 4 (Technical) | Stage 5 (Construction) |
+| CONSULTANTS |
+| NAME | CONTACT PERSON | EMAIL |
+| ITEM | ITEM | ITEM |
+
+**ITEM**
+
+| Residential Units: |
+| --- |
+| 1 | 1 Bedroom |
+| 2 | 2 Bedroom |
+| 3 | 3 Bedroom |
+| 4 | 4 Bedroom |
+| 5 | 5 Bedroom |
+| TOTAL |
+| Retail Units: |
+| F&B Units: |
+| TOTAL |
+| ITEM |
+| 1 | 1BD |
+| 2 | 2BR-Type 1 (Rectangular) |
+| 3 | 2BR-Type 1A (Rectangular) |
+| 4 | 2BR-Type 2 (Square) |
+| 5 | 2BR-Type 3 (L Shaped) |
+| 6 | 2BR-Type 4 (Corner) |
+| 7 | 2BR-Type 5 (Tower 07) |
+| 8 | 3BR-Type1 (Side) |
+| 9 | 3BR-Type2 (Center) |
+| 9 | 3BR-Type2A (Center-First Floor) |
+| TOTAL |
+
+### DRAWING DESCRIPTION
+
+The image is a project data sheet for a development project named "C3045 Expo Valley Views." The sheet includes a title and a section labeled "GENERAL INFORMATION" with details such as project date, document revision number, project ID, project name, plot number, building heights, project description, building area coverage percentage, affection plan restrictions, building usage, and project phases. There is also a section labeled "ITEM" that lists residential units, retail units, F&B units, and various types of residential units with their descriptions. The drawing itself is a 3D model of the project, showing a cluster of residential buildings on a partial podium area with a basement floor. The buildings are arranged in a way that suggests a planned urban development with a mix of residential and commercial spaces. The drawing is not detailed with specific dimensions or measurements, focusing instead on the overall layout and structure of the development.
+
+[REGION 2/6]
+### VERBATIM TEXT
+
+**Assets Matrix**
+
+| UNIT TYPE SUMMARY |
+| --- |
+| ITEM | NO. | % | INCL. BALCONY | EXCL. BALCONY |
+| SQ.M. | SQ.FT. | SQ.M. | SQ.FT. |
+| Total Units: |
+| 1-Bedroom | 227 | 28.23% | 83.07 | 894.16 | 71.48 | 769.40 |
+| 2-Bedroom | 422 | 52.49% | 157.97 | 1,700.42 | 135.12 | 1,454.37 |
+| 3-Bedroom | 155 | 19.28% | 150.78 | 1,622.98 | 128.04 | 1,378.21 |
+| 4-Bedroom | 0 | 0% | - | - | - | - |
+| 5-Bedroom | 0 | 0% | - | - | - | - |
+| TOTAL | 804 | 100% | 391.82 | 4,217.56 | 334.64 | 3,601.98 |
+| Floors: |
+| 1 | 5 | - | - | 1,129.00 | - | 12,152.44 |
+| 2 | 5 | - | - | 871.00 | - | 9,375.36 |
+| TOTAL | 10 | 0% | - | - | 2,000.00 | 21,527.80 |
+| RESIDENTIAL UNIT BREAKDOWN |
+| ITEM | NO. | % | INCL. BALCONY | EXCL. BALCONY |
+| SQ.M. | SQ.FT. | SQ.M. | SQ.FT. |
+| 1-Bedroom |
+| Type 1 (Rectangular) | 84 | 10.4% | 126.91 | 1,366.05 | 107.81 | 1,160.46 |
+| Type 1A (Rectangular) | 80 | 10.0% | 124.38 | 1,338.81 | 107.78 | 1,160.13 |
+| Type 2 (Square) | 81 | 10.1% | 137.24 | 1,477.24 | 116.64 | 1,255.50 |
+| Type 3 (L Shaped) | 84 | 10.4% | 137.00 | 1,474.65 | 116.40 | 1,252.92 |
+| Type 4 (Corner) | 81 | 10.1% | 126.12 | 1,357.59 | 107.02 | 1,152.00 |
+| Type 5 (Tower 07) | 12 | 1.5% | 137.24 | 1,477.24 | 116.64 | 1,255.50 |
+| Type1 (Side) | 95 | 11.8% | 169.25 | 1,821.79 | 143.85 | 1,548.39 |
+| Type2 (Center) | 57 | 7.1% | 175.16 | 1,885.44 | 148.86 | 1,602.35 |
+| Type 2A (Center-First Floor) | 3 | 0.4% | 177.54 | 1,911.04 | 151.24 | 1,627.95 |
+| TOTAL | 804 | 100.0% | 1,393.93 | 15,004.11 | 1,187.73 | 12,784.63 |
+| RETAIL UNIT BREAKDOWN |
+| ITEM | % | INCL. OUTDOOR | EXCL. OUTDOOR |
+| SQ.M. | SQ.FT. | SQ.M. | SQ.FT. |
+| 1 | 100% | - | - | - | - |
+| AREA STATEMENT SUMMARY |
+| ITEM | SQ.M. | SQ.FT. |
+| Plot Area: | 39,681.19 | 427,124.36 |
+| FAR Allowed: | 2.77 | - |
+| FAR Proposed: | - | - |
+| GFA Allowed: | 110,000.00 | 1,184,029.00 |
+| GFA Proposed: | 105,175.30 | 1,132,096.41 |
+| Residential: | 103,175.30 | 1,110,568.61 |
+| Retail: | 2,000.00 | 21,527.80 |
+| BUA Proposed: | 173,494.10 | 1,867,473.14 |
+| Podium: | 37,809.20 | 406,974.45 |
+| Towers: | 135,684.90 | 1,460,498.70 |
+| NSA Proposed: | 103,027.10 | 1,108,973.40 |
+| Residential: | 101,027.10 | 1,087,445.60 |
+| Retail: | 2,000.00 | 21,527.80 |
+| AREA EFFICIENCY |
+| ITEM | % |
+| GFA/BUA | 60.62% |
+| NSA/GFA | 97.96% |
+| NSA/BUA | 59.38% |
+| LANDSCAPE AREA RATIO |
+| ITEM | SQ.M. | % |
+| Software | 35,490.00 | 89.3% |
+| BUILDING FLOOR PLAN |
+| ITEM | BLDG. FLOOR PLAN |
+| 1 | Basement |
+| 2 | Ground Floor |
+| 3 | 1st Floor |
+| 4 | 2nd Floor |
+| 5 | 3rd Floor |
+| 6 | 4th Floor |
+| 7 | 5th Floor |
+| 8 | 6th Floor |
+| 9 | 7th Floor |
+| 10 | 8th Floor |
+| 11 | 9th Floor |
+| 12 | 10th Floor |
+| 13 | 11th Floor |
+| 14 | 12th Floor |
+| 15 | 13th Floor |
+| 16 | 14th Floor |
+| 17 | Roof |
+
+### DRAWING DESCRIPTION
+
+The image contains a detailed engineering document related to a building project. It includes an "Assets Matrix" and an "Area Statement Summary," which provide information about the number of units, their types, and the areas in square meters and square feet. The document also includes a breakdown of residential and retail units, landscape area ratios, and building floor plans. The layout is structured with clear headings and subheadings, and the data is organized in tables with specific columns for numerical values and percentages. The document appears to be used for compliance review and planning purposes.
+
+[REGION 3/6]
+### VERBATIM TEXT
+
+**AREA STATEMENT SUMMARY**
+
+| BUILT-UP AREA BREAKDOWN (Per Level) |
+| --- |
+| ITEM | SQ.M. | SQ.FT. |
+| 1 | Basement 1 | 32,031.40 | 344,782.79 |
+| 2 | Ground Floor | 18,022.20 | 193,989.16 |
+| 3 | 1st Floor | 11,774.20 | 126,736.31 |
+| 4 | 2nd Floor | 12,177.29 | 131,075.13 |
+| 5 | 3rd Floor | 12,177.29 | 131,075.13 |
+| 6 | 4th Floor | 12,177.29 | 131,075.13 |
+| 7 | 5th Floor | 11,811.89 | 127,142.00 |
+| 8 | 6th Floor | 10,729.29 | 115,489.00 |
+| 9 | 7th Floor | 10,385.09 | 111,784.07 |
+| 10 | 8th Floor | 10,106.77 | 108,788.26 |
+| 11 | 9th Floor | 8,938.94 | 96,217.90 |
+| 12 | 10th Floor | 7,147.88 | 76,939.09 |
+| 13 | 11th Floor | 7,080.68 | 76,215.75 |
+| 14 | 12th Floor | 4,054.18 | 43,638.81 |
+| 15 | 13th Floor | 3,537.30 | 38,075.14 |
+| 16 | 14th Floor | 1,290.70 | 13,892.97 |
+| 17 | Roof | 51.70 | 556.49 |
+| TOTAL | 173,494.10 | 1,867,473.14 |
+
+| BUILT-UP AREA BREAKDOWN (Per Tower) |
+| --- |
+| ITEM | SQ.M. | SQ.FT. |
+| 1 | Basement 1 | 32,031.43 | 344,783.11 |
+| 2 | Podium Landscape +Guard House | 5,777.75 | 62,191.12 |
+| 3 | Tower - 1 | 8,932.18 | 96,145.09 |
+| 4 | Tower - 2 | 13,321.91 | 143,395.71 |
+| 5 | Tower - 3 | 14,940.21 | 160,814.93 |
+| 6 | Tower - 4 | 17,771.70 | 191,292.80 |
+| 7 | Tower - 5 | 22,235.75 | 239,343.39 |
+| 8 | Tower - 6 | 19,961.69 | 214,865.63 |
+| 9 | Tower - 7 | 21,915.61 | 238,085.10 |
+| TOTAL | 101,315.61 | 1,108,085.10 |
+
+| PARKING/GARBAGE/LIFT SUMMARY |
+
+| PARKING CALCULATION |
+| --- |
+| ITEM | NO. | REQUIRED | PROPOSED |
+| Units less than 150 sqm | 801 | 801 | 803 |
+| Units more than 150 sqm | 3 | 6 | 6 |
+| Tandem | 152 | 151 | 151 |
+| Retail | 10 | 29 | 29 |
+| Visitors | 15 | 15 | 15 |
+| VAN PARKING | - | 8 | 8 |
+| TOTAL | 1003 | 1012 | 1012 |
+| Bicycle Parking | 353 RACKS | 353 RACKS | 353 RACKS |
+| Motorbikes Parking | 5 | 5 | 5 |
+| POD Parking | 21 | 22 | 22 |
+| EV Parking | 22 | 22 | 22 |
+| Preferred Parking | 63 | 64 | 64 |
+
+| PARKING DISTRIBUTION |
+| --- |
+| LEVEL | NO. |
+| Basement/Podium 2 | na |
+| Basement/Podium 1 | 807 | Including 129 slots for Tandem & 8 slots for Van parking |
+| Ground Floor | 205 | Including 22 slots for Tandem |
+| TOTAL | 1012 |
+
+| ACCESSIBLE PARKING DISTRIBUTION |
+| --- |
+| LEVEL | NO. |
+| Ground/Podium 1 | 1 | 1 Space for Handicap and 1 Space for Mobility Aid |
+
+### DRAWING DESCRIPTION
+
+The image contains a detailed engineering document for Expo City Dubai, summarizing the built-up area breakdown per level and per tower, parking and garbage/lift summary, and parking distribution. The document includes tables with specific measurements in square meters and square feet, as well as notes and calculations related to parking requirements and distribution. The document is structured with clear headings and subheadings, and uses a consistent color scheme for emphasis. The document appears to be part of a larger engineering or architectural project, focusing on the layout and capacity of the building.
+
+[REGION 4/6]
+### VERBATIM TEXT
+
+**CONSULTANTS**
+
+| NAME | CONTACT PERSON | EMAIL |
+| --- | --- | --- |
+| DESIGN: |  |  |
+| Main Consultant | SSH |  |
+| Architect-of-Record | SSH |  |
+| Acoustic | Inhabit |  |
+| Civil Works |  |  |
+| Façade & BMU | Fencon |  |
+| Fire & Life Safety | Design Confidence |  |
+| Infrastructure | SSH |  |
+| Interior Design | SSH |  |
+| Landscape | SSH |  |
+| Lighting | LET |  |
+| MEP | SSH |  |
+| Security | SSH |  |
+| Signage & Wayfinding | The Design Company |  |
+| Structural | SSH |  |
+| Structural (3rd Party) |  |  |
+| Sustainability | Platinum |  |
+| Traffic Impact (TIS) | Al Turath |  |
+| Vertical Transportation | Dunbar & Boardman |  |
+| Others |  |  |
+| CONSTRUCTION: |  |  |
+| Supervision Consultant | SSH |  |
+| Main Contractor |  |  |
+|  |  |  |
+| ITEM |  |  |
+| 1 | Retail 1 |  |
+| 2 | F&B 1 |  |
+| 3 | F&B 2 |  |
+| 4 | Retail 2 |  |
+| 5 | Retail 3 |  |
+| 6 | Retail 4 |  |
+| 7 | Retail 5 |  |
+| 8 | F&B 3 |  |
+| 9 | F&B 4 |  |
+| 10 | F&B 5 |  |
+| 11 | Retail visitor toilets |  |
+|  |  |  |
+| ITEM |  |  |
+| 1 | Multipurpose Hall |  |
+| 2 | Indoor Games Room |  |
+| 3 | Kids Club, Play area & Toilets |  |
+| 4 | Main Gym |  |
+| 5 | Sattelite Gym 01 |  |
+| 6 | Sattelite Gym 02 |  |
+| 7 | Prayer Rooms |  |
+|  |  |  |
+
+### DRAWING DESCRIPTION
+
+The image contains a table titled "CONSULTANTS" and another titled "ITEM". The "CONSULTANTS" table lists various design and construction consultants, their roles, and contact information. The "ITEM" table lists items or components, possibly related to a project, with corresponding numbers and descriptions. The document appears to be a project management or engineering document, detailing the involvement of various consultants and the items or components of a project. The date "10/06/2026" is noted at the bottom of the document.
+
+[REGION 5/6]
+### VERBATIM TEXT
+
+#### RETAIL UNIT BREAKDOWN
+
+| ITEM | % | INCL. OUTDOOR | EXCL. OUTDOOR |
+| --- | --- | --- | --- |
+| 1 | 10.85% | 217.00 | 217.00 |
+| 2 | 16.95% | 339.00 | 339.00 |
+| 3 | 7.40% | 148.00 | 148.00 |
+| 4 | 10.75% | 215.00 | 215.00 |
+| 5 | 8.00% | 160.00 | 160.00 |
+| 6 | 10.15% | 203.00 | 203.00 |
+| 7 | 7.50% | 150.00 | 150.00 |
+| 8 | 6.50% | 130.00 | 130.00 |
+| Visitor toilets | 2.50% | 50.00 | 50.00 |
+| TOTAL | 100% | 2,000.00 | 2,000.00 |
+
+#### LANDSCAPE AREA RATIO
+
+| ITEM | SQ.M. | % |
+| --- | --- | --- |
+| Softscape | 4846.89 | 25.49% |
+| Hardscape | 14171.38 | 74.51% |
+| TOTAL | 19,018.27 | 100% |
+
+#### GROSS FLOOR AREA BREAKDOWN
+
+| ITEM | SQ.M. | SQ.FT. |
+| --- | --- | --- |
+| Basement 1 | 80.70 | 868.65 |
+| Ground Floor | 5,382.10 | 57,932.39 |
+| 1st Floor | 9,753.10 | 104,981.39 |
+| 2nd Floor | 9,873.51 | 106,277.45 |
+| 3rd Floor | 9,873.51 | 106,277.45 |
+| 4th Floor | 9,873.51 | 106,277.45 |
+| 5th Floor | 9,567.31 | 102,981.55 |
+| 6th Floor | 8,644.11 | 93,044.31 |
+| 7th Floor | 8,410.69 | 90,531.80 |
+| 8th Floor | 8,176.34 | 88,009.28 |
+| 9th Floor | 7,182.24 | 77,308.89 |
+| 10th Floor | 5,719.81 | 61,567.50 |
+| 11th Floor | 5,719.81 | 61,567.50 |
+| 12th Floor | 3,147.94 | 33,884.10 |
+| 13th Floor | 2,843.97 | 30,612.18 |
+| 14th Floor | 926.67 | 9,974.55 |
+| Roof | - | - |
+| TOTAL | 105,175.30 | 1,132,096.44 |
+
+#### AMENITIES AREA BREAKDOWN
+
+| ITEM | % | INCL. OUTDOOR | EXCL. OUTDOOR |
+| --- | --- | --- | --- |
+| Multipurpose Hall | 16.26% | 221.00 | 221.00 |
+| Games Room | 5.12% | 69.55 | 69.55 |
+| Club, Play area & Toilets | 27.80% | 377.83 | 377.83 |
+| Gym | 25.63% | 348.39 | 348.39 |
+| Private Gym 01 | 11.27% | 153.19 | 153.19 |
+| Private Gym 02 | 8.31% | 112.88 | 112.88 |
+| Rooms | 5.61% | 76.25 | 76.25 |
+| TOTAL | 100% | 1,359.09 | 1,359.09 |
+
+#### PROJECT DATA SHEET-2025 (V1)
+
+188 sqm Leasable store in GF, 12 sqm in B
+
+### DRAWING DESCRIPTION
+
+The image contains a detailed project data sheet for a building or complex, including various breakdowns of retail units, amenities, landscape areas, and gross floor areas. The document is divided into several sections, each with its own title and corresponding data. The sections include:
+
+- **Retail Unit Breakdown**: Lists the percentage and square meters of retail units, both including and excluding outdoor areas.
+- **Landscape Area Ratio**: Breaks down the total area into softscape and hardscape, with percentages and total square meters.
+- **Gross Floor Area Breakdown**: Lists the square meters and square feet for each floor level, including basement and roof.
+- **Amenities Area Breakdown**: Lists the percentage and square meters of amenities, both including and excluding outdoor areas.
+- **Project Data Sheet-2025 (V1)**: Notes the leasable store size in the ground floor and basement.
+
+The document is structured with clear headings and uses a consistent format for presenting data. There are no drawings or images included in the document.
+
+[REGION 6/6]
+### VERBATIM TEXT
+
+1. **ACCESIBLE PARKING DISTRIBUTION**
+| LEVEL | NO. |
+| --- | --- |
+| Basement/Podium 1 | 1-3 per Lobby as per calculations |
+| Ground Floor | 1 per Lobby, 1 in Retail zone, 1 in visitor zone |
+| TOTAL | 24 |
+
+2. **BICYCLE PARKING DISTRIBUTION**
+| LEVEL | NO. |
+| --- | --- |
+| Basement/Podium 1 | 269 RACKS |
+| Ground Floor | 84 RACKS |
+| TOTAL | 353 |
+
+3. **GARBAGE CALCULATION**
+| USAGE | REQUIRED | PROPOSED |
+| --- | --- | --- |
+| Residential Area | 31 | 31 |
+| Retail Area | 1 | 1 |
+| TOTAL | 32 | 32 |
+
+4. **LIFT CALCULATION**
+| USAGE | REQUIRED | PROPOSED |
+| --- | --- | --- |
+| Passenger Lift | 9 | 9 |
+| Service Lift/Fireman's Lift | 8 (Multipurpose/ SE/PE/FL) | 8 (Multipurpose/ SE/PE/FL) |
+| Waste Transfer Lift | 1 | 1 |
+| External Lift | 1 | 1 |
+| TOTAL | 19 | 19 |
+
+5. **NET SELLABLE AREA BREAKDOWN**
+| ITEM | SQ.M. | SQ.FT. |
+| --- | --- | --- |
+| 1 | Basement 1 | - | - |
+| 2 | Ground Floor | 1,883.72 | 20,276.17 |
+| 3 | 1st Floor | 10,310.40 | 110,980.11 |
+| 4 | 2nd Floor | 10,010.88 | 107,756.11 |
+| 5 | 3rd Floor | 10,010.88 | 107,756.11 |
+| 6 | 4th Floor | 10,010.88 | 107,756.11 |
+| 7 | 5th Floor | 9,663.88 | 104,020.98 |
+| 8 | 6th Floor | 8,764.48 | 94,339.93 |
+| 9 | 7th Floor | 8,507.85 | 91,577.59 |
+| 10 | 8th Floor | 8,251.13 | 88,814.32 |
+| 11 | 9th Floor | 7,262.28 | 78,170.43 |
+| 12 | 10th Floor | 5,758.89 | 61,988.13 |
+| 13 | 11th Floor | 5,758.89 | 61,988.13 |
+| 14 | 12th Floor | 3,137.17 | 33,768.23 |
+| 15 | 13th Floor | 2,790.78 | 30,039.71 |
+| 16 | 14th Floor | 905.00 | 9,741.33 |
+| 17 | Roof | - | - |
+| TOTAL | 103,027.10 | 1,108,973.40 |
+
+6. **TOTAL**
+| Ground Floor | 205 | Including 22 slots for Tandem |
+| --- | --- | --- |
+| TOTAL | 1012 |
+
+### DRAWING DESCRIPTION
+
+The image contains a detailed engineering document with various sections related to a building's design and specifications. It includes:
+
+- **Accessible Parking Distribution**: Specifies the number of accessible parking spaces per level.
+- **Bicycle Parking Distribution**: Details the number of bicycle racks available in the basement and ground floor.
+- **Garbage Calculation**: Lists the required and proposed garbage collection points for residential and retail areas.
+- **Lift Calculation**: Specifies the number of lifts required for passenger, service, waste transfer, and external lifts.
+- **Net Sellable Area Breakdown**: Breaks down the sellable area by floor, in square meters and square feet.
+- **Total**: Summarizes the total number of parking spaces and the total sellable area.
+
+The document is structured with clear headings and uses a tabular format to present the data.
+[UNVERIFIED VISUAL EXTRACTION]
+### Drawing Overview:
+The image depicts a 3D isometric view of a residential complex. The buildings are arranged in a cluster, with varying heights and designs. Roads and pathways are visible, connecting the buildings and forming a network around the complex.
+
+### Clearly Legible Labels:
+- No clearly legible labels are present in the image.
+
+### Unresolved Details:
+- Building heights and specific architectural features are not labeled.
+- The scale of the drawing is not indicated.
+- The materials or finishes of the buildings are not specified.
+- The purpose or function of the green areas (if any) is not labeled.
+- The orientation of the complex relative to the roads is not indicated.
+- The number of floors or specific building types (e.g., residential, commercial) are not labeled.
+[UNVERIFIED VISUAL EXTRACTION]
+4yJ GuSL ai)9
+EXPO CITY DUBAI

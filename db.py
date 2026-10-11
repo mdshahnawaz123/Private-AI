@@ -507,13 +507,22 @@ def delete_chat(project, chat_id, user=None, ip=None):
 def record_document(project, filename, path, chunks, discipline=None, status="ready", folder_id=None, user=None, ip=None):
     u = user or SYSTEM_USER
     with SessionLocal() as s:
+        # Serialize identity lookup and registration across concurrent uploads.
+        s.connection().exec_driver_sql('BEGIN IMMEDIATE')
         proj = s.query(Project).filter_by(name=project).first()
         if not proj:
             proj = Project(name=project, created_by=u["id"])
             s.add(proj); s.flush()
-        s.add(Document(project_id=proj.id, filename=filename, path=path,
-                       chunks=chunks, discipline=discipline, status=status,
-                       folder_id=folder_id, uploaded_by=u["id"]))
+        existing=(s.query(Document).filter_by(project_id=proj.id,filename=filename,
+                    folder_id=folder_id,path=path).filter(Document.deleted_at.is_(None))
+                    .order_by(Document.id.desc()).first())
+        if existing:
+            existing.chunks=chunks;existing.discipline=discipline;existing.status=status
+            existing.uploaded_by=u['id'];existing.uploaded_at=_utcnow()
+        else:
+            s.add(Document(project_id=proj.id, filename=filename, path=path,
+                           chunks=chunks, discipline=discipline, status=status,
+                           folder_id=folder_id, uploaded_by=u["id"]))
         proj.updated_at = _utcnow()
         s.commit()
     audit("document.upload", project=project, target=filename,

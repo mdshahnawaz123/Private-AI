@@ -1,0 +1,72 @@
+[32m2026-10-11 10:04:56.447[0m | [1mINFO    [0m | [36mdb[0m:[36minit_knowledge_tables[0m:[36m1524[0m - [1mKnowledge Hub tables initialized[0m
+[32m2026-10-11 10:04:56.448[0m | [1mINFO    [0m | [36mdb[0m:[36minit_db[0m:[36m258[0m - [1mDB ready at sqlite:///C:\3EH\ExpoDesignAI - Copy\output\release-closure-2026-10-10\data\expo.db[0m
+[32m2026-10-11 10:04:56.529[0m | [1mINFO    [0m | [36mcore.model_registry[0m:[36mregister[0m:[36m254[0m - [1mRegistered model: role=REASONING_LLM name=qwen3.5:9b provider=ollama[0m
+[32m2026-10-11 10:04:56.529[0m | [1mINFO    [0m | [36mcore.model_registry[0m:[36mregister[0m:[36m254[0m - [1mRegistered model: role=VISION_MODEL name=qwen2.5vl:7b provider=ollama[0m
+[32m2026-10-11 10:04:56.530[0m | [1mINFO    [0m | [36mcore.model_registry[0m:[36mregister[0m:[36m254[0m - [1mRegistered model: role=EMBEDDING_MODEL name=bge-m3 provider=ollama[0m
+[32m2026-10-11 10:04:56.530[0m | [1mINFO    [0m | [36mcore.model_registry[0m:[36mregister[0m:[36m254[0m - [1mRegistered model: role=FAST_LLM name=qwen2.5:7b provider=ollama[0m
+[32m2026-10-11 10:04:56.530[0m | [1mINFO    [0m | [36mcore.model_registry[0m:[36mregister[0m:[36m254[0m - [1mRegistered model: role=RERANKER_MODEL name=bge-reranker-v2-m3 provider=ollama[0m
+[32m2026-10-11 10:04:56.563[0m | [1mINFO    [0m | [36mintelligence.compliance[0m:[36madd_rule[0m:[36m636[0m - [1mAdded compliance rule: DOOR-MIN-WIDTH (Minimum Door Width)[0m
+[32m2026-10-11 10:04:56.563[0m | [1mINFO    [0m | [36mintelligence.compliance[0m:[36madd_rule[0m:[36m636[0m - [1mAdded compliance rule: CORRIDOR-MIN-WIDTH (Minimum Corridor Width)[0m
+[32m2026-10-11 10:04:56.564[0m | [1mINFO    [0m | [36mintelligence.compliance[0m:[36madd_rule[0m:[36m636[0m - [1mAdded compliance rule: CEILING-MIN-HEIGHT (Minimum Ceiling Height)[0m
+[32m2026-10-11 10:04:56.564[0m | [1mINFO    [0m | [36mintelligence.compliance[0m:[36madd_rule[0m:[36m636[0m - [1mAdded compliance rule: TRAVEL-MAX-DISTANCE (Maximum Travel Distance)[0m
+[32m2026-10-11 10:04:56.564[0m | [1mINFO    [0m | [36mintelligence.compliance[0m:[36madd_rule[0m:[36m636[0m - [1mAdded compliance rule: ROOM-MIN-AREA (Minimum Room Area)[0m
+[32m2026-10-11 10:04:56.565[0m | [1mINFO    [0m | [36mintelligence.compliance[0m:[36madd_rule[0m:[36m636[0m - [1mAdded compliance rule: FIRE-RATING-MIN (Minimum Fire Rating)[0m
+[32m2026-10-11 10:04:56.565[0m | [1mINFO    [0m | [36mintelligence.compliance[0m:[36madd_rule[0m:[36m636[0m - [1mAdded compliance rule: STAIR-MIN-WIDTH (Minimum Stair Width)[0m
+[32m2026-10-11 10:04:56.565[0m | [1mINFO    [0m | [36mintelligence.compliance[0m:[36madd_rule[0m:[36m636[0m - [1mAdded compliance rule: RISER-MAX-HEIGHT (Maximum Riser Height)[0m
+[32m2026-10-11 10:04:56.565[0m | [1mINFO    [0m | [36mintelligence.compliance[0m:[36madd_rule[0m:[36m636[0m - [1mAdded compliance rule: TREAD-MIN-DEPTH (Minimum Tread Depth)[0m
+[32m2026-10-11 10:04:56.566[0m | [1mINFO    [0m | [36mintelligence.compliance[0m:[36madd_rule[0m:[36m636[0m - [1mAdded compliance rule: HEADROOM-MIN (Minimum Headroom)[0m
+[32m2026-10-11 10:05:01.267[0m | [1mINFO    [0m | [36mengines.layout_engine[0m:[36m_check_backends[0m:[36m78[0m - [1mPP-DocLayout not available[0m
+[32m2026-10-11 10:05:01.268[0m | [1mINFO    [0m | [36mengines.layout_engine[0m:[36m_check_backends[0m:[36m81[0m - [1mVision model layout detection available[0m
+[32m2026-10-11 10:05:01.278[0m | [1mINFO    [0m | [36magents.tools[0m:[36mregister[0m:[36m245[0m - [1mRegistered tool: read_document (permission: read)[0m
+[32m2026-10-11 10:05:01.279[0m | [1mINFO    [0m | [36magents.tools[0m:[36mregister[0m:[36m245[0m - [1mRegistered tool: search_knowledge (permission: read)[0m
+[32m2026-10-11 10:05:01.279[0m | [1mINFO    [0m | [36magents.tools[0m:[36mregister[0m:[36m245[0m - [1mRegistered tool: search_code (permission: read)[0m
+[32m2026-10-11 10:05:01.280[0m | [1mINFO    [0m | [36magents.tools[0m:[36mregister[0m:[36m245[0m - [1mRegistered tool: get_drawing (permission: read)[0m
+[32m2026-10-11 10:05:01.280[0m | [1mINFO    [0m | [36magents.tools[0m:[36mregister[0m:[36m245[0m - [1mRegistered tool: get_bim_element (permission: read)[0m
+[32m2026-10-11 10:05:01.281[0m | [1mINFO    [0m | [36magents.tools[0m:[36mregister[0m:[36m245[0m - [1mRegistered tool: measure_geometry (permission: read)[0m
+[32m2026-10-11 10:05:01.281[0m | [1mINFO    [0m | [36magents.tools[0m:[36mregister[0m:[36m245[0m - [1mRegistered tool: query_ifc (permission: read)[0m
+[32m2026-10-11 10:05:01.282[0m | [1mINFO    [0m | [36magents.tools[0m:[36mregister[0m:[36m245[0m - [1mRegistered tool: run_rule (permission: execute)[0m
+[32m2026-10-11 10:05:01.282[0m | [1mINFO    [0m | [36magents.tools[0m:[36mregister[0m:[36m245[0m - [1mRegistered tool: calculate (permission: execute)[0m
+[32m2026-10-11 10:05:01.283[0m | [1mINFO    [0m | [36magents.tools[0m:[36mregister[0m:[36m245[0m - [1mRegistered tool: create_finding (permission: write)[0m
+[32m2026-10-11 10:05:01.283[0m | [1mINFO    [0m | [36magents.tools[0m:[36mregister[0m:[36m245[0m - [1mRegistered tool: generate_report (permission: write)[0m
+[32m2026-10-11 10:05:01.285[0m | [1mINFO    [0m | [36magents.runtime[0m:[36mregister_agent[0m:[36m259[0m - [1mRegistered agent: compliance_agent (Checks compliance against building codes)[0m
+[32m2026-10-11 10:05:01.286[0m | [1mINFO    [0m | [36magents.runtime[0m:[36mregister_agent[0m:[36m259[0m - [1mRegistered agent: drawing_qa_agent (Reviews drawings for quality and compliance)[0m
+[32m2026-10-11 10:05:01.286[0m | [1mINFO    [0m | [36magents.runtime[0m:[36mregister_agent[0m:[36m259[0m - [1mRegistered agent: knowledge_agent (Searches and retrieves engineering knowledge)[0m
+[32m2026-10-11 10:05:01.294[0m | [1mINFO    [0m | [36mengines.ifc_engine[0m:[36m_check_backend[0m:[36m77[0m - [1mIfcOpenShell not available — use browser-extracted data[0m
+INFO:     Started server process [3396]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8093 (Press CTRL+C to quit)
+INFO:     127.0.0.1:54638 - "GET /health/ready HTTP/1.1" 200 OK
+[32m2026-10-11 10:05:02.935[0m | [1mINFO    [0m | [36mdb[0m:[36maudit[0m:[36m311[0m - [1mAUDIT ask.stream user=admin project=SYNTH-CLOSURE target=None detail={'model': 'qwen2.5vl:7b', 'mode': 'chat', 'chars': 39}[0m
+[32m2026-10-11 10:05:08.732[0m | [1mINFO    [0m | [36mmain[0m:[36m_get_bm25[0m:[36m2020[0m - [1mBM25 index built for SYNTH-CLOSURE (114 chunks)[0m
+[32m2026-10-11 10:05:08.733[0m | [1mINFO    [0m | [36mintelligence.reranker[0m:[36m_load_model[0m:[36m59[0m - [1mLoading reranker model: BAAI/bge-reranker-v2-m3 (CPU)[0m
+Loading weights:   0%|          | 0/393 [00:00<?, ?it/s]Loading weights:   2%|1         | 7/393 [00:00<00:05, 67.23it/s]Loading weights:   8%|7         | 31/393 [00:00<00:02, 164.60it/s]Loading weights:  15%|#4        | 57/393 [00:00<00:01, 177.75it/s]Loading weights:  19%|#9        | 75/393 [00:00<00:01, 172.88it/s]Loading weights:  25%|##5       | 100/393 [00:00<00:01, 189.72it/s]Loading weights:  30%|###       | 119/393 [00:00<00:01, 162.14it/s]Loading weights:  35%|###5      | 139/393 [00:00<00:01, 171.29it/s]Loading weights:  40%|###9      | 157/393 [00:01<00:01, 142.18it/s]Loading weights:  46%|####5     | 179/393 [00:01<00:01, 157.66it/s]Loading weights:  50%|####9     | 196/393 [00:01<00:01, 155.45it/s]Loading weights:  54%|#####4    | 214/393 [00:01<00:01, 157.52it/s]Loading weights:  61%|######    | 238/393 [00:01<00:00, 179.19it/s]Loading weights:  65%|######5   | 257/393 [00:01<00:00, 179.74it/s]Loading weights: 100%|##########| 393/393 [00:01<00:00, 243.27it/s]
+[32m2026-10-11 10:05:15.845[0m | [1mINFO    [0m | [36mintelligence.reranker[0m:[36m_load_model[0m:[36m61[0m - [1mReranker model loaded successfully[0m
+[32m2026-10-11 10:05:16.246[0m | [1mINFO    [0m | [36mintelligence.reranker[0m:[36mrerank[0m:[36m102[0m - [1mReranked 1 documents (top score: 0.9985)[0m
+[32m2026-10-11 10:05:16.374[0m | [1mINFO    [0m | [36mmain[0m:[36mask_stream[0m:[36m3445[0m - [1mfocus_doc injected: pump-spec.pdf (256 chars)[0m
+INFO:     127.0.0.1:54638 - "POST /ask_stream HTTP/1.1" 200 OK
+[32m2026-10-11 10:05:32.811[0m | [1mINFO    [0m | [36mlocal_chat[0m:[36mstream[0m:[36m147[0m - [1mchat attempt 1/3: model=qwen3.5:9b promptChars=3687 tokens=76 outChars=270 done_reason=stop[0m
+[32m2026-10-11 10:05:32.834[0m | [1mINFO    [0m | [36mdb[0m:[36maudit[0m:[36m311[0m - [1mAUDIT ask.stream user=admin project=SYNTH-CLOSURE target=None detail={'model': 'qwen2.5vl:7b', 'mode': 'chat', 'chars': 37}[0m
+[32m2026-10-11 10:05:38.493[0m | [1mINFO    [0m | [36mintelligence.reranker[0m:[36mrerank[0m:[36m102[0m - [1mReranked 1 documents (top score: 0.9973)[0m
+[32m2026-10-11 10:05:38.500[0m | [1mINFO    [0m | [36mmain[0m:[36mask_stream[0m:[36m3445[0m - [1mfocus_doc injected: tank-note.pdf (248 chars)[0m
+INFO:     127.0.0.1:54638 - "POST /ask_stream HTTP/1.1" 200 OK
+[32m2026-10-11 10:05:48.827[0m | [1mINFO    [0m | [36mlocal_chat[0m:[36mstream[0m:[36m147[0m - [1mchat attempt 1/3: model=qwen3.5:9b promptChars=3669 tokens=94 outChars=298 done_reason=stop[0m
+[32m2026-10-11 10:05:56.648[0m | [1mINFO    [0m | [36mlocal_chat[0m:[36mstream[0m:[36m147[0m - [1mchat attempt 1/3: model=qwen3.5:9b promptChars=4457 tokens=29 outChars=79 done_reason=stop[0m
+[32m2026-10-11 10:05:56.665[0m | [1mINFO    [0m | [36mdb[0m:[36maudit[0m:[36m311[0m - [1mAUDIT ask.stream user=admin project=SYNTH-CLOSURE target=None detail={'model': 'qwen2.5vl:7b', 'mode': 'chat', 'chars': 39}[0m
+[32m2026-10-11 10:06:01.876[0m | [1mINFO    [0m | [36mintelligence.reranker[0m:[36mrerank[0m:[36m102[0m - [1mReranked 1 documents (top score: 0.5089)[0m
+[32m2026-10-11 10:06:01.883[0m | [1mINFO    [0m | [36mmain[0m:[36mask_stream[0m:[36m3445[0m - [1mfocus_doc injected: pump-spec.pdf (256 chars)[0m
+INFO:     127.0.0.1:54638 - "POST /ask_stream HTTP/1.1" 200 OK
+[32m2026-10-11 10:06:10.802[0m | [1mINFO    [0m | [36mlocal_chat[0m:[36mstream[0m:[36m147[0m - [1mchat attempt 1/3: model=qwen3.5:9b promptChars=3687 tokens=53 outChars=206 done_reason=stop[0m
+[32m2026-10-11 10:06:19.466[0m | [1mINFO    [0m | [36mlocal_chat[0m:[36mstream[0m:[36m147[0m - [1mchat attempt 1/3: model=qwen3.5:9b promptChars=4526 tokens=46 outChars=196 done_reason=stop[0m
+[32m2026-10-11 10:06:19.467[0m | [33m[1mWARNING [0m | [36mmain[0m:[36mgen[0m:[36m3590[0m - [33m[1mAnswer withheld by evidence checks: ['Numeric answer lacks exact source/page citations', 'Numeric values absent from cited page excerpts', 'Identifier absent from cited page excerpts'][0m
+[32m2026-10-11 10:06:19.479[0m | [1mINFO    [0m | [36mdb[0m:[36maudit[0m:[36m311[0m - [1mAUDIT ask.stream user=admin project=SYNTH-CLOSURE target=None detail={'model': 'qwen2.5vl:7b', 'mode': 'chat', 'chars': 40}[0m
+INFO:     127.0.0.1:54638 - "POST /ask_stream HTTP/1.1" 200 OK
+[32m2026-10-11 10:06:19.510[0m | [1mINFO    [0m | [36mdb[0m:[36maudit[0m:[36m311[0m - [1mAUDIT ask.stream user=admin project=SYNTH-CLOSURE target=None detail={'model': 'qwen2.5vl:7b', 'mode': 'chat', 'chars': 62}[0m
+INFO:     127.0.0.1:54638 - "POST /ask_stream HTTP/1.1" 200 OK
+[32m2026-10-11 10:06:19.530[0m | [1mINFO    [0m | [36mdb[0m:[36maudit[0m:[36m311[0m - [1mAUDIT ask.stream user=admin project=SYNTH-CLOSURE target=None detail={'model': 'qwen2.5vl:7b', 'mode': 'chat', 'chars': 39}[0m
+[32m2026-10-11 10:06:25.594[0m | [1mINFO    [0m | [36mintelligence.reranker[0m:[36mrerank[0m:[36m102[0m - [1mReranked 2 documents (top score: 0.9969)[0m
+[32m2026-10-11 10:06:25.602[0m | [1mINFO    [0m | [36mmain[0m:[36mask_stream[0m:[36m3445[0m - [1mfocus_doc injected: scan-4-0.pdf (4079 chars)[0m
+INFO:     127.0.0.1:54638 - "POST /ask_stream HTTP/1.1" 200 OK
+[32m2026-10-11 10:06:35.963[0m | [1mINFO    [0m | [36mlocal_chat[0m:[36mstream[0m:[36m147[0m - [1mchat attempt 1/3: model=qwen3.5:9b promptChars=8657 tokens=80 outChars=323 done_reason=stop[0m
+[32m2026-10-11 10:06:45.020[0m | [1mINFO    [0m | [36mlocal_chat[0m:[36mstream[0m:[36m147[0m - [1mchat attempt 1/3: model=qwen3.5:9b promptChars=9563 tokens=35 outChars=97 done_reason=stop[0m
+[32m2026-10-11 10:06:45.021[0m | [33m[1mWARNING [0m | [36mmain[0m:[36mgen[0m:[36m3590[0m - [33m[1mAnswer withheld by evidence checks: ['Numeric values absent from cited page excerpts', 'Value/unit pair absent from cited page excerpts', 'Identifier absent from cited page excerpts'][0m

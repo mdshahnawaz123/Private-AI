@@ -11,6 +11,11 @@ import base64
 
 OLLAMA_URL = os.getenv("EXPO_OLLAMA_HOST", os.getenv("OLLAMA_HOST", "http://127.0.0.1:11434")).rstrip("/")
 VISION_MODEL = os.getenv("EXPO_VISION_MODEL", "qwen2.5vl:7b")
+# Pilot architecture blueprint Sec 6.2: point the (heavy, image-bearing) vision
+# workload at a separate Ollama process/port than the text/chat workload, so
+# concurrent admin uploads never starve concurrent user chat. Empty/unset ->
+# same endpoint as today (OLLAMA_URL), unchanged behavior.
+VISION_OLLAMA_URL = os.getenv("EXPO_VISION_OLLAMA_HOST", OLLAMA_URL).rstrip("/")
 IMAGE_EXTS = (".png", ".jpg", ".jpeg", ".webp", ".bmp", ".tif", ".tiff", ".gif")
 
 # Keep the (large) model resident in Ollama between page calls so it does not
@@ -92,7 +97,7 @@ def describe_image(path, instruction=None, model=None, timeout=600):
     with _VISION_LOCK:
         for attempt in range(max(1, VISION_RETRIES)):
             try:
-                r = httpx.post(OLLAMA_URL + "/api/chat", json=payload, timeout=timeout)
+                r = httpx.post(VISION_OLLAMA_URL + "/api/chat", json=payload, timeout=timeout)
                 r.raise_for_status()
                 data = r.json()
                 return ((data.get("message") or {}).get("content") or "").strip()
@@ -117,7 +122,7 @@ def health():
     """(ok, detail): is the configured vision model present in Ollama?"""
     import httpx
     try:
-        r = httpx.get(OLLAMA_URL + "/api/tags", timeout=10)
+        r = httpx.get(VISION_OLLAMA_URL + "/api/tags", timeout=10)
         r.raise_for_status()
         names = [m.get("name", "") for m in r.json().get("models", [])]
         exact = VISION_MODEL if ':' in VISION_MODEL else VISION_MODEL + ':latest'

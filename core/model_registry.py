@@ -157,28 +157,55 @@ class ModelRegistry:
         self._load_defaults()
 
     def _load_defaults(self):
-        """Load default model configurations from environment or defaults."""
-        ollama_host = os.getenv("OLLAMA_HOST", "http://127.0.0.1:11434").rstrip("/")
-        vision_model = os.getenv("EXPO_VISION_MODEL", "qwen2.5vl:7b")
-        embed_model = os.getenv("EXPO_EMBED_MODEL", "bge-m3")
+        """Load default model configurations.
 
-        # Reasoning / chat model
+        Pilot architecture blueprint Sec 6.1: sourced from config.resolve_role
+        wherever a role exists there, instead of this registry's own,
+        previously-independent OLLAMA_HOST/EXPO_VISION_MODEL/EXPO_EMBED_MODEL
+        env-var reads -- those had drifted from what the live app actually
+        uses (this registry is diagnostic-only: /models and one /health
+        endpoint, never the live chat/ingestion path) and would silently
+        report the wrong model/endpoint once vision and chat are split
+        across two Ollama processes (Sec 6.2). FAST_LLM and RERANKER_MODEL
+        have no equivalent role in resolve_role, so they keep reading their
+        own env vars.
+        """
+        try:
+            from config import resolve_role
+            chat_role = resolve_role("chat")
+            vision_role = resolve_role("vision")
+            embed_role = resolve_role("embed")
+        except Exception:
+            # Fall back to the old independent defaults if config isn't
+            # importable for some reason (e.g. this module used standalone).
+            _host = os.getenv("OLLAMA_HOST", "http://127.0.0.1:11434").rstrip("/")
+            chat_role = {"model": os.getenv("EXPO_VISION_MODEL", "qwen2.5vl:7b"), "base_url": _host}
+            vision_role = {"model": os.getenv("EXPO_VISION_MODEL", "qwen2.5vl:7b"), "base_url": _host}
+            embed_role = {"model": os.getenv("EXPO_EMBED_MODEL", "bge-m3"), "base_url": _host}
+        ollama_host = vision_role["base_url"]
+
+        # Reasoning / chat model -- the actual answer-synthesis model (Sec 6.1
+        # 'chat' role), not vision_model: this used to report vision_model
+        # here even though main.py's real /ask_stream path uses settings.chat_model
+        # directly, which was exactly the documentation/reality drift flagged
+        # in the offline/model-swap audit.
         self.register(ModelConfig(
             role=ModelRole.REASONING_LLM,
-            name=vision_model,
+            name=chat_role["model"],
             provider="ollama",
-            endpoint=ollama_host,
+            endpoint=chat_role["base_url"],
             context_length=int(os.getenv("EXPO_NUM_CTX", "16384")),
-            capabilities=["chat", "vision", "reasoning"],
+            capabilities=["chat", "reasoning"],
             priority=1,
         ))
 
-        # Vision model (same as reasoning for now — one large model)
+        # Vision model -- its own role/endpoint (Sec 6.1 'vision'); may live on a
+        # separate Ollama process/port from chat once EXPO_VISION_OLLAMA_HOST is set.
         self.register(ModelConfig(
             role=ModelRole.VISION_MODEL,
-            name=vision_model,
+            name=vision_role["model"],
             provider="ollama",
-            endpoint=ollama_host,
+            endpoint=vision_role["base_url"],
             context_length=int(os.getenv("EXPO_NUM_CTX", "16384")),
             capabilities=["vision", "chat"],
             priority=1,
@@ -187,14 +214,15 @@ class ModelRegistry:
         # Embedding model
         self.register(ModelConfig(
             role=ModelRole.EMBEDDING_MODEL,
-            name=embed_model,
+            name=embed_role["model"],
             provider="ollama",
-            endpoint=ollama_host,
+            endpoint=embed_role["base_url"],
             capabilities=["embedding"],
             priority=1,
         ))
 
-        # Fast LLM (lighter model for simple queries)
+        # Fast LLM (lighter model for simple queries) -- no resolve_role role for
+        # this yet, keeps reading its own env var.
         self.register(ModelConfig(
             role=ModelRole.FAST_LLM,
             name=os.getenv("EXPO_FAST_LLM", "qwen2.5:7b"),
@@ -206,7 +234,8 @@ class ModelRegistry:
             enabled=os.getenv("EXPO_FAST_LLM_ENABLED", "0") == "1",
         ))
 
-        # Reranker
+        # Reranker -- not an Ollama model at all (sentence-transformers,
+        # intelligence/reranker.py); no resolve_role role for this either.
         self.register(ModelConfig(
             role=ModelRole.RERANKER_MODEL,
             name=os.getenv("EXPO_RERANKER_MODEL", "bge-reranker-v2-m3"),

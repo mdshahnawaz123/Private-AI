@@ -1,0 +1,12 @@
+test_invention_and_foreign_citations_withheld (test_answer_guard.AnswerGuardTests.test_invention_and_foreign_citations_withheld) ... ok
+test_known_numeric_filename_is_not_a_quantity (test_answer_guard.AnswerGuardTests.test_known_numeric_filename_is_not_a_quantity) ... ok
+test_not_found_and_list_indices_not_numeric_claims (test_answer_guard.AnswerGuardTests.test_not_found_and_list_indices_not_numeric_claims) ... ok
+test_other_entity_value_on_same_page_is_not_support (test_answer_guard.AnswerGuardTests.test_other_entity_value_on_same_page_is_not_support) ... ok
+test_repair_failure_preserves_refusal_and_valid_answer_skips_repair (test_answer_guard.AnswerGuardTests.test_repair_failure_preserves_refusal_and_valid_answer_skips_repair) ... ok
+test_repair_is_single_and_checked_before_publication (test_answer_guard.AnswerGuardTests.test_repair_is_single_and_checked_before_publication) ... ok
+test_valid_and_wrong_page_values (test_answer_guard.AnswerGuardTests.test_valid_and_wrong_page_values) ... ok
+
+----------------------------------------------------------------------
+Ran 7 tests in 0.171s
+
+OK

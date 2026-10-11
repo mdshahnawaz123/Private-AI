@@ -1,0 +1,15 @@
+{
+  "ready": true,
+  "integrity": "ok",
+  "documents": {
+    "ready": 124,
+    "ready_with_warnings": 1
+  },
+  "source_hashes": {
+    "main.py": "8c772947a5251aeb9de62d9d922ae1875048bfdf114b6a0855fe8568b37f3219",
+    "intelligence/exact_answers.py": "83c755cf21ea45d08a1c49a8f155746c5267d72f0668d74119e3ab50f07539b4",
+    "intelligence/table_evidence.py": "bf6417daae95a67be80a9623fa5099aaa60ae77e27308b8dae71ebd1f231b0e6",
+    "intelligence/source_semantics.py": "844cb325a7694858e062a548c1ef36fbfa8df3433f38472e5ae4233739ec2538",
+    "response_schema.py": "9f2ee637722b4fb06b8f69756304b046f50df5507739254290104a97ea448ab4"
+  }
+}

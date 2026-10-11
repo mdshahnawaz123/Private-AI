@@ -1,0 +1,6 @@
+{
+  "scope": "Populated isolated snapshot migration, not live DB",
+  "integrity": "ok",
+  "foreign_key_violations": 0,
+  "version": "c3d4e5f6a7b8"
+}

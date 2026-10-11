@@ -124,6 +124,33 @@ named property with a stated value, a defined term, a stated requirement or \
 rule, a table row. Do not summarize, do not infer anything not explicitly \
 stated, do not combine two separate facts into one.
 
+This text often contains MULTIPLE similarly-shaped tables back to back -- for \
+example a per-floor area table may appear three separate times under three \
+different names (e.g. "BUILT-UP AREA BREAKDOWN", "GROSS FLOOR AREA BREAKDOWN", \
+"NET SELLABLE AREA BREAKDOWN"), each with a DIFFERENT number for the same floor. \
+These are not duplicates -- extract every row of every one of these tables \
+separately, with the "table" field naming exactly which one it came from, so \
+"2nd Floor" from each of the three tables becomes three distinct facts, not one. \
+The same applies to any other repeated-looking breakdown (Required vs Proposed, \
+Allowed vs Actual, Incl. vs Excl. Balcony): extract each column/table's row as \
+its own fact rather than only the first one you see. \
+Do NOT stop partway through a long table because its rows look repetitive --a \
+table listing every floor from Basement to Roof, or every unit type, must have \
+every single row extracted, not just the first few or a representative sample. \
+A table's rows may appear broken up by unrelated text in between (a PDF's \
+multi-column layout can interleave table fragments) -- still extract every row \
+you can find for that table by its header name, even if its rows are not all \
+contiguous in the text below.
+
+If a table row or named field is present but its value cell is EMPTY, blank, \
+or shows only a placeholder like "-", "--", "N/A", or "TBC", still extract it \
+as its own fact -- do not skip it just because it has no number. Set "value" \
+to the literal placeholder text you see ("-", "N/A", "TBC", etc.) rather than \
+omitting the row. A field the document deliberately leaves blank is itself a \
+fact worth recording (e.g. "FAR Proposed: -" means the document does not \
+state a proposed FAR), and the system otherwise has no way to distinguish \
+"this field is blank in the source" from "this field was never read."
+
 Return ONLY a JSON array, no other text. Each element must have exactly these \
 fields:
 
@@ -362,7 +389,8 @@ def _page_text_map(meta: Dict[str, Any]) -> Dict[int, str]:
         pno = page.get("page")
         if pno is None:
             continue
-        out[pno] = _normalize(_page_blob(page))
+        # Vision is interpreted evidence, never authority for VERIFIED memory.
+        out[pno] = _normalize(str(page.get('text','') or '')+'\n'+str(page.get('tables','') or ''))
     return out
 
 
@@ -371,10 +399,13 @@ def verify_fact(fact: Dict[str, Any], window_pages: List[int], page_text: Dict[i
     quote = _normalize(fact.get("evidence_quote", ""))
     if len(quote) < 8 or not fact.get("property"):
         return "REJECTED", fact.get("page"), "degenerate output: missing property or evidence_quote too short"
+    claim = _normalize(fact.get('claim',''))
+    if not claim or claim not in quote:
+        return 'REVIEW_REQUIRED', fact.get('page'), 'Claim is not an exact supported source statement; quote presence alone does not verify its meaning'
 
     claimed_page = fact.get("page")
     # Check the claimed page first (cheap, most common case).
-    if claimed_page in page_text and quote in page_text[claimed_page]:
+    if claimed_page in window_pages and claimed_page in page_text and quote in page_text[claimed_page]:
         return "VERIFIED", claimed_page, ""
 
     # Quote may genuinely be on a different page within the same window
@@ -476,13 +507,49 @@ def build_memory_for_document(project_id: int, document_id: int, filename: str,
             # One source version replaces its memory atomically (same pattern
             # as index_quantities): supersede rather than delete, so history
             # of what the AI previously "remembered" is kept, not destroyed.
+            #
+            # IMPORTANT (found 2026-10-09, re-extraction regression test):
+            # extraction from a dense, multi-table page is NOT deterministic
+            # between runs -- rebuilding memory for an UNCHANGED document
+            # can genuinely miss facts a previous run found (confirmed: a
+            # rebuild that raised total verified facts overall still lost
+            # "FAR Proposed", the project data sheet's "Date", and "BUA
+            # Proposed" entirely -- they simply weren't in this run's
+            # output). Unconditionally superseding every previous row on
+            # every rebuild means a rebuild can only ever be as complete as
+            # its single worst run, forever, because anything it misses is
+            # gone. A rebuild should be able to ADD or UPDATE facts; it
+            # should never be able to SILENTLY DROP one that a previous run
+            # already found and verified. So: only supersede an existing
+            # row when the new batch actually produced a replacement for
+            # it (same normalized property name on the same page) --
+            # otherwise the existing, previously-verified row stays active
+            # untouched. A row whose source has genuinely changed (new
+            # document revision) still gets correctly superseded, because
+            # the new extraction will produce a same-property/same-page row
+            # with the new value; only a fact the new pass didn't mention at
+            # all is preserved rather than deleted.
+            def _prop_key(prop: str) -> str:
+                return _WS_RE.sub(" ", (prop or "").strip()).lower()
+            new_keys = {(_prop_key(r.property), r.page) for r in rows_to_insert}
             existing = db_session.query(db.DocumentMemory).filter_by(
                 project_id=project_id, document_id=document_id
             ).filter(db.DocumentMemory.superseded_at.is_(None)).all()
             if existing:
                 now = db._utcnow()
+                kept, superseded_count = 0, 0
                 for row in existing:
-                    row.superseded_at = now
+                    if row.source_sha256 != source_sha256 or (_prop_key(row.property), row.page) in new_keys:
+                        row.superseded_at = now
+                        superseded_count += 1
+                    else:
+                        kept += 1
+                if kept:
+                    logger.info(
+                        "document_memory: {} -- kept {} previously-verified fact(s) this rebuild's "
+                        "extraction didn't re-cover (superseded {} that were replaced)",
+                        filename, kept, superseded_count,
+                    )
             db_session.add_all(rows_to_insert)
             db_session.commit()
         except Exception:
@@ -546,6 +613,9 @@ def memory_lookup(project_id: int, query: str, permitted_filenames=None, focus_f
     guard-passing memory answer, or None to fall through to RAG. Never raises.
     """
     try:
+        from intelligence.document_investigation import needs_coverage
+        if needs_coverage(query):
+            return None
         import db
         from intelligence.retrieval import BM25Index
         from intelligence.answer_guard import guarded_answer
@@ -563,6 +633,30 @@ def memory_lookup(project_id: int, query: str, permitted_filenames=None, focus_f
 
         if not rows:
             return None
+
+        # Reject stale generations and existing rows built under weaker quote-only checks.
+        import hashlib
+        with db.SessionLocal() as session:
+            documents={d.id:d for d in session.query(db.Document).filter_by(project_id=project_id).all()}
+        hashes={}
+        valid=[]
+        for row in rows:
+            document=documents.get(row.document_id)
+            if not document or document.status not in ('ready','ready_with_warnings','verified','published'):
+                continue
+            if document.id not in hashes:
+                try:
+                    with open(document.path,'rb') as handle: hashes[document.id]=hashlib.file_digest(handle,'sha256').hexdigest()
+                except OSError: hashes[document.id]=None
+            if hashes[document.id]!=row.source_sha256:
+                continue
+            native=_cached_page_text(document.path)
+            state,page,_=verify_fact({'property':row.property,'claim':row.claim,'page':row.page,
+                                     'evidence_quote':row.evidence_quote},[row.page],native)
+            if state=='VERIFIED' and page==row.page:
+                valid.append(row)
+        rows=valid
+        if not rows:return None
         if permitted_filenames is not None:
             rows = [r for r in rows if r.doc in permitted_filenames]
         if not rows:
@@ -655,6 +749,23 @@ def memory_lookup(project_id: int, query: str, permitted_filenames=None, focus_f
             _prop_word_counts.update(set(re.findall(r"[a-z0-9]+", (_row.property or "").lower())))
         _generic_words = {w for w, n in _prop_word_counts.items() if n > 1}
 
+        # Bug (2026-10-09, found via B80/B81/B97): a "Total"/"Grand Total"/
+        # "Overall"/"Summary" row (e.g. "Total Units", "Grand Total BUA") can
+        # legitimately win a tie on raw word overlap against the specific
+        # row the query actually asked for (e.g. "Apartment Units (Tower
+        # A3)"), because the query's own content words ("units", "bua") are
+        # a subset of both. That's correct when the query itself is asking
+        # for the total/aggregate -- the 2026-10-08 "Total Units" fix above
+        # depends on that case still winning -- but wrong when the query
+        # names a SPECIFIC item (a tower, a unit type, a floor) and the
+        # aggregate row just happens to share its generic vocabulary.
+        # Demote an aggregate-named row to its own worst sub-tier unless the
+        # query itself uses aggregate language, so a specific match always
+        # wins when one exists, while an aggregate row remains available as
+        # a fallback if it's the only candidate.
+        _AGGREGATE_WORD_RE = re.compile(r"\b(total|grand\s*total|overall|summary|sum)\b", re.I)
+        query_asks_aggregate = bool(_AGGREGATE_WORD_RE.search(query))
+
         def _rank(item):
             row, score = item
             qualified = bool((row.parent_context or "").strip())
@@ -664,6 +775,9 @@ def memory_lookup(project_id: int, query: str, permitted_filenames=None, focus_f
             # query actually names. Next: an unqualified default row. Last:
             # a qualified row the query didn't ask about.
             tier = 0 if matches_condition else (1 if not qualified else 2)
+            is_aggregate_row = bool(_AGGREGATE_WORD_RE.search(row.property or ""))
+            if is_aggregate_row and not query_asks_aggregate:
+                tier += 3
             # Within a tier, rank by (in priority order):
             #  1. Whether the row even HAS a value -- a property with an
             #     empty `value` is rarely the right answer to a "what is
@@ -701,6 +815,101 @@ def memory_lookup(project_id: int, query: str, permitted_filenames=None, focus_f
             no_value = 0 if str(row.value or "").strip() else 1
             return (tier, -overlap_idf, no_value, -ratio, -len(overlap), -score)
         candidates.sort(key=_rank)
+
+        # Phase 3.1 (2026-10-09): some documents genuinely restate "the same"
+        # fact under several different tables with DIFFERENT values each --
+        # e.g. a per-floor area table appearing three times as "BUILT-UP
+        # AREA BREAKDOWN", "GROSS FLOOR AREA BREAKDOWN" and "NET SELLABLE
+        # AREA BREAKDOWN", each giving a different number for "2nd Floor".
+        # Picking just one of these (the heuristic rank or the LLM rerank
+        # both must commit to a single row) silently answers with only one
+        # of several equally valid numbers and never tells the user the
+        # other two exist. Found via the Phase 3 benchmark (2026-10-09):
+        # floor-area questions answered inconsistently depending on which
+        # of these tables' rows happened to survive extraction. Detect this
+        # BEFORE spending an LLM call on re-ranking: if 2+ of the top-tier
+        # candidates come from different named tables and disagree on
+        # value, that is not noise to rank away -- it is the real content
+        # of the document, and the honest answer discloses all of them.
+        best_tier = _rank(candidates[0])[0]
+        top_tier = [(row, score) for row, score in candidates if _rank((row, score))[0] == best_tier]
+        # Require each candidate to be a genuinely STRONG match on its own
+        # terms, not merely "passed the lexical gate" -- the gate only
+        # requires ONE shared non-qualifier word with the query, which is
+        # loose enough to admit a weakly-related row (a unit's balcony size,
+        # a different document's unrelated floor note) alongside the true
+        # multi-table match. Found via re-test after the 2026-10-09 memory
+        # rebuild: a genuine "2nd Floor" disclosure pulled in an unrelated
+        # "1 Bedroom Unit Area" row and a different-document "Ground Floor"
+        # note just because they all share the word "floor" or "area" with
+        # the query. Fix: only admit a candidate within a comfortable margin
+        # of the top candidate's own overlap strength (its match quality is
+        # comparable, not just "also matched something").
+        best_overlap_idf = -_rank(top_tier[0])[1]
+        strong_tier = [
+            (row, score) for row, score in top_tier
+            if best_overlap_idf <= 1e-9 or (-_rank((row, score))[1]) >= 0.6 * best_overlap_idf
+        ]
+        # Additionally require the candidates to actually be about the SAME
+        # specific thing as each other, not just each individually relevant
+        # to the query -- compare property names directly (not via the
+        # query), since two rows can each share a word with the query
+        # without sharing anything with EACH OTHER beyond that one word.
+        def _prop_tokens(row):
+            return _tokenize_for_match(row.property or "")
+        anchor_tokens = _prop_tokens(strong_tier[0][0]) if strong_tier else set()
+        by_table = {}
+        for row, score in strong_tier[:5]:
+            table_name = (row.table or "").strip()
+            val = str(row.value or "").strip()
+            if not table_name or not val:
+                continue
+            if len(anchor_tokens & _prop_tokens(row)) < 2:
+                continue
+            by_table.setdefault(table_name, (row, score))
+        distinct_values = {v for (r, _s) in by_table.values() for v in [str(r.value or "").strip()]}
+        if len(by_table) > 1 and len(distinct_values) > 1:
+            parts = []
+            sources = []
+            all_verify_ok = True
+            for table_name, (row, _score) in sorted(by_table.items()):
+                doc_path = None
+                import db as _db2
+                with _db2.SessionLocal() as _s2:
+                    d_row2 = _s2.query(_db2.Document).filter_by(id=row.document_id).first()
+                    doc_path = d_row2.path if d_row2 else None
+                if not doc_path:
+                    all_verify_ok = False
+                    break
+                page_text2 = _cached_page_text(doc_path)
+                quote_norm2 = _normalize(row.evidence_quote)
+                page_norm2 = page_text2.get(row.page, "")
+                if quote_norm2 not in page_norm2 and not any(quote_norm2 in t for t in page_text2.values()):
+                    all_verify_ok = False
+                    break
+                unit_part = f" {row.unit}".rstrip() if row.unit else ""
+                parts.append(f"{table_name}: {row.value}{unit_part}")
+                sources.append({"source": row.doc, "page": row.page})
+            if all_verify_ok and parts:
+                disclosure = (
+                    "This document states different values for this depending on which table it's "
+                    "drawn from: " + "; ".join(parts) + "."
+                )
+                evidence_text = "\n".join(
+                    f"[SOURCE: {r.doc} | PAGE {r.page}]\n{r.evidence_quote}"
+                    for _table_name, (r, _score) in sorted(by_table.items())
+                )
+                published, issues = guarded_answer(
+                    disclosure + " " + " ".join(f"[SOURCE: {s['source']} | PAGE {s['page']}]" for s in sources),
+                    evidence_text,
+                    sources,
+                )
+                if not issues:
+                    return {"answer": published, "sources": sources}
+                # guard rejected the composed disclosure (e.g. citation
+                # bookkeeping mismatch) -- fall through to the normal
+                # single-answer path below rather than lose the lookup
+                # entirely over a presentation-only failure.
 
         # Phase 3 (2026-10-09): when the lexical gate leaves more than one
         # candidate, ask the REASONING_LLM to pick the one that actually
@@ -743,9 +952,8 @@ def memory_lookup(project_id: int, query: str, permitted_filenames=None, focus_f
         if quote_norm not in page_norm:
             # also accept if it verifies on ANY page (handles a page-number
             # correction since the memory row was written)
-            if not any(quote_norm in t for t in page_text.values()):
-                logger.info("document_memory: query-time re-verification failed for '{}', falling through to RAG", best_row.property)
-                return None
+            logger.info("document_memory: query-time exact-page verification failed for '{}'", best_row.property)
+            return None
 
         answer = f"{best_row.claim.strip()} [SOURCE: {best_row.doc} | PAGE {best_row.page}]"
         evidence = f"[SOURCE: {best_row.doc} | PAGE {best_row.page}]\n{best_row.evidence_quote}"

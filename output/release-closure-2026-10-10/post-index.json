@@ -1,0 +1,26 @@
+{
+  "vectors": 114,
+  "duplicate_chunks": 0,
+  "source_chunks": {
+    "pipe-register.pdf": 1,
+    "duct-detail.pdf": 1,
+    "ventilation.pdf": 1,
+    "tank-note.pdf": 1,
+    "wall-detail.pdf": 1,
+    "pump-spec.pdf": 1,
+    "scan-4-1.pdf": 9,
+    "scan-4-0.pdf": 9,
+    "scan-4-2.pdf": 9,
+    "scan-4-3.pdf": 9,
+    "scan-8-0.pdf": 9,
+    "scan-8-1.pdf": 9,
+    "scan-8-6.pdf": 9,
+    "scan-8-7.pdf": 9,
+    "scan-8-2.pdf": 9,
+    "scan-8-4.pdf": 9,
+    "scan-8-5.pdf": 9,
+    "scan-8-3.pdf": 9
+  },
+  "integrity": "ok",
+  "foreign_key_violations": 0
+}

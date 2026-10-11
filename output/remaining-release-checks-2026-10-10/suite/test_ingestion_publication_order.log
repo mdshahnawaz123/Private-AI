@@ -1,0 +1,7 @@
+warning: The `fitz` API is deprecated and will be removed in future. Use `import pymupdf` instead.
+test_visual_evidence_is_saved_before_index_publication (test_ingestion_publication_order.IngestionPublicationOrder.test_visual_evidence_is_saved_before_index_publication) ... ok
+
+----------------------------------------------------------------------
+Ran 1 test in 1.700s
+
+OK

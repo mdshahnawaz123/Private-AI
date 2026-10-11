@@ -1,0 +1,8 @@
+{
+  "source_sha256": "905a5d07c5b310110d7de330dd7ac7d37f695df7b760db8efd5cb64f9429878f",
+  "readiness_http": 200,
+  "readiness": {
+    "status": "ready"
+  },
+  "workspace_import_route_live": true
+}

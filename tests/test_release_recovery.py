@@ -16,8 +16,10 @@ class ReleaseRecovery(unittest.TestCase):
                 return 'partial source',{'type':'pdf','truncated':True,'pages':[{'page':1,'text':'partial source'}]}
             logger=SimpleNamespace(info=lambda *a:None,warning=lambda *a:None,exception=lambda *a:None)
             scope={'os':os,'json':json,'PROGRESS':{},'_pkey':lambda *a:a,'logger':logger,
-                'vision':SimpleNamespace(is_image=lambda path:False),'cad':SimpleNamespace(is_cad=lambda path:False),
-                'extract':SimpleNamespace(extract_pdf=extract_pdf),'db':SimpleNamespace(update_document_status=lambda *a:statuses.append(a))}
+                'vision':SimpleNamespace(is_image=lambda path:False,describe_image=lambda *a:''),'cad':SimpleNamespace(is_cad=lambda path:False),
+                'extract':SimpleNamespace(extract_pdf=extract_pdf),'db':SimpleNamespace(
+                    set_progress=lambda *a:None,get_progress=lambda *a:{},clear_progress=lambda *a:None,
+                    update_document_status=lambda *a:statuses.append(a))}
             exec(compile(ast.Module(body=[function],type_ignores=[]),'document-pipeline','exec'),scope)
             with patch('config.get_settings',return_value=SimpleNamespace(max_pages=1)):
                 scope['process_document']('Synthetic',path,'source.pdf','','Reports')

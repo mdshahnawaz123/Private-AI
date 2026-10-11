@@ -148,7 +148,12 @@ def require_project(request, project):
     except (ValueError,TypeError):
         raise HTTPException(400,'Invalid project name')
     with db.SessionLocal() as session:
-        if not session.query(db.Project).filter_by(name=project).first():
+        # Recycle bin (2026-10-07): a soft-deleted project (db.Project.deleted_at
+        # set) is treated as not found here, same as a soft-deleted document is
+        # excluded from db.list_documents() -- it disappears app-wide the moment
+        # it's deleted, even for an admin, until restored via the recycle bin.
+        if not (session.query(db.Project).filter_by(name=project)
+                .filter(db.Project.deleted_at.is_(None)).first()):
             raise HTTPException(404,'Project not found')
     if u["role"] == "admin":
         return u

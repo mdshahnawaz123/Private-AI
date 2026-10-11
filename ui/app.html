@@ -231,6 +231,30 @@ table.dt tr:hover td{background:#0e1826}
 .ai-comp .send{background:var(--accent);border:none;color:#fff;width:42px;height:42px;border-radius:11px;display:grid;place-items:center;flex:none}
 .ai-comp .send:hover{filter:brightness(1.08)}
 .attach-card{border-left:2px solid var(--violet)}
+/* Admin-only Coding Agent toggle (ai-h header) */
+.cowork-toggle{flex:none;background:none;border:1px solid var(--border2);color:var(--muted);font-size:10.5px;font-weight:700;letter-spacing:.2px;border-radius:999px;padding:5px 11px;white-space:nowrap}
+.cowork-toggle:hover{color:var(--text);border-color:var(--accent2)}
+.cowork-toggle.on{background:linear-gradient(180deg,#4d7cfe,#3f6ef0);border-color:transparent;color:#fff;box-shadow:0 4px 12px -4px rgba(77,124,254,.7)}
+/* run_command approval card (inside an AI message bubble) -- PROPOSAL ONLY:
+   nothing in this card executes anything by itself; only its two buttons'
+   click handlers (see addCommandCard in app.js) ever call the server, and
+   each does exactly one POST naming the pending_id the server generated. */
+.cmd-card{background:var(--surface2);border:1px solid var(--amber);border-radius:var(--r-md);padding:11px 12px;max-width:100%}
+.cmd-card .cc-h{font-size:10.5px;text-transform:uppercase;letter-spacing:.5px;color:var(--amber);font-weight:700;margin-bottom:7px}
+.cmd-card .cc-reason{color:var(--muted);font-size:12px;margin:2px 0 7px}
+.cmd-card pre{background:#0f172a;border:1px solid #1e293b;border-radius:8px;padding:9px 10px;font-size:11.5px;white-space:pre-wrap;word-break:break-word;margin:4px 0;max-height:220px;overflow:auto}
+.cmd-card .cc-actions{display:flex;gap:8px;margin-top:8px}
+.cmd-card .cc-btn{flex:1;border-radius:8px;padding:8px 10px;font-size:12px;font-weight:700;border:1px solid var(--border2);background:var(--card)}
+.cmd-card .cc-approve{background:var(--green);color:#06230f;border-color:transparent}
+.cmd-card .cc-approve:hover{filter:brightness(1.08)}
+.cmd-card .cc-reject{background:transparent;color:var(--red);border-color:var(--red)}
+.cmd-card .cc-reject:hover{background:rgba(242,88,95,.12)}
+.cmd-card .cc-btn:disabled{opacity:.5;cursor:default;filter:none}
+.cmd-card .cc-result{margin-top:9px;font-size:12px}
+.cmd-card .cc-status{font-size:11.5px;font-weight:700}
+.cmd-card .cc-status.ok{color:var(--green)}
+.cmd-card .cc-status.err{color:var(--red)}
+.cmd-card .cc-status.rej{color:var(--muted)}
 .attach-menu{position:relative;margin:0 13px;background:var(--card);border:1px solid var(--border);border-radius:var(--r-lg);box-shadow:0 10px 28px -10px rgba(0,0,0,.5);max-height:220px;overflow:auto;padding:6px}
 .attach-menu-item{display:flex;align-items:center;gap:8px;width:100%;background:none;border:none;color:var(--text);text-align:left;padding:8px 9px;border-radius:9px;font-size:12px;cursor:pointer}
 .attach-menu-item:hover{background:var(--card2)}
@@ -426,6 +450,14 @@ table.dt tr:hover td{background:#0e1826}
       <div class="spark"><svg class="ico" viewBox="0 0 24 24" style="width:15px;height:15px"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/></svg></div>
       <div class="t">Design AI Copilot</div>
       <div class="grow">
+        <!-- Admin-only: proposes shell commands in the sandboxed project workspace
+             for a human admin to approve (see /projects/{project}/agent/run-command).
+             Hidden for non-admins in onAuthed(); server re-checks role regardless. -->
+        <button class="cowork-toggle" id="aiCoworkToggle" title="Turn on Coding Agent mode (admin only)" hidden>Coding Agent</button>
+        <button class="cowork-toggle" id="aiCoworkFolder" title="Copy a folder into this project's Cowork workspace" hidden>Add folder</button>
+        <input type="file" id="aiCoworkFolderInput" webkitdirectory multiple hidden>
+        <button class="cowork-toggle" id="aiCoworkFiles" title="Copy selected files into this project's Cowork workspace" hidden>Add files</button>
+        <input type="file" id="aiCoworkFilesInput" multiple hidden>
         <button class="iconbtn" id="aiCollapse" title="Collapse Copilot"><svg class="ico" viewBox="0 0 24 24" style="width:18px;height:18px"><path d="M9 18l6-6-6-6"/></svg></button>
       </div>
     </div>
@@ -518,6 +550,6 @@ table.dt tr:hover td{background:#0e1826}
 <div class="toast" id="toast"></div>
 
 <script src="/ui/response_renderer.js?v=2"></script>
-<script src="/ui/app.js?v=45"></script>
+<script src="/ui/app.js?v=61"></script>
 </body>
 </html>

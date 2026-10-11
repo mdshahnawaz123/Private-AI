@@ -39,7 +39,8 @@ _NOT_FOUND_RX = re.compile(
     r"\b(i\s+(?:could\s+not|couldn'?t|cannot|can'?t|do\s+not|don'?t|did\s+not|didn'?t)\s+find|"
     r"no\s+(?:information|data|mention|record)\s+(?:of|about|on|regarding)|"
     r"not\s+(?:found|available|mentioned|present)\s+in\s+(?:the\s+)?(?:document|documents|project|uploaded\s+documents)|"
-    r"unable\s+to\s+(?:locate|find))\b", re.I)
+    r"unable\s+to\s+(?:locate|find)|"
+    r"i\s+(?:could\s+not|cannot)\s+verify|no\s+matching\s+native\s+table\s+evidence)\b", re.I)
 
 _ERROR_RX = re.compile(r"\b(error|failed|exception|could\s+not\s+process)\b", re.I)
 _WARNING_RX = re.compile(r"\b(warning|discrepanc|mismatch|exceeds?|non[- ]compliant|violat|caution|inconsistent)\b", re.I)
@@ -257,7 +258,7 @@ def build_structured_response(
                 "calculations": [],
                 "issues": [],
                 "sources": src_struct,
-                "confidence": _confidence(sources, focus_doc_used, False),
+                "confidence": _confidence(sources, focus_doc_used, is_not_found),
             }
 
         return {

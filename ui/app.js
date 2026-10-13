@@ -1538,11 +1538,18 @@ function _renderStudioGallery(){
         const out = it.output;
         const job = it.job;
         const thumbUrl = `${API}/api/image-engine/outputs/${encodeURIComponent(out.output_id)}/thumb?token=${encodeURIComponent(authToken||'')}`;
+        const fileUrl = `${API}/api/image-engine/outputs/${encodeURIComponent(out.output_id)}/file?token=${encodeURIComponent(authToken||'')}`;
+        const downloadName = out.filename || `Architectural_Render_${out.width}x${out.height}.png`;
         const cat = job.workflow_id ? job.workflow_id.split('-')[0] : 'gen';
         const dateStr = (job.created_at || '').replace('T', ' ').slice(0, 16);
         return `
           <div class="studio-card" data-idx="${idx}">
-            <img class="studio-card-thumb" src="${thumbUrl}" alt="${esc(out.metadata?.prompt || "")}" loading="lazy">
+            <div style="position:relative;overflow:hidden">
+              <img class="studio-card-thumb" src="${thumbUrl}" alt="${esc(out.metadata?.prompt || "")}" loading="lazy">
+              <a href="${fileUrl}" download="${esc(downloadName)}" class="studio-quick-download" title="Download Image" onclick="event.stopPropagation()">
+                <svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" stroke-width="2.2" fill="none"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              </a>
+            </div>
             <div class="studio-card-info">
               <div class="studio-card-prompt">${esc(out.metadata?.prompt || "")}</div>
               <div class="studio-card-meta">
@@ -1577,28 +1584,58 @@ function _openStudioLightbox(out, job){
 
   const fileUrl = `${API}/api/image-engine/outputs/${encodeURIComponent(out.output_id)}/file?token=${encodeURIComponent(authToken||'')}`;
   const dateStr = (job.created_at || '').replace('T', ' ').slice(0, 19);
+  const downloadName = out.filename || `Architectural_Render_${out.width}x${out.height}.png`;
+  const workflowName = job.workflow_id ? job.workflow_id.replace(/_/g, ' ') : 'Architecture Concept';
 
   modal.innerHTML = `
     <div class="studio-modal-card" id="studioModalCard">
+      <!-- Floating Top Bar -->
+      <div class="studio-modal-topbar">
+        <div style="display:flex;align-items:center;gap:8px">
+          <span class="badge-s b-info" style="font-size:10px;text-transform:uppercase">${esc(workflowName)}</span>
+          <span style="font-size:11px;color:#94a3b8;font-weight:500">${out.width} × ${out.height}</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <a href="${fileUrl}" download="${esc(downloadName)}" class="studio-lb-btn primary" id="studioLbDownloadBtn" title="Download High-Resolution Image">
+            <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2.4" fill="none"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            <span>Download</span>
+          </a>
+          <button class="studio-lb-btn ghost" id="studioToggleDetails" title="Toggle prompt & details">
+            ℹ️ Details
+          </button>
+          <button class="studio-lb-btn ghost" id="studioModalClose" title="Close (Esc)" style="padding:6px 11px;font-size:16px;line-height:1">
+            ✕
+          </button>
+        </div>
+      </div>
+
+      <!-- Main Full Image View (Clean & professional with no side text!) -->
       <div class="studio-modal-imgwrap">
         <img src="${fileUrl}" alt="${esc(out.metadata?.prompt || "")}">
+        <div class="studio-modal-caption">
+          <span style="display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">
+            ${esc(out.metadata?.prompt || "")}
+          </span>
+        </div>
       </div>
-      <div class="studio-modal-sidebar">
-        <div style="display:flex;align-items:center;justify-content:space-between">
-          <h4 style="margin:0;font-size:14px;font-weight:700">Architectural Concept Details</h4>
-          <button class="iconbtn" id="studioModalClose" title="Close" style="font-size:18px;line-height:1">×</button>
+
+      <!-- Collapsible Sliding Details Drawer (Hidden by default) -->
+      <div class="studio-modal-drawer hidden" id="studioModalDrawer">
+        <div style="display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid rgba(255,255,255,.1);padding-bottom:10px">
+          <h4 style="margin:0;font-size:13px;font-weight:700;color:#f8fafc">Concept Details & Rationale</h4>
+          <button class="iconbtn" id="studioCloseDrawer" title="Hide Details" style="font-size:16px">✕</button>
         </div>
 
-        <div style="font-size:12px;line-height:1.5;background:var(--card);padding:10px 12px;border-radius:var(--r-sm);border:1px solid var(--border)">
-          <div style="font-size:10px;font-weight:700;color:var(--faint);letter-spacing:.4px;margin-bottom:4px">GENERATION PROMPT</div>
+        <div style="font-size:11.5px;line-height:1.5;background:rgba(255,255,255,.04);padding:10px 12px;border-radius:var(--r-sm);border:1px solid rgba(255,255,255,.08)">
+          <div style="font-size:9.5px;font-weight:700;color:var(--faint);letter-spacing:.4px;margin-bottom:4px">GENERATION PROMPT</div>
           ${esc(out.metadata?.prompt || "")}
         </div>
 
         ${(out.metadata?.reasoning || job.reasoning) ? `
-        <div style="font-size:12px;line-height:1.5;background:rgba(47,107,255,.08);padding:10px 12px;border-radius:var(--r-sm);border:1px solid rgba(47,107,255,.25)">
-          <div style="font-size:10px;font-weight:700;color:var(--accent2);letter-spacing:.4px;margin-bottom:4px;display:flex;align-items:center;gap:4px">
+        <div style="font-size:11.5px;line-height:1.5;background:rgba(47,107,255,.08);padding:10px 12px;border-radius:var(--r-sm);border:1px solid rgba(47,107,255,.25)">
+          <div style="font-size:9.5px;font-weight:700;color:var(--accent2);letter-spacing:.4px;margin-bottom:4px;display:flex;align-items:center;gap:4px">
             <span>💡 ARCHITECTURAL REASONING</span>
-            <span class="badge-s b-info" style="font-size:9px">qwen3.5:9b</span>
+            <span class="badge-s b-info" style="font-size:8.5px">qwen3.5:9b</span>
           </div>
           ${esc(out.metadata?.reasoning || job.reasoning)}
         </div>
@@ -1610,20 +1647,19 @@ function _openStudioLightbox(out, job){
         </div>
         ` : ''}
 
-        <div style="font-size:11.5px;display:flex;flex-direction:column;gap:5px">
-          <div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--border)"><span class="muted">Workflow</span><b>${esc(job.workflow_id)}</b></div>
-          <div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--border)"><span class="muted">Resolution</span><b>${out.width} × ${out.height}</b></div>
-          <div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--border)"><span class="muted">Steps / CFG</span><b>${out.metadata?.steps ?? 4} / CFG ${out.metadata?.cfg ?? 1.0}</b></div>
-          <div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--border)"><span class="muted">Seed</span><b>${job.seed!=null?job.seed:'Auto'}</b></div>
-          <div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--border)"><span class="muted">Job ID</span><code style="font-size:10px">${esc(job.job_id)}</code></div>
-          <div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--border)"><span class="muted">Generated</span><span>${esc(dateStr)}</span></div>
+        <div style="font-size:11px;display:flex;flex-direction:column;gap:5px">
+          <div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid rgba(255,255,255,.06)"><span class="muted">Workflow</span><b>${esc(job.workflow_id)}</b></div>
+          <div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid rgba(255,255,255,.06)"><span class="muted">Resolution</span><b>${out.width} × ${out.height}</b></div>
+          <div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid rgba(255,255,255,.06)"><span class="muted">Steps / CFG</span><b>${out.metadata?.steps ?? 4} / CFG ${out.metadata?.cfg ?? 1.0}</b></div>
+          <div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid rgba(255,255,255,.06)"><span class="muted">Seed</span><b>${job.seed!=null?job.seed:'Auto'}</b></div>
+          <div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid rgba(255,255,255,.06)"><span class="muted">Generated</span><span>${esc(dateStr)}</span></div>
         </div>
 
         <div style="margin-top:auto;display:flex;flex-direction:column;gap:8px">
-          <a href="${fileUrl}" download="${esc(out.filename)}" class="primary" style="display:flex;align-items:center;justify-content:center;gap:6px;text-decoration:none">
-            📥 Download Full PNG (${out.width}×${out.height})
+          <a href="${fileUrl}" download="${esc(downloadName)}" class="primary" style="display:flex;align-items:center;justify-content:center;gap:6px;text-decoration:none;padding:8px">
+            📥 Download High-Res PNG
           </a>
-          <button class="ghost" id="studioReusePrompt">📋 Reuse Prompt in Studio</button>
+          <button class="ghost" id="studioReusePrompt" style="padding:7px">📋 Reuse Prompt in Studio</button>
         </div>
       </div>
     </div>
@@ -1648,6 +1684,24 @@ function _openStudioLightbox(out, job){
   };
 
   document.addEventListener('keydown', handleKey);
+
+  // Toggle details drawer
+  const toggleBtn = $('studioToggleDetails');
+  const drawer = $('studioModalDrawer');
+  const closeDrawerBtn = $('studioCloseDrawer');
+
+  if(toggleBtn && drawer){
+    toggleBtn.onclick = (e) => {
+      e.stopPropagation();
+      drawer.classList.toggle('hidden');
+    };
+  }
+  if(closeDrawerBtn && drawer){
+    closeDrawerBtn.onclick = (e) => {
+      e.stopPropagation();
+      drawer.classList.add('hidden');
+    };
+  }
 
   const reuseBtn = $('studioReusePrompt');
   if(reuseBtn){

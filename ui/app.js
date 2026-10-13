@@ -871,10 +871,15 @@ async function renderStudio(b){
           
           <div id="studioReasoningBox" class="studio-reasoning-box" style="display:none">
             <div class="studio-reasoning-title">
-              <span>💡 Architectural Reasoning</span>
+              <span>💡 Architectural Director Reasoning</span>
               <a href="javascript:void(0)" id="studioRevertPrompt" style="color:var(--muted);text-decoration:underline;font-size:10px">Revert brief</a>
             </div>
+            <div id="studioConstraintsWrap" class="studio-constraints-wrap" style="display:none"></div>
             <div id="studioReasoningText"></div>
+            <div id="studioDesignOptionsWrap" style="display:none">
+              <div style="font-size:10px;font-weight:700;color:var(--accent2);letter-spacing:.3px;margin:8px 0 4px 0;text-transform:uppercase">Architectural Design Schemes (Click to apply)</div>
+              <div id="studioDesignOptionsList" class="studio-design-options"></div>
+            </div>
           </div>
 
           <label style="display:flex;align-items:center;gap:6px;font-size:11px;font-weight:600;cursor:pointer;margin-top:5px;color:var(--muted);user-select:none">
@@ -1289,12 +1294,17 @@ function _wireStudioControls(){
     });
   }
 
-  // Enhance Prompt button
+  // Enhance Prompt button & Architectural Director
   const enhanceBtn = $('studioEnhanceBtn');
   const reasoningBox = $('studioReasoningBox');
   const reasoningText = $('studioReasoningText');
+  const constraintsWrap = $('studioConstraintsWrap');
+  const designOptionsWrap = $('studioDesignOptionsWrap');
+  const designOptionsList = $('studioDesignOptionsList');
   const revertLink = $('studioRevertPrompt');
   let _preEnhancedPrompt = '';
+
+  const _escHtml = (s) => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
   if(enhanceBtn && promptEl){
     enhanceBtn.onclick = async () => {
@@ -1306,7 +1316,7 @@ function _wireStudioControls(){
       }
       enhanceBtn.disabled = true;
       const origBtnHTML = enhanceBtn.innerHTML;
-      enhanceBtn.innerHTML = '<span>⏳ Reasoning...</span>';
+      enhanceBtn.innerHTML = '<span>⏳ Director Reasoning...</span>';
       try {
         const res = await fetch(`${API}/api/image-engine/enhance-prompt`, {
           method: 'POST',
@@ -1322,11 +1332,58 @@ function _wireStudioControls(){
           if(data.success && data.enhanced_prompt){
             _preEnhancedPrompt = curPrompt;
             promptEl.value = data.enhanced_prompt;
-            if(reasoningBox && reasoningText){
-              reasoningText.textContent = data.reasoning || 'Prompt enriched with architectural materials, lighting, and composition.';
-              reasoningBox.style.display = '';
+
+            // Render preserved constraints
+            if(constraintsWrap){
+              if(data.preserved_constraints && data.preserved_constraints.length){
+                constraintsWrap.innerHTML = data.preserved_constraints.map(c => 
+                  `<span class="studio-constraint-badge" title="Hard constraint strictly preserved">🔒 ${_escHtml(c)}</span>`
+                ).join('');
+                constraintsWrap.style.display = 'flex';
+              } else {
+                constraintsWrap.style.display = 'none';
+              }
             }
-            toast('Architectural prompt enhanced with Reasoning AI');
+
+            // Render reasoning critique
+            if(reasoningText){
+              reasoningText.textContent = data.reasoning || 'Architectural Director reasoning applied.';
+            }
+
+            // Render design options
+            if(designOptionsWrap && designOptionsList){
+              if(data.design_options && data.design_options.length){
+                designOptionsList.innerHTML = data.design_options.map((opt, idx) => `
+                  <div class="studio-design-card ${idx === 0 ? 'active' : ''}" data-idx="${idx}" title="Click to apply this architectural scheme">
+                    <div class="studio-design-card-title">
+                      <span>${_escHtml(opt.title)}</span>
+                    </div>
+                    ${opt.style ? `<div class="studio-design-card-style">${_escHtml(opt.style)}</div>` : ''}
+                    ${opt.rationale ? `<div class="studio-design-card-rationale">${_escHtml(opt.rationale)}</div>` : ''}
+                  </div>
+                `).join('');
+                designOptionsWrap.style.display = '';
+
+                // Bind click events on design cards
+                designOptionsList.querySelectorAll('.studio-design-card').forEach(card => {
+                  card.onclick = () => {
+                    designOptionsList.querySelectorAll('.studio-design-card').forEach(c => c.classList.remove('active'));
+                    card.classList.add('active');
+                    const idx = parseInt(card.getAttribute('data-idx'), 10);
+                    const chosen = data.design_options[idx];
+                    if(chosen && chosen.prompt){
+                      promptEl.value = chosen.prompt;
+                      toast(`Applied Scheme: ${chosen.title}`);
+                    }
+                  };
+                });
+              } else {
+                designOptionsWrap.style.display = 'none';
+              }
+            }
+
+            if(reasoningBox) reasoningBox.style.display = '';
+            toast('Prompt director applied with design options');
           } else {
             toast('Reasoning enhancement returned standard prompt');
           }
@@ -1348,6 +1405,8 @@ function _wireStudioControls(){
         promptEl.value = _preEnhancedPrompt;
         _preEnhancedPrompt = '';
         if(reasoningBox) reasoningBox.style.display = 'none';
+        if(constraintsWrap) constraintsWrap.style.display = 'none';
+        if(designOptionsWrap) designOptionsWrap.style.display = 'none';
         toast('Reverted to original brief');
       }
     };

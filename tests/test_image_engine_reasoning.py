@@ -79,20 +79,71 @@ class TestPromptReasoner(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(sent_payload["format"], "json")
             self.assertFalse(sent_payload["think"])
 
+    async def test_enhance_prompt_with_g_plus_10_invariant_preservation(self):
+        mock_response = {
+            "model": "qwen3.5:9b",
+            "message": {
+                "content": json.dumps({
+                    "preserved_constraints": ["G+10 residential tower", "podium base"],
+                    "architectural_reasoning": "Massing articulated with ground podium and 10 upper stories with continuous slab edges.",
+                    "enhanced_prompt": "Eye-level 2-point perspective architectural render of a G+10 residential tower in Dubai. Double-height podium transitions to 10 distinct upper floors.",
+                    "design_options": [
+                        {
+                            "id": "option_a",
+                            "title": "Biophilic & Terraced",
+                            "style": "Biophilic Modernism",
+                            "prompt": "G+10 residential tower with biophilic balconies and lush planters.",
+                            "rationale": "Terraced green buffers.",
+                        },
+                        {
+                            "id": "option_b",
+                            "title": "High-Tech Glass & Metallic",
+                            "style": "Contemporary High-Tech",
+                            "prompt": "G+10 residential tower with bronze curtain wall.",
+                            "rationale": "High-performance facade.",
+                        },
+                    ]
+                })
+            }
+        }
+
+        with patch("httpx.AsyncClient.post", new_callable=AsyncMock) as mock_post:
+            mock_resp_obj = MagicMock()
+            mock_resp_obj.json.return_value = mock_response
+            mock_resp_obj.raise_for_status = MagicMock()
+            mock_post.return_value = mock_resp_obj
+
+            res = await enhance_architectural_prompt(
+                prompt="G+10 residential tower in Dubai",
+                building_type="Residential",
+                architectural_style="Contemporary",
+                unload_vram=True,
+            )
+
+            self.assertTrue(res["success"])
+            self.assertIn("G+10", res["enhanced_prompt"])
+            self.assertIn("G+10", " ".join(res["preserved_constraints"]))
+            self.assertEqual(len(res["design_options"]), 2)
+            self.assertEqual(res["design_options"][0]["id"], "option_a")
+            self.assertIn("G+10", res["design_options"][0]["prompt"])
+
     async def test_enhance_prompt_offline_fallback(self):
         with patch("httpx.AsyncClient.post", new_callable=AsyncMock) as mock_post:
             mock_post.side_effect = Exception("Connection refused to Ollama")
 
             res = await enhance_architectural_prompt(
-                prompt="Futuristic pavilion",
-                building_type="Pavilion",
+                prompt="G+10 futuristic residential tower",
+                building_type="Residential",
                 architectural_style="Parametric",
             )
 
             self.assertFalse(res["success"])
-            self.assertIn("Futuristic pavilion", res["enhanced_prompt"])
-            self.assertIn("Architectural render", res["enhanced_prompt"])
-            self.assertIn("offline", res["reasoning"].lower())
+            # Fallback must preserve G+10
+            self.assertIn("G+10", res["enhanced_prompt"])
+            self.assertIn("G+10", " ".join(res["preserved_constraints"]))
+            self.assertGreaterEqual(len(res["design_options"]), 1)
+            self.assertIn("G+10", res["design_options"][0]["prompt"])
+            self.assertIn("fallback", res["reasoning"].lower())
 
     async def test_enhance_prompt_empty_input(self):
         res = await enhance_architectural_prompt("")
@@ -170,6 +221,16 @@ class TestReasoningAPIAndJobExecution(unittest.TestCase):
             "original_prompt": "Minimalist pavilion",
             "enhanced_prompt": "Minimalist glass and timber pavilion on reflective pool.",
             "reasoning": "Emphasizes clarity of structural grid and natural daylighting.",
+            "preserved_constraints": ["Pavilion typology", "Reflective pool"],
+            "design_options": [
+                {
+                    "id": "option_a",
+                    "title": "Biophilic & Terraced",
+                    "style": "Biophilic Modernism",
+                    "prompt": "Minimalist glass and timber pavilion with biophilic roof garden.",
+                    "rationale": "Harmonizes with surrounding water.",
+                }
+            ],
             "model": "qwen3.5:9b",
         }
 
@@ -200,6 +261,9 @@ class TestReasoningAPIAndJobExecution(unittest.TestCase):
                 data["reasoning"],
                 "Emphasizes clarity of structural grid and natural daylighting.",
             )
+            self.assertEqual(data["preserved_constraints"], ["Pavilion typology", "Reflective pool"])
+            self.assertEqual(len(data["design_options"]), 1)
+            self.assertEqual(data["design_options"][0]["id"], "option_a")
 
     def test_job_submission_with_enhance_prompt_flag(self):
         payload = {

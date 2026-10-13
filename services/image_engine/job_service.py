@@ -336,6 +336,10 @@ class JobService:
                                 params["enhanced_prompt"] = enhanced_text
                                 params["reasoning"] = reasoning_summary
                                 params["original_prompt"] = orig_prompt
+                                if enhanced_res.get("preserved_constraints"):
+                                    params["preserved_constraints"] = enhanced_res.get("preserved_constraints")
+                                if enhanced_res.get("design_options"):
+                                    params["design_options"] = enhanced_res.get("design_options")
                                 job_row.input_params = params
                                 s.commit()
                 except Exception as r_err:

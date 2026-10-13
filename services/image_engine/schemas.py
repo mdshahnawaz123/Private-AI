@@ -138,6 +138,15 @@ class JobStatus(BaseModel):
     )
 
 
+class DesignOption(BaseModel):
+    """Architectural design option variant honoring user constraints."""
+    id: str = Field(..., description="Unique option identifier, e.g. option_a")
+    title: str = Field(..., description="Short title, e.g. Biophilic & Terraced")
+    style: Optional[str] = Field(default=None, description="Architectural style name")
+    prompt: str = Field(..., description="Full diffusion prompt for this option")
+    rationale: Optional[str] = Field(default=None, description="Architectural design intent and rationale")
+
+
 class PromptEnhanceRequest(BaseModel):
     """Request payload to enhance an architectural prompt using reasoning AI."""
     prompt: str = Field(..., min_length=1, max_length=4000, description="User architectural brief")
@@ -151,6 +160,15 @@ class PromptEnhanceResponse(BaseModel):
     original_prompt: str = Field(..., description="Original user prompt")
     enhanced_prompt: str = Field(..., description="Enriched architectural prompt")
     reasoning: Optional[str] = Field(default=None, description="Architectural reasoning explanation")
+    preserved_constraints: List[str] = Field(
+        default_factory=list,
+        description="Explicit user constraints strictly preserved (e.g. G+10 floor count, program, materials)",
+    )
+    design_options: List[DesignOption] = Field(
+        default_factory=list,
+        description="Distinct architectural design schemes honoring the same constraints",
+    )
     model: Optional[str] = Field(default=None, description="Reasoning model used")
     error: Optional[str] = Field(default=None, description="Error message if fallback was used")
+
 

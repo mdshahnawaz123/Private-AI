@@ -946,6 +946,9 @@ async function renderStudio(b){
             <div class="studio-pill ${(_studioEngineStatus&&_studioEngineStatus.available)?'online':'offline'}" id="studioStatusPill">
               ${(_studioEngineStatus&&_studioEngineStatus.available)?'🟢 AI Studio Engine Ready':'🔴 AI Studio Engine Offline'}
             </div>
+            <button class="tb" id="studioEngineToggleBtn" style="padding:2px 10px;font-size:11px;font-weight:600;border-radius:6px;cursor:pointer;transition:all 0.2s ease;${(_studioEngineStatus&&_studioEngineStatus.available)?'border-color:rgba(224,108,117,0.5);color:#e06c75':'border-color:rgba(152,195,121,0.6);color:#98c379'}">
+              ${(_studioEngineStatus&&_studioEngineStatus.available)?'⏹ Stop Engine':'▶ Start Engine'}
+            </button>
             <span class="muted" style="font-size:11px" id="studioVramText">
               RTX 5080 (16 GB VRAM)
             </span>
@@ -1020,28 +1023,112 @@ async function _loadStudioJobs(){
   }
 }
 
+function _renderEngineStatusUI(){
+  if(!_studioEngineStatus) return;
+  const pill = $('studioStatusPill');
+  if(pill){
+    pill.className = `studio-pill ${_studioEngineStatus.available ? 'online' : 'offline'}`;
+    pill.textContent = _studioEngineStatus.available ? '🟢 AI Studio Engine Ready' : '🔴 AI Studio Engine Offline';
+  }
+  const btn = $('studioEngineToggleBtn');
+  if(btn && !btn.dataset.loading){
+    if(_studioEngineStatus.available){
+      btn.textContent = '⏹ Stop Engine';
+      btn.style.borderColor = 'rgba(224,108,117,0.5)';
+      btn.style.color = '#e06c75';
+      btn.title = 'Click to shut down local engine and free VRAM';
+    } else {
+      btn.textContent = '▶ Start Engine';
+      btn.style.borderColor = 'rgba(152,195,121,0.6)';
+      btn.style.color = '#98c379';
+      btn.title = 'Click to launch local AI Studio Engine on RTX 5080';
+    }
+  }
+  const vram = $('studioVramText');
+  if(vram){
+    const freeMb = _studioEngineStatus.vram_free_mb;
+    vram.textContent = `RTX 5080 (16 GB VRAM)${freeMb ? ` · ${Math.round(freeMb/1024*10)/10} GB free` : ''}`;
+  }
+  _updateActiveJobUI();
+  const q = $('studioQueueText');
+  if(q){
+    q.textContent = `Queue: ${_studioEngineStatus.queue_pending || 0} pending`;
+  }
+}
+
 async function _pollStudioStatus(){
   try {
     const res = await fetch(`${API}/api/image-engine/status`);
     if(res.ok){
       _studioEngineStatus = await res.json();
-      const pill = $('studioStatusPill');
-      if(pill){
-        pill.className = `studio-pill ${_studioEngineStatus.available ? 'online' : 'offline'}`;
-        pill.textContent = _studioEngineStatus.available ? '🟢 AI Studio Engine Ready' : '🔴 AI Studio Engine Offline';
-      }
-      const vram = $('studioVramText');
-      if(vram){
-        const freeMb = _studioEngineStatus.vram_free_mb;
-        vram.textContent = `RTX 5080 (16 GB VRAM)${freeMb ? ` · ${Math.round(freeMb/1024*10)/10} GB free` : ''}`;
-      }
-      _updateActiveJobUI();
-      const q = $('studioQueueText');
-      if(q){
-        q.textContent = `Queue: ${_studioEngineStatus.queue_pending || 0} pending`;
-      }
+      _renderEngineStatusUI();
     }
   } catch(e){}
+}
+
+async function _toggleEngineService(){
+  const btn = $('studioEngineToggleBtn');
+  if(!btn || btn.dataset.loading) return;
+  const isOnline = _studioEngineStatus && _studioEngineStatus.available;
+  const action = isOnline ? 'stop' : 'start';
+
+  btn.dataset.loading = '1';
+  btn.disabled = true;
+  btn.textContent = isOnline ? '⏳ Stopping…' : '⏳ Starting…';
+
+  try {
+    const res = await fetch(`${API}/api/image-engine/service/${action}`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('token') || ''}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    const data = await res.json();
+    if(action === 'start'){
+      toast('Starting AI Studio Engine… initializing RTX 5080');
+      let attempts = 0;
+      const interval = setInterval(async () => {
+        attempts++;
+        try {
+          const sRes = await fetch(`${API}/api/image-engine/status`);
+          if(sRes.ok){
+            const s = await sRes.json();
+            if(s.available){
+              clearInterval(interval);
+              _studioEngineStatus = s;
+              delete btn.dataset.loading;
+              btn.disabled = false;
+              _renderEngineStatusUI();
+              toast('AI Studio Engine is ready!');
+              if(window._refreshStudio) window._refreshStudio();
+              return;
+            }
+          }
+        } catch(e){}
+        if(attempts >= 20){
+          clearInterval(interval);
+          delete btn.dataset.loading;
+          btn.disabled = false;
+          _renderEngineStatusUI();
+          toast('Engine initialization in progress. Click Refresh in a moment.');
+        }
+      }, 1500);
+    } else {
+      toast('AI Studio Engine stopped');
+      setTimeout(async () => {
+        delete btn.dataset.loading;
+        btn.disabled = false;
+        await _pollStudioStatus();
+        if(window._refreshStudio) window._refreshStudio();
+      }, 1000);
+    }
+  } catch(err){
+    toast('Engine control failed: ' + err.message);
+    delete btn.dataset.loading;
+    btn.disabled = false;
+    _renderEngineStatusUI();
+  }
 }
 
 async function _pollActiveJob(){
@@ -1284,6 +1371,12 @@ function _wireStudioControls(){
     refreshBtn.onclick = () => {
       if(window._refreshStudio) window._refreshStudio();
     };
+  }
+
+  // Engine Start/Stop toggle button
+  const engineToggleBtn = $('studioEngineToggleBtn');
+  if(engineToggleBtn){
+    engineToggleBtn.onclick = _toggleEngineService;
   }
 
   // Generate button

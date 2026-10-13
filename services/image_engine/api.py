@@ -76,6 +76,34 @@ async def get_engine_status(request: Request):
     return status
 
 
+@image_router.post("/service/start")
+async def start_image_engine_service(request: Request):
+    """Start the local AI Studio Engine process."""
+    auth.require_user(request)
+    from services.image_engine.service_manager import start_engine
+    return start_engine()
+
+
+@image_router.post("/service/stop")
+async def stop_image_engine_service(request: Request):
+    """Stop the local AI Studio Engine process."""
+    auth.require_user(request)
+    from services.image_engine.service_manager import stop_engine
+    return stop_engine()
+
+
+@image_router.get("/service/status")
+async def get_service_lifecycle_status(request: Request):
+    """Check whether the AI Studio Engine is reachable."""
+    auth.require_user(request)
+    from services.image_engine.service_manager import is_engine_reachable
+    reachable = is_engine_reachable()
+    return {
+        "available": reachable,
+        "status": "online" if reachable else "offline",
+    }
+
+
 @image_router.get("/workflows", response_model=List[WorkflowMetadata])
 async def list_available_workflows(request: Request):
     """List all registered architectural ComfyUI workflows and their parameters."""

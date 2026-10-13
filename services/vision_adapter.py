@@ -466,7 +466,9 @@ def extract_visual_table(img_path: str, page_text: str = "", drawing=False) -> d
     import sys
     import json
     try:
-        result = subprocess.run([sys.executable,'-m','services.vision_adapter',img_path,page_text[:500],str(int(drawing))],
+        # Sanitize nulls to prevent "embedded null character" error on Windows
+        safe_text = (page_text or '').replace('\x00', '')[:500]
+        result = subprocess.run([sys.executable,'-m','services.vision_adapter',img_path,safe_text,str(int(drawing))],
             capture_output=True,text=True,encoding='utf-8',timeout=300)
         if result.returncode:
             raise RuntimeError('Visual worker failed')

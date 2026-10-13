@@ -169,85 +169,171 @@ def extract_drawing_metadata(filename: str, project_id: str = "") -> Optional[Di
     return None
 
 
-def index_structured_entities(project_id: str, filename: str,
+def index_structured_entities(project_id: Any, filename: str,
                               meta: Dict[str, Any]) -> Dict[str, int]:
     """
     Index structured entities from document metadata into the Knowledge Hub.
     Returns counts of indexed entities.
     """
+    import hashlib
+    import uuid
+    import db
+
     hub = get_hub()
-    counts = {"requirements": 0, "drawings": 0, "schedules": 0, "evidence": 0}
+    counts = {"requirements": 0, "drawings": 0, "schedules": 0, "evidence": 0, "relationships": 0}
+
+    # 1. Purge step: Before re-indexing, delete all (Requirement, Evidence, GraphEdge) rows
+    # where (project_id, filename) matches.
+    pid_int = _resolve_project_id(project_id)
+    if pid_int:
+        with db.SessionLocal() as s:
+            req_rows = s.query(db.Requirement).filter_by(project_id=pid_int, source_doc=filename).all()
+            req_eids = {f"req-{r.req_id}" for r in req_rows}
+            req_ids_bare = {r.req_id for r in req_rows}
+            s.query(db.Requirement).filter_by(project_id=pid_int, source_doc=filename).delete()
+
+            ev_rows = s.query(db.Evidence).filter_by(project_id=pid_int, source_doc=filename).all()
+            ev_eids = {e.evidence_id for e in ev_rows}
+            s.query(db.Evidence).filter_by(project_id=pid_int, source_doc=filename).delete()
+
+            all_purged_ids = req_eids | req_ids_bare | ev_eids
+            if all_purged_ids:
+                s.query(db.GraphEdge).filter(
+                    db.GraphEdge.project_id == pid_int,
+                    (db.GraphEdge.src_id.in_(all_purged_ids) | db.GraphEdge.dst_id.in_(all_purged_ids))
+                ).delete(synchronize_session=False)
+
+            s.commit()
+
+        # Also purge from in-memory hub
+        for eid in list(hub._entities.keys()):
+            ent = hub._entities.get(eid)
+            if ent and str(ent.project_id) == str(project_id):
+                src_doc = getattr(ent, "file_path", None)
+                if not src_doc and hasattr(ent, "provenance") and ent.provenance:
+                    prov = ent.provenance
+                    src_doc = prov.get("source_doc") if isinstance(prov, dict) else getattr(prov, "source_doc", None)
+                if src_doc == filename:
+                    hub._entities.pop(eid, None)
+                    hub._graph._nodes.pop(eid, None)
+
+    clean_fn = re.sub(r'[^a-zA-Z0-9_-]', '_', filename)
+    doc_hash = hashlib.sha256(filename.encode("utf-8")).hexdigest()[:8]
 
     doc_type = meta.get("type", "")
+    if not doc_type:
+        fn_lower = filename.lower()
+        if fn_lower.endswith(".pdf"):
+            doc_type = "pdf"
+        elif fn_lower.endswith((".xlsx", ".xls")):
+            doc_type = "excel"
+        elif fn_lower.endswith((".dwg", ".dxf")):
+            doc_type = "cad"
 
-    if doc_type == "pdf":
-        # Extract requirements from PDF
-        reqs = extract_requirements_from_pdf_meta(meta, project_id)
-        for req in reqs:
-            hub.add_requirement(
-                project_id=project_id,
-                req_id=f"auto-{counts['requirements']}",
-                title=req["req_type"],
-                value=req["value"],
-                unit=req["unit"],
-                operator=req["operator"],
-                discipline="",
-                code_reference="",
-                source_doc=req["source_doc"],
-                source_page=req["source_page"],
-                confidence=req["confidence"],
-                notes=req["context"],
-            )
-            counts["requirements"] += 1
+    page_evidence_ids = {}
 
-    elif doc_type == "excel":
-        # Extract schedules from Excel
-        schedules = extract_entities_from_excel(meta, project_id)
-        for sched in schedules:
-            hub.add_entity(ScheduleEntity(
-                entity_id=f"sched-{filename}-{sched['schedule_type']}",
-                entity_type=EntityType.SCHEDULE,
-                project_id=project_id,
-                name=f"{sched['schedule_type'].title()} Schedule",
-                properties={
-                    "schedule_type": sched["schedule_type"],
-                    "source_sheet": sched["source_sheet"],
-                    "source_doc": sched["source_doc"],
-                },
-            ))
-            counts["schedules"] += 1
+    hub.begin_batch()
+    try:
+        # Add evidence for each page/sheet
+        if doc_type == "pdf":
+            for page in meta.get("pages", []):
+                text = page.get("text", "")
+                pg_num = page.get("page", 0)
+                if text:
+                    ev_id = f"ev-{clean_fn}-{doc_hash}-p{pg_num}-{uuid.uuid4().hex[:8]}"
+                    hub.add_evidence(
+                        project_id=str(project_id),
+                        evidence_type="text",
+                        content=text[:500],  # First 500 chars as evidence
+                        source_doc=filename,
+                        source_page=pg_num,
+                        confidence=0.8,
+                        evidence_id=ev_id,
+                    )
+                    counts["evidence"] += 1
+                    page_evidence_ids[pg_num] = ev_id
 
-    elif doc_type == "cad":
-        # Extract drawing metadata
-        drawing_meta = extract_drawing_metadata(filename, project_id)
-        if drawing_meta:
-            hub.add_drawing(
-                project_id=project_id,
-                drawing_number=drawing_meta["drawing_number"],
-                title=drawing_meta["title"],
-                revision=drawing_meta["revision"],
-                discipline=drawing_meta["discipline"],
-                file_path=filename,
-            )
-            counts["drawings"] += 1
-
-    # Add evidence for each page/sheet
-    if doc_type == "pdf":
-        for page in meta.get("pages", []):
-            text = page.get("text", "")
-            if text:
-                hub.add_evidence(
-                    project_id=project_id,
-                    evidence_type="text",
-                    content=text[:500],  # First 500 chars as evidence
-                    source_doc=filename,
-                    source_page=page.get("page"),
-                    confidence=0.8,
+        if doc_type == "pdf":
+            # Extract requirements from PDF
+            reqs = extract_requirements_from_pdf_meta(meta, project_id)
+            for req in reqs:
+                req_id_str = f"{clean_fn}-{doc_hash}-req-{uuid.uuid4().hex[:8]}"
+                req_entity_id = hub.add_requirement(
+                    project_id=str(project_id),
+                    req_id=req_id_str,
+                    title=req["req_type"],
+                    value=req["value"],
+                    unit=req["unit"],
+                    operator=req["operator"],
+                    discipline="",
+                    code_reference="",
+                    source_doc=req["source_doc"],
+                    source_page=req["source_page"],
+                    confidence=req["confidence"],
+                    notes=req["context"],
                 )
-                counts["evidence"] += 1
+                counts["requirements"] += 1
+
+                pg = req.get("source_page")
+                if pg in page_evidence_ids:
+                    ev_eid = page_evidence_ids[pg]
+                    if hub.add_relationship(ev_eid, "supports", req_entity_id, confidence=0.8):
+                        counts["relationships"] += 1
+
+        elif doc_type == "excel":
+            # Extract schedules from Excel
+            schedules = extract_entities_from_excel(meta, project_id)
+            for sched in schedules:
+                hub.add_entity(ScheduleEntity(
+                    entity_id=f"sched-{clean_fn}-{doc_hash}-{sched['schedule_type']}",
+                    entity_type=EntityType.SCHEDULE,
+                    project_id=str(project_id),
+                    name=f"{sched['schedule_type'].title()} Schedule",
+                    properties={
+                        "schedule_type": sched["schedule_type"],
+                        "source_sheet": sched["source_sheet"],
+                        "source_doc": sched["source_doc"],
+                    },
+                ))
+                counts["schedules"] += 1
+
+        elif doc_type == "cad":
+            # Extract drawing metadata
+            drawing_meta = extract_drawing_metadata(filename, project_id)
+            if drawing_meta:
+                hub.add_drawing(
+                    project_id=str(project_id),
+                    drawing_number=drawing_meta["drawing_number"],
+                    title=drawing_meta["title"],
+                    revision=drawing_meta["revision"],
+                    discipline=drawing_meta["discipline"],
+                    file_path=filename,
+                )
+                counts["drawings"] += 1
+
+        hub.commit_batch()
+    except Exception:
+        hub.rollback_batch()
+        raise
 
     logger.info("Indexed structured entities for {}: {}", filename, counts)
     return counts
+
+
+class EntityExtractor:
+    """Extracts typed entities from document metadata into the KnowledgeHub."""
+
+    def __init__(self, hub=None):
+        self.hub = hub or get_hub()
+
+    @classmethod
+    def extract_and_index(cls, project_id: Any, filename: str, meta: Dict[str, Any]) -> Dict[str, int]:
+        """Extract and index structured entities into the KnowledgeHub."""
+        return index_structured_entities(project_id, filename, meta)
+
+    def extract(self, project_id: Any, filename: str, meta: Dict[str, Any]) -> Dict[str, int]:
+        """Instance method alias for extract_and_index."""
+        return index_structured_entities(project_id, filename, meta)
 
 
 def _resolve_project_id(project_id):

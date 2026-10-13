@@ -23,9 +23,11 @@ def numbers(text):
     return result
 
 
-_UNITS=r'kg/m3|kg/m³|kN/m2|kN/m²|N/mm2|N/mm²|m3/h|m³/h|m3/s|m³/s|L/s|L/min|L/h|gpm|cfm|square metres|square meters|square feet|sq\.?\s*ft|sq\.?\s*m|sqm|sqft|MPa|kPa|Pa|psi|bar|MW|kW|W|kVA|VA|kV|V|mA|A|Hz|dB|°C|°F|kNm|Nm|kN|N|kg|mm|cm|m²|m2|m³|m3|m|%'
+_UNITS=r'kg/m3|kg/m³|kN/m2|kN/m²|N/mm2|N/mm²|m3/h|m³/h|m3/s|m³/s|L/s|L/min|L/h|gpm|cfm|square metres|square meters|square feet|sq\.?\s*ft|sq\.?\s*m|sqm|sqft|MPa|kPa|Pa|psi|bar|MW|kW|W|kVA|VA|kV|V|mA|A|Hz|dB|°C|°F|kNm|Nm|kN|N|kg|mm|cm|m²|m2|m³|m3|m|%|units?|racks?|buildings?|lifts?|storeys?|stories?|floors?|bays?|hours?|minutes?'
 _UNIT_ALIASES={'m2':'sqm','m²':'sqm','sq m':'sqm','sq.m':'sqm','square metres':'sqm','square meters':'sqm',
-         'sq ft':'sqft','sq.ft':'sqft','square feet':'sqft','m³':'m3','m³/h':'m3/h','m³/s':'m3/s','kg/m³':'kg/m3'}
+         'sq ft':'sqft','sq.ft':'sqft','square feet':'sqft','m³':'m3','m³/h':'m3/h','m³/s':'m3/s','kg/m³':'kg/m3',
+         'unit':'units','rack':'racks','building':'buildings','lift':'lifts','storey':'storeys','story':'storeys','stories':'storeys',
+         'floor':'floors','bay':'bays','hour':'hours','minute':'minutes'}
 
 
 def _normalize_unit(unit):
@@ -52,13 +54,15 @@ def quantity_pairs(text):
     if re.search(r'(?m)^\s*\|',cleaned):
         from intelligence.table_evidence import table_row_units
         cleaned+='\n'+'\n'.join(table_row_units(cleaned))
-    pattern_after=r'(?<![\w])([-+]?\d[\d,]*(?:\.\d+)?)(?:\s|\*)*(' + _UNITS + r')(?![A-Za-z0-9])'
+    pattern_after=r'(?<![\w])([-+]?\d[\d,]*(?:\.\d+)?)(?:\s|\*|-)*(?:residential\s+|commercial\s+|typical\s+)?(' + _UNITS + r')(?![A-Za-z0-9])'
     # Markdown pipe tables (the raw table geometry text.select_page_context
     # surfaces verbatim) put the unit-labeled header in one cell and the value
     # in the next: "| Floor BUA (sqm) | 121,085 |", not "(sqm): 121,085" --
     # a different separator than table_evidence.py's own colon-joined
     # 'Label (unit): value' serialization. Accept either.
     pattern_before=r'\((' + _UNITS + r')\)\s*[:|]\s*([-+]?\d[\d,]*(?:\.\d+)?)(?![A-Za-z0-9])'
+    pattern_paren_after=r'(?<![\w])([-+]?\d[\d,]*(?:\.\d+)?)\s*\(\s*(' + _UNITS + r')\s*\)'
+    pattern_count_header=r'\b(?:number\s+of\s+|no\.?\s+of\s+)?(storeys?|stories?|floors?|units?|buildings?|lifts?|racks?|bays?)\b\s*[:|]\s*([-+]?\d[\d,]*(?:\.\d+)?)'
     pairs=set()
     for match in re.finditer(pattern_after,cleaned,re.I):
         unit=_normalize_unit(match[2])
@@ -68,6 +72,20 @@ def quantity_pairs(text):
         unit=_normalize_unit(match[1])
         try:pairs.add((Decimal(match[2].replace(',','')),unit))
         except InvalidOperation:pass
+    for match in re.finditer(pattern_paren_after,cleaned,re.I):
+        unit=_normalize_unit(match[2])
+        try:pairs.add((Decimal(match[1].replace(',','')),unit))
+        except InvalidOperation:pass
+    for match in re.finditer(pattern_count_header,cleaned,re.I):
+        unit=_normalize_unit(match[1])
+        try:pairs.add((Decimal(match[2].replace(',','')),unit))
+        except InvalidOperation:pass
+    if re.search(r'\ball\s+dimensions\s+(?:are\s+)?in\s+m(?:illi)?m(?:eters?)?\b',cleaned,re.I):
+        for num in numbers(cleaned):
+            pairs.add((num,'mm'))
+    if re.search(r'\blevels?\s+(?:are\s+)?in\s+m(?:eters?)?\b',cleaned,re.I):
+        for num in numbers(cleaned):
+            pairs.add((num,'m'))
     return pairs
 
 
@@ -150,7 +168,7 @@ def auto_cite(answer,evidence,sources):
     return answer.rstrip()+f'\n\n[SOURCE: {filename} | PAGE {page}]'
 
 
-def publication_issues(answer,evidence,sources):
+def publication_issues(answer,evidence,sources,question=""):
     excerpts=_excerpts_by_page(evidence)
     allowed={(str(s.get('source') or s.get('filename') or ''),str(s.get('page') if s.get('page') is not None else 'UNPAGINATED')) for s in sources if isinstance(s,dict)}
     citations={(m.group(1).strip(),m.group(2).upper()) for m in MARKER.finditer(answer)}
@@ -175,10 +193,12 @@ def publication_issues(answer,evidence,sources):
     # lines in the cited text. Require "approved" to appear near a
     # document/submission-authority context word before applying this check.
     _APPROVAL_CONTEXT=r'(?:design|document|drawing|submittal|submission|revision|stamp|stamped|review(?:ed)?|resubmit(?:tal)?|issue(?:d)?\s+for|shop\s+drawing)'
-    if re.search(r'(?<!not )(?<!un)\bapproved\b',numeric_text,re.I) and re.search(
-        r'(?:'+_APPROVAL_CONTEXT+r'[^.]{0,60}\bapproved\b|\bapproved\b[^.]{0,60}'+_APPROVAL_CONTEXT+r')',
-        numeric_text,re.I,
-    ) or re.search(r'^\s*approved(?:\s+with\s+comments)?\s*[.!\[]',numeric_text,re.I):
+    is_doc_approval = bool(
+        re.search(r'\b(?:this\s+)?(?:drawing|document|revision|submittal|submission)\s+(?:is|was)\s+approved\b', numeric_text, re.I)
+        or re.search(r'\b(?:drawing|document|revision|submittal|submission)\s+status\s+(?:is\s+)?approved\b', numeric_text, re.I)
+        or re.search(r'^\s*approved(?:\s+with\s+comments)?\s*[.!\[]', numeric_text, re.I)
+    )
+    if is_doc_approval:
         from intelligence.source_semantics import explicit_states
         conditional=bool(re.search(r'\bapproved\s+with\s+comments\b',numeric_text,re.I))
         required='APPROVED_WITH_COMMENTS' if conditional else 'APPROVED'
@@ -220,30 +240,42 @@ def publication_issues(answer,evidence,sources):
     # Preserve mixed letter/number tags as complete identifiers, not just their
     # numeric suffixes (e.g. SYN-060 is different from SYNTH-060).
     tag_pattern=r'\b[A-Za-z][A-Za-z0-9]*(?:-[A-Za-z0-9]+)*\b'
-    tags={m.group().lower() for m in re.finditer(tag_pattern,MARKER.sub('',numeric_text))
+    norm_num = re.sub(r'[\u2010\u2011\u2012\u2013\u2014\u2212]', '-', MARKER.sub('', numeric_text))
+    norm_cited = re.sub(r'[\u2010\u2011\u2012\u2013\u2014\u2212]', '-', cited_text)
+    tags={m.group().lower() for m in re.finditer(tag_pattern, norm_num)
           if re.search(r'\d',m.group()) and m.group().lower() not in ('m2','m3','mm2','mm3','cm2','cm3','kn/m2')}
     for tag in tags:
-        if not re.search(r'(?<![\w-])'+re.escape(tag)+r'(?![\w-])',cited_text,re.I):
+        if re.search(r'\b(?:not|no|never|is\s+not|does\s+not)\b[^.!?\n]*\b' + re.escape(tag) + r'\b', norm_num, re.I):
+            continue
+        if not re.search(r'(?<![\w-])'+re.escape(tag)+r'(?![\w-])', norm_cited, re.I):
             issues.append('Identifier absent from cited page excerpts')
             break
+    # Keep the established hard gates above. The supplemental deterministic
+    # layer checks claim relationships, qualitative citations, unit retention,
+    # status/revision, qualifications, polarity, and cited-source conflicts.
+    from intelligence.claim_support import claim_support_issues
+    issues.extend(claim_support_issues(answer,evidence,sources,question=question))
     return issues
 
 
-def guarded_answer(answer,evidence,sources):
-    issues=publication_issues(answer,evidence,sources)
+def guarded_answer(answer,evidence,sources,question=""):
+    issues=publication_issues(answer,evidence,sources,question=question)
     if issues:
+        if any(issue.startswith('AMBIGUOUS:') for issue in issues):
+            return ('The cited evidence is ambiguous or conflicting; a unique engineering answer cannot be established. '
+                    'Please specify the governing document, revision, or authority.'),issues
         return ('I could not verify the generated answer against the retrieved source pages. '
                 'Please review the listed sources or ask for a specific field and page.'),issues
     return answer,[]
 
 
-def guarded_answer_with_repair(answer,evidence,sources,repair):
+def guarded_answer_with_repair(answer,evidence,sources,repair,question=""):
     """Allow one bounded correction, then one deterministic auto-citation
     attempt (see auto_cite) before giving up. Every candidate passes the
     same checks -- auto_cite never bypasses verification, it only supplies
     a citation bracket when one retrieved page already, provably, supports
     everything the answer claims."""
-    published,issues=guarded_answer(answer,evidence,sources)
+    published,issues=guarded_answer(answer,evidence,sources,question=question)
     if not issues:
         return published,[]
     candidate=answer
@@ -251,14 +283,14 @@ def guarded_answer_with_repair(answer,evidence,sources,repair):
         repaired=repair(issues)
         if isinstance(repaired,str) and repaired.strip():
             candidate=repaired
-            published,issues=guarded_answer(candidate,evidence,sources)
+            published,issues=guarded_answer(candidate,evidence,sources,question=question)
             if not issues:
                 return published,[]
     except Exception:
         pass
     cited=auto_cite(candidate,evidence,sources)
     if cited:
-        published2,issues2=guarded_answer(cited,evidence,sources)
+        published2,issues2=guarded_answer(cited,evidence,sources,question=question)
         if not issues2:
             return published2,[]
     return published,issues

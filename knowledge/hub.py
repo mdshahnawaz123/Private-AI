@@ -41,11 +41,352 @@ class KnowledgeHub:
     Provides entity storage, retrieval, graph navigation, and provenance.
     """
 
-    def __init__(self):
+    def __init__(self, load_db: bool = False):
         self._graph = KnowledgeGraph()
         self._provenance = get_tracker()
         self._precedence = get_precedence()
         self._entities: Dict[str, EngineeringEntity] = {}
+        self._batch_session = None
+        self._in_batch = False
+        if load_db:
+            try:
+                self.load_from_sqlite()
+            except Exception as e:
+                logger.warning("KnowledgeHub initial load_from_sqlite skipped: {}", e)
+
+    def begin_batch(self):
+        """Begin a batch transaction for inserting/updating entities."""
+        import db
+        if self._batch_session is not None:
+            try:
+                self._batch_session.close()
+            except Exception:
+                pass
+        self._batch_session = db.SessionLocal()
+        self._in_batch = True
+
+    def commit_batch(self):
+        """Commit all pending inserts/updates in the batch session."""
+        if self._batch_session is not None:
+            try:
+                self._batch_session.commit()
+            except Exception:
+                self._batch_session.rollback()
+                raise
+            finally:
+                self._batch_session.close()
+                self._batch_session = None
+                self._in_batch = False
+
+    def rollback_batch(self):
+        """Roll back the batch session."""
+        if self._batch_session is not None:
+            try:
+                self._batch_session.rollback()
+            finally:
+                self._batch_session.close()
+                self._batch_session = None
+                self._in_batch = False
+
+    def _get_session(self):
+        if self._in_batch and self._batch_session is not None:
+            return self._batch_session, False
+        import db
+        return db.SessionLocal(), True
+
+    def _resolve_pid(self, project_id: Any) -> Optional[int]:
+        if not project_id:
+            return None
+        try:
+            import db
+            with db.SessionLocal() as s:
+                pid_cand = None
+                if isinstance(project_id, int):
+                    pid_cand = project_id
+                elif str(project_id).isdigit():
+                    pid_cand = int(project_id)
+                if pid_cand is not None:
+                    p = s.query(db.Project).filter_by(id=pid_cand).first()
+                    if p:
+                        return p.id
+                p = s.query(db.Project).filter_by(name=str(project_id)).first()
+                if p:
+                    return p.id
+        except Exception:
+            return None
+        return None
+
+    def save_requirement_to_sqlite(self, entity: RequirementEntity) -> bool:
+        pid = self._resolve_pid(entity.project_id)
+        if not pid:
+            return False
+        req_id = getattr(entity, "requirement_id", None)
+        if not req_id:
+            req_id = entity.entity_id.replace("req-", "") if entity.entity_id.startswith("req-") else entity.entity_id
+        try:
+            import db
+            s, should_close = self._get_session()
+            try:
+                req = s.query(db.Requirement).filter_by(project_id=pid, req_id=req_id).first()
+                val_str = str(entity.value) if entity.value is not None else ""
+                prov = entity.provenance
+                if isinstance(prov, dict):
+                    conf_val = prov.get("confidence") or "medium"
+                    if hasattr(conf_val, "value"): conf_val = conf_val.value
+                    conf_str = str(conf_val)
+                    doc_str = prov.get("source_doc") or ""
+                    page_val = prov.get("source_page")
+                    clause_str = prov.get("source_clause") or ""
+                    src_type_str = prov.get("source_type") or "code"
+                else:
+                    conf_val = getattr(prov, "confidence", "medium") if prov else "medium"
+                    if hasattr(conf_val, "value"): conf_val = conf_val.value
+                    conf_str = str(conf_val)
+                    doc_str = getattr(prov, "source_doc", "") or "" if prov else ""
+                    page_val = getattr(prov, "source_page", None) if prov else None
+                    clause_str = getattr(prov, "source_clause", "") or "" if prov else ""
+                    src_type_str = getattr(prov, "source_type", "code") or "code" if prov else "code"
+                if req:
+                    req.title = entity.name or ""
+                    req.description = entity.description or entity.notes or ""
+                    req.value = val_str
+                    req.unit = entity.unit or ""
+                    req.source_doc = doc_str
+                    req.source_page = page_val
+                    req.source_clause = clause_str
+                    req.evidence = entity.notes or entity.description or ""
+                    req.confidence = conf_str
+                    req.discipline = entity.discipline or ""
+                    req.status = entity.status or "draft"
+                else:
+                    req = db.Requirement(
+                        project_id=pid,
+                        req_id=req_id,
+                        title=entity.name or "",
+                        description=entity.description or entity.notes or "",
+                        value=val_str,
+                        unit=entity.unit or "",
+                        source_type=src_type_str,
+                        source_doc=doc_str,
+                        source_page=page_val,
+                        source_clause=clause_str,
+                        evidence=entity.notes or entity.description or "",
+                        confidence=conf_str,
+                        status=entity.status or "draft",
+                        version=entity.version or "1.0",
+                        discipline=entity.discipline or "",
+                    )
+                    s.add(req)
+                if should_close:
+                    s.commit()
+            finally:
+                if should_close:
+                    s.close()
+            return True
+        except Exception as e:
+            logger.warning("Failed to save Requirement to SQLite: {}", e)
+            return False
+
+    def save_evidence_to_sqlite(self, entity: EvidenceEntity) -> bool:
+        pid = self._resolve_pid(entity.project_id)
+        if not pid:
+            return False
+        try:
+            import db
+            s, should_close = self._get_session()
+            try:
+                ev = s.query(db.Evidence).filter_by(project_id=pid, evidence_id=entity.entity_id).first()
+                prov = entity.provenance
+                if isinstance(prov, dict):
+                    conf_val = float(prov.get("confidence_score") or 0.0)
+                    doc_str = prov.get("source_doc") or ""
+                    page_val = prov.get("source_page")
+                    ev_type_str = entity.evidence_type or prov.get("source_type") or "text"
+                else:
+                    conf_val = float(getattr(prov, "confidence_score", 0.0) or 0.0) if prov else 0.0
+                    doc_str = getattr(prov, "source_doc", "") or "" if prov else ""
+                    page_val = getattr(prov, "source_page", None) if prov else None
+                    ev_type_str = entity.evidence_type or getattr(prov, "source_type", "text") or "text" if prov else "text"
+                if ev:
+                    ev.evidence_type = ev_type_str
+                    ev.content = entity.content or ""
+                    ev.source_doc = doc_str
+                    ev.source_page = page_val
+                    ev.bounding_box = entity.bounding_box
+                    ev.confidence = conf_val
+                    ev.metadata_json = entity.properties
+                else:
+                    ev = db.Evidence(
+                        project_id=pid,
+                        evidence_id=entity.entity_id,
+                        evidence_type=ev_type_str,
+                        content=entity.content or "",
+                        source_doc=doc_str,
+                        source_page=page_val,
+                        bounding_box=entity.bounding_box,
+                        confidence=conf_val,
+                        metadata_json=entity.properties,
+                    )
+                    s.add(ev)
+                if should_close:
+                    s.commit()
+            finally:
+                if should_close:
+                    s.close()
+            return True
+        except Exception as e:
+            logger.warning("Failed to save Evidence to SQLite: {}", e)
+            return False
+
+    def save_edge_to_sqlite(self, edge: GraphEdge, project_id: Any) -> bool:
+        pid = self._resolve_pid(project_id)
+        if not pid:
+            return False
+        try:
+            import db
+            s, should_close = self._get_session()
+            try:
+                existing = s.query(db.GraphEdge).filter_by(
+                    project_id=pid,
+                    src_id=edge.src_id,
+                    dst_id=edge.dst_id,
+                    relation=edge.relation
+                ).first()
+                if not existing:
+                    props = getattr(edge, "properties", {}) or {}
+                    ge = db.GraphEdge(
+                        project_id=pid,
+                        src_type=edge.src_type or "",
+                        src_id=edge.src_id,
+                        relation=edge.relation,
+                        dst_type=edge.dst_type or "",
+                        dst_id=edge.dst_id,
+                        metadata_json={"confidence": edge.confidence, "properties": props},
+                    )
+                    s.add(ge)
+                if should_close:
+                    s.commit()
+            finally:
+                if should_close:
+                    s.close()
+            return True
+        except Exception as e:
+            logger.warning("Failed to save GraphEdge to SQLite: {}", e)
+            return False
+
+    def save_to_sqlite(self, project_id: Any = None):
+        """Save all in-memory entities and edges to SQLite."""
+        for entity in list(self._entities.values()):
+            if project_id and str(entity.project_id) != str(project_id):
+                continue
+            if isinstance(entity, RequirementEntity):
+                self.save_requirement_to_sqlite(entity)
+            elif isinstance(entity, EvidenceEntity):
+                self.save_evidence_to_sqlite(entity)
+        for edge in self._graph._edges:
+            src = self._entities.get(edge.src_id)
+            edge_pid = src.project_id if src else project_id
+            if edge_pid:
+                self.save_edge_to_sqlite(edge, edge_pid)
+
+    def load_from_sqlite(self, project_id: Any = None):
+        """Load Requirement, Evidence, and GraphEdge tables from SQLite into memory."""
+        try:
+            import db
+            pid = self._resolve_pid(project_id) if project_id else None
+            with db.SessionLocal() as s:
+                # 1. Load Requirements
+                req_query = s.query(db.Requirement)
+                if pid is not None:
+                    req_query = req_query.filter_by(project_id=pid)
+                for r in req_query.all():
+                    val = None
+                    if r.value:
+                        try: val = float(r.value)
+                        except (ValueError, TypeError): pass
+                    entity = RequirementEntity(
+                        entity_id=f"req-{r.req_id}",
+                        entity_type=EntityType.REQUIREMENT,
+                        project_id=str(r.project_id),
+                        name=r.title or "",
+                        description=r.description or "",
+                        requirement_id=r.req_id,
+                        value=val,
+                        unit=r.unit or "",
+                        discipline=r.discipline or "",
+                        status=r.status or "draft",
+                        version=r.version or "1.0",
+                        notes=r.evidence or "",
+                        provenance=self._provenance.create(
+                            source_doc=r.source_doc or "",
+                            source_page=r.source_page,
+                            source_clause=r.source_clause or "",
+                            source_type=r.source_type or "code",
+                            confidence=r.confidence or "medium",
+                        ),
+                    )
+                    self._entities[entity.entity_id] = entity
+                    node = GraphNode(
+                        node_id=entity.entity_id,
+                        node_type=entity.entity_type.value,
+                        name=entity.name,
+                        properties=entity.properties,
+                        project_id=entity.project_id,
+                    )
+                    self._graph.add_node(node)
+
+                # 2. Load Evidence
+                ev_query = s.query(db.Evidence)
+                if pid is not None:
+                    ev_query = ev_query.filter_by(project_id=pid)
+                for e in ev_query.all():
+                    entity = EvidenceEntity(
+                        entity_id=e.evidence_id,
+                        entity_type=EntityType.EVIDENCE,
+                        project_id=str(e.project_id),
+                        name=f"Evidence from {e.source_doc or 'unknown'}",
+                        evidence_type=e.evidence_type or "text",
+                        content=e.content or "",
+                        unit="",
+                        bounding_box=e.bounding_box,
+                        properties=e.metadata_json or {},
+                        provenance=self._provenance.create(
+                            source_doc=e.source_doc or "",
+                            source_page=e.source_page,
+                            source_type=e.evidence_type or "text",
+                            confidence_score=e.confidence or 0.0,
+                        ),
+                    )
+                    self._entities[entity.entity_id] = entity
+                    node = GraphNode(
+                        node_id=entity.entity_id,
+                        node_type=entity.entity_type.value,
+                        name=entity.name,
+                        properties=entity.properties,
+                        project_id=entity.project_id,
+                    )
+                    self._graph.add_node(node)
+
+                # 3. Load GraphEdges
+                edge_query = s.query(db.GraphEdge)
+                if pid is not None:
+                    edge_query = edge_query.filter_by(project_id=pid)
+                for ge in edge_query.all():
+                    meta = ge.metadata_json or {}
+                    edge = GraphEdge(
+                        src_id=ge.src_id,
+                        src_type=ge.src_type or "",
+                        relation=ge.relation or "",
+                        dst_id=ge.dst_id,
+                        dst_type=ge.dst_type or "",
+                        confidence=meta.get("confidence", 0.0) if isinstance(meta, dict) else 0.0,
+                        properties=meta.get("properties", {}) if isinstance(meta, dict) else {},
+                    )
+                    self._graph.add_edge(edge)
+            logger.info("KnowledgeHub loaded from SQLite: {} entities, {} edges",
+                        len(self._entities), len(self._graph._edges))
+        except Exception as e:
+            logger.warning("KnowledgeHub load_from_sqlite failed: {}", e)
 
     # ── Entity management ─────────────────────────────────────
 
@@ -70,6 +411,32 @@ class KnowledgeHub:
     def get_entity(self, entity_id: str) -> Optional[EngineeringEntity]:
         """Get an entity by ID."""
         return self._entities.get(entity_id)
+
+    def remove_project(self, project: str):
+        """Remove the named project's cached entities and incident graph edges."""
+        identities = {key for key, entity in self._entities.items() if entity.project_id == project}
+        identities.update(key for key, node in self._graph._nodes.items() if node.project_id == project)
+        for key in identities:
+            self._entities.pop(key, None)
+            self._graph._nodes.pop(key, None)
+            self._provenance._provenance_store.pop(key, None)
+        edges = [edge for edge in self._graph._edges if edge.src_id not in identities and edge.dst_id not in identities]
+        self._graph._edges = []
+        self._graph._adjacency.clear()
+        self._graph._reverse_adjacency.clear()
+        for edge in edges:
+            self._graph.add_edge(edge)
+        pid_int = self._resolve_pid(project)
+        if pid_int:
+            try:
+                import db
+                with db.SessionLocal() as s:
+                    s.query(db.Requirement).filter_by(project_id=pid_int).delete()
+                    s.query(db.Evidence).filter_by(project_id=pid_int).delete()
+                    s.query(db.GraphEdge).filter_by(project_id=pid_int).delete()
+                    s.commit()
+            except Exception as e:
+                logger.warning("remove_project sqlite delete failed: {}", e)
 
     def find_entities(self, entity_type: EntityType = None,
                       project_id: str = "",
@@ -126,6 +493,7 @@ class KnowledgeHub:
             confidence=confidence,
         )
         self._graph.add_edge(edge)
+        self.save_edge_to_sqlite(edge, src.project_id)
         return True
 
     def get_relationships(self, entity_id: str, relation: str = "",
@@ -155,7 +523,7 @@ class KnowledgeHub:
         entity = RequirementEntity(
             entity_id=f"req-{req_id}",
             entity_type=EntityType.REQUIREMENT,
-            project_id=project_id,
+            project_id=str(project_id),
             name=title,
             description=notes,
             requirement_id=req_id,
@@ -165,6 +533,7 @@ class KnowledgeHub:
             applies_to=applies_to,
             discipline=discipline,
             code_reference=code_reference,
+            notes=notes,
             provenance=self._provenance.create(
                 source_doc=source_doc,
                 source_page=source_page,
@@ -174,7 +543,9 @@ class KnowledgeHub:
                 confidence=confidence,
             ),
         )
-        return self.add_entity(entity)
+        eid = self.add_entity(entity)
+        self.save_requirement_to_sqlite(entity)
+        return eid
 
     def get_requirements(self, project_id: str = "",
                          discipline: str = "",
@@ -221,12 +592,13 @@ class KnowledgeHub:
                      content: str, source_doc: str,
                      source_page: int = None, actual_value: float = None,
                      unit: str = "", location: str = "",
-                     confidence: float = 0.0) -> str:
+                     confidence: float = 0.0, evidence_id: str = "") -> str:
         """Add evidence to the hub."""
+        eid = evidence_id or f"ev-{len(self._entities)}"
         entity = EvidenceEntity(
-            entity_id=f"ev-{len(self._entities)}",
+            entity_id=eid,
             entity_type=EntityType.EVIDENCE,
-            project_id=project_id,
+            project_id=str(project_id),
             name=f"Evidence from {source_doc}",
             evidence_type=evidence_type,
             content=content,
@@ -241,7 +613,9 @@ class KnowledgeHub:
                 confidence_score=confidence,
             ),
         )
-        return self.add_entity(entity)
+        saved_id = self.add_entity(entity)
+        self.save_evidence_to_sqlite(entity)
+        return saved_id
 
     def get_evidence_for_requirement(self, requirement_id: str,
                                      project_id: str = "") -> List[EvidenceEntity]:
@@ -350,7 +724,7 @@ class KnowledgeHub:
 
 
 # Singleton instance
-_hub = KnowledgeHub()
+_hub = KnowledgeHub(load_db=True)
 
 
 def get_hub() -> KnowledgeHub:

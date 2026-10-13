@@ -56,6 +56,90 @@ class AdditionalReleaseFindings(unittest.TestCase):
             matched=exact_answer('What is the Plot Area of project SYNTH-B?',docs)
             self.assertEqual(matched['facts'][0]['value'],'987.65')
 
+    def test_structured_project_id_wins_over_misordered_flattened_text(self):
+        from intelligence.source_semantics import native_project_codes
+        meta={'pages':[{'page':1,'text':'Project ID:\n10',
+            'tables':'| Project ID: | | C3045 |'}]}
+        self.assertEqual(native_project_codes(meta),{'C3045'})
+
+    def test_conflicting_structured_project_ids_are_not_collapsed(self):
+        from intelligence.source_semantics import native_project_codes
+        meta={'pages':[{'page':1,'tables':'| Project ID: | C3045 |\n| Project Code: | C3085 |'}]}
+        self.assertEqual(native_project_codes(meta),{'C3045','C3085'})
+
+    def test_full_bua_per_level_breakdown_is_supported_and_cited(self):
+        table='''BUILT-UP AREA BREAKDOWN (Per Level)
+| ITEM | LEVEL | SQ.M | SQ.FT |
+| --- | --- | --- | --- |
+| 1 | Basement 1 | 10.00 | 107.64 |
+| 2 | Ground Floor | 20.00 | 215.28 |
+| TOTAL | | 30.00 | 322.92 |'''
+        with tempfile.TemporaryDirectory() as root:
+            path=Path(root)/'area.pdf';path.write_bytes(b'synthetic')
+            Path(str(path)+'.index.json').write_text(json.dumps({'pages':[{'page':1,'tables':table}]}))
+            docs=[{'filename':path.name,'path':str(path)}]
+            result=exact_answer('Send me details of built-up area breakdown per level',docs)
+            self.assertEqual(result['status'],'SUCCESS')
+            self.assertIn('Basement 1',result['answer'])
+            self.assertIn('Ground Floor',result['answer'])
+            self.assertIn('30.00 sqm',result['answer'])
+            self.assertIn('| ITEM | LEVEL | AREA (SQ M) | AREA (SQ FT) |',result['answer'])
+            self.assertIn('Adding the displayed level figures does not reproduce it exactly',result['answer'])
+            from intelligence.answer_publication import validate_precomputed_answer
+            published,issues,allowed=validate_precomputed_answer(result['answer'],docs,result['sources'],
+                'Send me details of built-up area breakdown per level')
+            self.assertEqual(issues,[])
+            self.assertEqual(allowed,[{'source':path.name,'page':1}])
+
+    def test_full_bua_breakdown_rejects_missing_unit_or_conflicting_total(self):
+        incomplete='''BUILT-UP AREA BREAKDOWN (Per Level)
+| ITEM | LEVEL | SQ.M | SQ.FT |
+| --- | --- | --- | --- |
+| 1 | Ground Floor | 20.00 | |
+| TOTAL | | 20.00 | 215.28 |'''
+        conflicting='''BUILT-UP AREA BREAKDOWN (Per Level)
+| ITEM | LEVEL | SQ.M | SQ.FT |
+| --- | --- | --- | --- |
+| 1 | Ground Floor | 20.00 | 215.28 |
+| TOTAL | | 21.00 | 226.04 |'''
+        for table in (incomplete,conflicting):
+            with tempfile.TemporaryDirectory() as root:
+                path=Path(root)/'area.pdf';path.write_bytes(b'synthetic')
+                Path(str(path)+'.index.json').write_text(json.dumps({'pages':[{'page':1,'tables':table}]}))
+                result=exact_answer('built-up area breakdown per level',
+                    [{'filename':path.name,'path':str(path)}])
+                self.assertIn(result['status'],{'NOT_FOUND','AMBIGUOUS'})
+
+    def test_parking_calculation_returns_cited_table_and_checks_total(self):
+        table='''| PARKING/GARBAGE/LIFT SUMMARY | | | |
+| --- | --- | --- | --- |
+| PARKING CALCULATION | | | |
+| ITEM | NO. | REQUIRED | PROPOSED |
+| Units less than 150 sqm | 8 | 8 | 9 |
+| Tandem | | 2 | 1 |
+| VAN PARKING | | - | 1 |
+| TOTAL | | 10 | 11 |
+| Bicycle Parking | | 3 RACKS | 3 RACKS |
+| Notes:- POD and EV parking are distributed near each building | | | |'''
+        with tempfile.TemporaryDirectory() as root:
+            path=Path(root)/'parking.pdf';path.write_bytes(b'synthetic')
+            sidecar={'pages':[{'page':1,'text':'Project ID: C3045','tables':table}]}
+            Path(str(path)+'.index.json').write_text(json.dumps(sidecar),encoding='utf-8')
+            docs=[{'filename':path.name,'path':str(path)}]
+            question='Regarding parking.pdf: PARKING CALCULATION for project C3045'
+            result=exact_answer(question,docs)
+            self.assertEqual(result['status'],'SUCCESS')
+            self.assertIn('| ITEM | NO. | REQUIRED | PROPOSED |',result['answer'])
+            self.assertIn('| VAN PARKING',result['answer'])
+            self.assertIn('3 RACKS',result['answer'])
+            self.assertIn('matching the two printed totals',result['answer'])
+            from intelligence.answer_publication import validate_precomputed_answer
+            _,issues,_=validate_precomputed_answer(result['answer'],docs,result['sources'],question)
+            self.assertEqual(issues,[])
+            sidecar['pages'][0]['tables']=table.replace('| TOTAL | | 10 | 11 |','| TOTAL | | 12 | 11 |')
+            Path(str(path)+'.index.json').write_text(json.dumps(sidecar),encoding='utf-8')
+            self.assertEqual(exact_answer(question,docs)['status'],'AMBIGUOUS')
+
     def test_proposed_numeric_row_is_data_and_retains_disposition(self):
         with tempfile.TemporaryDirectory() as root:
             path=Path(root)/'native-a.pdf';path.write_bytes(b'synthetic')

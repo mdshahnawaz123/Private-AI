@@ -1,0 +1,152 @@
+{
+  "_meta": {
+    "id": "render_enhancement",
+    "name": "Render Enhancement",
+    "version": "1.0.0",
+    "category": "enhancement",
+    "description": "Enhances viewport or 3D engine renders (e.g. Blender Cycles, IFC snapshot) with photorealistic material textures and atmospheric lighting.",
+    "license_notes": "Preserves base camera perspective and geometry while refining material shaders and environmental illumination.",
+    "parameters": [
+      {
+        "name": "prompt",
+        "type": "string",
+        "label": "Atmospheric Enhancements",
+        "description": "Lighting conditions, surface texture details, glass reflections",
+        "required": true
+      },
+      {
+        "name": "input_image_path",
+        "type": "image",
+        "label": "Base 3D Render",
+        "description": "Source 3D rendering snapshot",
+        "required": true
+      },
+      {
+        "name": "denoise",
+        "type": "float",
+        "label": "Enhancement Strength",
+        "description": "Denoising level (0.25 = subtle texture polish, 0.50 = rich material overhaul)",
+        "default": 0.35,
+        "min_value": 0.15,
+        "max_value": 0.65
+      },
+      {
+        "name": "steps",
+        "type": "integer",
+        "label": "Steps",
+        "default": 20,
+        "min_value": 15,
+        "max_value": 40
+      },
+      {
+        "name": "cfg",
+        "type": "float",
+        "label": "CFG Scale",
+        "default": 6.5,
+        "min_value": 1.0,
+        "max_value": 12.0
+      },
+      {
+        "name": "seed",
+        "type": "integer",
+        "label": "Seed",
+        "default": null
+      }
+    ]
+  },
+  "1": {
+    "class_type": "CheckpointLoaderSimple",
+    "inputs": {
+      "ckpt_name": "architectural_concept_v1.safetensors"
+    }
+  },
+  "2": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "render_input.png"
+    }
+  },
+  "3": {
+    "class_type": "VAEEncode",
+    "inputs": {
+      "pixels": [
+        "2",
+        0
+      ],
+      "vae": [
+        "1",
+        2
+      ]
+    }
+  },
+  "4": {
+    "class_type": "CLIPTextEncode",
+    "inputs": {
+      "clip": [
+        "1",
+        1
+      ],
+      "text": "Photorealistic architectural visualization, highly detailed concrete textures, physically based glass reflections, warm sunset golden hour lighting, cinematic ray tracing"
+    }
+  },
+  "5": {
+    "class_type": "CLIPTextEncode",
+    "inputs": {
+      "clip": [
+        "1",
+        1
+      ],
+      "text": "noisy, flat shading, low-resolution textures, oversaturated, blurry, CGI artifacts"
+    }
+  },
+  "6": {
+    "class_type": "KSampler",
+    "inputs": {
+      "cfg": 6.5,
+      "denoise": 0.35,
+      "latent_image": [
+        "3",
+        0
+      ],
+      "model": [
+        "1",
+        0
+      ],
+      "negative": [
+        "5",
+        0
+      ],
+      "positive": [
+        "4",
+        0
+      ],
+      "sampler_name": "dpmpp_2m",
+      "scheduler": "karras",
+      "seed": 42,
+      "steps": 20
+    }
+  },
+  "7": {
+    "class_type": "VAEDecode",
+    "inputs": {
+      "samples": [
+        "6",
+        0
+      ],
+      "vae": [
+        "1",
+        2
+      ]
+    }
+  },
+  "8": {
+    "class_type": "SaveImage",
+    "inputs": {
+      "filename_prefix": "ExpoRenderEnhanced",
+      "images": [
+        "7",
+        0
+      ]
+    }
+  }
+}

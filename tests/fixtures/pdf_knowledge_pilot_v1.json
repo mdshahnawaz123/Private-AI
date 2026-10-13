@@ -1,0 +1,27 @@
+{
+  "version": "1.0.0",
+  "purpose": "Independent source-excerpt retrieval evaluation, not generated engineering-answer certification",
+  "ground_truth": "C3045 labels/values transcribed from user-supplied source table screenshots; C3085 cover text visually checked in rendered original PDF. Defined before evaluating lookup results.",
+  "documents": {
+    "C3045": {
+      "filename": "260610_C3045_2VA_PROJECT DATA SHEET - STAGE 4.pdf",
+      "sha256": "905a5d07c5b310110d7de330dd7ac7d37f695df7b760db8efd5cb64f9429878f"
+    },
+    "C3085": {
+      "filename": "C3085-SCH-3EH6105-AR-0000001(5).pdf",
+      "sha256": "317319806dffdb600862efd2add56ea7c93fe2f1ef4559abbfabaeb9762c55d7"
+    }
+  },
+  "cases": [
+    {"id": "PK001", "project": "C3045", "question": "Built-up area breakdown Basement 1", "page": 1, "table_heading": "BUILT-UP AREA BREAKDOWN (Per Level)", "row": ["Basement 1", "32,031.40", "344,782.79"]},
+    {"id": "PK002", "project": "C3045", "question": "Built-up area breakdown Ground Floor", "page": 1, "table_heading": "BUILT-UP AREA BREAKDOWN (Per Level)", "row": ["Ground Floor", "18,022.20", "193,989.16"]},
+    {"id": "PK003", "project": "C3045", "question": "Built-up area total per level", "page": 1, "table_heading": "BUILT-UP AREA BREAKDOWN (Per Level)", "row": ["TOTAL", "173,494.10", "1,867,473.14"]},
+    {"id": "PK004", "project": "C3045", "question": "Built-up area Roof", "page": 1, "table_heading": "BUILT-UP AREA BREAKDOWN (Per Level)", "row": ["Roof", "51.70", "556.49"]},
+    {"id": "PK005", "project": "C3045", "question": "Parking calculation total required proposed", "page": 1, "table_heading": "PARKING CALCULATION", "row": ["TOTAL", "1003", "1012"]},
+    {"id": "PK006", "project": "C3045", "question": "Bicycle Parking required proposed", "page": 1, "table_heading": "PARKING CALCULATION", "row": ["Bicycle Parking", "353 RACKS", "353 RACKS"]},
+    {"id": "PK007", "project": "C3045", "question": "EV Parking required proposed", "page": 1, "table_heading": "PARKING CALCULATION", "row": ["EV Parking", "22", "22"]},
+    {"id": "PK008", "project": "C3085", "question": "Area Schedule design stage", "page": 1, "quote": "Developed Design"},
+    {"id": "PK009", "project": "C3085", "question": "C3085 Expo Hills Phase 1", "page": 1, "quote": "C3085 Expo Hills - Phase 1"},
+    {"id": "PK010", "project": "C3085", "question": "C3085-SCH-3EH6105-AR-0000003(4)", "page": 1, "quote": "C3085-SCH-3EH6105-AR-0000003(4)"}
+  ]
+}

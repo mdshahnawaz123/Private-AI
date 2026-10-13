@@ -1,6 +1,8 @@
 """Exclusive leases distinguish active staging files from interrupted uploads."""
 from contextlib import contextmanager
 import os
+import json
+import hashlib
 from pathlib import Path
 import re
 import uuid
@@ -38,6 +40,14 @@ def quarantine_interrupted_uploads(roots,quarantine_dir,limit=128):
             try:
                 with staging_lease(staging):
                     target=destination/(uuid.uuid4().hex+'-'+staging.name)
+                    # Persist ownership before moving bytes; a crash must not
+                    # leave anonymous project content in global quarantine.
+                    owner=Path(str(target)+'.owner.json')
+                    with staging.open('rb') as source:
+                        digest=hashlib.file_digest(source,'sha256').hexdigest()
+                    with owner.open('w',encoding='utf-8') as handle:
+                        json.dump({'source':str(staging),'quarantined':str(target),'sha256':digest},handle)
+                        handle.flush();os.fsync(handle.fileno())
                     os.replace(staging,target)
                     results.append({'source':str(staging),'quarantined':str(target),'status':'REUPLOAD_REQUIRED'})
             except OSError:

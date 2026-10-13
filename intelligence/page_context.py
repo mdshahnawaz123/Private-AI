@@ -3,7 +3,16 @@ import json
 import re
 
 
-def select_page_context(path, filename, query, budget=16000, max_chars_per_page=4000):
+def _extract_drawing_structures(text):
+    """Native text order alone cannot prove drawing geometry or selected stamps.
+
+    Keep the original page evidence for guarded retrieval. Do not synthesize
+    dimensions, relationships, sign-offs or dispositions from token presence.
+    """
+    return ''
+
+
+def select_page_context(path, filename, query, budget=32000, max_chars_per_page=None):
     terms = set(re.findall(r'\w+', query.lower())) - {'the','a','an','is','what','of','and','in','to','for'}
     try:
         with open(path + '.index.json', encoding='utf-8') as handle:
@@ -77,7 +86,9 @@ def select_page_context(path, filename, query, budget=16000, max_chars_per_page=
                 except Exception:
                     pass
             raw_text=str(entry.get('text') or '')
-            native='\n'.join(part for part in (rows_text,tbl,raw_text) if part)
+            structured_drawing=_extract_drawing_structures(raw_text)
+            native_parts = [p for p in (structured_drawing, rows_text, tbl, raw_text) if p]
+            native='\n\n'.join(native_parts)
             observation='\n'.join(str(entry.get(key) or '') for key in ('vision','inspection_text')).strip()
             if observation:native+='\n[UNVERIFIED EXTRACTION; REVIEW_REQUIRED]\n'+observation
             pages.append((entry['page'],native))
@@ -95,25 +106,15 @@ def select_page_context(path, filename, query, budget=16000, max_chars_per_page=
         pages = [(page,text) for page,text in pages if page in requested]
     ranked = sorted(pages, key=lambda item:(item[0] in requested, sum(min(5,len(re.findall(r'\b'+re.escape(t)+r'\b',item[1].lower()))) for t in terms)), reverse=True)
     blocks, sources, used = [], [], 0
+    single_page_doc = len(pages) <= 1
+    effective_cap = None if (max_chars_per_page is None or max_chars_per_page <= 0 or single_page_doc) else max_chars_per_page
     for page, text in ranked:
         if not text.strip():
             continue
         room = budget - used
         if room <= 200:
             break
-        # Cap any single page's share of the budget. Without this, one
-        # unusually large page -- confirmed in practice to be a reduced
-        # "overview" page whose own extracted text duplicates several other
-        # pages' schedules in miniature -- can consume the entire budget by
-        # itself, so every other page (including the one actually bearing the
-        # correctly-paginated source for a value) gets silently dropped. The
-        # model, reading the overview page's duplicated content, would then
-        # correctly state the number but cite the page it visually recognizes
-        # the table belonging to -- a citation that was never in `sources`,
-        # which the publication guard rightly rejects as unverifiable. A
-        # cap lets multiple ranked pages share the budget so the real source
-        # page is actually offered, not just content that happens to echo it.
-        page_room = min(room, max_chars_per_page)
+        page_room = min(room, effective_cap) if effective_cap is not None else room
         clipped = len(text) > page_room
         label = str(page) if page is not None else 'UNPAGINATED'
         block = f'[SOURCE: {filename} | PAGE {label}]\n{text[:page_room]}'

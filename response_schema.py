@@ -243,9 +243,17 @@ def build_structured_response(
             if not s or s.startswith("|") or s.startswith("#"):
                 continue
             summary_lines.append(s)
-            if sum(len(x) for x in summary_lines) > 320:
-                break
         summary = " ".join(summary_lines)[:500]
+
+        charts = []
+        try:
+            from intelligence.visualization_schema import extract_chart_specs_from_text
+            charts = extract_chart_specs_from_text(answer_text)
+        except Exception:
+            charts = []
+
+        if charts and rtype == "simple_answer":
+            rtype = "chart" if len(charts) == 1 and not tables and not metrics else "document_analysis"
 
         if rtype == "simple_answer":
             return {
@@ -256,6 +264,7 @@ def build_structured_response(
                 "metrics": [],
                 "tables": [],
                 "calculations": [],
+                "charts": charts,
                 "issues": [],
                 "sources": src_struct,
                 "confidence": _confidence(sources, focus_doc_used, is_not_found),
@@ -269,6 +278,7 @@ def build_structured_response(
             "metrics": metrics,
             "tables": tables,
             "calculations": [],
+            "charts": charts,
             "issues": issues,
             "sources": src_struct,
             "confidence": _confidence(sources, focus_doc_used, is_not_found),
@@ -279,7 +289,7 @@ def build_structured_response(
             "type": "simple_answer",
             "title": "", "subtitle": "",
             "summary": _strip_think(answer_text),
-            "metrics": [], "tables": [], "calculations": [], "issues": [],
+            "metrics": [], "tables": [], "calculations": [], "charts": [], "issues": [],
             "sources": build_sources(sources) if isinstance(sources, list) else [],
             "confidence": "medium",
         }

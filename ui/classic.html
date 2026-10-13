@@ -13,6 +13,7 @@
     --text: #f4f4f5; --muted: #a1a1aa; --accent: #6366f1; --accent2: #8b5cf6;
     --radius: 12px; --font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     --preview-w: 600px;
+    --sidebar-w: 260px;
   }
   *{margin:0;padding:0;box-sizing:border-box}
   html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--font);overflow:hidden;font-size:14px;}
@@ -25,11 +26,52 @@
     pointer-events:none;z-index:0
   }
 
-  .app{display:grid;grid-template-columns:260px 1fr;height:100vh;position:relative;z-index:1}
-  .app.preview-open{grid-template-columns:260px 1fr 4px var(--preview-w)}
+  .app{display:grid;grid-template-columns:var(--sidebar-w) 4px 1fr;height:100vh;position:relative;z-index:1}
+  .app.preview-open{grid-template-columns:var(--sidebar-w) 4px 1fr 4px var(--preview-w)}
+
+  /* SIDEBAR RESIZER & SECTION SPLITTER */
+  .sidebar-resizer{
+    background:transparent;
+    cursor:col-resize;
+    position:relative;
+    z-index:15;
+    transition:background 0.15s;
+    user-select:none;
+  }
+  .sidebar-resizer:hover, .sidebar-resizer.dragging{
+    background:var(--accent);
+  }
+  .section-splitter{
+    height:7px;
+    margin:4px 0;
+    cursor:row-resize;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    user-select:none;
+    flex-shrink:0;
+    border-radius:4px;
+    transition:background 0.15s;
+  }
+  .section-splitter::after{
+    content:'';
+    width:24px;
+    height:2px;
+    border-radius:2px;
+    background:var(--border);
+    transition:all 0.15s;
+  }
+  .section-splitter:hover, .section-splitter.dragging{
+    background:rgba(99,102,241,0.12);
+  }
+  .section-splitter:hover::after, .section-splitter.dragging::after{
+    background:var(--accent);
+    width:36px;
+    height:3px;
+  }
 
   /* SIDEBAR */
-  .sidebar{background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;padding:16px;gap:16px;overflow:hidden}
+  .sidebar{background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;padding:16px;gap:16px;overflow:hidden;min-width:180px;max-width:550px}
   .brand{display:flex;align-items:center;gap:12px;padding-bottom:16px;border-bottom:1px solid var(--border)}
   .brand-logo{width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,var(--accent),var(--accent2));display:grid;place-items:center;font-weight:700;color:#fff;font-size:16px;box-shadow:0 4px 12px rgba(99,102,241,0.3)}
   .brand-text h1{font-size:15px;font-weight:600;letter-spacing:-0.2px}
@@ -235,8 +277,8 @@
   .preview-empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:40px;text-align:center;color:#6b7280;font-size:14px}
   .preview-empty .ico{opacity:0.3}
 
-  @media(max-width:1100px){.app.preview-open{grid-template-columns:260px 1fr}.resizer,.preview-pane{display:none!important}}
-  @media(max-width:760px){.app,.app.preview-open{grid-template-columns:1fr}.sidebar{display:none}.suggestions{grid-template-columns:1fr}.welcome h2{font-size:24px}}
+  @media(max-width:1100px){.app.preview-open{grid-template-columns:var(--sidebar-w) 4px 1fr}.resizer,.preview-pane{display:none!important}}
+  @media(max-width:760px){.app,.app.preview-open{grid-template-columns:1fr}.sidebar,.sidebar-resizer{display:none!important}.suggestions{grid-template-columns:1fr}.welcome h2{font-size:24px}}
 </style>
 </head>
 <body>
@@ -272,12 +314,14 @@
       <div class="label">Knowledge Base</div>
       <button class="add" onclick="clearDocs()" title="Clear Docs for Current Project" style="border:none;background:transparent;cursor:pointer;">&#128465;</button>
     </div>
-    <div id="kbList" style="display:flex;flex-direction:column;gap:1px;max-height:200px;overflow-y:auto;margin-bottom:4px"></div>
+    <div id="kbList" style="display:flex;flex-direction:column;gap:1px;min-height:40px;height:120px;max-height:450px;overflow-y:auto;margin-bottom:2px"></div>
 
-    <div class="proj-header" style="margin-top:6px">
+    <div class="section-splitter" id="kbSplitter" title="Drag to resize Knowledge Base / Recent Chats"></div>
+
+    <div class="proj-header" style="margin-top:2px">
       <div class="label">Recent Chats</div>
     </div>
-    <div class="history" id="historyList"></div>
+    <div class="history" id="historyList" style="min-height:60px"></div>
 
     <div class="sidebar-footer">
       <div class="model-status">
@@ -286,6 +330,8 @@
       </div>
     </div>
   </aside>
+
+  <div class="sidebar-resizer" id="sidebarResizer" title="Drag to resize sidebar"></div>
 
   <main class="main">
     <header class="topbar">
@@ -1418,8 +1464,9 @@ function downloadPreview() {
 }
 
 /* ============================================================
-   RESIZE
+   RESIZE & DRAG-WISE SPLITTERS
    ============================================================ */
+// 1. Preview Resizer
 const resizer = document.getElementById('resizer');
 let isResizing = false;
 resizer.addEventListener('mousedown', e => {
@@ -1428,15 +1475,80 @@ resizer.addEventListener('mousedown', e => {
   document.body.style.userSelect = 'none';
   e.preventDefault();
 });
+
+// 2. Sidebar Width Resizer
+const sidebarResizer = document.getElementById('sidebarResizer');
+let isSidebarResizing = false;
+const savedSidebarW = localStorage.getItem('expo_sidebar_w');
+if (savedSidebarW) {
+  document.documentElement.style.setProperty('--sidebar-w', savedSidebarW + 'px');
+}
+if (sidebarResizer) {
+  sidebarResizer.addEventListener('mousedown', e => {
+    isSidebarResizing = true;
+    sidebarResizer.classList.add('dragging');
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+    e.preventDefault();
+  });
+}
+
+// 3. Knowledge Base / Recent Chats Vertical Splitter
+const kbSplitter = document.getElementById('kbSplitter');
+const kbListEl = document.getElementById('kbList');
+let isKbSplitting = false;
+let startKbY = 0;
+let startKbH = 0;
+const savedKbH = localStorage.getItem('expo_kb_height');
+if (savedKbH && kbListEl) {
+  kbListEl.style.height = savedKbH + 'px';
+}
+if (kbSplitter && kbListEl) {
+  kbSplitter.addEventListener('mousedown', e => {
+    isKbSplitting = true;
+    startKbY = e.clientY;
+    startKbH = kbListEl.getBoundingClientRect().height;
+    kbSplitter.classList.add('dragging');
+    document.body.style.cursor = 'row-resize';
+    document.body.style.userSelect = 'none';
+    e.preventDefault();
+  });
+}
+
+// Global Mouse Movement & Release
 document.addEventListener('mousemove', e => {
-  if (!isResizing) return;
-  const minW = 320, maxW = window.innerWidth - 300;
-  const w = Math.max(minW, Math.min(maxW, window.innerWidth - e.clientX));
-  document.documentElement.style.setProperty('--preview-w', w + 'px');
+  if (isResizing) {
+    const minW = 320, maxW = window.innerWidth - 300;
+    const w = Math.max(minW, Math.min(maxW, window.innerWidth - e.clientX));
+    document.documentElement.style.setProperty('--preview-w', w + 'px');
+  } else if (isSidebarResizing) {
+    const minW = 180, maxW = Math.min(520, window.innerWidth - 360);
+    const w = Math.max(minW, Math.min(maxW, e.clientX));
+    document.documentElement.style.setProperty('--sidebar-w', w + 'px');
+    try { localStorage.setItem('expo_sidebar_w', w); } catch (_) {}
+  } else if (isKbSplitting && kbListEl) {
+    const delta = e.clientY - startKbY;
+    const newH = Math.max(40, Math.min(480, startKbH + delta));
+    kbListEl.style.height = newH + 'px';
+    try { localStorage.setItem('expo_kb_height', newH); } catch (_) {}
+  }
 });
+
 document.addEventListener('mouseup', () => {
   if (isResizing) {
     isResizing = false;
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+  }
+  if (isSidebarResizing) {
+    isSidebarResizing = false;
+    if (sidebarResizer) sidebarResizer.classList.remove('dragging');
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+  }
+  if (isKbSplitting) {
+    isKbSplitting = false;
+    if (kbSplitter) kbSplitter.classList.remove('dragging');
     document.body.style.cursor = '';
     document.body.style.userSelect = '';
   }

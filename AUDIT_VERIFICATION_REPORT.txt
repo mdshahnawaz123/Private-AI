@@ -1,0 +1,1161 @@
+================================================================================
+EXPO DESIGN AI - SECONDARY AUDIT VERIFICATION & PHASE 1 EDGE CASES REPORT
+================================================================================
+Timestamp: 2026-10-13T15:20:00+04:00
+Environment: Offline Engineering Assistant
+Root Directory: C:\3EH\ExpoDesignAI - Copy
+Branch: fix-upload-audit-phase1
+Status: VERIFIED & RESOLVED
+Full Test Suite Result: 353 PASSING TESTS (0 FAILURES, 0 ERRORS)
+Baseline Passed Tests: 343
+New Tests Added: 10
+================================================================================
+
+TABLE OF CONTENTS
+1. EXECUTIVE SUMMARY
+2. FIX 4 VERIFICATION (retrieve_context Regex, Exclusions & Bounded Lookup)
+   2.1 Match Type, Result Capping & False-Positive Exclusions
+   2.2 Five Non-Benchmark Engineering Queries Verification
+   2.3 Full Code Listing: retrieve_context() (main.py)
+3. FIX 5 VERIFICATION (QueryRouter, Fallbacks & AMBIGUOUS Multiple Candidates)
+   3.1 Route Resolution & model_qa Tool Routing
+   3.2 Verification of /api/query_document vs /ask_stream Convergence
+   3.3 Borderline AMBIGUOUS Formatting with Full Candidates Provenance
+   3.4 Full Code Listing: QueryRouter.route_query() (services/query_router.py)
+4. FIX 6 VERIFICATION (KnowledgeHub Persistence, Purge, Collision & Batching)
+   4.1 Pre-Indexing Purge by (project_id, filename)
+   4.2 SHA-256 Collision-Proof ID Generation
+   4.3 Atomic Single-Transaction Batch Commits
+   4.4 Server Restart Rehydration (load_from_sqlite)
+   4.5 KnowledgeHub Retrieval Integration into Q&A
+   4.6 Full Code Listing: index_structured_entities() & EntityExtractor
+5. PHASE 1 EDGE CASES VERIFICATION
+   5.1 Edge Case 1: Dropped Page on Revised PDF (e.g., Page 3 Disappears)
+   5.2 Edge Case 2: Zero-Row Table Page on Revision
+   5.3 Edge Case 3: Renamed Image Filename on Revised Page
+6. AUTOMATED TEST SUITE EXECUTION OUTPUTS
+   6.1 Fix 4 Suite (tests/test_fix4_schedule_retrieval.py - 8 Tests)
+   6.2 Fix 5 Suite (tests/test_fix5_query_router.py - 5 Tests)
+   6.3 Fix 6 Suite (tests/test_fix6_knowledge_hub_sqlite.py - 9 Tests)
+   6.4 Edge Cases Suite (tests/test_fix1_reupload_edge_cases.py - 3 Tests)
+   6.5 Full Regression Run (353 Tests - OK)
+
+================================================================================
+1. EXECUTIVE SUMMARY
+================================================================================
+A secondary audit examined the offline engineering assistant codebase and 
+identified items across Fix 4 (regex lookups), Fix 5 (QueryRouter), Fix 6 
+(KnowledgeHub SQLite persistence), and three Phase 1 edge cases (dropped pages, 
+zero-row table pages, and renamed images).
+
+All items were inspected in the source files, resolved with minimal targeted 
+code changes, and verified with dedicated test suites. Zero external network 
+calls or dependencies were added. The full regression suite ran and achieved:
+   Ran 353 tests in 16.397s: ALL PASSING, 0 FAILURES, 0 ERRORS.
+
+================================================================================
+2. FIX 4 VERIFICATION (retrieve_context Regex, Exclusions & Bounded Lookup)
+================================================================================
+2.1 Match Type, Result Capping & False-Positive Exclusions:
+- Matching Semantics:
+  Changed mark code lookups from unbounded '%_lk%' substring LIKE matching to
+  word-bounded / exact ILIKE matching:
+    (db.ScheduleRow.row_key.ilike(_lk) |
+     db.ScheduleRow.row_key.ilike(f"{_lk} %") |
+     db.ScheduleRow.row_key.ilike(f"% {_lk}") |
+     db.ScheduleRow.row_key.ilike(f"% {_lk} %"))
+  This eliminates substring false hits (e.g. 'C1' matching inside 'SECTION C10').
+- Result Capping:
+  Both ScheduleRow and StructuredRecord lookups are capped at .limit(15).
+  KnowledgeHub db.Requirement lookups are capped at .limit(10).
+- False-Positive Exclusion List:
+  Added _EXCLUDED_MARK_PREFIXES containing common engineering query words:
+  'page', 'level', 'floor', 'top', 'row', 'col', 'rev', 'v', 'ref', 'no',
+  'fig', 'figure', 'part', 'sec', 'item', 'step', 'ver', 'version', 'type',
+  'tier', 'zone', 'area', 'room', 'unit', 'line', 'note', 'sheet', 'view',
+  'grid', 'axis', 'date', 'year'.
+  Queries containing "page 5 and figure 3" produce 0 lookup keys and zero DB
+  queries, verified by test_exclusion_list_page_and_figure_creates_no_structured_lookups.
+
+2.2 Five Non-Benchmark Engineering Queries Verification:
+Tested against 5 realistic non-benchmark queries:
+  1. "What is the fire resistance rating for 2 hour exit stairwell enclosures?"
+  2. "How many accessible parking spaces are required for a 500 space lot?"
+  3. "What is the minimum clear ceiling height in habitable rooms?"
+  4. "Check if the slope of the access ramp exceeds 1:12"
+  5. "What are the travel distance limits to the nearest exit discharge?"
+Result: Confirmed zero noise rows or false positive structured data injected.
+
+2.3 Full Code Listing: retrieve_context() (main.py):
+--------------------------------------------------------------------------------
+def retrieve_context(project: str, query: str, k: int, user=None, focused_sources=None):
+    """Retrieve grounded context. Folder permissions are ENFORCED here: a chunk is
+    only included if the user may access the folder its source document lives in.
+    allow_all (admin, or lead who is a member) sees everything; a regular member
+    sees ONLY chunks from folders assigned to them; anyone else sees nothing.
+
+    Phase 3: Now uses hybrid retrieval (BM25 + Vector + RRF + Reranker) when available.
+    Phase 2: Adds confidence gate for honest "not found" responses.
+    """
+    srcs, parts = [], []
+    permitted_sources = {d["filename"] for d in db.list_documents(project, user)
+                         if d.get('status') in ('ready','ready_with_warnings','verified','published') and d.get('chunks',0)>0} if user else None
+    if focused_sources is not None:
+        permitted_sources=set(focused_sources) if permitted_sources is None else permitted_sources & set(focused_sources)
+    # Resolve the user's folder access up front.
+    if user is None:
+        allow_all, allowed_ids = True, None
+    else:
+        allow_all, allowed_ids = db.folder_access(user, project)
+    fmap = None  # filename -> folder_id (fallback for chunks lacking folder_id metadata)
+
+    def _chunk_folder(d):
+        fid = d.metadata.get("folder_id")
+        if fid is None:
+            nonlocal fmap
+            if fmap is None:
+                try:
+                    fmap = db.doc_folder_map(project)
+                except Exception:
+                    fmap = {}
+            fid = fmap.get(d.metadata.get("source"))
+        return fid
+
+    def _permitted(d):
+        if isinstance(focused_sources,dict):
+            from intelligence.document_investigation import focused_chunk_allowed
+            if not focused_chunk_allowed(d.metadata,focused_sources):return False
+        if permitted_sources is not None and d.metadata.get("source") not in permitted_sources:
+            return False
+        if allow_all:
+            return True
+        fid = _chunk_folder(d)
+        return fid is not None and fid in (allowed_ids or set())
+
+    vs = get_vectorstore(project)
+    # If a restricted user has no accessible folders, skip project docs entirely.
+    if vs is not None and (allow_all or allowed_ids):
+        # Wave 1: Configurable rerank candidates and keep count
+        from intelligence.reranker import get_reranker
+        reranker = get_reranker()
+
+        # Get rerank configuration
+        try:
+            from config import get_settings
+            s = get_settings()
+            rerank_candidates = s.rerank_candidates
+            rerank_keep = s.rerank_keep
+        except Exception:
+            rerank_candidates = 20
+            rerank_keep = 5
+
+        # Over-fetch, then filter by folder permission
+        # Wave 2 (safe, flag-gated): expand short/coded queries via the worker model.
+        search_query = query
+        try:
+            from config import get_settings as _gs_qe
+            if _gs_qe().enable_query_expansion:
+                import local_chat as _lc_qe
+                _exp = _lc_qe.worker_complete(
+                    "You expand construction-review search queries. Given a question, "
+                    "output 3-8 extra search keywords or likely legend/schedule terms, "
+                    "comma-separated, no sentences.", query, num_predict=96)
+                if _exp:
+                    search_query = query + " " + _exp.replace(chr(10), " ")
+        except Exception:
+            search_query = query
+        cand = vs.similarity_search(search_query, k=max(rerank_candidates, k))
+        # Hybrid retrieval: fuse BM25 keyword hits with the vector hits (RRF), so
+        # exact terms (drawing numbers, codes, legends like "TOS Tower 3") rank well.
+        try:
+            from config import get_settings as _gs_hy
+            if _gs_hy().enable_hybrid_bm25:
+                _bm = _get_bm25(project, vs)
+                if _bm is not None:
+                    _kk = max(rerank_candidates, k)
+                    _hits = _bm.search(search_query, k=_kk)
+                    _bm_docs = [_bm.documents[i]["_doc"] for i, _ in _hits
+                                if i < len(_bm.documents) and isinstance(_bm.documents[i], dict)]
+                    if _bm_docs:
+                        cand = _rrf_merge(cand, _bm_docs, limit=_kk)
+        except Exception as _he:
+            logger.warning("hybrid BM25 fusion skipped: {}", _he)
+        permitted = [d for d in cand if _permitted(d)]
+
+        # Wave 1.5 (Task D): Metadata pre-filter — restrict candidates BEFORE ranking
+        # Only active when enable_metadata_prefilter=True (default: False)
+        # Auto-widens if too few candidates match (never filters the answer away)
+        try:
+            from config import get_settings as _gs_pf
+            if _gs_pf().enable_metadata_prefilter:
+                # Extract discipline/doctype/drawing-no from query
+                import re as _re_pf
+                _q_lower = query.lower()
+                # Discipline detection
+                _disc = None
+                for _d in ["architect", "structural", "mep", "landscape", "bim", "cost"]:
+                    if _d in _q_lower:
+                        _disc = _d
+                        break
+                # Document type detection
+                _doctype = None
+                for _dt in ["drawing", "schedule", "report", "spec", "calculation"]:
+                    if _dt in _q_lower:
+                        _doctype = _dt
+                        break
+                # Drawing number detection (e.g., C3085-RPT-3EH6105-AR-0000002)
+                _drawing_no = None
+                _dn_match = _re_pf.search(r'C\d{4}-[A-Z]{2,4}-[A-Z0-9-]+', query, _re_pf.IGNORECASE)
+                if _dn_match:
+                    _drawing_no = _dn_match.group(0).upper()
+
+                # DBC Part filtering — map discipline to DBC parts
+                _dbc_parts = None
+                try:
+                    from disciplines import DISCIPLINE_TO_DBC_PART
+                    if _disc and _disc in DISCIPLINE_TO_DBC_PART:
+                        _dbc_parts = DISCIPLINE_TO_DBC_PART[_disc]
+                except Exception:
+                    pass
+
+                # Apply pre-filter
+                _filtered = permitted
+                if _disc:
+                    _filtered = [d for d in _filtered
+                                 if d.metadata.get("discipline", "").lower() == _disc
+                                 or _disc in d.metadata.get("source", "").lower()]
+                if _doctype:
+                    _filtered = [d for d in _filtered
+                                 if d.metadata.get("doctype", "").lower() == _doctype
+                                 or _doctype in d.metadata.get("source", "").lower()]
+                if _drawing_no:
+                    _filtered = [d for d in _filtered
+                                 if _drawing_no.lower() in d.metadata.get("source", "").lower()]
+                if _dbc_parts:
+                    _filtered = [d for d in _filtered
+                                 if d.metadata.get("dbc_part", "") in _dbc_parts]
+
+                # Auto-widen: if too few candidates, use original permitted list
+                if len(_filtered) >= max(k, 3):
+                    permitted = _filtered
+                    logger.info("Metadata pre-filter: {} candidates (disc={}, doctype={}, drawing={}, dbc_parts={})",
+                                len(permitted), _disc, _doctype, _drawing_no, _dbc_parts)
+                else:
+                    logger.info("Metadata pre-filter: too few matches ({}), using original {}",
+                                len(_filtered), len(permitted))
+        except Exception:
+            pass  # Pre-filter is optional, never break retrieval
+
+        # Rerank if enabled
+        top_score = None
+        if reranker.is_enabled() and permitted:
+            docs_for_rerank = [{"content": d.page_content, "metadata": d.metadata} for d in permitted]
+            reranked = reranker.rerank_with_fallback(query, docs_for_rerank, top_k=rerank_keep)
+            # top_score is the BEST relevance score. reranked is sorted descending,
+            # so the top score is the first entry's. (Previously this was set inside
+            # the map-back loop and ended up holding the LAST/lowest kept score, which
+            # made the confidence gate below compare the wrong value.)
+            if reranked and reranked[0].get("rerank_score") is not None:
+                top_score = reranked[0]["rerank_score"]
+            # Map back to document objects
+            docs = []
+            for r in reranked:
+                for d in permitted:
+                    if d.page_content == r.get("content"):
+                        docs.append(d)
+                        break
+            # If reranking returned fewer than k, fill from permitted
+            if len(docs) < k:
+                existing = set(d.page_content for d in docs)
+                for d in permitted:
+                    if d.page_content not in existing:
+                        docs.append(d)
+                        existing.add(d.page_content)
+                        if len(docs) >= k:
+                            break
+        else:
+            docs = permitted[:k]
+
+        # Phase 2 (Task 3): Confidence gate — check if top score indicates "not found"
+        try:
+            from config import get_settings as _gs_cg
+            _nf_thresh = _gs_cg().not_found_threshold
+            if top_score is not None and _nf_thresh > 0 and top_score < _nf_thresh:
+                logger.info("Confidence gate: top score {:.4f} below threshold {:.4f} — dropping weak project-vector docs",
+                            top_score, _nf_thresh)
+                # Drop only the weak project-vector docs. Do NOT early-return: the
+                # structured-data read (schedules/quantities) and the code-KB block
+                # below can still answer this query. If everything ends up empty, the
+                # assembled context is "" and the answer builder handles "not found".
+                docs = []
+        except Exception:
+            pass
+
+        # Phase 2 (Task 1): Read structured rows/quantities — inject as HIGH-PRIORITY context
+        try:
+            from config import get_settings as _gs_read
+            _enable_tables = _gs_read().enable_structured_tables
+            _enable_quantities = _gs_read().enable_quantities_store
+
+            if (_enable_tables or _enable_quantities) and focused_sources is None:
+                import re as _re_read
+                _q_lower = query.lower()
+
+                # Derive lookup keys from query for schedule/structured data
+                _lookup_keys = []
+                _lookup_key = None
+
+                # 1. Check for TOS/TOPR + Tower pattern
+                _tos_match = _re_read.search(r'(TOS|TOPR)\s*(?:level\s*)?(?:for\s*)?(?:tower\s*)?(\d+)', query, _re_read.IGNORECASE)
+                if _tos_match:
+                    _metric = _tos_match.group(1).upper()
+                    _tower = _tos_match.group(2)
+                    _lookup_key = f"{_metric} Tower {_tower}"
+                    _lookup_keys.append(_lookup_key)
+
+                # 2. Check for legend code pattern (e.g., LX-PT)
+                _legend_match = _re_read.search(r'\b([A-Z]{1,3}-[A-Z]{1,3})\b', query)
+                if _legend_match:
+                    _lk_leg = _legend_match.group(1)
+                    if not _lookup_key:
+                        _lookup_key = _lk_leg
+                    if _lk_leg not in _lookup_keys:
+                        _lookup_keys.append(_lk_leg)
+
+                # 3. Check for element tags / mark codes (e.g., C-1, C1, D-01, D01, B1, W01, S-101)
+                _EXCLUDED_MARK_PREFIXES = {
+                    'page', 'level', 'floor', 'top', 'row', 'col', 'rev', 'v', 'ref', 'no', 'fig', 'figure',
+                    'part', 'sec', 'item', 'step', 'ver', 'version', 'type', 'tier', 'zone', 'area',
+                    'room', 'unit', 'line', 'note', 'sheet', 'view', 'grid', 'axis', 'date', 'year'
+                }
+                _mark_candidates = _re_read.findall(
+                    r'\b([A-Za-z]{1,4}-\d+[A-Za-z0-9]*|[A-Za-z]{1,4}\s+\d+[A-Za-z0-9]*|(?:C|D|W|B|S|F|M|E|P|SW|SL|COL|DR|WIN|BM|FTG)\d+[A-Za-z0-9]*)\b',
+                    query, _re_read.IGNORECASE
+                )
+                for _m in _mark_candidates:
+                    _p_m = _re_read.match(r'^([A-Za-z]+)', _m)
+                    _pfx = _p_m.group(1).lower() if _p_m else ""
+                    if _pfx in _EXCLUDED_MARK_PREFIXES:
+                        continue
+                    if _m in ('2020', '2021', '2022', '2023', '2024', '2025', '2026', '2027', '2028', '2029', '2030'):
+                        continue
+                    if _m not in _lookup_keys:
+                        _lookup_keys.append(_m)
+                    if '-' in _m:
+                        _m_clean = _m.replace('-', '')
+                        if _m_clean not in _lookup_keys:
+                            _lookup_keys.append(_m_clean)
+                    elif ' ' in _m:
+                        _m_dash = _m.replace(' ', '-')
+                        if _m_dash not in _lookup_keys:
+                            _lookup_keys.append(_m_dash)
+
+                # 4. Check for Tower and Level combinations
+                _tw_m = _re_read.search(r'\btower\s*0*(\d+)\b', query, _re_read.IGNORECASE)
+                _lv_m = _re_read.search(r'\b(?:level|floor)\s*0*(\d+)\b', query, _re_read.IGNORECASE)
+                if _tw_m and _lv_m:
+                    _t_num = _tw_m.group(1)
+                    _l_num = _lv_m.group(1)
+                    for _tlk in (
+                        f"Tower {_t_num} Level {_l_num}",
+                        f"TOWER {_t_num} LEVEL {int(_l_num):02d}",
+                        f"TOWER {_t_num} LEVEL {_l_num}",
+                    ):
+                        if _tlk not in _lookup_keys:
+                            _lookup_keys.append(_tlk)
+                elif _tw_m:
+                    _lookup_keys.append(f"Tower {_tw_m.group(1)}")
+                elif _lv_m:
+                    _lookup_keys.append(f"Level {_lv_m.group(1)}")
+                    _lookup_keys.append(f"Level {int(_lv_m.group(1)):02d}")
+
+                # 5. Check for schedule / table keywords or field queries
+                _sched_kw_m = _re_read.search(
+                    r'\b(schedule|table|column|beam|door|window|wall|slab|footing|finish|finishes|area|gfa|nisa|nsa|bua|rebar|reinforcement|concrete\s+grade|grade|thickness|dimension|corridor|width|height|clearance)\b',
+                    query, _re_read.IGNORECASE
+                )
+                if _sched_kw_m:
+                    _sched_phrases = _re_read.findall(
+                        r'\b((?:column|door|window|beam|slab|wall|footing|corridor)\s+[A-Za-z0-9_-]+|concrete\s+grade|floor\s+gfa|gfa|finishes|finish\s+schedule|door\s+schedule|column\s+schedule|corridor\s+width|clear\s+width|ceiling\s+height)\b',
+                        query, _re_read.IGNORECASE
+                    )
+                    for _sp in _sched_phrases:
+                        if _sp not in _lookup_keys:
+                            _lookup_keys.append(_sp)
+                    if not _sched_phrases:
+                        _kw_hit = _sched_kw_m.group(1)
+                        if _kw_hit not in _lookup_keys:
+                            _lookup_keys.append(_kw_hit)
+
+                if _lookup_keys and not _lookup_key:
+                    _lookup_key = _lookup_keys[0]
+
+                if _lookup_keys or _lookup_key:
+                    # Query structured stores
+                    _structured_context = ""
+                    _structured_src = None
+
+                    # Check schedule_rows, structured_records and quantities using ONE session
+                    _session = db.SessionLocal()
+                    try:
+                        _proj = _session.query(db.Project).filter_by(name=project).first()
+                        if _proj:
+                            # 1. Check schedule_rows
+                            if _enable_tables:
+                                _seen_row_ids = set()
+                                for _lk in _lookup_keys:
+                                    _is_mark = bool(_re_read.match(r'^[A-Za-z0-9_-]+$', _lk) and not any(w in _lk.lower() for w in ('schedule', 'table', 'area', 'finishes', 'gfa', 'grade', 'statement')))
+                                    if _is_mark:
+                                        _cond = (
+                                            db.ScheduleRow.row_key.ilike(_lk) |
+                                            db.ScheduleRow.row_key.ilike(f"{_lk} %") |
+                                            db.ScheduleRow.row_key.ilike(f"% {_lk}") |
+                                            db.ScheduleRow.row_key.ilike(f"% {_lk} %")
+                                        )
+                                    else:
+                                        _cond = (
+                                            db.ScheduleRow.row_key.ilike(f"%{_lk}%") |
+                                            db.ScheduleRow.table_name.ilike(f"%{_lk}%")
+                                        )
+                                    _rows = _session.query(db.ScheduleRow).filter(
+                                        db.ScheduleRow.project_id == _proj.id,
+                                        db.ScheduleRow.doc.in_(permitted_sources) if permitted_sources is not None else True,
+                                        _cond
+                                    ).limit(15).all()
+
+                                    for _row in _rows:
+                                        if _row.id in _seen_row_ids:
+                                            continue
+                                        _seen_row_ids.add(_row.id)
+                                        _row_data = _row.row_values if hasattr(_row, 'row_values') else {}
+                                        _structured_context += f"\n[STRUCTURED ROW: {_row.table_name}]\n"
+                                        _structured_context += f"Row Key: {_row.row_key}\n"
+                                        if isinstance(_row_data, dict):
+                                            for _k, _v in _row_data.items():
+                                                _structured_context += f"  {_k}: {_v}\n"
+                                        if _structured_src is None:
+                                            _structured_src = {
+                                                "source": _row.doc,
+                                                "page": _row.page,
+                                                "revision": _row.revision,
+                                            }
+
+                            # 2. Check structured_records
+                            if _enable_tables:
+                                _seen_rec_ids = set()
+                                for _lk in _lookup_keys:
+                                    _is_mark = bool(_re_read.match(r'^[A-Za-z0-9_-]+$', _lk) and not any(w in _lk.lower() for w in ('schedule', 'table', 'area', 'finishes', 'gfa', 'grade', 'statement')))
+                                    if _is_mark:
+                                        _cond_sr = (
+                                            db.StructuredRecord.entity.ilike(_lk) |
+                                            db.StructuredRecord.row_label.ilike(_lk) |
+                                            db.StructuredRecord.entity.ilike(f"{_lk} %") |
+                                            db.StructuredRecord.entity.ilike(f"% {_lk}")
+                                        )
+                                    else:
+                                        _cond_sr = (
+                                            db.StructuredRecord.entity.ilike(f"%{_lk}%") |
+                                            db.StructuredRecord.row_label.ilike(f"%{_lk}%") |
+                                            db.StructuredRecord.field.ilike(f"%{_lk}%") |
+                                            db.StructuredRecord.schedule.ilike(f"%{_lk}%")
+                                        )
+                                    _recs = _session.query(db.StructuredRecord).filter(
+                                        db.StructuredRecord.project_id == _proj.id,
+                                        db.StructuredRecord.doc.in_(permitted_sources) if permitted_sources is not None else True,
+                                        _cond_sr
+                                    ).limit(15).all()
+
+                                    for _rec in _recs:
+                                        if _rec.id in _seen_rec_ids:
+                                            continue
+                                        if str(getattr(_rec, 'confidence', '')).upper() == 'AMBIGUOUS':
+                                            continue
+                                        _seen_rec_ids.add(_rec.id)
+                                        _rec_table = _rec.schedule or "SCHEDULE"
+                                        _structured_context += f"\n[STRUCTURED RECORD: {_rec_table}]\n"
+                                        _ent = _rec.entity or _rec.row_label or ""
+                                        if _ent:
+                                            _structured_context += f"Entity: {_ent}\n"
+                                        _val = _rec.raw_value if _rec.raw_value is not None else (_rec.value if _rec.value is not None else "")
+                                        _u = f" {_rec.unit}" if _rec.unit else ""
+                                        _fld = _rec.field or _rec.column_label or "Value"
+                                        _structured_context += f"  {_fld}: {_val}{_u}\n"
+                                        if _structured_src is None:
+                                            _structured_src = {
+                                                "source": _rec.doc,
+                                                "page": _rec.page,
+                                                "revision": _rec.revision,
+                                            }
+
+                            # 3. Check quantities
+                            if _enable_quantities and not _structured_context:
+                                _metric = None
+                                if "tos" in _q_lower:
+                                    _metric = "TOS"
+                                elif "topr" in _q_lower:
+                                    _metric = "TOPR"
+                                elif "gfa" in _q_lower or "area" in _q_lower:
+                                    _metric = "GFA"
+
+                                if _metric:
+                                    _building = None
+                                    _tower_match = _re_read.search(r'tower\s*(\d+)', query, _re_read.IGNORECASE)
+                                    if _tower_match:
+                                        _building = f"Tower {_tower_match.group(1)}"
+
+                                    _q_filter = db.Quantity.project_id == _proj.id
+                                    if permitted_sources is not None:
+                                        _q_filter = _q_filter & db.Quantity.source_doc.in_(permitted_sources)
+                                    if _metric:
+                                        _q_filter = _q_filter & (db.Quantity.metric == _metric)
+                                    if _building:
+                                        _q_filter = _q_filter & (db.Quantity.building == _building)
+
+                                    _quantities = _session.query(db.Quantity).filter(_q_filter).all()
+                                    for _q in _quantities:
+                                        _structured_context += f"\n[QUANTITY: {_q.metric}]\n"
+                                        _structured_context += f"  Building: {_q.building}\n"
+                                        _structured_context += f"  Value: {_q.value} {_q.unit}\n"
+                                        if _structured_src is None:
+                                            _structured_src = {
+                                                "source": _q.source_doc,
+                                                "page": _q.source_page,
+                                                "revision": _q.revision,
+                                            }
+
+                            # 4. Check KnowledgeHub requirements
+                            if hasattr(db, 'Requirement') and not _structured_context:
+                                _req_filter = db.Requirement.project_id == _proj.id
+                                if permitted_sources is not None:
+                                    _req_filter = _req_filter & db.Requirement.source_doc.in_(permitted_sources)
+                                _req_cond = None
+                                for _lk in _lookup_keys:
+                                    _c = (
+                                        db.Requirement.req_id.ilike(f"%{_lk}%") |
+                                        db.Requirement.title.ilike(f"%{_lk}%") |
+                                        db.Requirement.description.ilike(f"%{_lk}%")
+                                    )
+                                    _req_cond = _c if _req_cond is None else (_req_cond | _c)
+                                if _req_cond is not None:
+                                    _k_reqs = _session.query(db.Requirement).filter(_req_filter & _req_cond).limit(10).all()
+                                    for _kr in _k_reqs:
+                                        _structured_context += f"\n[KNOWLEDGE REQUIREMENT: {_kr.req_id}]\n"
+                                        _structured_context += f"  Title: {_kr.title}\n"
+                                        if _kr.value:
+                                            _structured_context += f"  Value: {_kr.value} {_kr.unit or ''}\n"
+                                        if _kr.description:
+                                            _structured_context += f"  Description: {_kr.description}\n"
+                                        if _kr.source_clause:
+                                            _structured_context += f"  Clause: {_kr.source_clause}\n"
+                                        if _structured_src is None and _kr.source_doc:
+                                            _structured_src = {
+                                                "source": _kr.source_doc,
+                                                "page": _kr.source_page,
+                                                "revision": _kr.version or "",
+                                            }
+                    finally:
+                        _session.close()
+
+                    # Inject structured context as HIGH-PRIORITY block
+                    if _structured_context:
+                        parts.insert(0, "STRUCTURED DATA (from schedules/quantities):\n" + _structured_context)
+                        if _structured_src:
+                            srcs.insert(0, _structured_src)
+                        logger.info("Injected structured data for lookup: {}", _lookup_keys)
+
+                # General table lookup: match query terms against any captured table
+                # row (area / parking / lift / unit-mix, etc.), not just TOS/TOPR.
+                if _enable_tables and not _lookup_key and _gs_read().enable_legacy_schedule_context:
+                    try:
+                        _sess2 = db.SessionLocal()
+                        try:
+                            _proj2 = _sess2.query(db.Project).filter_by(name=project).first()
+                            _toks = [w for w in _re_read.findall(r'[a-z0-9]+', _q_lower) if len(w) >= 3]
+                            if _proj2 and _toks:
+                                _allrows = _sess2.query(db.ScheduleRow).filter(
+                                    db.ScheduleRow.project_id == _proj2.id,
+                                    db.ScheduleRow.doc.in_(permitted_sources) if permitted_sources is not None else True).all()
+                                _scored = []
+                                for _r in _allrows:
+                                    _rk = (_r.row_key or "").lower()
+                                    _tn = (_r.table_name or "").lower()
+                                    if not _rk:
+                                        continue
+                                    _rk_in_q = _rk in _q_lower
+                                    _rk_word_hit = any(w in _q_lower for w in _rk.split() if len(w) >= 3)
+                                    if not (_rk_in_q or _rk_word_hit):
+                                        continue
+                                    _sc = (3 if _rk_in_q else 1) + sum(1 for t in _toks if t in _tn)
+                                    _scored.append((_sc, _r))
+                                _scored.sort(key=lambda x: x[0], reverse=True)
+                                _gblocks, _gsrc = [], None
+                                for _sc, _r in _scored[:15]:
+                                    _rv = _r.row_values or {}
+                                    _b = "[STRUCTURED ROW: %s]\nRow Key: %s\n" % (_r.table_name, _r.row_key)
+                                    for _k, _v in _rv.items():
+                                        _b += "  %s: %s\n" % (_k, _v)
+                                    _gblocks.append(_b)
+                                    if _gsrc is None:
+                                        _gsrc = {"source": _r.doc, "page": _r.page, "revision": _r.revision}
+                                if _gblocks:
+                                    parts.insert(0, "STRUCTURED DATA (exact table rows matching the question - prefer these for numbers):\n" + "\n".join(_gblocks))
+                                    if _gsrc:
+                                        srcs.insert(0, _gsrc)
+                                    logger.info("Injected {} general structured rows", len(_gblocks))
+                        finally:
+                            _sess2.close()
+                    except Exception as _ge:
+                        logger.warning("general structured lookup failed: {}", _ge)
+        except Exception as _e_read:
+            logger.warning("Structured data read failed: {}", _e_read)
+
+        if docs:
+            blocks = []
+            for d in docs:
+                src = d.metadata.get("source", "?")
+                pg = d.metadata.get("page")
+                tag = "[SOURCE: %s | PAGE %s]" % (src, pg if pg is not None else 'UNPAGINATED')
+                observation='[UNVERIFIED EXTRACTION; REVIEW_REQUIRED]\n' if d.metadata.get('evidence_state')=='REVIEW_REQUIRED' else ''
+                blocks.append("%s\n%s%s" % (tag, observation, d.page_content))
+                srcs.append({"source": src, "page": pg})
+            parts.append("PROJECT DOCUMENTS (uploaded to this project):\n" +
+                         "\n\n---\n\n".join(blocks))
+    kb = get_vectorstore(KB_COLLECTION) if focused_sources is None else None
+    if kb is not None:
+        cdocs = kb.similarity_search(query, k=k)
+        if cdocs:
+            # Grounding fix: tag each code excerpt with [SOURCE | PAGE] like project docs,
+            # so the model can cite the real page instead of inventing a section/page.
+            _kb_blocks = []
+            for d in cdocs:
+                _src = d.metadata.get("source", "?")
+                _pg = d.metadata.get("page")
+                _tag = "[SOURCE: %s | PAGE %s]" % (_src, _pg if _pg is not None else 'UNPAGINATED')
+                _kb_blocks.append("%s\n%s" % (_tag, d.page_content))
+            parts.append("CODE CONTEXT (DBC 2021 / IBC 2021 excerpts):\n" +
+                         "\n\n---\n\n".join(_kb_blocks))
+            srcs += [{"source": d.metadata.get("source","?"), "page": d.metadata.get("page")} for d in cdocs]
+    note = revision_notice(project, user)
+    if note:
+        parts.insert(0, note)
+    ctx = "\n\n====\n\n".join(parts)
+    # de-duplicate (source, page) pairs, preserving order
+    seen, uniq = set(), []
+    for it in srcs:
+        key = (it.get("source"), it.get("page"))
+        if key in seen:
+            continue
+        seen.add(key)
+        uniq.append(it)
+    return uniq, ctx
+--------------------------------------------------------------------------------
+
+
+================================================================================
+3. FIX 5 VERIFICATION (QueryRouter, Fallbacks & AMBIGUOUS Multiple Candidates)
+================================================================================
+3.1 Route Resolution & model_qa Tool Routing:
+- When a user query includes 3D model action terms (e.g. selected, isolate,
+  highlight, zoom, guid) and selected_guid is provided, QueryRouter returns:
+    RouteResult(route="model_qa", status="SUCCESS", is_deterministic=False)
+- Because is_deterministic is False, downstream endpoints execute the controlled
+  BIM tool via execute_model_qa() without un-guarded hallucinations.
+
+3.2 Verification of /api/query_document vs /ask_stream Convergence:
+- Inspected /api/query_document in main.py:
+  Invokes sq.query_document() in intelligence/document_query.py.
+- Inside query_document():
+  Calls QueryRouter.route_query(project=project_id, question=question, user=user, ...).
+  Deterministic answers (exact tables, structured records, document memory)
+  return immediately without calling the LLM.
+  RAG fallbacks pass the generated answer through guarded_answer().
+- In /ask_stream:
+  Calls QueryRouter.route_query() directly.
+- Both endpoints share identical routing, precomputed answer validation, and
+  guard mechanisms.
+
+3.3 Borderline AMBIGUOUS Formatting with Full Candidates Provenance:
+- When execute_structured_query finds multiple conflicting candidates (len(values) > 1),
+  it previously returned an empty string with no provenance.
+- Now, it formats ALL conflicting candidate records into the answer and provenance:
+    "- [ENTITY]: [FIELD] = [VALUE] [UNIT] [SOURCE: doc | PAGE p | REV r]"
+  The user is presented with all candidates and prompted to specify the revision.
+
+3.4 Full Code Listing: QueryRouter.route_query() (services/query_router.py):
+--------------------------------------------------------------------------------
+    @staticmethod
+    def route_query(
+        project: str,
+        question: str,
+        user: Optional[Dict[str, Any]] = None,
+        exact_documents: Optional[List[Dict[str, Any]]] = None,
+        selected_guid: Optional[str] = None,
+        focus_doc: Optional[str] = None,
+        retrieve_context_func: Optional[Callable] = None,
+        focused_sources: Optional[Dict[str, Any]] = None,
+        db_module: Any = None,
+    ) -> RouteResult:
+        """
+        Determine the route and resolve precomputed/deterministic answers if available.
+        If a deterministic route succeeds, returns RouteResult with is_deterministic=True.
+        Otherwise falls back to RAG, retrieving context and returning RouteResult with route='rag'.
+        """
+        _db = db_module or db
+        pid, name = None, None
+        try:
+            with _db.SessionLocal() as session:
+                query = session.query(_db.Project)
+                row = query.filter_by(id=project).first() if isinstance(project, int) else query.filter_by(name=project).first()
+                if row:
+                    pid, name = row.id, getattr(row, "name", str(project))
+        except Exception:
+            pass
+
+        if pid is None:
+            pid = project if isinstance(project, int) else 1
+            name = str(project)
+
+        if exact_documents is not None:
+            docs = exact_documents
+        elif hasattr(_db, "list_documents"):
+            docs = _db.list_documents(name, user)
+        else:
+            docs = db.list_documents(name, user)
+
+        # 1. Exact deterministic table answers
+        try:
+            import sys
+            _ea = sys.modules.get("intelligence.exact_answers")
+            if _ea is None:
+                import intelligence.exact_answers as _ea
+            exact = _ea.exact_answer(question, docs)
+        except Exception:
+            exact = None
+
+        if exact and exact.get("status") == "SUCCESS":
+            raw_ans = exact.get("answer", "")
+            raw_srcs = exact.get("sources", [])
+            try:
+                ans, issues, src_items = validate_precomputed_answer(raw_ans, docs, raw_srcs, question)
+            except Exception:
+                logger.exception("Exact-answer publication validation failed; withholding answer")
+                ans = "I could not verify the deterministic answer against its source pages. Please review the source document."
+                issues = ["Exact-answer publication validation failed"]
+                src_items = []
+
+            if issues:
+                logger.warning("Exact answer withheld by final evidence checks: {}", issues)
+                ans = "I could not verify the deterministic answer against its source pages. Please review the source document."
+                src_items = []
+
+            return RouteResult(
+                route="source_table",
+                status="SUCCESS",
+                answer=ans,
+                is_deterministic=True,
+                sources=src_items,
+                provenance=src_items,
+            )
+
+        # 2. 3D Model / BIM QA tool routing if GUID is selected
+        if selected_guid and re.search(r'\b(selected|highlight|isolate|zoom|guid)\b', question, re.I):
+            return RouteResult(
+                route="model_qa",
+                status="SUCCESS",
+                is_deterministic=False,  # Needs model execution
+            )
+
+        # 3. Structured Record Query (database tables / fields)
+        plan = robust_parse_query(question, pid)
+        if plan.get("route_target") == "structured":
+            struct_res, _ = execute_structured_query(plan, pid, question, user)
+            if struct_res.get("status") in ("SUCCESS", "AMBIGUOUS"):
+                ans = struct_res.get("answer", "")
+                prov = struct_res.get("provenance", [])
+                src_items = [{"source": p.get("document"), "page": p.get("page"), "revision": p.get("revision")} for p in prov]
+                if struct_res.get("status") == "SUCCESS":
+                    try:
+                        val_ans, issues, val_srcs = validate_precomputed_answer(ans, docs, src_items, question)
+                        if not issues:
+                            ans = val_ans
+                            src_items = val_srcs
+                    except Exception:
+                        pass
+                return RouteResult(
+                    route="structured",
+                    status=struct_res.get("status"),
+                    answer=ans,
+                    is_deterministic=True,
+                    sources=src_items,
+                    provenance=prov,
+                    query_plan=plan,
+                )
+
+        # 4. AI Document Memory
+        try:
+            import sys
+            _cfg = sys.modules.get("config")
+            if _cfg is None:
+                import config as _cfg
+            if _cfg.get_settings().enable_document_memory:
+                _dm = sys.modules.get("intelligence.document_memory")
+                if _dm is None:
+                    import intelligence.document_memory as _dm
+                permitted_fn = {d["filename"] for d in docs if isinstance(d, dict) and d.get("filename")}
+                focus_fn = os.path.basename(focus_doc.replace(chr(92), "/")) if focus_doc else None
+                mem = _dm.memory_lookup(pid, question, permitted_fn, focus_fn)
+                if mem and (mem.get("status", "SUCCESS") == "SUCCESS" or "answer" in mem):
+                    raw_ans = mem.get("answer", "")
+                    raw_srcs = mem.get("sources", [])
+                    try:
+                        ans, issues, src_items = validate_precomputed_answer(raw_ans, docs, raw_srcs, question)
+                    except Exception:
+                        logger.exception("Document-memory publication validation failed; withholding answer")
+                        ans = "I could not verify the retrieved answer against its source pages. Please review the source document."
+                        issues = ["Document-memory publication validation failed"]
+                        src_items = []
+                    if issues:
+                        logger.warning("Document-memory answer withheld by final evidence checks: {}", issues)
+                        ans = "I could not verify the retrieved answer against its source pages. Please review the source document."
+                        src_items = []
+                    return RouteResult(
+                        route="document_memory",
+                        status="SUCCESS",
+                        answer=ans,
+                        is_deterministic=True,
+                        sources=src_items,
+                        provenance=src_items,
+                    )
+        except Exception as e:
+            logger.warning("Document memory lookup skipped in QueryRouter: {}", e)
+
+        # 5. RAG Retrieval
+        if retrieve_context_func:
+            try:
+                srcs, ctx = retrieve_context_func(name, question, 8, user, focused_sources)
+                return RouteResult(
+                    route="rag",
+                    status="SUCCESS",
+                    is_deterministic=False,
+                    retrieved_sources=srcs,
+                    context=ctx,
+                )
+            except Exception as e:
+                return RouteResult(
+                    route="rag",
+                    status="ERROR",
+                    answer="Retrieval failed.",
+                    is_deterministic=True,
+                    warnings=[str(e)],
+                )
+
+        return RouteResult(
+            route="rag",
+            status="SUCCESS",
+            is_deterministic=False,
+        )
+--------------------------------------------------------------------------------
+
+
+================================================================================
+4. FIX 6 VERIFICATION (KnowledgeHub Persistence, Purge, Collision & Batching)
+================================================================================
+4.1 Pre-Indexing Purge:
+Before adding new rows into the KnowledgeHub tables, index_structured_entities()
+deletes all Requirement, Evidence, and GraphEdge records where (project_id, filename)
+matches. It also removes the corresponding cached entities from the in-memory hub.
+
+4.2 SHA-256 Collision-Proof ID Generation:
+Two filenames such as "a b.pdf" and "a_b.pdf" previously produced the same sanitized prefix.
+A deterministic 8-character SHA-256 hash salt was introduced:
+  doc_hash = hashlib.sha256(filename.encode("utf-8")).hexdigest()[:8]
+  Requirement ID: f"{clean_fn}-{doc_hash}-req-{uuid.uuid4().hex[:8]}"
+  Evidence ID:    f"ev-{clean_fn}-{doc_hash}-p{pg_num}-{uuid.uuid4().hex[:8]}"
+
+4.3 Atomic Single-Transaction Batch Commits:
+Added begin_batch(), commit_batch(), and rollback_batch() to KnowledgeHub.
+When in batch mode, save_requirement_to_sqlite, save_evidence_to_sqlite, and
+save_edge_to_sqlite add to the active session without committing.
+All entities and edges are committed in a single atomic transaction.
+
+4.4 Server Restart Rehydration:
+KnowledgeHub.load_from_sqlite() loads all Requirement, Evidence, and GraphEdge
+rows from SQLite into memory on server boot or project load.
+Verified by test_load_from_sqlite_rehydrates_hub.
+
+4.5 KnowledgeHub Retrieval Integration:
+In main.py (lines 2484–2514), retrieve_context() queries db.Requirement when
+query terms match requirement titles, clauses, or element keywords.
+Extracted requirements are injected as high-priority structured context.
+Verified by test_knowledge_hub_requirement_retrieval.
+
+4.6 Full Code Listing: index_structured_entities() & EntityExtractor (knowledge/extraction.py):
+--------------------------------------------------------------------------------
+def index_structured_entities(project_id: Any, filename: str,
+                              meta: Dict[str, Any]) -> Dict[str, int]:
+    """
+    Index structured entities from document metadata into the Knowledge Hub.
+    Returns counts of indexed entities.
+    """
+    import hashlib
+    import uuid
+    import db
+
+    hub = get_hub()
+    counts = {"requirements": 0, "drawings": 0, "schedules": 0, "evidence": 0, "relationships": 0}
+
+    # 1. Purge step: Before re-indexing, delete all (Requirement, Evidence, GraphEdge) rows
+    # where (project_id, filename) matches.
+    pid_int = _resolve_project_id(project_id)
+    if pid_int:
+        with db.SessionLocal() as s:
+            req_rows = s.query(db.Requirement).filter_by(project_id=pid_int, source_doc=filename).all()
+            req_eids = {f"req-{r.req_id}" for r in req_rows}
+            req_ids_bare = {r.req_id for r in req_rows}
+            s.query(db.Requirement).filter_by(project_id=pid_int, source_doc=filename).delete()
+
+            ev_rows = s.query(db.Evidence).filter_by(project_id=pid_int, source_doc=filename).all()
+            ev_eids = {e.evidence_id for e in ev_rows}
+            s.query(db.Evidence).filter_by(project_id=pid_int, source_doc=filename).delete()
+
+            all_purged_ids = req_eids | req_ids_bare | ev_eids
+            if all_purged_ids:
+                s.query(db.GraphEdge).filter(
+                    db.GraphEdge.project_id == pid_int,
+                    (db.GraphEdge.src_id.in_(all_purged_ids) | db.GraphEdge.dst_id.in_(all_purged_ids))
+                ).delete(synchronize_session=False)
+
+            s.commit()
+
+        # Also purge from in-memory hub
+        for eid in list(hub._entities.keys()):
+            ent = hub._entities.get(eid)
+            if ent and str(ent.project_id) == str(project_id):
+                src_doc = getattr(ent, "file_path", None)
+                if not src_doc and hasattr(ent, "provenance") and ent.provenance:
+                    prov = ent.provenance
+                    src_doc = prov.get("source_doc") if isinstance(prov, dict) else getattr(prov, "source_doc", None)
+                if src_doc == filename:
+                    hub._entities.pop(eid, None)
+                    hub._graph._nodes.pop(eid, None)
+
+    clean_fn = re.sub(r'[^a-zA-Z0-9_-]', '_', filename)
+    doc_hash = hashlib.sha256(filename.encode("utf-8")).hexdigest()[:8]
+
+    doc_type = meta.get("type", "")
+    if not doc_type:
+        fn_lower = filename.lower()
+        if fn_lower.endswith(".pdf"):
+            doc_type = "pdf"
+        elif fn_lower.endswith((".xlsx", ".xls")):
+            doc_type = "excel"
+        elif fn_lower.endswith((".dwg", ".dxf")):
+            doc_type = "cad"
+
+    page_evidence_ids = {}
+
+    hub.begin_batch()
+    try:
+        # Add evidence for each page/sheet
+        if doc_type == "pdf":
+            for page in meta.get("pages", []):
+                text = page.get("text", "")
+                pg_num = page.get("page", 0)
+                if text:
+                    ev_id = f"ev-{clean_fn}-{doc_hash}-p{pg_num}-{uuid.uuid4().hex[:8]}"
+                    hub.add_evidence(
+                        project_id=str(project_id),
+                        evidence_type="text",
+                        content=text[:500],  # First 500 chars as evidence
+                        source_doc=filename,
+                        source_page=pg_num,
+                        confidence=0.8,
+                        evidence_id=ev_id,
+                    )
+                    counts["evidence"] += 1
+                    page_evidence_ids[pg_num] = ev_id
+
+        if doc_type == "pdf":
+            # Extract requirements from PDF
+            reqs = extract_requirements_from_pdf_meta(meta, project_id)
+            for req in reqs:
+                req_id_str = f"{clean_fn}-{doc_hash}-req-{uuid.uuid4().hex[:8]}"
+                req_entity_id = hub.add_requirement(
+                    project_id=str(project_id),
+                    req_id=req_id_str,
+                    title=req["req_type"],
+                    value=req["value"],
+                    unit=req["unit"],
+                    operator=req["operator"],
+                    discipline="",
+                    code_reference="",
+                    source_doc=req["source_doc"],
+                    source_page=req["source_page"],
+                    confidence=req["confidence"],
+                    notes=req["context"],
+                )
+                counts["requirements"] += 1
+
+                pg = req.get("source_page")
+                if pg in page_evidence_ids:
+                    ev_eid = page_evidence_ids[pg]
+                    if hub.add_relationship(ev_eid, "supports", req_entity_id, confidence=0.8):
+                        counts["relationships"] += 1
+
+        elif doc_type == "excel":
+            # Extract schedules from Excel
+            schedules = extract_entities_from_excel(meta, project_id)
+            for sched in schedules:
+                hub.add_entity(ScheduleEntity(
+                    entity_id=f"sched-{clean_fn}-{doc_hash}-{sched['schedule_type']}",
+                    entity_type=EntityType.SCHEDULE,
+                    project_id=str(project_id),
+                    name=f"{sched['schedule_type'].title()} Schedule",
+                    properties={
+                        "schedule_type": sched["schedule_type"],
+                        "source_sheet": sched["source_sheet"],
+                        "source_doc": sched["source_doc"],
+                    },
+                ))
+                counts["schedules"] += 1
+
+        elif doc_type == "cad":
+            # Extract drawing metadata
+            drawing_meta = extract_drawing_metadata(filename, project_id)
+            if drawing_meta:
+                hub.add_drawing(
+                    project_id=str(project_id),
+                    drawing_number=drawing_meta["drawing_number"],
+                    title=drawing_meta["title"],
+                    revision=drawing_meta["revision"],
+                    discipline=drawing_meta["discipline"],
+                    file_path=filename,
+                )
+                counts["drawings"] += 1
+
+        hub.commit_batch()
+    except Exception:
+        hub.rollback_batch()
+        raise
+
+    logger.info("Indexed structured entities for {}: {}", filename, counts)
+    return counts
+
+
+class EntityExtractor:
+    """Extracts typed entities from document metadata into the KnowledgeHub."""
+
+    def __init__(self, hub=None):
+        self.hub = hub or get_hub()
+
+    @classmethod
+    def extract_and_index(cls, project_id: Any, filename: str, meta: Dict[str, Any]) -> Dict[str, int]:
+        """Extract and index structured entities into the KnowledgeHub."""
+        return index_structured_entities(project_id, filename, meta)
+
+    def extract(self, project_id: Any, filename: str, meta: Dict[str, Any]) -> Dict[str, int]:
+        """Instance method alias for extract_and_index."""
+        return index_structured_entities(project_id, filename, meta)
+--------------------------------------------------------------------------------
+
+
+================================================================================
+5. PHASE 1 EDGE CASES VERIFICATION
+================================================================================
+Three edge cases were added to services/pipeline.py and verified via
+tests/test_fix1_reupload_edge_cases.py:
+
+5.1 Edge Case 1: Dropped Page on Revision:
+- Scenario: Document revised from 3 pages down to 2 pages (page 3 removed).
+- Fix in pipeline.py:
+  session.query(db.PageRecord).filter(page_number > len(doc)).delete()
+  session.query(db.ImageRecord).filter(page_number > len(doc)).delete()
+  session.query(db.StructuredRecord).filter(page > len(doc)).delete()
+- Result: PageRecord, ImageRecord, and StructuredRecord for page 3 purged cleanly.
+- Test: test_dropped_page_purges_stale_records (PASS).
+
+5.2 Edge Case 2: Zero-Row Table Page on Revision:
+- Scenario: Page had tables in v1, but in v2 table extraction returns 0 rows.
+- Fix in pipeline.py:
+  Added else branch to if tabs:
+  When no native tables exist on page i+1, purges all db.StructuredRecord rows
+  with source_type="PDF_NATIVE" for that page.
+- Result: Old table rows purged, zero stale records retained.
+- Test: test_zero_row_table_page_purges_old_rows (PASS).
+
+5.3 Edge Case 3: Changed Image Filename on Revision:
+- Scenario: Page image was named 'old_v1.png' and in revision is named 'p1_0.png'.
+- Fix in pipeline.py:
+  Purges all ImageRecord rows on page i+1 where image_id not in page_seen_img_ids.
+  Purges all StructuredRecord rows on page i+1 with source_type="PDF_IMAGE"
+  missing from the revision without restricting by source_bbox=img_filename.
+- Result: Stale ImageRecord and visual StructuredRecord purged completely.
+- Test: test_image_filename_change_purges_old_image_records (PASS).
+
+
+================================================================================
+6. AUTOMATED TEST SUITE EXECUTION OUTPUTS
+================================================================================
+
+6.1 Fix 4 Suite (tests/test_fix4_schedule_retrieval.py):
+--------------------------------------------------------------------------------
+........
+----------------------------------------------------------------------
+Ran 8 tests in 0.208s
+OK
+- test_tos_query_retrieves_quantity_structured_data (PASS)
+- test_legend_query_retrieves_schedule_row (PASS)
+- test_mark_code_query_retrieves_schedule_row_generally (PASS)
+- test_tower_and_level_query_retrieves_structured_record_generally (PASS)
+- test_non_schedule_query_does_not_inject_spurious_structured_data (PASS)
+- test_exclusion_list_page_and_figure_creates_no_structured_lookups (PASS)
+- test_five_real_engineering_queries_produce_no_false_positive_structured_injection (PASS)
+- test_knowledge_hub_requirement_retrieval (PASS)
+
+6.2 Fix 5 Suite (tests/test_fix5_query_router.py):
+--------------------------------------------------------------------------------
+.....
+----------------------------------------------------------------------
+Ran 5 tests in 0.229s
+OK
+- test_query_router_structured_route (PASS)
+- test_query_router_rag_fallback_route (PASS)
+- test_query_document_and_query_router_produce_same_verified_answer (PASS)
+- test_ask_stream_in_main_imports_and_uses_query_router (PASS)
+- test_borderline_ambiguous_query_returns_all_candidates (PASS)
+
+6.3 Fix 6 Suite (tests/test_fix6_knowledge_hub_sqlite.py):
+--------------------------------------------------------------------------------
+.........
+----------------------------------------------------------------------
+Ran 9 tests in 0.095s
+OK
+- test_add_requirement_persists_to_sqlite (PASS)
+- test_add_evidence_persists_to_sqlite (PASS)
+- test_add_relationship_persists_to_sqlite (PASS)
+- test_load_from_sqlite_rehydrates_hub (PASS)
+- test_remove_project_purges_sqlite_and_memory (PASS)
+- test_entity_extractor_populates_sqlite_tables (PASS)
+- test_entity_extractor_reindex_purges_stale_records (PASS)
+- test_filename_collision_hash_uniqueness (PASS)
+- test_batch_transaction_commits_atomically (PASS)
+
+6.4 Edge Cases Suite (tests/test_fix1_reupload_edge_cases.py):
+--------------------------------------------------------------------------------
+...
+----------------------------------------------------------------------
+Ran 3 tests in 0.146s
+OK
+- test_dropped_page_purges_stale_records (PASS)
+- test_zero_row_table_page_purges_old_rows (PASS)
+- test_image_filename_change_purges_old_image_records (PASS)
+
+6.5 Full Regression Run:
+Command: python -m unittest discover -s "tests" -p "test_*.py"
+--------------------------------------------------------------------------------
+Ran 353 tests in 16.397s
+OK
+--------------------------------------------------------------------------------
+================================================================================
+END OF REPORT
+================================================================================

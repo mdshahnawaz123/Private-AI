@@ -1,0 +1,329 @@
+================================================================================
+EXPO DESIGN AI - LOCAL IMAGE ENGINE (COMFYUI INTEGRATION)
+ARCHITECTURE INSPECTION & IMPLEMENTATION PLAN REPORT
+================================================================================
+Document ID: EXP-RPT-IMG-20261013-01
+Timestamp: 2026-10-13T17:30:00+04:00
+Environment: Windows 11 Pro | Python 3.12 | NVIDIA RTX 5080 (16 GB VRAM) | 64 GB RAM
+Repository Root: C:\3EH\ExpoDesignAI - Copy
+Status: STAGE 1 INSPECTION COMPLETED (AWAITING STAGE 2 APPROVAL)
+Baseline Test Suite: 353 PASSING TESTS (0 FAILURES, 0 ERRORS)
+================================================================================
+
+TABLE OF CONTENTS:
+1. EXECUTIVE SUMMARY & OBJECTIVES
+2. SYSTEM ARCHITECTURE & INTEGRATION TOPOLOGY
+3. CURRENT CODEBASE INSPECTION & REUSABILITY MATRIX
+   3.1 Backend Architecture Inspection
+   3.2 Frontend Architecture Inspection
+   3.3 Python Environment & Zero New Dependencies
+4. PROPOSED MODULE SPECIFICATION (services/image_engine/)
+   4.1 Module Structure & Responsibilities
+   4.2 Database Schema Extensions (ImageJob, ImageOutput)
+   4.3 Starter Workflows Specification (Workflows A, B, C)
+5. BACKEND API SPECIFICATION (/api/image-engine/*)
+6. HARDWARE & RESOURCE MANAGEMENT PLAN (RTX 5080 16 GB VRAM)
+7. STAGED IMPLEMENTATION ROADMAP (STAGES 1 - 7)
+8. SECURITY, OFFLINE OPERATIONS & PATH TRAVERSAL CONTROLS
+9. TESTING, REGRESSION GATES & ROLLBACK STRATEGY
+
+================================================================================
+1. EXECUTIVE SUMMARY & OBJECTIVES
+================================================================================
+This report documents the architectural inspection and implementation plan for 
+integrating a dedicated, locally hosted image-generation backend (ComfyUI) into 
+the existing Expo Design AI application.
+
+Key Objectives:
+- Connect Expo Design AI to a local ComfyUI instance (http://127.0.0.1:8188)
+  via HTTP and WebSocket APIs.
+- Deliver three initial architectural design workflows:
+    * Workflow A: Text-to-Image Architectural Concept Generator.
+    * Workflow B: Sketch or Reference Image to Render (Img2Img / Conditioning).
+    * Workflow C: Render Enhancement & Photorealistic Refinement.
+- Keep ComfyUI as an isolated backend service. The Expo Design AI frontend communicates
+  strictly with the Expo Design AI backend, which owns authentication, project
+  isolation, parameter validation, queueing, and image storage.
+- Design strictly within the 16 GB VRAM hardware boundary of the NVIDIA RTX 5080,
+  preventing Out-Of-Memory collisions with active Ollama LLM/VL workloads through
+  single-job serialization.
+- Fully offline operation: zero external network calls, zero telemetry, zero
+  automatic weight downloads.
+- Maintain 100% backward compatibility and preserve all 353 baseline tests.
+
+================================================================================
+2. SYSTEM ARCHITECTURE & INTEGRATION TOPOLOGY
+================================================================================
+Topological Flow:
+  Architect / Engineer Browser
+       |
+       v
+  Expo Design AI Frontend (V1 index.html / V2 app.html)
+       |
+       v  [HTTP REST + SSE / Polling]
+  Expo Design AI Backend (FastAPI on 127.0.0.1:8090)
+       |-- Auth & Project Guard: auth.require_project()
+       |-- Router: /api/image-engine/*
+       |-- Job Service & FIFO Queue (SQLite WAL)
+       |-- Workflow Registry: workflows/*.json (Prompt API format)
+       |-- Image Storage: data/projects/{id}/generated_images/
+       |
+       v  [HTTP POST /prompt + WebSocket ws://127.0.0.1:8188/ws]
+  ComfyUI Local Service (127.0.0.1:8188)
+       |-- Latent Sampling & UNet Execution
+       |-- GPU Execution: NVIDIA RTX 5080 (16 GB VRAM)
+       |-- Local Output: ComfyUI/output/
+       |
+       v  [HTTP GET /view]
+  Image Retrieval & Ingestion into Authorized Project Storage
+
+Ownership Boundaries:
+- Expo Design AI owns:
+    * Authentication, authorization, project membership checks.
+    * Input validation, prompt sanitization, resolution clamping.
+    * Persistent job tracking, status reporting, and FIFO queueing.
+    * Project file storage, thumbnails, and metadata sidecars.
+    * User-facing UI, queue status display, and gallery.
+- ComfyUI owns:
+    * Workflow execution, node graphs, model loading, and tensor computation.
+    * VRAM memory management and latent decoding.
+
+================================================================================
+3. CURRENT CODEBASE INSPECTION & REUSABILITY MATRIX
+================================================================================
+3.1 Backend Architecture Inspection:
+- main.py:
+    * FastAPI application running on host 127.0.0.1, port 8090.
+    * JWT authentication middleware parses Bearer tokens and sets request.state.user.
+    * Existing prototype at @app.post("/api/ai/render") (lines 5429-5619) checks
+      for an Automatic1111 endpoint or falls back to an OpenCV shader + Qwen-VL.
+      This endpoint will be preserved for backward compatibility while the new
+      modular /api/image-engine suite is established.
+- config.py:
+    * Pydantic-settings configuration with EXPO_ environment prefix.
+    * Already defines render settings:
+        render_model = "FLUX.2-klein-4B"
+        render_provider = "local"
+        render_host = "http://127.0.0.1:8188"
+    * resolve_role("render") provides centralized endpoint resolution.
+- auth.py:
+    * JWT authentication using PBKDF2-SHA256 password hashing and HS256 tokens.
+    * auth.require_project(request, project) is already the proven standard guard.
+- db.py:
+    * SQLite with WAL mode (data/expo.db) via SQLAlchemy ORM.
+    * Append-only AuditLog (db.audit) records all user and system actions.
+- services/jobs.py:
+    * Demonstrates atomic SQLite job queuing with Windows file locking (msvcrt),
+      WAL journal mode, and crash replay. Proven pattern to adopt for Image Engine.
+- services/ingestion.py:
+    * services.ingestion.contained_upload_path() prevents path traversal.
+
+3.2 Frontend Architecture Inspection:
+- V1 UI (ui/index.html):
+    * Top navigation array TOPNAV: home, workspace, documents, drawings, reports,
+      review, automation.
+    * Center tabs array CTABS: model, drawings, reports, schedule, review.
+- V2 UI (ui/app.html, ui/app.js):
+    * Destination sidebar array DESTS: overview, design, models, drawings,
+      documents, schedules, specifications, codes, qa, reports.
+- Integration:
+    * Adding ['studio', 'AI Studio', '<wand_icon>'] into DESTS cleanly embeds
+      the new studio into the existing layout without redesigning the shell.
+
+3.3 Python Environment & Zero New Dependencies:
+- Inspection of the active Python 3.12 environment confirmed:
+    * httpx: available
+    * websockets: available
+    * pydantic: available
+    * Pillow (PIL): available
+    * aiohttp: available
+- Zero new external packages are required. Integration is 100% self-contained.
+
+================================================================================
+4. PROPOSED MODULE SPECIFICATION (services/image_engine/)
+================================================================================
+4.1 Module Structure:
+services/image_engine/
+  ├── __init__.py           # Package exports
+  ├── schemas.py            # Pydantic v2 data models for API contracts
+  ├── comfyui_client.py     # Async HTTP & WebSocket client for ComfyUI
+  ├── workflow_registry.py  # Workflow discovery, JSON validation, parameter mapping
+  ├── job_service.py        # Persistent job lifecycle & single-worker scheduler
+  ├── image_storage.py      # Project containment, thumbnails, and metadata sidecars
+  └── api.py               # FastAPI APIRouter mounted at /api/image-engine
+
+4.2 Database Schema Extensions (db.py):
+- ImageJob table:
+    * id: String(64) primary key (UUID)
+    * project_id: Integer foreign key (projects.id)
+    * user_id: Integer foreign key (users.id)
+    * workflow_id: String(100)
+    * status: String(30) ('queued', 'running', 'completed', 'failed', 'cancelled')
+    * comfy_prompt_id: String(100)
+    * input_params: JSON
+    * progress: Integer (0 - 100)
+    * error_message: Text
+    * created_at: DateTime
+    * completed_at: DateTime
+- ImageOutput table:
+    * id: String(64) primary key (UUID)
+    * job_id: String(64) foreign key (image_jobs.id)
+    * filename: String(255)
+    * file_path: Text
+    * width: Integer
+    * height: Integer
+    * seed: Integer
+    * output_metadata: JSON
+    * created_at: DateTime
+
+4.3 Starter Workflows Specification (workflows/):
+- Workflow A (architecture_concept.json):
+    * Type: Text-to-Image concept generator.
+    * Inputs: design brief, architectural style, building type, width, height, seed, steps.
+    * Node graph: UNetLoader/CheckpointLoader -> CLIPTextEncode -> KSampler -> VAEDecode -> SaveImage.
+- Workflow B (sketch_to_render.json):
+    * Type: Image-to-Image / Sketch-to-Render.
+    * Inputs: prompt, input sketch/massing image, denoise strength (0.3 - 0.8), seed.
+    * Node graph: LoadImage -> VAEEncode -> KSampler -> VAEDecode -> SaveImage.
+- Workflow C (render_enhancement.json):
+    * Type: Render enhancement & photorealistic refinement.
+    * Inputs: base 3D render, prompt, refine strength, upscale factor, seed.
+    * Node graph: LoadImage -> Upscale/Refine -> KSampler -> VAEDecode -> SaveImage.
+
+================================================================================
+5. BACKEND API SPECIFICATION (/api/image-engine/*)
+================================================================================
+1. GET /api/image-engine/status
+   - Description: Health check of ComfyUI connection, GPU stats, active queue count.
+   - Response: {"available": bool, "base_url": str, "queue_depth": int, "device": str}
+   - Access: Authenticated user.
+
+2. GET /api/image-engine/workflows
+   - Description: List registered workflows and their configurable parameters.
+   - Response: {"workflows": [{"id": str, "name": str, "version": str, "available": bool, "parameters": [...]}]}
+   - Access: Authenticated user.
+
+3. POST /api/image-engine/jobs
+   - Description: Submit a generation job. Supports multipart/form-data for image uploads.
+   - Request: {project: str, workflow_id: str, prompt: str, style: str, width: int, height: int, ...}
+   - Response: {"job_id": str, "status": "queued", "position_in_queue": int}
+   - Access: Project member / Lead / Admin (guarded by auth.require_project).
+
+4. GET /api/image-engine/jobs/{job_id}
+   - Description: Poll job status, progress percentage, execution duration, and errors.
+   - Response: {"job_id": str, "status": str, "progress": int, "error": str, ...}
+   - Access: Project member.
+
+5. GET /api/image-engine/jobs/{job_id}/outputs
+   - Description: Get metadata and URLs for generated output images.
+   - Response: {"outputs": [{"id": str, "filename": str, "url": str, "thumbnail_url": str, "seed": int}]}
+   - Access: Project member.
+
+6. GET /api/image-engine/outputs/{output_id}/file
+   - Description: Stream authenticated image binary with project access validation.
+   - Access: Project member.
+
+7. POST /api/image-engine/jobs/{job_id}/cancel
+   - Description: Request cancellation of a queued or running job.
+   - Response: {"success": bool, "job_id": str, "status": "cancelled"}
+   - Access: Job owner or Admin.
+
+================================================================================
+6. HARDWARE & RESOURCE MANAGEMENT PLAN (RTX 5080 16 GB VRAM)
+================================================================================
+Hardware Constraints:
+- NVIDIA RTX 5080: 16 GB VRAM.
+- Co-located with Ollama LLM / Vision models (qwen3.5:9b / qwen2.5vl:7b) and Windows DWM.
+- Available unallocated VRAM during inference: ~10 to 12 GB.
+
+Resource Protections:
+1. Strict Single-Worker Serialization:
+   - image_engine_concurrency = 1.
+   - Only ONE diffusion job runs at a time. All other requests wait in the SQLite FIFO queue.
+2. Safe Resolution Limits:
+   - Validated dimensions: 512x512 up to 1024x1024 (multiples of 64 only). Arbitrary resolutions rejected.
+3. Quantized Model Recommendations:
+   - Support memory-efficient checkpoints: FLUX.1 [dev] FP8, GGUF Q4/Q8, or SDXL turbo.
+4. CUDA OOM Handling:
+   - WebSocket listener intercepts execution errors from ComfyUI.
+   - If "OutOfMemoryError" occurs, job status transitions to "failed" with user-friendly advice:
+     "GPU out of memory. Please reduce output resolution or wait for other tasks to complete."
+   - Never crashes the FastAPI backend or forces uncontrolled process restarts.
+
+================================================================================
+7. STAGED IMPLEMENTATION ROADMAP
+================================================================================
+Stage 1: Inspection & Architecture Approval (COMPLETED)
+         - Full inspection of backend, frontend, auth, db, and hardware boundaries.
+         - Recorded baseline: 353 passing tests. Submitted report.
+
+Stage 2: Engine Core, Configuration & ComfyUI Client
+         - Create git branch: feature/image-engine-comfyui.
+         - Extend config.py with ComfyUI settings.
+         - Implement services/image_engine/schemas.py and comfyui_client.py.
+         - Implement services/image_engine/workflow_registry.py.
+         - Unit tests: test_image_engine_comfy_client.py & test_image_engine_registry.py.
+
+Stage 3: Persistent Job Queue & Image Storage
+         - Add ImageJob and ImageOutput models to db.py.
+         - Implement services/image_engine/image_storage.py (with containment checks).
+         - Implement services/image_engine/job_service.py (single-job queue worker).
+         - Unit tests: test_image_engine_jobs.py.
+
+Stage 4: Backend API Integration & Project Security
+         - Implement services/image_engine/api.py.
+         - Mount router in main.py under /api/image-engine.
+         - Enforce auth.require_project on all job creation and file retrieval routes.
+         - Unit tests: test_image_engine_api.py.
+
+Stage 5: AI Design Studio Frontend
+         - Add 'AI Studio' destination to ui/app.js (DESTS) and ui/index.html (TOPNAV).
+         - Implement Brief panel, status banner, generation controls, and results gallery.
+         - Support sketch uploads, image comparison, and export to project files.
+
+Stage 6: Real ComfyUI Workflow Integration
+         - Author workflows/architecture_concept.json, sketch_to_render.json, render_enhancement.json.
+         - Document model checkpoint placement.
+         - Run test_image_engine_gpu_live.py (gated if ComfyUI service is active).
+
+Stage 7: Regression, Documentation & Final Sign-Off
+         - Run complete regression suite (all 353 baseline tests + new image engine tests).
+         - Produce docs/IMAGE_ENGINE_GUIDE.md.
+         - Submit final completion report for merge approval.
+
+================================================================================
+8. SECURITY, OFFLINE OPERATIONS & PATH TRAVERSAL CONTROLS
+================================================================================
+1. Cross-Project Isolation:
+   - Every ImageJob is bound to a validated project_id.
+   - Output images and uploads are stored under:
+     data/projects/{project}/generated_images/{job_id}/
+   - File serving endpoints verify user membership via auth.require_project().
+2. Path Traversal Prevention:
+   - All input filenames and destination paths are passed through
+     services.ingestion.contained_upload_path(). Path traversal attempts are rejected.
+3. Offline Enforcement:
+   - ComfyUI client binds strictly to localhost (127.0.0.1).
+   - Zero telemetry, zero external model downloading.
+   - The application functions normally even when ComfyUI is unavailable.
+
+================================================================================
+9. TESTING, REGRESSION GATES & ROLLBACK STRATEGY
+================================================================================
+1. Test Strategy:
+   - Automated unit tests mock ComfyUI HTTP and WebSocket APIs. Tests run offline
+     and do not require GPU hardware.
+   - Real GPU integration tests are explicitly isolated in test_image_engine_gpu_live.py
+     and skipped automatically if ComfyUI is not reachable on port 8188.
+2. Regression Gate:
+   - Baseline: 353 passed tests.
+   - Full suite will be executed after each stage:
+     & "C:\Users\RE&DBIM\AppData\Local\Programs\Python\Python312\python.exe" -m unittest discover -s "tests" -p "test_*.py"
+3. Rollback Plan:
+   - All Image Engine logic is encapsulated within services/image_engine/.
+   - Disabling or rolling back the integration requires only unmounting the router
+     in main.py or switching git branches.
+
+================================================================================
+END OF REPORT - EXP-RPT-IMG-20261013-01
+================================================================================

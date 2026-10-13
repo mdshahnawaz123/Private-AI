@@ -10,6 +10,8 @@ login lands in Phase 5.
 import os
 import json
 import datetime
+import uuid
+from typing import Optional, List, Dict, Any
 
 from sqlalchemy import (create_engine, event, Column, Integer, String, Text,
                         DateTime, ForeignKey, JSON, UniqueConstraint, Float, Index)
@@ -259,6 +261,9 @@ def init_db():
 
 def _get_or_create_project(s, name, user_id=1):
     proj = s.query(Project).filter_by(name=name).first()
+    from services.project_cleanup import project_is_retired
+    if (proj and proj.deleted_at is not None) or project_is_retired(DATA_DIR, name):
+        raise ValueError("Project is deleted; restore it or explicitly create a new project")
     if not proj:
         proj = Project(name=name, created_by=user_id)
         s.add(proj)
@@ -276,7 +281,10 @@ def _migrate_json_projects():
             ppath = os.path.join(pdir, name)
             if not os.path.isdir(ppath):
                 continue
-            proj = _get_or_create_project(s, name)
+            try:
+                proj = _get_or_create_project(s, name)
+            except ValueError:
+                continue
             for fn in os.listdir(ppath):
                 if not fn.endswith(".json"):
                     continue
@@ -351,12 +359,8 @@ def projects_with_chats(user=None):
 # that, these helpers only manage DB rows); the project is recoverable for
 # RECYCLE_BIN_RETENTION_DAYS days, then the daily sweep purges it for good.
 # ============================================================
-# NAMES, not class objects: this assignment runs at module-load time
-# (while db.py is still being imported top-to-bottom), and several of
-# these classes are defined further down the file, so the class objects
-# themselves don't exist yet here. _purge_project_row() resolves each
-# name via globals() when it actually runs, long after the whole module
-# has finished loading.
+# Historical inventory retained for compatibility. Actual purge resolves all
+# project-owned tables from FK-sorted metadata at call time.
 _PROJECT_CHILD_TABLE_NAMES = (
     "Finding", "ProjectMember", "Folder", "Requirement", "Evidence", "SourcePrecedence",
     "GraphEdge", "EngineeringRule", "QAFinding", "BimModel", "BimElement", "Drawing",
@@ -382,6 +386,9 @@ def soft_delete_project(name, user=None, ip=None):
 
 def restore_project(name, user=None, ip=None):
     """Undo soft_delete_project() within the retention window."""
+    from services.project_cleanup import project_is_retired
+    if project_is_retired(DATA_DIR, name):
+        raise ValueError('Permanent cleanup has started; retry cleanup instead of restoring')
     with SessionLocal() as s:
         proj = (s.query(Project).filter_by(name=name)
                  .filter(Project.deleted_at.isnot(None)).first())
@@ -413,21 +420,42 @@ def list_deleted_projects():
         return out
 
 def _purge_project_row(s, proj):
-    """Delete every row tied to one Project (all FK children, explicitly --
-    see _PROJECT_CHILD_TABLE_NAMES above -- then DocMeta via each document's id,
-    then the Project row itself). Caller owns the session/commit."""
+    """Delete owned rows in reverse FK order; caller owns session/commit.
+
+    Files and durable jobs require services.project_cleanup.purge_project.
+    """
     doc_ids = [d.id for d in s.query(Document.id).filter_by(project_id=proj.id).all()]
-    if doc_ids:
-        s.query(DocMeta).filter(DocMeta.document_id.in_(doc_ids)).delete(synchronize_session=False)
-    g = globals()
-    for name in _PROJECT_CHILD_TABLE_NAMES:
-        s.query(g[name]).filter_by(project_id=proj.id).delete(synchronize_session=False)
+    doc_paths = [d.path for d in s.query(Document).filter_by(project_id=proj.id).all() if d.path]
+    folder_ids = [f.id for f in s.query(Folder.id).filter_by(project_id=proj.id).all()]
+    # Numeric document identities and full stored paths are unambiguous. A
+    # basename alone is not ownership evidence across projects.
+    keys = [str(i) for i in doc_ids] + doc_paths
+    if keys:
+        s.query(Annotation).filter(Annotation.document_id.in_(keys)).delete(synchronize_session=False)
+    s.query(JobProgress).filter(JobProgress.key.startswith(proj.name + '||', autoescape=True)).delete(synchronize_session=False)
+    # Reverse FK order: document dependents before documents, then folders.
+    # Resolve metadata at call time so newly defined project-owned tables are
+    # included instead of silently being missed by an old class-name list.
+    for table in reversed(Base.metadata.sorted_tables):
+        if table.name == Project.__tablename__:
+            continue
+        if table.name == 'image_outputs':
+            job_ids = [j.id for j in s.query(ImageJob.id).filter_by(project_id=proj.id).all()]
+            if job_ids:
+                s.execute(table.delete().where(table.c.job_id.in_(job_ids)))
+        elif 'project_id' in table.c:
+            s.execute(table.delete().where(table.c.project_id == proj.id))
+        elif table.name == DocMeta.__tablename__ and doc_ids:
+            s.execute(table.delete().where(table.c.document_id.in_(doc_ids)))
+        elif table.name == FolderMember.__tablename__ and folder_ids:
+            s.execute(table.delete().where(table.c.folder_id.in_(folder_ids)))
     s.delete(proj)
 
 def purge_one_deleted_project(name):
-    """Admin override: permanently purge exactly one recycle-bin project now.
-    Returns {name} if a matching soft-deleted project was found and purged,
-    else None. Caller (main.py) deletes the project's recycle-bin folders."""
+    """Database-only helper, not a verified application cleanup operation.
+
+    Application callers must use services.project_cleanup.purge_project.
+    """
     with SessionLocal() as s:
         proj = (s.query(Project).filter_by(name=name)
                  .filter(Project.deleted_at.isnot(None)).first())
@@ -694,6 +722,7 @@ def purge_one_deleted_document(project, filename):
         s.query(PageRecord).filter_by(project_id=d.project_id, document_filename=d.filename).delete()
         s.query(ImageRecord).filter_by(project_id=d.project_id, document_filename=d.filename).delete()
         s.query(DocMeta).filter_by(document_id=d.id).delete()
+        s.query(Annotation).filter(Annotation.document_id.in_([str(d.id), d.path])).delete(synchronize_session=False)
         s.delete(d)
         s.commit()
     audit("document.purge_now", project=project, target=filename, user=SYSTEM_USER)
@@ -712,7 +741,7 @@ def purge_expired_deleted_documents(retention_days=None):
     with SessionLocal() as s:
         rows = (s.query(Document, Project.name)
                  .join(Project, Document.project_id == Project.id)
-                 .filter(Document.deleted_at.isnot(None), Document.deleted_at < cutoff).all())
+                 .filter(Project.deleted_at.is_(None), Document.deleted_at.isnot(None), Document.deleted_at < cutoff).all())
         for d, proj_name in rows:
             purged.append({"project": proj_name, "filename": d.filename, "path": d.path})
             s.query(ScheduleRow).filter_by(project_id=d.project_id, doc=d.filename).delete()
@@ -721,6 +750,7 @@ def purge_expired_deleted_documents(retention_days=None):
             s.query(PageRecord).filter_by(project_id=d.project_id, document_filename=d.filename).delete()
             s.query(ImageRecord).filter_by(project_id=d.project_id, document_filename=d.filename).delete()
             s.query(DocMeta).filter_by(document_id=d.id).delete()
+            s.query(Annotation).filter(Annotation.document_id.in_([str(d.id), d.path])).delete(synchronize_session=False)
             s.delete(d)
         s.commit()
     if purged:
@@ -812,10 +842,13 @@ def create_project(name, by, discipline=None):
     with SessionLocal() as s:
         if s.query(Project).filter_by(name=name).first():
             raise ValueError("project already exists")
+        from services.project_cleanup import allow_explicit_recreation
+        allow_explicit_recreation(DATA_DIR, name)
         proj = Project(name=name, discipline=discipline, created_by=by["id"])
         s.add(proj); s.flush()
         s.add(ProjectMember(project_id=proj.id, user_id=by["id"], added_by=by["id"]))
         s.commit()
+    allow_explicit_recreation(DATA_DIR, name, remove=True)
     audit("project.create", project=name, detail={"discipline": discipline}, user=by)
     return True
 
@@ -1561,3 +1594,214 @@ class ImageRecord(Base):
     confidence = Column(Float)
     processing_error = Column(String)
     created_at = Column(DateTime)
+
+
+def _generate_job_id() -> str:
+    return f"imgjob-{uuid.uuid4().hex[:12]}"
+
+
+def _generate_output_id() -> str:
+    return f"out-{uuid.uuid4().hex[:12]}"
+
+
+class ImageJob(Base):
+    """Persistent tracking for local ComfyUI image-generation jobs."""
+    __tablename__ = "image_jobs"
+    id = Column(String(64), primary_key=True, default=_generate_job_id)
+    project_id = Column(Integer, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    workflow_id = Column(String(100), nullable=False)
+    status = Column(String(30), nullable=False, default="queued", index=True)
+    comfy_prompt_id = Column(String(100), nullable=True)
+    input_params = Column(JSON, nullable=False)
+    progress = Column(Integer, default=0)
+    current_step = Column(Integer, nullable=True)
+    total_steps = Column(Integer, nullable=True)
+    error_message = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=_utcnow, index=True)
+    updated_at = Column(DateTime, default=_utcnow, onupdate=_utcnow)
+    completed_at = Column(DateTime, nullable=True)
+    outputs = relationship("ImageOutput", back_populates="job", cascade="all, delete-orphan")
+
+
+class ImageOutput(Base):
+    """Persisted reference to a generated image file and thumbnail."""
+    __tablename__ = "image_outputs"
+    id = Column(String(64), primary_key=True, default=_generate_output_id)
+    job_id = Column(String(64), ForeignKey("image_jobs.id", ondelete="CASCADE"), nullable=False, index=True)
+    filename = Column(String(255), nullable=False)
+    file_path = Column(Text, nullable=False)
+    thumbnail_path = Column(Text, nullable=True)
+    width = Column(Integer, nullable=False)
+    height = Column(Integer, nullable=False)
+    seed = Column(Integer, nullable=True)
+    output_metadata = Column(JSON, nullable=True)
+    created_at = Column(DateTime, default=_utcnow)
+    job = relationship("ImageJob", back_populates="outputs")
+
+
+def create_image_job(job_id: str, project_id: int, user_id: int, workflow_id: str, input_params: dict) -> dict:
+    """Create a new image generation job record in queued state."""
+    with SessionLocal() as s:
+        job = ImageJob(
+            id=job_id,
+            project_id=project_id,
+            user_id=user_id,
+            workflow_id=workflow_id,
+            status="queued",
+            input_params=input_params,
+            progress=0,
+            created_at=_utcnow(),
+        )
+        s.add(job)
+        s.commit()
+        return {
+            "id": job.id,
+            "project_id": job.project_id,
+            "user_id": job.user_id,
+            "workflow_id": job.workflow_id,
+            "status": job.status,
+            "progress": job.progress,
+            "created_at": job.created_at.isoformat(),
+        }
+
+
+def update_image_job(job_id: str, **kwargs) -> Optional[dict]:
+    """Update fields on an existing image generation job."""
+    with SessionLocal() as s:
+        job = s.query(ImageJob).filter_by(id=job_id).first()
+        if not job:
+            return None
+        for key, value in kwargs.items():
+            if hasattr(job, key):
+                setattr(job, key, value)
+        job.updated_at = _utcnow()
+        s.commit()
+        return {
+            "id": job.id,
+            "status": job.status,
+            "progress": job.progress,
+            "current_step": job.current_step,
+            "total_steps": job.total_steps,
+            "error_message": job.error_message,
+            "comfy_prompt_id": job.comfy_prompt_id,
+            "completed_at": job.completed_at.isoformat() if job.completed_at else None,
+        }
+
+
+def get_image_job(job_id: str) -> Optional[dict]:
+    """Retrieve an image job with its output records."""
+    with SessionLocal() as s:
+        job = s.query(ImageJob).filter_by(id=job_id).first()
+        if not job:
+            return None
+        outputs = []
+        for out in job.outputs:
+            outputs.append({
+                "id": out.id,
+                "filename": out.filename,
+                "file_path": out.file_path,
+                "thumbnail_path": out.thumbnail_path,
+                "width": out.width,
+                "height": out.height,
+                "seed": out.seed,
+                "metadata": out.output_metadata or {},
+                "created_at": out.created_at.isoformat() if out.created_at else None,
+            })
+        return {
+            "id": job.id,
+            "project_id": job.project_id,
+            "user_id": job.user_id,
+            "workflow_id": job.workflow_id,
+            "status": job.status,
+            "progress": job.progress,
+            "current_step": job.current_step,
+            "total_steps": job.total_steps,
+            "input_params": job.input_params,
+            "error_message": job.error_message,
+            "comfy_prompt_id": job.comfy_prompt_id,
+            "created_at": job.created_at.isoformat() if job.created_at else None,
+            "completed_at": job.completed_at.isoformat() if job.completed_at else None,
+            "outputs": outputs,
+        }
+
+
+def list_image_jobs(project_id: int, user_id: Optional[int] = None, limit: int = 50) -> list:
+    """List most recent image jobs for a project."""
+    with SessionLocal() as s:
+        q = s.query(ImageJob).filter_by(project_id=project_id)
+        if user_id is not None:
+            q = q.filter_by(user_id=user_id)
+        rows = q.order_by(ImageJob.created_at.desc()).limit(limit).all()
+        results = []
+        for job in rows:
+            results.append({
+                "id": job.id,
+                "project_id": job.project_id,
+                "user_id": job.user_id,
+                "workflow_id": job.workflow_id,
+                "status": job.status,
+                "progress": job.progress,
+                "created_at": job.created_at.isoformat() if job.created_at else None,
+                "completed_at": job.completed_at.isoformat() if job.completed_at else None,
+                "output_count": len(job.outputs),
+            })
+        return results
+
+
+def add_image_output(
+    output_id: str,
+    job_id: str,
+    filename: str,
+    file_path: str,
+    thumbnail_path: Optional[str],
+    width: int,
+    height: int,
+    seed: Optional[int] = None,
+    metadata: Optional[dict] = None,
+) -> dict:
+    """Record a generated output image attached to an ImageJob."""
+    with SessionLocal() as s:
+        out = ImageOutput(
+            id=output_id,
+            job_id=job_id,
+            filename=filename,
+            file_path=file_path,
+            thumbnail_path=thumbnail_path,
+            width=width,
+            height=height,
+            seed=seed,
+            output_metadata=metadata or {},
+            created_at=_utcnow(),
+        )
+        s.add(out)
+        s.commit()
+        return {
+            "id": out.id,
+            "job_id": out.job_id,
+            "filename": out.filename,
+            "file_path": out.file_path,
+            "thumbnail_path": out.thumbnail_path,
+            "width": out.width,
+            "height": out.height,
+            "seed": out.seed,
+        }
+
+
+def get_image_output(output_id: str) -> Optional[dict]:
+    """Get single image output record by ID."""
+    with SessionLocal() as s:
+        out = s.query(ImageOutput).filter_by(id=output_id).first()
+        if not out:
+            return None
+        return {
+            "id": out.id,
+            "job_id": out.job_id,
+            "filename": out.filename,
+            "file_path": out.file_path,
+            "thumbnail_path": out.thumbnail_path,
+            "width": out.width,
+            "height": out.height,
+            "seed": out.seed,
+            "metadata": out.output_metadata or {},
+        }

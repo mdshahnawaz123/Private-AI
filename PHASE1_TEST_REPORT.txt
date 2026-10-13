@@ -1,0 +1,312 @@
+# Phase 1 Implementation & Verification Report
+
+As instructed, all Phase 1 fixes have been implemented on a dedicated git branch (`fix-upload-audit-phase1`), verified against the entire regression test suite, and covered with dedicated unit tests.
+
+---
+
+## 1. Baseline vs. Final Test Results
+
+### Baseline Test Run
+* **Environment:** Python 3.12 (standard offline environment)
+* **Audit claim:** 267 passing tests
+* **Actual baseline result:** **320 tests** (all passing)
+
+```text
+----------------------------------------------------------------------
+Ran 320 tests in 14.674s
+
+OK
+```
+
+### Final Test Run (After Fixes 1, 2, and 3)
+* **8 new tests added** across 3 test modules.
+* **All 328 tests passing** (0 failures, 0 errors).
+
+```text
+----------------------------------------------------------------------
+Ran 328 tests in 14.455s
+
+OK
+```
+
+---
+
+## 2. Git Diff of Changed Files
+
+### `services/pipeline.py`
+```diff
+diff --git a/services/pipeline.py b/services/pipeline.py
+index 2481c0d..f325d7c 100644
+--- a/services/pipeline.py
++++ b/services/pipeline.py
+@@ -290,6 +290,7 @@ def process_document_pipeline(project_id, save_path, filename, resume=False, exp
+                                         })
+ 
+                     seen_records = set()
++                    seen_keys = set()
+                     for out_row in rows_out:
+                         row_key = out_row['entity']
+                         col = out_row['field']
+@@ -301,11 +302,7 @@ def process_document_pipeline(project_id, save_path, filename, resume=False, exp
+                         unique_key = (project_id, filename, i + 1, row_key, col)
+                         if unique_key in seen_records: continue
+                         seen_records.add(unique_key)
+-
+-                        existing = session.query(db.StructuredRecord).filter_by(
+-                            project_id=project_id, doc=filename, page=i + 1, entity=row_key, field=col
+-                        ).first()
+-                        if existing: continue
++                        seen_keys.add((row_key, col))
+ 
+                         val = None
+                         raw_clean = str(raw_val).replace(',', '').strip()
+@@ -317,23 +314,44 @@ def process_document_pipeline(project_id, save_path, filename, resume=False, exp
+                         # Mark confidence as HIGH or UNRESOLVED based on deterministic status
+                         conf = "HIGH" if status == "SUCCESS" else "AMBIGUOUS"
+ 
+-                        rec = db.StructuredRecord(
+-                            project_id=project_id,
+-                            doc=filename,
+-                            page=i + 1,
+-                            schedule=table_name,
+-                            field=col,
+-                            raw_value=str(raw_val),
+-                            value=val,
+-                            entity=row_key,
+-                            row_label=row_label,
+-                            column_label=col,
+-                            confidence=conf,
+-                            extraction_method="PYMUPDF_NATIVE",
+-                            source_type="PDF_NATIVE",
+-                            source_bbox=None
+-                        )
+-                        session.add(rec)
++                        existing = session.query(db.StructuredRecord).filter_by(
++                            project_id=project_id, doc=filename, page=i + 1, entity=row_key, field=col
++                        ).first()
++                        if existing:
++                            existing.value = val
++                            existing.raw_value = str(raw_val)
++                            existing.confidence = conf
++                            existing.schedule = table_name
++                            existing.row_label = row_label
++                            existing.column_label = col
++                            existing.extraction_method = "PYMUPDF_NATIVE"
++                            existing.source_type = "PDF_NATIVE"
++                        else:
++                            rec = db.StructuredRecord(
++                                project_id=project_id,
++                                doc=filename,
++                                page=i + 1,
++                                schedule=table_name,
++                                field=col,
++                                raw_value=str(raw_val),
++                                value=val,
++                                entity=row_key,
++                                row_label=row_label,
++                                column_label=col,
++                                confidence=conf,
++                                extraction_method="PYMUPDF_NATIVE",
++                                source_type="PDF_NATIVE",
++                                source_bbox=None
++                            )
++                            session.add(rec)
++
++                    # Delete stale native records for this page that are missing in the revision
++                    old_records = session.query(db.StructuredRecord).filter_by(
++                        project_id=project_id, doc=filename, page=i + 1, source_type="PDF_NATIVE"
++                    ).all()
++                    for old_rec in old_records:
++                        if (old_rec.entity, old_rec.field) not in seen_keys:
++                            session.delete(old_rec)
+                     session.commit()
+                 except Exception as e:
+                     logger.error(f"Native extraction crashed: {e}")
+@@ -399,6 +417,7 @@ def process_document_pipeline(project_id, save_path, filename, resume=False, exp
+ 
+                         # Parse Markdown to StructuredRecord
+                         rows = parse_generic_tables(md_text, filename, i + 1, "", source_type="PDF_IMAGE")
++                        seen_image_keys = set()
+                         for r in rows:
+                             table_name = r.get("table_name", "")
+                             row_key = r.get("row_key", "")
+@@ -413,6 +432,8 @@ def process_document_pipeline(project_id, save_path, filename, resume=False, exp
+                                 except:
+                                     pass
+ 
++                                seen_image_keys.add((row_key, col))
++
+                                 # Duplicate check
+                                 existing = session.query(db.StructuredRecord).filter_by(
+                                     project_id=project_id,
+@@ -421,7 +442,17 @@ def process_document_pipeline(project_id, save_path, filename, resume=False, exp
+                                     entity=row_key,
+                                     field=col
+                                 ).first()
+-                                if not existing:
++                                if existing:
++                                    existing.value = val
++                                    existing.raw_value = str(raw_val)
++                                    existing.confidence = "AMBIGUOUS"
++                                    existing.schedule = table_name
++                                    existing.row_label = row_key
++                                    existing.column_label = col
++                                    existing.extraction_method = ext_method
++                                    existing.source_type = "PDF_IMAGE"
++                                    existing.source_bbox = img_filename
++                                else:
+                                     rec = db.StructuredRecord(
+                                         project_id=project_id,
+                                         doc=filename,
+@@ -439,6 +470,14 @@ def process_document_pipeline(project_id, save_path, filename, resume=False, exp
+                                         source_bbox=img_filename
+                                     )
+                                     session.add(rec)
++
++                        # Delete stale image records for this image/page that are missing in the revision
++                        old_image_records = session.query(db.StructuredRecord).filter_by(
++                            project_id=project_id, doc=filename, page=i + 1, source_type="PDF_IMAGE", source_bbox=img_filename
++                        ).all()
++                        for old_rec in old_image_records:
++                            if (old_rec.entity, old_rec.field) not in seen_image_keys:
++                                session.delete(old_rec)
+                     else:
+                         ir.vision_status = "FAILED"
+                         ir.structured_extraction_status = "FAILED"
+```
+
+---
+
+### `main.py`
+```diff
+diff --git a/main.py b/main.py
+index a15c43d..351336c 100644
+--- a/main.py
++++ b/main.py
+@@ -1941,6 +1941,9 @@ def _units_from_meta(meta):
+                 from intelligence.table_evidence import table_row_units
+                 for row in table_row_units(tbl):
+                     units.append((row, pg.get("page")))
++            inh = (pg.get("header_inherited_tables") or "").strip()
++            if inh:
++                units.append(("[STRUCTURED TABLE]\n" + inh, pg.get("page")))
+             vis = (pg.get("vision") or "")
+             inspection = pg.get('inspection_text') or ''
+             if inspection:
+@@ -1990,7 +1993,7 @@ def index_structured(collection, meta, source, folder_id=None):
+         if page is not None:
+             md["page"] = page
+         document = LCDocument(page_content=body, metadata=md)
+-        if body.startswith("[TABLE ROW]"):
++        if body.startswith("[TABLE ROW]") or body.startswith("[STRUCTURED TABLE]"):
+             all_chunks.append(document)  # Never separate row values from their headers/entities.
+         else:
+             split_chunks=splitter.split_documents([document])
+```
+
+---
+
+### `config.py`
+```diff
+diff --git a/config.py b/config.py
+index 451cb90..eb4c1ef 100644
+--- a/config.py
++++ b/config.py
+@@ -71,6 +71,7 @@ class Settings(BaseSettings):
+     enable_self_check: bool = False  # Phase 2: worker model self-check for answer verification
+     enable_legacy_schedule_context: bool = False  # Legacy flat grids can lose column/entity alignment.
+     enable_document_memory: bool = True  # Phase 1 validation run (2026-10-08): on, scoped to the two benchmark documents only via the allowlist below
++    document_memory_allow_all: bool = True  # When True, all documents build DocumentMemory; when False, uses allowlist below
+     document_memory_doc_allowlist: Annotated[List[str], NoDecode] = [
+         "C3085-RPT-3EH6105-FP-0000001(5).pdf",
+         "260610_C3045_2VA_PROJECT_DATA_SHEET_-_STAGE_4.pdf",
+```
+
+---
+
+### `intelligence/document_memory.py`
+```diff
+diff --git a/intelligence/document_memory.py b/intelligence/document_memory.py
+index a20ce5b..f8e97dd 100644
+--- a/intelligence/document_memory.py
++++ b/intelligence/document_memory.py
+@@ -570,7 +570,10 @@ def build_memory_for_document(
+ 
+ def is_allowlisted(filename: str) -> bool:
+     from config import get_settings
+-    allowlist = get_settings().document_memory_doc_allowlist or []
++    s = get_settings()
++    if getattr(s, "document_memory_allow_all", True):
++        return True
++    allowlist = s.document_memory_doc_allowlist or []
+     return filename in allowlist
+```
+
+---
+
+## 3. List of New Tests Added
+
+Three dedicated test suites with 8 new test cases were added:
+
+1. [`tests/test_fix1_reupload.py`](file:///C:/3EH/ExpoDesignAI%20-%20Copy/tests/test_fix1_reupload.py)
+   * `test_native_reupload_updates_value_and_deletes_removed_row`: Tests uploading a native table revision with a changed value (`ROW_A` from 100 to 150) and a removed row (`ROW_B`). Confirms the database updates `ROW_A` and purges `ROW_B`.
+   * `test_image_reupload_updates_and_deletes_stale_rows`: Tests visual/OCR image re-upload where an existing row is updated and an omitted row is deleted.
+
+2. [`tests/test_fix2_header_units.py`](file:///C:/3EH/ExpoDesignAI%20-%20Copy/tests/test_fix2_header_units.py)
+   * `test_page_with_header_inherited_tables_produces_structured_table_unit`: Confirms `_units_from_meta()` parses `pg["header_inherited_tables"]` and yields units prefixed with `[STRUCTURED TABLE]\n` on the correct page.
+   * `test_page_without_header_inherited_tables_does_not_produce_structured_table_unit`: Confirms no structured table units are fabricated when the page has no inherited table data.
+   * `test_structured_table_units_bypass_800_char_splitting`: Confirms `[STRUCTURED TABLE]` units are not cut by the 800-character text splitter in `index_structured()`, preventing multi-level column headers from being detached from rows.
+
+3. [`tests/test_fix3_allowlist.py`](file:///C:/3EH/ExpoDesignAI%20-%20Copy/tests/test_fix3_allowlist.py)
+   * `test_arbitrary_filename_allowed_when_allow_all_is_true`: Confirms arbitrary user uploads (`arbitrary_engineering_report.pdf`, `MEP_drawing_rev3.pdf`) are permitted when `document_memory_allow_all=True`.
+   * `test_allowlist_enforced_when_allow_all_is_false`: Confirms that when `document_memory_allow_all=False`, non-allowlisted documents are rejected while benchmark files continue to pass.
+   * `test_default_config_setting_is_true`: Confirms the default setting in `config.py` is `True`.
+
+---
+
+## 4. Audit Observations & Adjustments Made
+
+1. **Baseline Test Count Discrepancy:**
+   * The audit mentioned "267 passing tests". The actual baseline count in this codebase using Python 3.12 is **320 tests**. All 320 were verified passing before any modifications.
+2. **`StructuredRecord` Schema & AST Invariant:**
+   * The audit recommended setting `existing.status = status`. Inspection revealed `StructuredRecord` in `db.py` **has no `status` column**; status information is mapped to `confidence` (`HIGH` or `AMBIGUOUS`).
+   * Furthermore, `tests/test_release_recovery.py` contains an AST-based invariant test asserting that `process_document_pipeline` does not make `.status` assignments (as document status is managed by the higher-level caller).
+   * Accordingly, `services/pipeline.py` updates `existing.value`, `existing.raw_value`, `existing.confidence`, `existing.schedule`, `existing.row_label`, and `existing.column_label`.
+3. **Table Identity at Location 2:**
+   * The audit referred to "StructuredRecord and the other table at the second location". In reality, both locations in `services/pipeline.py` operate on `db.StructuredRecord` (Location 1 for `PDF_NATIVE` and Location 2 for `PDF_IMAGE`). `db.ScheduleRow` is populated in `knowledge/extraction.py:index_structured_tables()`, which already purges old rows for `(project_id, filename)` prior to re-indexing.
+
+---
+
+## 5. Side Effects & Re-Indexing Instructions
+
+### Side Effects
+* **Stale Records Purged on Next Upload:** Re-uploading a document revision will now cleanly delete obsolete `StructuredRecord` rows that no longer exist in the new revision.
+* **Slight Increase in FAISS Chunks for Multi-Table Documents:** Documents with multi-level tables will have an extra chunk per table page (`[STRUCTURED TABLE]`), allowing cross-encoder and BM25 retrievers to surface full column hierarchy.
+* **DocumentMemory Generation for All Uploads:** Newly uploaded documents will now run the `build_memory_for_document` pass during ingestion when `enable_document_memory=True`.
+
+### Re-Indexing Existing Documents
+Documents uploaded **before** Fix 2 was applied were vectorized without `[STRUCTURED TABLE]` chunks. To update existing documents:
+
+1. **Via Admin Web UI:**
+   Navigate to the Documents tab and click **Re-index** (or **Re-process**) on the target document.
+2. **Via Headless Python Script:**
+   ```python
+   import json
+   from main import index_structured, DOCS_DIR
+   import os
+
+   project = "YourProjectName"
+   filename = "YourDocument.pdf"
+   doc_path = os.path.join(DOCS_DIR, project, filename)
+   meta_path = doc_path + ".index.json"
+
+   if os.path.exists(meta_path):
+       with open(meta_path, "r", encoding="utf-8") as f:
+           meta = json.load(f)
+       chunks_indexed = index_structured(project, meta, filename)
+       print(f"Re-indexed {chunks_indexed} chunks with header-inherited tables for {filename}.")
+   ```
+
+---
+
+Phase 1 is complete and verified with all 328 tests passing. I am ready to proceed with **Phase 2** (Fixes 4, 5, and 6) upon your confirmation.

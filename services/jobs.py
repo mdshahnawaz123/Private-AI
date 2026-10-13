@@ -21,6 +21,7 @@ def source_hash(path):
 
 class JobQueue:
     def __init__(self, data_dir, handlers=None):
+        self.data_dir = data_dir
         os.makedirs(data_dir, exist_ok=True)
         self.path = os.path.join(data_dir, "ingestion-jobs.sqlite3")
         self.lock_path = os.path.join(data_dir, "ingestion-runner.lock")
@@ -59,10 +60,15 @@ class JobQueue:
 
     def enqueue(self, kind, source, payload):
         source = os.path.realpath(source)
+        from services.project_cleanup import assert_job_source_active
+        assert_job_source_active(self.data_dir, source, payload)
         digest = source_hash(source)
         now = time.time()
         with self.connect() as conn:
             conn.execute("BEGIN IMMEDIATE")
+            # Recheck under the queue write lock: a purge may have started
+            # after the first preflight while this enqueue waited for the lock.
+            assert_job_source_active(self.data_dir, source, payload)
             existing = conn.execute("SELECT id,sha256 FROM jobs WHERE source=? AND state IN ('queued','running','retry')", (source,)).fetchone()
             if existing:
                 if existing['sha256'] != digest:
@@ -98,6 +104,8 @@ class JobQueue:
         if not job:
             return False
         try:
+            from services.project_cleanup import assert_job_source_active
+            assert_job_source_active(self.data_dir, job['source'], json.loads(job['payload']))
             if source_hash(job['source']) != job['sha256']:
                 raise ValueError("Source changed after enqueue; upload again to process the new version")
             handler = self.handlers[job['kind']]

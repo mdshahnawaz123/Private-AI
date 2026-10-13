@@ -10,9 +10,28 @@ Heavy libs (fitz, openpyxl, docx) are imported lazily so this module always impo
 import os
 import json
 
+def _sanitize_pdf_text(raw: str) -> str:
+    """Strip null bytes and non-printable control chars from PDF text.
+    
+    Some PDFs have broken ToUnicode CMap tables that produce \x00 and other
+    control characters in the decoded text stream. These cause:
+    - subprocess.run() to crash with "embedded null character" on Windows
+    - Garbage data in the FAISS/BM25 search index
+    - Broken JSON serialization
+    """
+    if not raw:
+        return ""
+    import re
+    # Remove null bytes and C0 control chars except \t \n \r
+    cleaned = raw.replace('\x00', '')
+    # Also strip other C0 controls that indicate garbled decoding
+    cleaned = re.sub(r'[\x01-\x08\x0b\x0c\x0e-\x1f]', '', cleaned)
+    return cleaned
+
 def render_pdf_page(page, out_path, zoom=2.0):
     import fitz
-    pix = page.get_pixmap(matrix=fitz.Matrix(zoom, zoom))
+    from services.pdf_text_quality import page_text_rotation
+    pix = page.get_pixmap(matrix=fitz.Matrix(zoom, zoom).prerotate(page_text_rotation(page)))
     pix.save(out_path)
     return out_path
 
@@ -25,7 +44,8 @@ def render_page_tiles(page, out_dir, page_no, zoom=3.0, max_dim=1500, overlap=0.
     or the page is already small enough."""
     import fitz, os, math
     os.makedirs(out_dir, exist_ok=True)
-    pix = page.get_pixmap(matrix=fitz.Matrix(zoom, zoom))
+    from services.pdf_text_quality import page_text_rotation
+    pix = page.get_pixmap(matrix=fitz.Matrix(zoom, zoom).prerotate(page_text_rotation(page)))
     full = os.path.join(out_dir, "p%04d_full.png" % page_no)
     pix.save(full)
     try:
@@ -144,12 +164,18 @@ def extract_pdf(path, vision_fn=None, render_dir=None, deep=True, smart=True,
     for i in range(n):
         page = doc[i]
         try:
-            text = page.get_text("text").strip()
+            from services.pdf_text_quality import native_text_usable
+            raw_text = page.get_text("text")
+            damaged_native = bool(raw_text.strip()) and not native_text_usable(raw_text, min_chars=1)
+            text = "" if damaged_native else _sanitize_pdf_text(raw_text).strip()
         except Exception:
+            damaged_native = False
             text = ""
         try:
             geo, table_count = extract_tables_geometry(page)
         except Exception:
+            geo, table_count = "", 0
+        if damaged_native:
             geo, table_count = "", 0
         vis = ""
         # Vision only when the page has (almost) no text layer — a scan/rendering.
@@ -197,8 +223,25 @@ def extract_pdf(path, vision_fn=None, render_dir=None, deep=True, smart=True,
                 vision_errors += 1
         from services.pdf_inspection import inspect_page, inspection_text
         inspection = inspect_page(page)
+        
+        # Universal Drawing Engine analysis
+        dwg_data = {}
+        dwg_evidence = ""
+        try:
+            from engines.universal_drawing_engine import get_universal_drawing_engine
+            dwg_engine = get_universal_drawing_engine()
+            dwg_data = dwg_engine.parse_drawing_page(page)
+            if dwg_data.get("is_drawing"):
+                dwg_data['verification_state'] = 'REVIEW_REQUIRED'
+                dwg_evidence = dwg_engine.format_as_evidence_block(dwg_data)
+        except Exception:
+            dwg_data = {}
+            dwg_evidence = ""
+
         pages.append({"page": i + 1, "text": text, "tables": geo, "vision": vis,
+                      "native_text_quality": "DAMAGED" if damaged_native else "AVAILABLE",
                       "inspection":inspection,"inspection_text":inspection_text(inspection),
+                      "drawing_schema": dwg_data, "drawing_evidence": dwg_evidence,
                       "vision_used": bool(vis), "table_count": table_count,
                       "dense_table_page": is_dense_table_page})
         block = "[PAGE %d]\n%s" % (i + 1, text)
@@ -206,6 +249,8 @@ def extract_pdf(path, vision_fn=None, render_dir=None, deep=True, smart=True,
             block += "\n\n[TABLES]\n" + geo
         if vis:
             block += "\n[DRAWING/VISION]\n" + vis
+        if dwg_evidence:
+            block += "\n[UNVERIFIED EXTRACTION; REVIEW_REQUIRED]\n" + dwg_evidence
         parts.append(block)
         if progress_cb:
             try:

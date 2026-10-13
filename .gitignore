@@ -51,3 +51,7 @@ htmlcov/
 *.tmp
 *.temp
 _poc_data/
+
+# Test & audit outputs
+output/
+*.log

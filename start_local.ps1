@@ -13,20 +13,42 @@ Set-Location -LiteralPath $PSScriptRoot
 # can rely on), so requiring it would make -Restart silently never work rather
 # than failing safe in a way anyone would notice.
 # Resolve the Python this project was actually built/locked against (3.12)
-# via the `py` launcher, which is immune to PATH ordering. A bare
+# via the `py` launcher, which is immune to PATH ordering. If the launcher has
+# no registered runtimes, check the standard per-user/per-machine Python 3.12
+# install locations before a generic PATH fallback. A bare
 # `Get-Command python.exe` picks up WHATEVER python.exe is first on PATH --
-# this broke startup on 2026-10-08 when installing a separate tool's Python
-# 3.10 landed ahead of this project's 3.12 on PATH, so `python.exe` silently
-# resolved to an interpreter with none of this project's packages installed
-# (ModuleNotFoundError: pydantic_settings, then loguru, ...). Falls back to
-# plain python.exe if the py launcher or 3.12 aren't available, so this still
-# works on a machine without the launcher installed.
+# this broke startup on 2026-10-08 when a separate tool's Python 3.10 landed
+# ahead of this project's 3.12, silently selecting an interpreter without the
+# project's dependencies. The fallback remains for older installations, but
+# emits a warning when it cannot select Python 3.12.
 $python = $null
 try {
     $pyLauncherPath = (& py -3.12 -c "import sys; print(sys.executable)" 2>$null)
     if ($pyLauncherPath) { $pyLauncherPath = $pyLauncherPath.Trim() }
     if ($pyLauncherPath -and (Test-Path $pyLauncherPath)) { $python = $pyLauncherPath }
 } catch { }
+if (-not $python) {
+    $python312Candidates = @()
+    if ($env:LOCALAPPDATA) {
+        $python312Candidates += Join-Path $env:LOCALAPPDATA 'Programs\Python\Python312\python.exe'
+    }
+    if ($env:USERPROFILE) {
+        $python312Candidates += Join-Path $env:USERPROFILE 'AppData\Local\Programs\Python\Python312\python.exe'
+    }
+    if ($env:ProgramFiles) {
+        $python312Candidates += Join-Path $env:ProgramFiles 'Python312\python.exe'
+    }
+    foreach ($candidate in $python312Candidates) {
+        if (-not (Test-Path $candidate)) { continue }
+        try {
+            $candidateVersion = (& $candidate -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')" 2>$null)
+            if ($LASTEXITCODE -eq 0 -and $candidateVersion.Trim() -eq '3.12') {
+                $python = $candidate
+                break
+            }
+        } catch { }
+    }
+}
 if (-not $python) {
     $python = (Get-Command python.exe -ErrorAction Stop).Source
     Write-Warning "py -3.12 launcher unavailable; falling back to PATH python.exe ($python). If this project needs 3.12 specifically, verify this interpreter has its dependencies installed."

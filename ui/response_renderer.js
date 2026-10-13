@@ -36,7 +36,7 @@
     document_analysis:'Document Analysis', table:'Data Table', calculation:'Calculation',
     comparison:'Comparison', warning:'Warning', error:'Error', not_found:'Not Found',
     bim_qa:'BIM QA Result', drawing_review:'Drawing Review', compliance:'Compliance Result',
-    report:'Report', simple_answer:'Answer'
+    report:'Report', chart:'Chart Visualization', simple_answer:'Answer'
   };
 
   function statusChip(status){
@@ -119,10 +119,16 @@
             ${s.revision?`<span class="rr-source-rev">Rev ${esc(s.revision)}</span>`:''}
           </div>
           ${s.tile_id?`<div class="rr-source-tile">Tile: ${esc(s.tile_id)}</div>`:''}
-          <button class="rr-btn-sm rr-view-tile" data-rel="${escAttr(rel)}" data-page="${esc(s.page!=null?s.page:'')}">[ VIEW SOURCE TILE ]</button>
+          <button class="rr-btn-sm rr-view-tile" data-rel="${escAttr(rel)}" data-page="${esc(s.page!=null?s.page:'')}" data-snippet="${escAttr(s.snippet||'')}" data-bbox="${escAttr(JSON.stringify(s.bounding_box||[]))}">[ VIEW SOURCE TILE ]</button>
         </div>`;
       }).join('')}</div>
     </div>`;
+  }
+
+  /* ---------------- charts container ---------------- */
+  function chartsContainerHTML(charts){
+    if(!charts || !charts.length) return '';
+    return '<div class="rr-charts-wrap"></div>';
   }
 
   /* ---------------- export action bar ---------------- */
@@ -182,6 +188,7 @@
     const hasData = (structured.tables&&structured.tables.length) || (structured.metrics&&structured.metrics.length);
     const summary = (structured.summary && !hasData) ? `<div class="rr-summary">${esc(structured.summary)}</div>` : '';
     const metrics = metricsHTML(structured.metrics);
+    const charts = chartsContainerHTML(structured.charts);
     const tables = (structured.tables||[]).map((tb,i)=>tableHTML(tb,i)).join('');
     const calcs = calcHTML(structured.calculations);
     const issues = issuesHTML(structured.issues);
@@ -191,13 +198,14 @@
     let body;
     if(isLong){
       body = section('Summary', summary, true)
+           + (charts ? section('Visualizations', charts, true) : '')
            + section('Key Findings / Metrics', metrics, true)
            + section('Data', tables, true)
            + section('Calculations', calcs, false)
            + section('Issues', issues, true)
            + section('Source Evidence', sources, false);
     } else {
-      body = summary + metrics + tables + calcs + issues + sources;
+      body = summary + charts + metrics + tables + calcs + issues + sources;
     }
 
     card.innerHTML = header + `<div class="rr-body">${body}</div>` + exportsBar;
@@ -207,6 +215,17 @@
 
   /* ================= interactivity ================= */
   function wire(card, structured){
+    // Render offline interactive charts if present
+    if(structured.charts && structured.charts.length && window.ExpoChartRenderer){
+      const cWrap = card.querySelector('.rr-charts-wrap');
+      if(cWrap){
+        cWrap.innerHTML = '';
+        structured.charts.forEach(chartSpec => {
+          window.ExpoChartRenderer.render(chartSpec, cWrap);
+        });
+      }
+    }
+
     card.querySelectorAll('[data-rr-toggle]').forEach(h=>{
       h.addEventListener('click', ()=>{
         const b = card.querySelector('#'+h.dataset.rrToggle);
@@ -246,7 +265,10 @@
     card.querySelectorAll('.rr-view-tile').forEach(btn=>{
       btn.addEventListener('click', ()=>{
         const rel = btn.dataset.rel, page = btn.dataset.page;
-        if(window.openSourceTile) window.openSourceTile(rel, page ? parseInt(page,10) : null);
+        const snippet = btn.dataset.snippet || null;
+        let bbox = null;
+        try { bbox = btn.dataset.bbox ? JSON.parse(btn.dataset.bbox) : null; } catch(e){}
+        if(window.openSourceTile) window.openSourceTile(rel, page ? parseInt(page,10) : null, snippet, bbox);
       });
     });
 

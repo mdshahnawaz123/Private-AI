@@ -10,10 +10,25 @@ def inspection_answer(question,documents):
     for doc in documents:
         if doc.get('status','ready') not in ('ready','ready_with_warnings','verified','published'):continue
         if any(d['filename'].lower() in question.lower() for d in documents) and doc['filename'].lower() not in question.lower():continue
-        try:meta=json.loads(Path(doc['path']+'.index.json').read_text(encoding='utf-8'))
+        try:
+            meta=json.loads(Path(doc['path']+'.index.json').read_text(encoding='utf-8'))
+            if meta.get('truncated') or meta.get('processing_complete') is False:continue
+            if meta.get('source_sha256'):
+                import hashlib
+                with open(doc['path'],'rb') as handle:
+                    if hashlib.file_digest(handle,'sha256').hexdigest()!=meta['source_sha256']:continue
         except (OSError,ValueError):continue
         for page in meta.get('pages',[]):
             if requested_pages and page['page'] not in requested_pages:continue
+            # Preserve explicit native review comments even when they are PDF
+            # page text rather than annotation objects. This reports the text,
+            # without inferring a selected approval checkbox or authority.
+            for comment in re.findall(r'(?m)^\d+\.\s+[^\n]*(?:approval|review|objection|coordination|RFI|setting out)[^\n]*',page.get('text',''),re.I):
+                facts.append({'source':doc['filename'],'page':page['page'],
+                    'annotation_id':None,'bbox':None,'content':comment.strip(),
+                    'observed_stamp_text':'','internal_name':'',
+                    'verification_state':'REVIEW_REQUIRED','relationship_state':'REVIEW_REQUIRED',
+                    'revision':meta.get('revision')})
             if 'inspection' not in page:missing.append(doc['filename']);continue
             for annotation in page['inspection'].get('annotations',[]):
                 content=annotation.get('content','').strip()
@@ -36,7 +51,7 @@ def inspection_answer(question,documents):
         if fact['observed_stamp_text']:values.append('Visible stamp OCR (unverified): '+fact['observed_stamp_text'])
         if fact['internal_name']:values.append('Internal annotation name: '+fact['internal_name']+' (not approval authority)')
         if not values:values.append('Stamp appearance unresolved')
-        lines.append('- '+'; '.join(values)+f". [SOURCE: {fact['source']} | PAGE {fact['page']}]")
+        lines.append('- '+'; '.join(values).rstrip('.')+f". [SOURCE: {fact['source']} | PAGE {fact['page']}]")
     lines.append('REVIEW_REQUIRED: stamp readings and comment-to-object relationships are not independently verified. Conditional approval must retain its comments; document authority is not established by these observations.')
     return {'status':'SUCCESS','answer':'\n'.join(lines),'facts':facts,
         'sources':list({(f['source'],f['page']):{'source':f['source'],'page':f['page']} for f in facts}.values())}

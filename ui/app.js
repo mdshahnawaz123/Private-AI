@@ -43,8 +43,42 @@ const el=(t,c,h)=>{const d=document.createElement(t); if(c)d.className=c; if(h!=
 const esc=s=>(s==null?'':String(s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const svg=(p,w)=>`<svg class="ico" viewBox="0 0 24 24" ${w?`style="width:${w}px;height:${w}px"`:''}>${p}</svg>`;
 function toast(t){ const e=$('toast'); e.textContent=t; e.classList.add('show'); clearTimeout(e._t); e._t=setTimeout(()=>e.classList.remove('show'),2200); }
-function mdLite(s){ let h=esc(s); h=h.replace(/```([\s\S]*?)```/g,(m,c)=>'<pre>'+c+'</pre>');
-  h=h.replace(/`([^`]+)`/g,'<code>$1</code>').replace(/\*\*([^*]+)\*\*/g,'<b>$1</b>').replace(/^[-•]\s+(.*)$/gm,'• $1').replace(/\n/g,'<br>'); return h; }
+function mdLite(s){
+  // Escape before formatting: source text and model output are never HTML.
+  const inline=t=>esc(t).replace(/`([^`]+)`/g,'<code>$1</code>').replace(/\*\*([^*]+)\*\*/g,'<strong>$1</strong>')
+    .replace(/\[SOURCE:\s*([^\]\n]+?)\s*\|\s*PAGE\s+(\d+|UNPAGINATED)\s*\]/gi,
+      (marker,name,page)=>'<details class="source-detail"><summary>Source · '+(page==='UNPAGINATED'?'unpaginated':'page '+page)+'</summary><div class="source-full">'+marker+'</div></details>');
+  const lines=String(s==null?'':s).replace(/\r\n/g,'\n').split('\n');
+  const out=[]; let i=0;
+  // Citation markers are valid inside Markdown table cells. Protect their
+  // internal separator while splitting columns, then restore it before the
+  // normal inline citation renderer processes the cell.
+  const cells=t=>t.replace(/\[SOURCE:\s*([^\]\n]+?)\s*\|\s*PAGE\s+(\d+|UNPAGINATED)\s*\]/gi,
+    marker=>marker.replace('|','\uE000')).trim().replace(/^\|/,'').replace(/\|$/,'').split('|')
+    .map(x=>x.replace(/\uE000/g,'|').trim());
+  while(i<lines.length){
+    const line=lines[i];
+    if(/^```/.test(line)){const code=[];i++;while(i<lines.length&&!/^```/.test(lines[i]))code.push(lines[i++]);if(i<lines.length)i++;out.push('<pre><code>'+esc(code.join('\n'))+'</code></pre>');continue;}
+    if(!line.trim()){i++;continue;}
+    if(line.includes('|')&&i+1<lines.length&&/^\s*\|?\s*:?-{3,}:?\s*(?:\|\s*:?-{3,}:?\s*)+\|?\s*$/.test(lines[i+1])){
+      const head=cells(line);i+=2;const rows=[];
+      while(i<lines.length&&lines[i].includes('|')&&lines[i].trim()){
+        const row=cells(lines[i]);if(row.length!==head.length)break;
+        rows.push('<tr>'+row.map(c=>'<td>'+inline(c)+'</td>').join('')+'</tr>');i++;
+      }
+      out.push('<div class="answer-table"><table><thead><tr>'+head.map(c=>'<th scope="col">'+inline(c)+'</th>').join('')+'</tr></thead><tbody>'+rows.join('')+'</tbody></table></div>');continue;
+    }
+    const list=line.match(/^\s*(?:([-•])\s+|\d+[.)]\s+)(.*)$/);
+    if(list){const ordered=!list[1];const tag=ordered?'ol':'ul';const items=[];
+      const pattern=ordered?/^\s*\d+[.)]\s+(.*)$/:/^\s*[-•]\s+(.*)$/;
+      while(i<lines.length){const m=lines[i].match(pattern);if(!m)break;items.push('<li>'+inline(m[1])+'</li>');i++;}
+      out.push('<'+tag+'>'+items.join('')+'</'+tag+'>');continue;
+    }
+    const heading=line.match(/^#{1,6}\s+(.*)$/);
+    out.push(heading?'<h4>'+inline(heading[1])+'</h4>':'<div class="answer-paragraph">'+inline(line)+'</div>');i++;
+  }
+  return out.join('');
+}
 function fmtBytes(n){ if(n==null)return ''; const u=['B','KB','MB','GB']; let i=0,v=n; while(v>=1024&&i<u.length-1){v/=1024;i++;} return v.toFixed(v<10&&i>0?1:0)+' '+u[i]; }
 const rx={ ifc:/\.ifc$/i, dwg:/\.(pdf|dwg|dxf)$/i, doc:/\.(pdf|docx?|txt|rtf)$/i, spec:/spec|requirement|criteria|specification/i, sched:/\.(xlsx|xls|csv)$/i };
 // Standard project folders (auto-created per project). When a document's
@@ -142,7 +176,8 @@ function wireTopbar(){
   $('logoutBtn').onclick=logout;
   $('sbToggle').onclick=()=>{ document.body.classList.toggle('sb-collapsed'); document.body.classList.toggle('show-sb'); };
   $('sbCollapse').onclick=()=>document.body.classList.add('sb-collapsed');
-  $('aiCollapse').onclick=()=>{if(document.body.clientWidth<=1200)document.body.classList.remove('show-ai');else document.body.classList.toggle('ai-collapsed');};
+  $('aiExpand').onclick=()=>setChatExpanded(!document.body.classList.contains('chat-expanded'));
+  $('aiCollapse').onclick=()=>{if(document.body.classList.contains('chat-expanded')){setChatExpanded(false);return;}if(document.body.clientWidth<=1200)document.body.classList.remove('show-ai');else document.body.classList.toggle('ai-collapsed');};
   $('aiToggle').onclick=()=>{if(document.body.clientWidth<=1200)document.body.classList.toggle('show-ai');else document.body.classList.toggle('ai-collapsed');};
   initAppResizers();
   $('btnHelp').onclick=()=>toast('Expo Design AI — select a destination on the left, work in the center, ask the Copilot on the right.');
@@ -208,6 +243,7 @@ function docsBy(filter){ let list=allDocs.filter(filter); if(currentRevision) li
 const DESTS=[
   ['overview','Overview','<rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/>'],
   ['design','Design Workspace','<path d="M12 2l9 5v10l-9 5-9-5V7z"/><path d="M12 12l9-5M12 12v10M12 12L3 7"/>'],
+  ['studio','AI Design Studio','<path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><circle cx="12" cy="12" r="9"/>'],
   ['models','Models','<path d="M12 2l9 5v10l-9 5-9-5V7z"/>'],
   ['drawings','Drawings','<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/>'],
   ['documents','Documents','<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/>'],
@@ -235,6 +271,7 @@ function setActiveNav(dest){ document.querySelectorAll('#app .nav a[data-dest]')
    WORKSPACE ROUTER
    ============================================================ */
 function navigate(dest){
+  if(currentDest==='studio' && dest!=='studio' && _studioPollTimer){ clearInterval(_studioPollTimer); _studioPollTimer=null; }
   if(dest==='settings' && !(currentUser&&currentUser.role==='admin')){ dest='overview'; }
   currentDest=dest; setActiveNav(dest);
   on3D=(dest==='design');
@@ -257,7 +294,7 @@ function navigate(dest){
 }
 function renderGeneric(dest){
   const b=$('genericWrap');
-  const R={ overview:renderOverview, models:renderModels, drawings:renderDrawings,
+  const R={ overview:renderOverview, studio:renderStudio, models:renderModels, drawings:renderDrawings,
     documents:renderDocuments, schedules:renderSchedules, specifications:renderSpecifications,
     codes:renderCodes, qa:renderQA, reports:renderReports, settings:renderSettings };
   (R[dest]||(()=>{ b.innerHTML=`<div class="ws-scroll">${state('Nothing here yet.')}</div>`; }))(b);
@@ -364,7 +401,7 @@ async function renderOverview(b){
       ${tile('Schedules', c.schedules, 'structured data')}
     </div>
     <div style="margin-top:22px" class="tiles">
-      ${['design','drawings','documents','schedules','codes','qa','reports'].map(k=>{ const m=DESTS.find(d=>d[0]===k); return `<div class="tile" style="cursor:pointer" onclick="navigate('${k}')"><h4>${svg(m[2])} ${esc(m[1])}</h4><p>Open workspace →</p></div>`; }).join('')}
+      ${['design','studio','drawings','documents','schedules','codes','qa','reports'].map(k=>{ const m=DESTS.find(d=>d[0]===k); return `<div class="tile" style="cursor:pointer" onclick="navigate('${k}')"><h4>${svg(m[2])} ${esc(m[1])}</h4><p>Open workspace →</p></div>`; }).join('')}
     </div>`;
   }catch(e){ $('ovBody').innerHTML=state('Dashboard stats unavailable.','err'); }
 }
@@ -415,22 +452,27 @@ function renderSplitDocs(b, list, kind, emptyMsg){
   lc.querySelector('.li').click();
 }
 let pdfPreviewSequence=0, pdfPreviewObjectUrl=null;
-async function openPdfPreview(f,page=1){
+async function openPdfPreview(f,page=1,highlightSnippet=null,highlightRects=null){
   const v=$('docView'); if(!v)return;
   const sequence=++pdfPreviewSequence;
   setDocContext(f);
   v.innerHTML=state('Loading source page…','load');
   try{
-    const response=await fetch(`${API}/projects/${encodeURIComponent(currentProject)}/page-preview?rel=${encodeURIComponent(f.rel)}&page=${page}`);
+    let url = `${API}/projects/${encodeURIComponent(currentProject)}/page-preview?rel=${encodeURIComponent(f.rel)}&page=${page}`;
+    if(highlightSnippet) url += `&highlight_snippet=${encodeURIComponent(highlightSnippet)}`;
+    if(highlightRects) url += `&highlight_rects=${encodeURIComponent(JSON.stringify(highlightRects))}`;
+    const response=await fetch(url);
     if(!response.ok)throw new Error((await response.json()).detail||'Source preview unavailable');
     const pages=Number(response.headers.get('X-PDF-Pages'));
+    const isHighlighted = response.headers.get('X-Evidence-Highlighted') === '1';
     const pixels=await response.blob();
     if(sequence!==pdfPreviewSequence||!v.isConnected)return;
     if(pdfPreviewObjectUrl)URL.revokeObjectURL(pdfPreviewObjectUrl);
     pdfPreviewObjectUrl=URL.createObjectURL(pixels);
-    v.innerHTML=`<div class="dt-toolbar"><button class="tb" id="pdfPrev" ${page<=1?'disabled':''}>Previous</button><span>Source page ${page} / ${pages}</span><button class="tb" id="pdfNext" ${page>=pages?'disabled':''}>Next</button><button class="tb" id="pdfZoom">Zoom in</button><button class="tb" id="pdfOriginal" style="margin-left:auto">Open original PDF</button></div><div style="height:calc(100% - 48px);overflow:auto;background:#fff"><img id="pdfSourcePage" alt="Source page ${page}: ${esc(f.filename)}" style="display:block;width:100%;height:auto" src="${pdfPreviewObjectUrl}"></div>`;
-    $('pdfPrev').onclick=()=>openPdfPreview(f,page-1);
-    $('pdfNext').onclick=()=>openPdfPreview(f,page+1);
+    const hlBadge = isHighlighted ? '<span class="badge-s b-pass" style="margin-left:8px;font-size:11px">📍 Evidence Highlighted</span>' : '';
+    v.innerHTML=`<div class="dt-toolbar"><button class="tb" id="pdfPrev" ${page<=1?'disabled':''}>Previous</button><span>Source page ${page} / ${pages}</span>${hlBadge}<button class="tb" id="pdfNext" ${page>=pages?'disabled':''}>Next</button><button class="tb" id="pdfZoom">Zoom in</button><button class="tb" id="pdfOriginal" style="margin-left:auto">Open original PDF</button></div><div style="height:calc(100% - 48px);overflow:auto;background:#fff"><img id="pdfSourcePage" alt="Source page ${page}: ${esc(f.filename)}" style="display:block;width:100%;height:auto" src="${pdfPreviewObjectUrl}"></div>`;
+    $('pdfPrev').onclick=()=>openPdfPreview(f,page-1,highlightSnippet,highlightRects);
+    $('pdfNext').onclick=()=>openPdfPreview(f,page+1,highlightSnippet,highlightRects);
     $('pdfOriginal').onclick=()=>openFile(f.rel);
     $('pdfZoom').onclick=()=>{const image=$('pdfSourcePage');const fitted=image.style.width==='100%';image.style.width=fitted?'auto':'100%';$('pdfZoom').textContent=fitted?'Fit width':'Zoom in';};
   }catch(error){if(sequence===pdfPreviewSequence&&v.isConnected)v.innerHTML=state(error.message||'Source preview unavailable.','err');}
@@ -746,6 +788,782 @@ function renderSettings(b){
 }
 
 /* ============================================================
+   AI DESIGN STUDIO — Generative Interface
+   ============================================================ */
+let _studioPollTimer = null;
+let _studioWorkflows = [];
+let _studioSelectedAspect = { width: 1024, height: 1024 };
+let _studioSelectedFile = null;
+let _studioActiveJob = null;
+let _studioJobs = [];
+let _studioEngineStatus = null;
+
+async function renderStudio(b){
+  if(_studioPollTimer){ clearInterval(_studioPollTimer); _studioPollTimer = null; }
+  if(!currentProject){
+    b.innerHTML = `<div class="ws-scroll">${state('Select a project first to use the AI Design Studio.')}</div>`;
+    return;
+  }
+  b.innerHTML = `<div class="ws-scroll" id="studioLoading">${state('Loading AI Design Studio…','load')}</div>`;
+  
+  try {
+    const [wfRes, stRes] = await Promise.all([
+      fetch(`${API}/api/image-engine/workflows`),
+      fetch(`${API}/api/image-engine/status`)
+    ]);
+    _studioWorkflows = wfRes.ok ? await wfRes.json() : [];
+    _studioEngineStatus = stRes.ok ? await stRes.json() : null;
+  } catch(e) {
+    _studioWorkflows = [];
+    _studioEngineStatus = null;
+  }
+
+  // Load recent jobs
+  await _loadStudioJobs();
+
+  // Render layout
+  b.innerHTML = `
+    <div class="studio-layout">
+      <!-- SIDEBAR CONTROLS -->
+      <div class="studio-sidebar" id="studioSidebar">
+        <div style="font-size:13px;font-weight:700;display:flex;align-items:center;gap:7px;margin-bottom:2px">
+          <svg class="ico" viewBox="0 0 24 24" style="color:var(--accent);width:18px;height:18px"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><circle cx="12" cy="12" r="9"/></svg>
+          Concept Generation
+        </div>
+        
+        <!-- Workflow Selection -->
+        <div class="studio-field">
+          <label for="studioWfSel">Workflow Engine</label>
+          <select class="studio-select" id="studioWfSel">
+            ${_studioWorkflows.length ? _studioWorkflows.map(w => `<option value="${esc(w.id)}">${esc(w.name)}</option>`).join('') : '<option value="architecture_concept">Architecture Concept Generator</option>'}
+          </select>
+          <div id="studioWfDesc" style="font-size:11px;color:var(--muted);line-height:1.4;margin-top:2px">
+            ${_studioWorkflows[0] ? esc(_studioWorkflows[0].description) : 'Text-to-image architectural generation.'}
+          </div>
+        </div>
+
+        <!-- Sketch / Reference Dropzone -->
+        <div class="studio-field" id="studioDropzoneField">
+          <label id="studioDropzoneLabel">Reference Image / Sketch <span style="font-weight:400;color:var(--faint)">(Optional)</span></label>
+          <div class="studio-dropzone" id="studioDropzone">
+            <div id="studioDropzoneContent">
+              <svg class="ico" viewBox="0 0 24 24" style="width:26px;height:26px;margin:0 auto 6px;color:var(--faint)"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+              <div style="font-size:12px;font-weight:600">Drop sketch or image here</div>
+              <div style="font-size:10.5px;color:var(--faint);margin-top:2px">or click to browse from disk</div>
+            </div>
+            <input type="file" id="studioFileInput" accept="image/png,image/jpeg,image/webp">
+          </div>
+          <div class="studio-preview-wrap" id="studioPreviewWrap" style="display:none">
+            <img id="studioPreviewImg" src="" alt="Selected reference">
+            <button class="studio-preview-remove" id="studioPreviewRemove" title="Remove reference image">×</button>
+          </div>
+        </div>
+
+        <!-- Prompt Field -->
+        <div class="studio-field">
+          <div style="display:flex;align-items:center;justify-content:space-between">
+            <label for="studioPrompt">Architectural Prompt</label>
+            <button type="button" class="studio-enhance-btn" id="studioEnhanceBtn" title="Use AI reasoning (qwen3.5:9b) to enrich materials, lighting, and composition">
+              <span>✨ Enhance with Reasoning</span>
+            </button>
+          </div>
+          <textarea class="studio-textarea" id="studioPrompt" placeholder="Describe architectural geometry, materials, facade, lighting, surrounding landscape..."></textarea>
+          
+          <div id="studioReasoningBox" class="studio-reasoning-box" style="display:none">
+            <div class="studio-reasoning-title">
+              <span>💡 Architectural Reasoning</span>
+              <a href="javascript:void(0)" id="studioRevertPrompt" style="color:var(--muted);text-decoration:underline;font-size:10px">Revert brief</a>
+            </div>
+            <div id="studioReasoningText"></div>
+          </div>
+
+          <label style="display:flex;align-items:center;gap:6px;font-size:11px;font-weight:600;cursor:pointer;margin-top:5px;color:var(--muted);user-select:none">
+            <input type="checkbox" id="studioAutoEnhance" checked> Auto-apply Reasoning AI before render
+          </label>
+          
+          <div style="font-size:10px;font-weight:700;color:var(--faint);letter-spacing:.4px;margin-top:6px">STYLE & MATERIAL PRESETS</div>
+          <div class="studio-chips" id="studioChips">
+            <span class="studio-chip" data-chip="parametric timber lamella roof structure">Parametric Timber</span>
+            <span class="studio-chip" data-chip="biophilic stepped garden terraces with lush native flora">Biophilic Terraces</span>
+            <span class="studio-chip" data-chip="curtain wall glazing with integrated solar shading louvers">High-Tech Glazing</span>
+            <span class="studio-chip" data-chip="warm textured rammed earth and fair-faced concrete">Rammed Earth & Concrete</span>
+            <span class="studio-chip" data-chip="contemporary Arabesque geometric mashrabiya facade">Contemporary Mashrabiya</span>
+            <span class="studio-chip" data-chip="cantilevered canopy pavilion with water reflection pool">Cantilevered Pavilion</span>
+            <span class="studio-chip" data-chip="dramatic golden hour ambient lighting, hyperrealistic architectural photography">Golden Hour</span>
+            <span class="studio-chip" data-chip="clean minimalist Nordic architectural detailing">Nordic Minimalist</span>
+          </div>
+        </div>
+
+        <!-- Negative Prompt -->
+        <details class="studio-details">
+          <summary>Negative Prompt</summary>
+          <div style="margin-top:8px" class="studio-field">
+            <input class="studio-input" id="studioNegPrompt" value="blurry, distorted geometry, low quality, deformed columns, unrealistic physics, oversaturated, watermarks, grainy, artifacts">
+          </div>
+        </details>
+
+        <!-- Aspect Ratio -->
+        <div class="studio-field">
+          <label>Aspect Ratio & Resolution</label>
+          <div class="studio-res-group">
+            <button type="button" class="studio-res-btn on" data-w="1024" data-h="1024"><b>1:1</b><span>1024×1024</span></button>
+            <button type="button" class="studio-res-btn" data-w="1024" data-h="768"><b>4:3</b><span>1024×768</span></button>
+            <button type="button" class="studio-res-btn" data-w="768" data-h="1024"><b>3:4</b><span>768×1024</span></button>
+          </div>
+        </div>
+
+        <!-- Advanced Settings -->
+        <details class="studio-details">
+          <summary>Advanced Sampling Settings</summary>
+          <div style="margin-top:10px;display:flex;flex-direction:column;gap:10px">
+            <div>
+              <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted)"><span>Steps</span><b id="studioStepsVal">25</b></div>
+              <input type="range" id="studioSteps" min="10" max="50" value="25" style="width:100%">
+            </div>
+            <div>
+              <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted)"><span>CFG Scale</span><b id="studioCfgVal">7.0</b></div>
+              <input type="range" id="studioCfg" min="1" max="15" step="0.5" value="7.0" style="width:100%">
+            </div>
+            <div>
+              <div style="font-size:11px;color:var(--muted);margin-bottom:4px">Seed (Optional)</div>
+              <input type="number" class="studio-input" id="studioSeed" placeholder="Random (blank or -1)" style="width:100%">
+            </div>
+          </div>
+        </details>
+
+        <!-- Generate Button -->
+        <button class="primary" id="studioGenBtn" style="padding:12px;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:8px;margin-top:6px">
+          <svg class="ico" viewBox="0 0 24 24" style="width:16px;height:16px"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/></svg>
+          <span id="studioGenBtnText">Generate Concept</span>
+        </button>
+      </div>
+
+      <!-- MAIN WORKSPACE -->
+      <div class="studio-main" id="studioMain">
+        <!-- Status Bar -->
+        <div class="studio-status-bar" id="studioStatusBar">
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+            <div class="studio-pill ${(_studioEngineStatus&&_studioEngineStatus.available)?'online':'offline'}" id="studioStatusPill">
+              ${(_studioEngineStatus&&_studioEngineStatus.available)?'🟢 AI Studio Engine Ready':'🔴 AI Studio Engine Offline'}
+            </div>
+            <span class="muted" style="font-size:11px" id="studioVramText">
+              RTX 5080 (16 GB VRAM)
+            </span>
+          </div>
+          <div style="display:flex;align-items:center;gap:12px">
+            <span class="muted" style="font-size:11px" id="studioQueueText">
+              Queue: ${(_studioEngineStatus&&_studioEngineStatus.queue_pending)||0} pending
+            </span>
+            <button class="tb" id="studioRefreshBtn" style="padding:4px 9px">↻ Refresh</button>
+          </div>
+        </div>
+
+        <!-- Live Progress Card -->
+        <div class="studio-progress-card" id="studioProgressCard" style="${_studioActiveJob?'':'display:none'}">
+          <div class="studio-progress-h">
+            <span id="studioProgressTitle">⚙️ Generating Concept…</span>
+            <span id="studioProgressPct">0%</span>
+            <button class="tb" id="studioCancelJobBtn" style="color:var(--red);border-color:var(--red);padding:2px 8px;font-size:11px">Cancel Job</button>
+          </div>
+          <div class="studio-pbar">
+            <div class="studio-pbar-fill" id="studioProgressFill" style="width:0%"></div>
+          </div>
+          <div style="font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis" id="studioProgressPrompt"></div>
+        </div>
+
+        <!-- Gallery Section -->
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-top:4px">
+          <h3 style="margin:0;font-size:14px;font-weight:700">Project Architectural Concepts & Renders</h3>
+          <span class="muted" style="font-size:11px" id="studioOutputCount"></span>
+        </div>
+        
+        <div id="studioGalleryContainer"></div>
+      </div>
+    </div>
+  `;
+
+  _wireStudioControls();
+  _updateActiveJobUI();
+  _renderStudioGallery();
+
+  // Polling hook
+  window._refreshStudio = async () => {
+    await _pollStudioStatus();
+    await _loadStudioJobs();
+    _updateActiveJobUI();
+    _renderStudioGallery();
+  };
+
+  _studioPollTimer = setInterval(async () => {
+    if(currentDest !== 'studio'){ clearInterval(_studioPollTimer); _studioPollTimer = null; return; }
+    await _pollStudioStatus();
+    if(_studioActiveJob) {
+      await _pollActiveJob();
+    }
+  }, 2500);
+}
+
+async function _loadStudioJobs(){
+  if(!currentProject){ _studioJobs = []; _studioActiveJob = null; return; }
+  try {
+    const res = await fetch(`${API}/api/image-engine/jobs?project=${encodeURIComponent(currentProject)}`);
+    if(res.ok){
+      _studioJobs = await res.json();
+      _studioActiveJob = _studioJobs.find(j => j.status === 'queued' || j.status === 'running') || null;
+    } else {
+      _studioJobs = [];
+      _studioActiveJob = null;
+    }
+  } catch(e) {
+    _studioJobs = [];
+    _studioActiveJob = null;
+  }
+}
+
+async function _pollStudioStatus(){
+  try {
+    const res = await fetch(`${API}/api/image-engine/status`);
+    if(res.ok){
+      _studioEngineStatus = await res.json();
+      const pill = $('studioStatusPill');
+      if(pill){
+        pill.className = `studio-pill ${_studioEngineStatus.available ? 'online' : 'offline'}`;
+        pill.textContent = _studioEngineStatus.available ? '🟢 AI Studio Engine Ready' : '🔴 AI Studio Engine Offline';
+      }
+      const vram = $('studioVramText');
+      if(vram){
+        const freeMb = _studioEngineStatus.vram_free_mb;
+        vram.textContent = `RTX 5080 (16 GB VRAM)${freeMb ? ` · ${Math.round(freeMb/1024*10)/10} GB free` : ''}`;
+      }
+      _updateActiveJobUI();
+      const q = $('studioQueueText');
+      if(q){
+        q.textContent = `Queue: ${_studioEngineStatus.queue_pending || 0} pending`;
+      }
+    }
+  } catch(e){}
+}
+
+async function _pollActiveJob(){
+  if(!_studioActiveJob) return;
+  try {
+    const res = await fetch(`${API}/api/image-engine/jobs/${encodeURIComponent(_studioActiveJob.job_id)}`);
+    if(res.ok){
+      const updated = await res.json();
+      _studioActiveJob = updated;
+      
+      if(updated.status === 'completed'){
+        toast('Generation completed: ' + updated.job_id);
+        _studioActiveJob = null;
+        await _loadStudioJobs();
+        _updateActiveJobUI();
+        _renderStudioGallery();
+      } else if(updated.status === 'failed'){
+        toast('Generation failed: ' + (updated.error || 'unknown error'));
+        _studioActiveJob = null;
+        await _loadStudioJobs();
+        _updateActiveJobUI();
+        _renderStudioGallery();
+      } else if(updated.status === 'cancelled'){
+        toast('Generation cancelled: ' + updated.job_id);
+        _studioActiveJob = null;
+        await _loadStudioJobs();
+        _updateActiveJobUI();
+        _renderStudioGallery();
+      } else {
+        _updateActiveJobUI();
+      }
+    }
+  } catch(e){}
+}
+
+function _updateActiveJobUI(){
+  const card = $('studioProgressCard');
+  const genBtn = $('studioGenBtn');
+  const genText = $('studioGenBtnText');
+  if(!card) return;
+
+  if(_studioActiveJob){
+    card.style.display = '';
+    const isRunning = _studioActiveJob.status === 'running';
+    const pct = Number.isFinite(_studioActiveJob.progress_percent) ? _studioActiveJob.progress_percent : 0;
+    const fill = $('studioProgressFill');
+    if(fill) fill.style.width = pct + '%';
+    const pctLabel = $('studioProgressPct');
+    if(pctLabel) pctLabel.textContent = pct + '%';
+    const title = $('studioProgressTitle');
+    if(title){
+      const stepStr = (_studioActiveJob.current_step != null) ? `Step ${_studioActiveJob.current_step}/${_studioActiveJob.total_steps}` : (isRunning ? 'Processing diffusion model…' : 'Job Queued…');
+      title.textContent = `⚙️ ${stepStr}`;
+    }
+    const promptEl = $('studioProgressPrompt');
+    if(promptEl) promptEl.textContent = `"${_studioActiveJob.prompt || ''}"`;
+    if(genBtn){ genBtn.disabled = true; genBtn.style.opacity = '0.6'; }
+    if(genText) genText.textContent = isRunning ? 'Generating Concept…' : 'Job In Queue…';
+  } else {
+    card.style.display = 'none';
+    if(genBtn){ genBtn.disabled = !_studioEngineStatus?.available; genBtn.style.opacity = genBtn.disabled ? '0.6' : '1'; }
+    if(genText) genText.textContent = 'Generate Concept';
+  }
+}
+
+function _wireStudioControls(){
+  // Workflow dropdown change
+  const wfSel = $('studioWfSel');
+  if(wfSel){
+    wfSel.onchange = () => {
+      const wf = _studioWorkflows.find(w => w.id === wfSel.value);
+      if(wf){
+        for(const [name, inputId, labelId] of [['steps','studioSteps','studioStepsVal'],['cfg','studioCfg','studioCfgVal']]){
+          const parameter = (wf.parameters || []).find(p => p.name === name);
+          const input = $(inputId), label = $(labelId);
+          if(parameter && input){
+            input.min = parameter.min_value; input.max = parameter.max_value;
+            input.value = parameter.default; input.disabled = parameter.min_value === parameter.max_value;
+            if(label) label.textContent = parameter.default;
+          }
+        }
+        const desc = $('studioWfDesc');
+        if(desc) desc.textContent = wf.description || '';
+        const reqImg = wf.category === 'sketch_to_render' || wf.category === 'render_enhancement';
+        const lbl = $('studioDropzoneLabel');
+        if(lbl) lbl.innerHTML = reqImg ? 'Reference Image / Sketch <b style="color:var(--accent2)">(Required)</b>' : 'Reference Image / Sketch <span style="font-weight:400;color:var(--faint)">(Optional)</span>';
+      }
+    };
+  }
+
+  if(wfSel && wfSel.onchange) wfSel.onchange();
+
+  // Dropzone drag & drop and file picker
+  const dropzone = $('studioDropzone');
+  const fileInput = $('studioFileInput');
+  const previewWrap = $('studioPreviewWrap');
+  const previewImg = $('studioPreviewImg');
+  const removeBtn = $('studioPreviewRemove');
+  const dropContent = $('studioDropzoneContent');
+
+  function handleFile(f){
+    if(!f) return;
+    if(!f.type.startsWith('image/')){ toast('Only image files (PNG, JPG, WEBP) are supported'); return; }
+    if(f.size > 25 * 1024 * 1024){ toast('Image file exceeds 25 MB limit'); return; }
+    _studioSelectedFile = f;
+    const url = URL.createObjectURL(f);
+    if(previewImg) previewImg.src = url;
+    if(previewWrap) previewWrap.style.display = '';
+    if(dropContent) dropContent.style.display = 'none';
+  }
+
+  if(dropzone && fileInput){
+    dropzone.onclick = () => fileInput.click();
+    fileInput.onchange = () => { if(fileInput.files.length) handleFile(fileInput.files[0]); };
+    dropzone.ondragover = e => { e.preventDefault(); e.stopPropagation(); dropzone.classList.add('dragover'); };
+    dropzone.ondragleave = e => { e.preventDefault(); e.stopPropagation(); dropzone.classList.remove('dragover'); };
+    dropzone.ondrop = e => {
+      e.preventDefault(); e.stopPropagation(); dropzone.classList.remove('dragover');
+      if(e.dataTransfer && e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
+    };
+  }
+
+  if(removeBtn){
+    removeBtn.onclick = e => {
+      e.stopPropagation();
+      _studioSelectedFile = null;
+      if(fileInput) fileInput.value = '';
+      if(previewWrap) previewWrap.style.display = 'none';
+      if(dropContent) dropContent.style.display = '';
+    };
+  }
+
+  // Preset chips
+  const chips = $('studioChips');
+  const promptEl = $('studioPrompt');
+  if(chips && promptEl){
+    chips.querySelectorAll('.studio-chip').forEach(chip => {
+      chip.onclick = () => {
+        const text = chip.dataset.chip;
+        const cur = promptEl.value.trim();
+        promptEl.value = cur ? `${cur}, ${text}` : text;
+        promptEl.focus();
+      };
+    });
+  }
+
+  // Enhance Prompt button
+  const enhanceBtn = $('studioEnhanceBtn');
+  const reasoningBox = $('studioReasoningBox');
+  const reasoningText = $('studioReasoningText');
+  const revertLink = $('studioRevertPrompt');
+  let _preEnhancedPrompt = '';
+
+  if(enhanceBtn && promptEl){
+    enhanceBtn.onclick = async () => {
+      const curPrompt = promptEl.value.trim();
+      if(!curPrompt){
+        toast('Enter a design brief or concept first to enhance with reasoning');
+        promptEl.focus();
+        return;
+      }
+      enhanceBtn.disabled = true;
+      const origBtnHTML = enhanceBtn.innerHTML;
+      enhanceBtn.innerHTML = '<span>⏳ Reasoning...</span>';
+      try {
+        const res = await fetch(`${API}/api/image-engine/enhance-prompt`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            prompt: curPrompt,
+            building_type: 'Architecture',
+            architectural_style: 'Contemporary'
+          })
+        });
+        if(res.ok){
+          const data = await res.json();
+          if(data.success && data.enhanced_prompt){
+            _preEnhancedPrompt = curPrompt;
+            promptEl.value = data.enhanced_prompt;
+            if(reasoningBox && reasoningText){
+              reasoningText.textContent = data.reasoning || 'Prompt enriched with architectural materials, lighting, and composition.';
+              reasoningBox.style.display = '';
+            }
+            toast('Architectural prompt enhanced with Reasoning AI');
+          } else {
+            toast('Reasoning enhancement returned standard prompt');
+          }
+        } else {
+          toast('Reasoning service unavailable, using original prompt');
+        }
+      } catch(e){
+        toast('Reasoning error: ' + (e.message || e));
+      } finally {
+        enhanceBtn.disabled = false;
+        enhanceBtn.innerHTML = origBtnHTML;
+      }
+    };
+  }
+
+  if(revertLink && promptEl){
+    revertLink.onclick = () => {
+      if(_preEnhancedPrompt){
+        promptEl.value = _preEnhancedPrompt;
+        _preEnhancedPrompt = '';
+        if(reasoningBox) reasoningBox.style.display = 'none';
+        toast('Reverted to original brief');
+      }
+    };
+  }
+
+  // Aspect ratio buttons
+  document.querySelectorAll('.studio-res-btn').forEach(btn => {
+    btn.onclick = () => {
+      document.querySelectorAll('.studio-res-btn').forEach(b => b.classList.remove('on'));
+      btn.classList.add('on');
+      _studioSelectedAspect = {
+        width: parseInt(btn.dataset.w, 10) || 1024,
+        height: parseInt(btn.dataset.h, 10) || 1024,
+      };
+    };
+  });
+
+  // Slider live indicators
+  const stepsEl = $('studioSteps');
+  if(stepsEl) stepsEl.oninput = () => { const v = $('studioStepsVal'); if(v) v.textContent = stepsEl.value; };
+  const cfgEl = $('studioCfg');
+  if(cfgEl) cfgEl.oninput = () => { const v = $('studioCfgVal'); if(v) v.textContent = parseFloat(cfgEl.value).toFixed(1); };
+
+  // Cancel Job button
+  const cancelBtn = $('studioCancelJobBtn');
+  if(cancelBtn){
+    cancelBtn.onclick = () => {
+      if(_studioActiveJob) _cancelStudioJob(_studioActiveJob.job_id);
+    };
+  }
+
+  // Refresh button
+  const refreshBtn = $('studioRefreshBtn');
+  if(refreshBtn){
+    refreshBtn.onclick = () => {
+      if(window._refreshStudio) window._refreshStudio();
+    };
+  }
+
+  // Generate button
+  const genBtn = $('studioGenBtn');
+  if(genBtn){
+    genBtn.onclick = async () => {
+      if(!currentProject){ toast('Select a project first'); return; }
+      const prompt = (promptEl ? promptEl.value : '').trim();
+      if(!prompt){ toast('Please enter an architectural prompt'); if(promptEl) promptEl.focus(); return; }
+
+      const wfId = wfSel ? wfSel.value : 'architecture_concept';
+      const wf = _studioWorkflows.find(w => w.id === wfId);
+      if(wf && (wf.category === 'sketch_to_render' || wf.category === 'render_enhancement') && !_studioSelectedFile){
+        toast('This workflow requires a reference sketch or image');
+        return;
+      }
+
+      genBtn.disabled = true;
+      const genText = $('studioGenBtnText');
+      if(genText) genText.textContent = 'Submitting Job…';
+
+      const neg = ($('studioNegPrompt') ? $('studioNegPrompt').value : '').trim();
+      const steps = parseInt((stepsEl ? stepsEl.value : '25'), 10) || 25;
+      const cfg = parseFloat((cfgEl ? cfgEl.value : '7.0')) || 7.0;
+      const seedVal = ($('studioSeed') ? $('studioSeed').value : '').trim();
+      const seed = seedVal ? parseInt(seedVal, 10) : null;
+      const autoEnhance = $('studioAutoEnhance') ? $('studioAutoEnhance').checked : true;
+
+      try {
+        let res;
+        if(_studioSelectedFile){
+          const fd = new FormData();
+          fd.append('project', currentProject);
+          fd.append('workflow_id', wfId);
+          fd.append('prompt', prompt);
+          if(neg) fd.append('negative_prompt', neg);
+          fd.append('width', String(_studioSelectedAspect.width));
+          fd.append('height', String(_studioSelectedAspect.height));
+          fd.append('steps', String(steps));
+          fd.append('cfg', String(cfg));
+          if(seed !== null && !isNaN(seed)) fd.append('seed', String(seed));
+          fd.append('input_image', _studioSelectedFile);
+          fd.append('enhance_prompt', String(autoEnhance));
+
+          res = await fetch(`${API}/api/image-engine/jobs`, {
+            method: 'POST',
+            body: fd,
+          });
+        } else {
+          const payload = {
+            project: currentProject,
+            workflow_id: wfId,
+            prompt: prompt,
+            negative_prompt: neg || null,
+            width: _studioSelectedAspect.width,
+            height: _studioSelectedAspect.height,
+            steps: steps,
+            cfg: cfg,
+            seed: (seed !== null && !isNaN(seed)) ? seed : null,
+            enhance_prompt: autoEnhance,
+          };
+          res = await fetch(`${API}/api/image-engine/jobs`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+          });
+        }
+
+        if(!res.ok){
+          let detail = 'Submission failed (' + res.status + ')';
+          try { const d = await res.json(); if(d.detail) detail = typeof d.detail === 'string' ? d.detail : JSON.stringify(d.detail); } catch(_){}
+          toast('Error: ' + detail);
+          genBtn.disabled = false;
+          if(genText) genText.textContent = 'Generate Concept';
+          return;
+        }
+
+        const job = await res.json();
+        _studioActiveJob = job;
+        toast('Generation job queued: ' + job.job_id);
+        _updateActiveJobUI();
+        await _pollStudioStatus();
+      } catch(err){
+        toast('Submission network error: ' + err.message);
+        genBtn.disabled = false;
+        if(genText) genText.textContent = 'Generate Concept';
+      }
+    };
+  }
+}
+
+async function _cancelStudioJob(jobId){
+  if(!jobId) return;
+  try {
+    const res = await fetch(`${API}/api/image-engine/jobs/${encodeURIComponent(jobId)}/cancel`, { method: 'POST' });
+    if(res.ok){
+      toast('Job cancelled: ' + jobId);
+      _studioActiveJob = null;
+      await _pollStudioStatus();
+      await _loadStudioJobs();
+      _updateActiveJobUI();
+      _renderStudioGallery();
+    } else {
+      let msg = 'Could not cancel';
+      try { const d = await res.json(); if(d.detail) msg = d.detail; } catch(_){}
+      toast(msg);
+    }
+  } catch(err){
+    toast('Cancel error: ' + err.message);
+  }
+}
+
+function _renderStudioGallery(){
+  const container = $('studioGalleryContainer');
+  if(!container) return;
+
+  // Flatten all outputs with parent job info
+  const items = [];
+  (_studioJobs || []).forEach(job => {
+    (job.outputs || []).forEach(out => {
+      items.push({ output: out, job: job });
+    });
+  });
+
+  const countEl = $('studioOutputCount');
+  if(countEl) countEl.textContent = `${items.length} output${items.length === 1 ? '' : 's'}`;
+
+  if(!items.length){
+    container.innerHTML = `
+      <div class="state" style="padding:48px 20px">
+        <svg class="ico" viewBox="0 0 24 24" style="width:42px;height:42px;color:var(--faint)"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+        <div style="font-weight:600;font-size:13.5px">No generated concepts in this project yet</div>
+        <div class="muted" style="font-size:12px">Write an architectural prompt and click "Generate Concept" to visualize ideas.</div>
+      </div>
+    `;
+    return;
+  }
+
+  // Sort descending by created_at
+  items.sort((a,b) => String(b.output.created_at||'').localeCompare(String(a.output.created_at||'')));
+
+  container.innerHTML = `
+    <div class="studio-gallery-grid" id="studioGalleryGrid">
+      ${items.map((it, idx) => {
+        const out = it.output;
+        const job = it.job;
+        const thumbUrl = `${API}/api/image-engine/outputs/${encodeURIComponent(out.output_id)}/thumb?token=${encodeURIComponent(authToken||'')}`;
+        const cat = job.workflow_id ? job.workflow_id.split('-')[0] : 'gen';
+        const dateStr = (job.created_at || '').replace('T', ' ').slice(0, 16);
+        return `
+          <div class="studio-card" data-idx="${idx}">
+            <img class="studio-card-thumb" src="${thumbUrl}" alt="${esc(out.metadata?.prompt || "")}" loading="lazy">
+            <div class="studio-card-info">
+              <div class="studio-card-prompt">${esc(out.metadata?.prompt || "")}</div>
+              <div class="studio-card-meta">
+                <span>${out.width}×${out.height} · ${esc(dateStr)}</span>
+                <span class="badge-s b-info">${esc(cat)}</span>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('')}
+    </div>
+  `;
+
+  // Wire lightbox modal click
+  container.querySelectorAll('.studio-card').forEach(card => {
+    card.onclick = () => {
+      const idx = parseInt(card.dataset.idx, 10);
+      if(items[idx]){
+        _openStudioLightbox(items[idx].output, items[idx].job);
+      }
+    };
+  });
+}
+
+function _openStudioLightbox(out, job){
+  let modal = $('studioModal');
+  if(!modal){
+    modal = el('div', 'studio-modal');
+    modal.id = 'studioModal';
+    document.body.appendChild(modal);
+  }
+
+  const fileUrl = `${API}/api/image-engine/outputs/${encodeURIComponent(out.output_id)}/file?token=${encodeURIComponent(authToken||'')}`;
+  const dateStr = (job.created_at || '').replace('T', ' ').slice(0, 19);
+
+  modal.innerHTML = `
+    <div class="studio-modal-card" id="studioModalCard">
+      <div class="studio-modal-imgwrap">
+        <img src="${fileUrl}" alt="${esc(out.metadata?.prompt || "")}">
+      </div>
+      <div class="studio-modal-sidebar">
+        <div style="display:flex;align-items:center;justify-content:space-between">
+          <h4 style="margin:0;font-size:14px;font-weight:700">Architectural Concept Details</h4>
+          <button class="iconbtn" id="studioModalClose" title="Close" style="font-size:18px;line-height:1">×</button>
+        </div>
+
+        <div style="font-size:12px;line-height:1.5;background:var(--card);padding:10px 12px;border-radius:var(--r-sm);border:1px solid var(--border)">
+          <div style="font-size:10px;font-weight:700;color:var(--faint);letter-spacing:.4px;margin-bottom:4px">GENERATION PROMPT</div>
+          ${esc(out.metadata?.prompt || "")}
+        </div>
+
+        ${(out.metadata?.reasoning || job.reasoning) ? `
+        <div style="font-size:12px;line-height:1.5;background:rgba(47,107,255,.08);padding:10px 12px;border-radius:var(--r-sm);border:1px solid rgba(47,107,255,.25)">
+          <div style="font-size:10px;font-weight:700;color:var(--accent2);letter-spacing:.4px;margin-bottom:4px;display:flex;align-items:center;gap:4px">
+            <span>💡 ARCHITECTURAL REASONING</span>
+            <span class="badge-s b-info" style="font-size:9px">qwen3.5:9b</span>
+          </div>
+          ${esc(out.metadata?.reasoning || job.reasoning)}
+        </div>
+        ` : ''}
+
+        ${(out.metadata?.original_prompt && out.metadata?.original_prompt !== out.metadata?.prompt) ? `
+        <div style="font-size:11px;color:var(--muted)">
+          <span style="font-weight:600">Original Brief:</span> "${esc(out.metadata.original_prompt)}"
+        </div>
+        ` : ''}
+
+        <div style="font-size:11.5px;display:flex;flex-direction:column;gap:5px">
+          <div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--border)"><span class="muted">Workflow</span><b>${esc(job.workflow_id)}</b></div>
+          <div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--border)"><span class="muted">Resolution</span><b>${out.width} × ${out.height}</b></div>
+          <div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--border)"><span class="muted">Steps / CFG</span><b>${out.metadata?.steps ?? 4} / CFG ${out.metadata?.cfg ?? 1.0}</b></div>
+          <div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--border)"><span class="muted">Seed</span><b>${job.seed!=null?job.seed:'Auto'}</b></div>
+          <div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--border)"><span class="muted">Job ID</span><code style="font-size:10px">${esc(job.job_id)}</code></div>
+          <div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--border)"><span class="muted">Generated</span><span>${esc(dateStr)}</span></div>
+        </div>
+
+        <div style="margin-top:auto;display:flex;flex-direction:column;gap:8px">
+          <a href="${fileUrl}" download="${esc(out.filename)}" class="primary" style="display:flex;align-items:center;justify-content:center;gap:6px;text-decoration:none">
+            📥 Download Full PNG (${out.width}×${out.height})
+          </a>
+          <button class="ghost" id="studioReusePrompt">📋 Reuse Prompt in Studio</button>
+        </div>
+      </div>
+    </div>
+  `;
+
+  modal.style.display = 'flex';
+
+  function closeModal(){
+    modal.style.display = 'none';
+    document.removeEventListener('keydown', handleKey);
+  }
+
+  function handleKey(e){
+    if(e.key === 'Escape') closeModal();
+  }
+
+  const closeBtn = $('studioModalClose');
+  if(closeBtn) closeBtn.onclick = closeModal;
+
+  modal.onclick = e => {
+    if(e.target === modal) closeModal();
+  };
+
+  document.addEventListener('keydown', handleKey);
+
+  const reuseBtn = $('studioReusePrompt');
+  if(reuseBtn){
+    reuseBtn.onclick = () => {
+      const p = $('studioPrompt');
+      if(p){
+        p.value = out.metadata?.prompt || job.prompt || '';
+        p.focus();
+        const rBox = $('studioReasoningBox');
+        const rText = $('studioReasoningText');
+        const rVal = out.metadata?.reasoning || job.reasoning;
+        if(rVal && rBox && rText){
+          rText.textContent = rVal;
+          rBox.style.display = '';
+        }
+      }
+      closeModal();
+      toast('Prompt copied to Studio prompt editor');
+    };
+  }
+}
+
+/* ============================================================
    3D VIEWER BRIDGE (protected contract)
    ============================================================ */
 function vcmd(c){ try{ $('viewerFrame').contentWindow.postMessage({type:'expo:cmd',cmd:c},'*'); }catch(e){} }
@@ -846,7 +1664,33 @@ function aiGreeting(){ const nm=(currentUser&&(currentUser.full_name||currentUse
   $('aiMsgs').innerHTML=''; aiHist=[];
   addMsg('a','Hi '+esc(nm.split(' ')[0]||'there')+' — I\'m your Design AI Copilot. Pick a workspace on the left, then ask me about the active model, drawing, document, schedule or code. In the 3D model, click an element for a grounded, source-cited answer.');
 }
-function addMsg(who,html){ const d=el('div','m '+who,`<div class="av">${who==='u'?'U':'AI'}</div><div class="bub">${html}</div>`); $('aiMsgs').appendChild(d); $('aiMsgs').scrollTop=$('aiMsgs').scrollHeight; return d.querySelector('.bub'); }
+function setChatExpanded(expanded){
+  document.body.classList.toggle('chat-expanded',expanded);
+  const button=$('aiExpand');
+  button.setAttribute('aria-pressed',String(expanded));
+  button.setAttribute('aria-label',expanded?'Restore Copilot panel':'Expand Copilot chat');
+  button.title=expanded?'Restore Copilot panel':'Expand Copilot chat';
+  button.textContent=expanded?'↙':'⛶';
+}
+
+function addMsg(who,html){
+  const label=who==='u'?'You':'Design AI';
+  const d=el('div','m '+who,`<div class="av" aria-hidden="true">${who==='u'?'U':'AI'}</div><div class="message-content"><div class="message-label">${label}</div><div class="bub">${html}</div></div>`);
+  $('aiMsgs').appendChild(d); $('aiMsgs').scrollTop=$('aiMsgs').scrollHeight; return d.querySelector('.bub');
+}
+
+function addAnswerActions(bub,text){
+  if(!text.trim())return;
+  const bar=el('div','answer-actions');
+  const copy=el('button','answer-copy');copy.type='button';copy.textContent='Copy answer';
+  copy.setAttribute('aria-label','Copy answer including source citations');
+  copy.onclick=async()=>{
+    try{await navigator.clipboard.writeText(text);copy.textContent='Copied';}
+    catch(e){copy.textContent='Copy unavailable';}
+    setTimeout(()=>{copy.textContent='Copy answer';},2000);
+  };
+  bar.appendChild(copy);bub.appendChild(bar);
+}
 
 /* --- context card (element / document) --- */
 function setElementContext(p){
@@ -982,6 +1826,10 @@ function updateCtxActions(){
     A('Explain the selected issue','<path d="M12 9v4M12 17h.01"/><circle cx="12" cy="12" r="9"/>',()=>{ setAiTab('chat'); $('aiIn').focus(); });
   } else if(currentDest==='reports'){
     A('Generate a report','<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 17V9M12 17v-5"/>',()=>{ const g=$('repGen'); if(g)g.click(); });
+  } else if(currentDest==='studio'){
+    A('Focus concept prompt','<path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/>',()=>{ const p=$('studioPrompt'); if(p){ p.focus(); } });
+    A('Ask Copilot for architectural prompts','<circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>',()=>{ setAiTab('chat'); $('aiIn').value='Suggest 3 detailed architectural prompts for an innovative exhibition pavilion:'; $('aiIn').focus(); });
+    A('Refresh backend status & jobs','<circle cx="12" cy="12" r="9"/>',()=>{ if(window._refreshStudio) window._refreshStudio(); });
   } else {
     A('Ask Design AI','<circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>',()=>{ setAiTab('chat'); $('aiIn').focus(); });
   }
@@ -1029,11 +1877,12 @@ async function findSimilar(){
   setAiTab('chat');
 }
 function updateAiCtx(){
-  const map={ design:viewerLoaded?'3D model + selection':'Project documents', drawings:'Drawing viewer', documents:'Project documents',
+  const map={ design:viewerLoaded?'3D model + selection':'Project documents', studio:'AI Design Studio', drawings:'Drawing viewer', documents:'Project documents',
     specifications:'Specifications', schedules:'Schedules & quantities', codes:'Codes / standards (KB)',
     qa:'QA & issues', reports:'Reports', overview:'Project overview', settings:'Project' };
   $('aiCtx').innerHTML=`Context: <b>${esc(map[currentDest]||'Project')}</b>${currentRevision?` · Rev ${esc(currentRevision)}`:''}`;
   const ph={ design:'Ask Design AI about this element, model, drawings, specifications or codes…',
+    studio:'Ask Design AI to craft architectural concept prompts, suggest materials or lighting…',
     drawings:'Ask Design AI about this drawing, revision, detail or requirement…',
     documents:'Ask Design AI about this document…', specifications:'Ask Design AI about this specification…',
     schedules:'Ask Design AI about these quantities / data…', codes:'Ask Design AI about this requirement…',
@@ -1042,7 +1891,7 @@ function updateAiCtx(){
 }
 
 /* --- streaming client (protected: reuse SSE contract verbatim) --- */
-async function stream(display,endpoint,body){ const bub=addMsg('a','<span class="faint">…</span>'); let ans=''; let structured=null;
+async function stream(display,endpoint,body){ const bub=addMsg('a','<div class="ai-working" role="status"><span class="ai-working-dot"></span><div><strong>Checking project evidence</strong><small>Reading sources and checking the answer. Complex questions may take a minute.</small></div></div>'); let ans=''; let structured=null;
   try{ const r=await fetch(endpoint,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
     if(!r.ok){
       let message='Error '+r.status;
@@ -1104,6 +1953,8 @@ async function stream(display,endpoint,body){ const bub=addMsg('a','<span class=
         if(card){ bub.innerHTML=''; bub.appendChild(card); $('aiMsgs').scrollTop=$('aiMsgs').scrollHeight; }
       }
     }catch(e){ /* never let the renderer break the plain answer that already rendered */ }
+    addAnswerActions(bub,displayAns);
+    $('aiMsgs').scrollTop=$('aiMsgs').scrollHeight;
     aiHist.push({role:'user',content:body.query}); aiHist.push({role:'assistant',content:ans});
   }catch(e){ bub.innerHTML='<span style="color:var(--red)">Request failed: '+esc(e.message||e)+'</span>'; } }
 
@@ -1170,7 +2021,7 @@ function addCommandCard(d){
 }
 
 /* Open a cited source at its page using the EXISTING document viewer (no second viewer). */
-function openSourceTile(rel, page){
+function openSourceTile(rel, page, snippet=null, bbox=null){
   if(!rel){ return; }
   const base=String(rel).replace(/\\/g,'/').split('/').pop();
   const f=allDocs.find(x=>x.rel===rel || x.filename===base || (x.rel&&x.rel.endsWith('/'+base)));
@@ -1181,7 +2032,7 @@ function openSourceTile(rel, page){
     // actual source without changing its folder or falling back to page 1.
     renderSplitDocs($('genericWrap'),[f],'source document','Source unavailable.');
     const sourcePage=Number.isInteger(Number(page))&&Number(page)>0?Number(page):1;
-    openPdfPreview(f,sourcePage);
+    openPdfPreview(f,sourcePage,snippet,bbox);
     setDocContext(f);
     return;
   }
@@ -1223,7 +2074,7 @@ function citedSources(ans,sources){
 /* Compact source chips (only the files actually used) */
 function evHTML(sources){
   if(!sources||!sources.length) return '';
-  return '<div class="evd">'+sources.map(s=>{
+  return '<details class="evidence-drawer"><summary>View evidence · '+sources.length+' source'+(sources.length===1?'':'s')+'</summary><div class="evd">'+sources.map(s=>{
     const name=s.filename||s.source||s.rel||'source';
     const b=String(name).split(/[\\/]/).pop();
     const rel=s.rel||s.source||'';
@@ -1231,12 +2082,13 @@ function evHTML(sources){
     const pg=(s.page!=null)?('p.'+s.page):'';
     const rev=s.revision?('File Rev '+s.revision):'';
     const sourcePage=Number.isInteger(Number(s.page))&&Number(s.page)>0?Number(s.page):null;
-    return `<button class="chip" title="${esc(name)}${pg?' · '+esc(pg):''}" onclick="openSourceTile(${esc(JSON.stringify(rel))},${sourcePage})">`
+    const snippet=s.snippet||s.text_snippet||'';
+    return `<button class="chip" title="${esc(name)}${pg?' · '+esc(pg):''}" onclick="openSourceTile(${esc(JSON.stringify(rel))},${sourcePage},${esc(JSON.stringify(snippet))})">`
       +`<span class="ci">${fileTypeIcon(ext)}</span>`
       +`<span class="cn">${esc(b)}</span>`
       +(pg?`<span class="cp">${esc(pg)}</span>`:'')
       +(rev?`<span class="cp">${esc(rev)}</span>`:'')
-      +`</button>`; }).join('')+'</div>';
+      +`</button>`; }).join('')+'</div></details>';
 }
 
 async function sendAi(standards){ const t=$('aiIn'); const q=t.value.trim();

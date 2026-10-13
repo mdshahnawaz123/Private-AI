@@ -27,11 +27,16 @@ def supplement_pages(path, meta, timeout=120):
             native = str(entry.get('text') or '').strip()
             images = page.get_images(full=True)
             scanned = any(image[2]*image[3]>50000 for image in images) and len(native)<500
-            if len(native)>=40 and not scanned:
+            from services.pdf_text_quality import native_text_usable, page_text_rotation
+            if entry.get('native_text_quality') != 'DAMAGED' and native_text_usable(native) and not scanned:
                 entry['page_ocr_status'] = 'NATIVE_TEXT_AVAILABLE'
                 entry.pop('page_ocr_error',None)
                 continue
-            cache = os.path.join(cache_dir,f"{digest}-p{entry['page']}.json")
+            rotation = page_text_rotation(page)
+            cache = os.path.join(cache_dir,f"{digest}-quality-v2-r{rotation}-p{entry['page']}.json")
+            legacy_cache = os.path.join(cache_dir,f"{digest}-p{entry['page']}.json")
+            if not os.path.isfile(cache) and os.path.isfile(legacy_cache):
+                cache = legacy_cache
             try:
                 if os.path.isfile(cache):
                     with open(cache,encoding='utf-8') as handle:
@@ -39,7 +44,7 @@ def supplement_pages(path, meta, timeout=120):
                 else:
                     image_path = os.path.join(cache_dir,f"p{entry['page']}.png")
                     zoom = min(2.0,2000/max(page.rect.width,page.rect.height))
-                    page.get_pixmap(matrix=fitz.Matrix(zoom,zoom),alpha=False).save(image_path)
+                    page.get_pixmap(matrix=fitz.Matrix(zoom,zoom).prerotate(rotation),alpha=False).save(image_path)
                     completed = subprocess.run([sys.executable,'-m','services.page_ocr',image_path,cache,str(entry['page'])],
                         timeout=timeout,capture_output=True,text=True)
                     if completed.returncode:

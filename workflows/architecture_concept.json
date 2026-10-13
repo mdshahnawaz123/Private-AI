@@ -1,0 +1,192 @@
+{
+  "_meta": {
+    "id": "architecture_concept",
+    "name": "FLUX.2 Klein 4B \u2014 Text to Image",
+    "version": "1.1.0",
+    "category": "concept",
+    "description": "Local distilled FLUX.2-klein-4B architectural concept rendering, four sampling steps.",
+    "license_notes": "FLUX.2-klein-4B: Apache-2.0. Required text encoder and VAE use their respective model licenses.",
+    "parameters": [
+      {
+        "name": "prompt",
+        "type": "string",
+        "label": "Design Brief",
+        "description": "Architectural program, form, facade materials, and context",
+        "required": true
+      },
+      {
+        "name": "width",
+        "type": "integer",
+        "label": "Width",
+        "default": 1024,
+        "min_value": 512,
+        "max_value": 1024
+      },
+      {
+        "name": "height",
+        "type": "integer",
+        "label": "Height",
+        "default": 1024,
+        "min_value": 512,
+        "max_value": 1024
+      },
+      {
+        "name": "seed",
+        "type": "integer",
+        "label": "Seed",
+        "description": "Random seed for reproducible outputs",
+        "default": null
+      },
+      {
+        "name": "steps",
+        "type": "integer",
+        "label": "Steps",
+        "default": 4,
+        "min_value": 1,
+        "max_value": 4
+      },
+      {
+        "name": "cfg",
+        "type": "float",
+        "label": "CFG Scale",
+        "default": 1.0,
+        "min_value": 1.0,
+        "max_value": 1.0
+      }
+    ]
+  },
+  "1": {
+    "class_type": "UNETLoader",
+    "inputs": {
+      "unet_name": "flux-2-klein-4b.safetensors",
+      "weight_dtype": "default"
+    }
+  },
+  "2": {
+    "class_type": "CLIPLoader",
+    "inputs": {
+      "clip_name": "qwen_3_4b.safetensors",
+      "type": "flux2",
+      "device": "default"
+    }
+  },
+  "3": {
+    "class_type": "VAELoader",
+    "inputs": {
+      "vae_name": "flux2-vae.safetensors"
+    }
+  },
+  "4": {
+    "class_type": "CLIPTextEncode",
+    "inputs": {
+      "clip": [
+        "2",
+        0
+      ],
+      "text": "Contemporary Dubai villa, warm limestone, shaded courtyard, golden hour, architectural photography"
+    }
+  },
+  "5": {
+    "class_type": "ConditioningZeroOut",
+    "inputs": {
+      "conditioning": [
+        "4",
+        0
+      ]
+    }
+  },
+  "6": {
+    "class_type": "EmptyFlux2LatentImage",
+    "inputs": {
+      "width": 1024,
+      "height": 768,
+      "batch_size": 1
+    }
+  },
+  "7": {
+    "class_type": "RandomNoise",
+    "inputs": {
+      "noise_seed": 42
+    }
+  },
+  "8": {
+    "class_type": "KSamplerSelect",
+    "inputs": {
+      "sampler_name": "euler"
+    }
+  },
+  "9": {
+    "class_type": "Flux2Scheduler",
+    "inputs": {
+      "steps": 4,
+      "width": 1024,
+      "height": 768
+    }
+  },
+  "10": {
+    "class_type": "CFGGuider",
+    "inputs": {
+      "model": [
+        "1",
+        0
+      ],
+      "positive": [
+        "4",
+        0
+      ],
+      "negative": [
+        "5",
+        0
+      ],
+      "cfg": 1.0
+    }
+  },
+  "11": {
+    "class_type": "SamplerCustomAdvanced",
+    "inputs": {
+      "noise": [
+        "7",
+        0
+      ],
+      "guider": [
+        "10",
+        0
+      ],
+      "sampler": [
+        "8",
+        0
+      ],
+      "sigmas": [
+        "9",
+        0
+      ],
+      "latent_image": [
+        "6",
+        0
+      ]
+    }
+  },
+  "12": {
+    "class_type": "VAEDecode",
+    "inputs": {
+      "samples": [
+        "11",
+        0
+      ],
+      "vae": [
+        "3",
+        0
+      ]
+    }
+  },
+  "13": {
+    "class_type": "SaveImage",
+    "inputs": {
+      "images": [
+        "12",
+        0
+      ],
+      "filename_prefix": "Expo_Flux_Klein"
+    }
+  }
+}

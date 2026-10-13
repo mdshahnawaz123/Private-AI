@@ -152,6 +152,24 @@ def process_document_pipeline(project_id, save_path, filename, resume=False, exp
         session.commit()
 
         doc = fitz.open(save_path)
+        # Purge dropped pages from prior revisions (e.g., page 3 dropped)
+        session.query(db.PageRecord).filter(
+            db.PageRecord.project_id == project_id,
+            db.PageRecord.document_filename == filename,
+            db.PageRecord.page_number > len(doc)
+        ).delete(synchronize_session=False)
+        session.query(db.ImageRecord).filter(
+            db.ImageRecord.project_id == project_id,
+            db.ImageRecord.document_filename == filename,
+            db.ImageRecord.page_number > len(doc)
+        ).delete(synchronize_session=False)
+        session.query(db.StructuredRecord).filter(
+            db.StructuredRecord.project_id == project_id,
+            db.StructuredRecord.doc == filename,
+            db.StructuredRecord.page > len(doc)
+        ).delete(synchronize_session=False)
+        session.commit()
+
         pipeline_warnings = bool(completed_pages and session.query(db.PageRecord).filter(
             db.PageRecord.project_id==project_id,db.PageRecord.document_filename==filename,
             db.PageRecord.page_status.in_(['REVIEW_REQUIRED','FAILED','PARTIAL'])).count())
@@ -164,13 +182,21 @@ def process_document_pipeline(project_id, save_path, filename, resume=False, exp
             if i+1 in completed_pages:
                 continue
             page = doc[i]
-            text = page.get_text("text").strip()
+            from services.pdf_text_quality import native_text_usable
+            raw_text = page.get_text("text").strip()
+            damaged_native = bool(raw_text) and not native_text_usable(raw_text, min_chars=1)
+            text = "" if damaged_native else raw_text
+            # Sanitize null bytes from garbled PDF text (prevents subprocess crash)
+            text = text.replace('\x00', '')
 
             tabs = []
             try:
                 tabs = page.find_tables().tables if page.find_tables() else []
             except:
                 pass
+
+            if damaged_native:
+                tabs = []
 
             pr = db.PageRecord(
                 project_id=project_id,
@@ -290,6 +316,7 @@ def process_document_pipeline(project_id, save_path, filename, resume=False, exp
                                         })
 
                     seen_records = set()
+                    seen_keys = set()
                     for out_row in rows_out:
                         row_key = out_row['entity']
                         col = out_row['field']
@@ -301,11 +328,7 @@ def process_document_pipeline(project_id, save_path, filename, resume=False, exp
                         unique_key = (project_id, filename, i + 1, row_key, col)
                         if unique_key in seen_records: continue
                         seen_records.add(unique_key)
-
-                        existing = session.query(db.StructuredRecord).filter_by(
-                            project_id=project_id, doc=filename, page=i + 1, entity=row_key, field=col
-                        ).first()
-                        if existing: continue
+                        seen_keys.add((row_key, col))
 
                         val = None
                         raw_clean = str(raw_val).replace(',', '').strip()
@@ -317,31 +340,62 @@ def process_document_pipeline(project_id, save_path, filename, resume=False, exp
                         # Mark confidence as HIGH or UNRESOLVED based on deterministic status
                         conf = "HIGH" if status == "SUCCESS" else "AMBIGUOUS"
 
-                        rec = db.StructuredRecord(
-                            project_id=project_id,
-                            doc=filename,
-                            page=i + 1,
-                            schedule=table_name,
-                            field=col,
-                            raw_value=str(raw_val),
-                            value=val,
-                            entity=row_key,
-                            row_label=row_label,
-                            column_label=col,
-                            confidence=conf,
-                            extraction_method="PYMUPDF_NATIVE",
-                            source_type="PDF_NATIVE",
-                            source_bbox=None
-                        )
-                        session.add(rec)
+                        existing = session.query(db.StructuredRecord).filter_by(
+                            project_id=project_id, doc=filename, page=i + 1, entity=row_key, field=col
+                        ).first()
+                        if existing:
+                            existing.value = val
+                            existing.raw_value = str(raw_val)
+                            existing.confidence = conf
+                            existing.schedule = table_name
+                            existing.row_label = row_label
+                            existing.column_label = col
+                            existing.extraction_method = "PYMUPDF_NATIVE"
+                            existing.source_type = "PDF_NATIVE"
+                        else:
+                            rec = db.StructuredRecord(
+                                project_id=project_id,
+                                doc=filename,
+                                page=i + 1,
+                                schedule=table_name,
+                                field=col,
+                                raw_value=str(raw_val),
+                                value=val,
+                                entity=row_key,
+                                row_label=row_label,
+                                column_label=col,
+                                confidence=conf,
+                                extraction_method="PYMUPDF_NATIVE",
+                                source_type="PDF_NATIVE",
+                                source_bbox=None
+                            )
+                            session.add(rec)
+
+                    # Delete stale native records for this page that are missing in the revision
+                    old_records = session.query(db.StructuredRecord).filter_by(
+                        project_id=project_id, doc=filename, page=i + 1, source_type="PDF_NATIVE"
+                    ).all()
+                    for old_rec in old_records:
+                        if (old_rec.entity, old_rec.field) not in seen_keys:
+                            session.delete(old_rec)
                     session.commit()
                 except Exception as e:
                     logger.error(f"Native extraction crashed: {e}")
                     raise RuntimeError('Native structured extraction incomplete') from e
+            else:
+                # Edge case 2: If the revised page has zero native tables (extraction returns zero rows or no tables),
+                # purge any old native records for this page
+                session.query(db.StructuredRecord).filter_by(
+                    project_id=project_id, doc=filename, page=i + 1, source_type="PDF_NATIVE"
+                ).delete()
+                session.commit()
 
             images = get_images_from_page(doc, i)
             pr.image_count = len(images)
             session.commit()
+
+            page_seen_img_ids = set()
+            page_seen_visual_keys = set()
 
             img_idx = 0
             for xref, base_image in images:
@@ -353,6 +407,7 @@ def process_document_pipeline(project_id, save_path, filename, resume=False, exp
                 itype = classify_image(w, h)
 
                 img_filename = f"p{i+1}_{img_idx}.{ext}"
+                page_seen_img_ids.add(img_filename)
                 img_path = os.path.join(render_dir, img_filename)
                 with open(img_path, "wb") as f:
                     f.write(image_bytes)
@@ -413,6 +468,8 @@ def process_document_pipeline(project_id, save_path, filename, resume=False, exp
                                 except:
                                     pass
 
+                                page_seen_visual_keys.add((row_key, col))
+
                                 # Duplicate check
                                 existing = session.query(db.StructuredRecord).filter_by(
                                     project_id=project_id,
@@ -421,7 +478,17 @@ def process_document_pipeline(project_id, save_path, filename, resume=False, exp
                                     entity=row_key,
                                     field=col
                                 ).first()
-                                if not existing:
+                                if existing:
+                                    existing.value = val
+                                    existing.raw_value = str(raw_val)
+                                    existing.confidence = "AMBIGUOUS"
+                                    existing.schedule = table_name
+                                    existing.row_label = row_key
+                                    existing.column_label = col
+                                    existing.extraction_method = ext_method
+                                    existing.source_type = "PDF_IMAGE"
+                                    existing.source_bbox = img_filename
+                                else:
                                     rec = db.StructuredRecord(
                                         project_id=project_id,
                                         doc=filename,
@@ -447,6 +514,23 @@ def process_document_pipeline(project_id, save_path, filename, resume=False, exp
 
                 session.commit()
                 img_idx += 1
+
+            # Purge stale ImageRecords for this page whose image_id was not produced in this revision
+            old_page_images = session.query(db.ImageRecord).filter_by(
+                project_id=project_id, document_filename=filename, page_number=i + 1
+            ).all()
+            for old_img in old_page_images:
+                if old_img.image_id not in page_seen_img_ids:
+                    session.delete(old_img)
+
+            # Purge stale visual StructuredRecords for this page missing in this revision (regardless of image rename/bbox)
+            old_image_records = session.query(db.StructuredRecord).filter_by(
+                project_id=project_id, doc=filename, page=i + 1, source_type="PDF_IMAGE"
+            ).all()
+            for old_rec in old_image_records:
+                if (old_rec.entity, old_rec.field) not in page_seen_visual_keys:
+                    session.delete(old_rec)
+            session.commit()
 
             page_images = session.query(db.ImageRecord).filter_by(
                 project_id=project_id, document_filename=filename, page_number=i+1).all()

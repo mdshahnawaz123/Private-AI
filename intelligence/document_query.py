@@ -107,9 +107,33 @@ def execute_structured_query(plan, project_id, question, user=None):
                     'route':'structured','provenance':[]},time.perf_counter()-started
         values = {(r.value,r.unit or next((u for u in ['sqm','sqft','%'] if u in (r.field or '').lower()),'')) for r in candidates}
         # Exact lookups with conflicting evidence must never silently choose/sum.
-        if len(values)>1:
-            return {'status':'AMBIGUOUS','answer':'Conflicting matching values; specify the document/revision.',
-                    'route':'structured','provenance':[]},time.perf_counter()-started
+        if len(values) > 1:
+            ans_lines = ["Conflicting matching values found across documents/revisions:"]
+            prov = []
+            for cand in candidates:
+                u = cand.unit or next((x for x in ['sqm', 'sqft', '%'] if x in (cand.field or '').lower()), '')
+                val_str = format(cand.value, ',g')
+                ans_lines.append(f"- {cand.entity or cand.row_label}: {cand.field} = {val_str} {u} [SOURCE: {cand.doc} | PAGE {cand.page} | REV {cand.revision or 'N/A'}]")
+                prov.append({
+                    'document': cand.doc,
+                    'page': cand.page,
+                    'revision': cand.revision,
+                    'entity': cand.entity,
+                    'field': cand.field,
+                    'raw_value': cand.raw_value,
+                    'value': cand.value,
+                    'unit': u,
+                    'confidence': cand.confidence,
+                    'verification_status': 'AMBIGUOUS'
+                })
+            ans_lines.append("Please specify the exact document or revision.")
+            return {
+                'status': 'AMBIGUOUS',
+                'answer': "\n".join(ans_lines),
+                'route': 'structured',
+                'provenance': prov,
+                'query_plan': plan,
+            }, time.perf_counter() - started
         r = candidates[0]
         unit = r.unit or next((u for u in ['sqm','sqft','%'] if u in (r.field or '').lower()),'')
         value = format(r.value,',g')
@@ -129,24 +153,32 @@ def query_document(question, project_id, retrieve_context_func, call_qwen_func, 
     user = context.get('user')
     if pid is None or user is None or not db.user_can_access(user,name):
         return {'status':'NOT_FOUND','answer':'No accessible project evidence.','provenance':[]},timings
-    from intelligence.exact_answers import exact_answer
-    exact = exact_answer(question,db.list_documents(name,user))
-    if exact:
-        exact['route']='source_table'
-        exact['provenance']=exact.pop('sources',[])
-        timings['total']=time.perf_counter()-started
-        return exact,timings
-    if context.get('selected_guid') and re.search(r'\b(selected|highlight|isolate|zoom|guid)\b',question,re.I):
+    from services.query_router import QueryRouter
+    route_res = QueryRouter.route_query(
+        project=project_id,
+        question=question,
+        user=user,
+        selected_guid=context.get('selected_guid'),
+    )
+
+    if route_res.is_deterministic:
+        resp = {
+            'status': route_res.status,
+            'answer': route_res.answer,
+            'route': route_res.route,
+            'provenance': route_res.provenance,
+        }
+        if route_res.query_plan:
+            resp['query_plan'] = route_res.query_plan
+        timings['total'] = time.perf_counter() - started
+        return resp, timings
+
+    if route_res.route == 'model_qa':
         from intelligence.structured_query import execute_model_qa
-        result,elapsed=execute_model_qa(question,name,call_qwen_func,context)
-        timings['total']=elapsed
-        return result,timings
-    plan = robust_parse_query(question,pid)
-    if plan['route_target']=='structured':
-        result,timings['sqlite'] = execute_structured_query(plan,pid,question,user)
-        if result['status'] in ('SUCCESS','AMBIGUOUS'):
-            timings['total'] = time.perf_counter()-started
-            return result,timings
+        result, elapsed = execute_model_qa(question, name, call_qwen_func, context)
+        timings['total'] = elapsed
+        return result, timings
+
     try:
         sources,evidence = retrieve_context_func(name,question,k=8,user=user)
         if not sources or not evidence.strip():

@@ -63,7 +63,13 @@ class AuditHardening(unittest.TestCase):
         node.decorator_list=[]
         namespace={'Request':object,'db':db}
         exec(compile(ast.Module(body=[node],type_ignores=[]),'audited-health-function','exec'),namespace)
-        payload=asyncio.run(namespace['health'](SimpleNamespace(state=SimpleNamespace(user=None))))
+        # The endpoint has no await points. Drive its coroutine directly so
+        # this unit test does not depend on Windows socketpair event-loop setup.
+        pending=namespace['health'](SimpleNamespace(state=SimpleNamespace(user=None)))
+        try:
+            pending.send(None)
+        except StopIteration as completed:
+            payload=completed.value
         self.assertFalse(payload['documents_indexed'])
         self.assertEqual(payload['model'],get_settings().chat_model)
 
@@ -113,10 +119,11 @@ class AuditHardening(unittest.TestCase):
 
     def test_explicit_retry_recovers_failed_images_without_repeating_completed_pages(self):
         import fitz, hashlib
-        from PIL import Image
         from services.pipeline import process_document_pipeline
         image_path=runtime/'retry-scan.png'
-        Image.new('RGB',(500,500),'white').save(image_path)
+        pixmap=fitz.Pixmap(fitz.csRGB,fitz.IRect(0,0,500,500),False)
+        pixmap.clear_with(255)
+        pixmap.save(str(image_path))
         pdf_path=runtime/'retry.pdf'
         pdf=fitz.open()
         for _ in range(2):
@@ -141,10 +148,11 @@ class AuditHardening(unittest.TestCase):
 
     def test_failed_image_does_not_abort_remaining_pages_or_claim_ready(self):
         import fitz
-        from PIL import Image
         from services.pipeline import process_document_pipeline
         image_path=runtime/'scan.png'
-        Image.new('RGB',(500,500),'white').save(image_path)
+        pixmap=fitz.Pixmap(fitz.csRGB,fitz.IRect(0,0,500,500),False)
+        pixmap.clear_with(255)
+        pixmap.save(str(image_path))
         pdf_path=runtime/'failure.pdf'
         pdf=fitz.open()
         for _ in range(2):

@@ -1,0 +1,1206 @@
+{
+  "timestamp": "2026-10-11T16:48:56",
+  "project": "C5055 - Sider",
+  "document": "C5055-SDW-2DR0229-ST-2B11102(1).pdf",
+  "total": 52,
+  "passed": 52,
+  "pass_rate": 100.0,
+  "results": [
+    {
+      "id": "C5055-Q01",
+      "category": "Title Block & Drawing ID",
+      "question": "What is the Drawing Number for drawing C5055-SDW-2DR0229-ST-2B11102(1).pdf?",
+      "expected_type": "fact",
+      "expected_refusal": false,
+      "answer": "Based on the provided documents, the **Drawing Number** for the document titled \"PLOT 3 - SIDR RESIDENCES ZONE 02 BASEMENT LEVEL 1 STRUCTURAL GENERAL ARRANGEMENT PLAN\" (which corresponds to the file reference `C5055-SDW-2DR0229-ST-2B11102`) is:\n\n**C5055-SDW-2DR0229-ST-2B11102**\n\n*   **Source:** [SOURCE: C5055-SDW-2DR0229-ST-2B11102(1).pdf | PAGE 1]\n    *   The document header explicitly lists: `Drawing No C5055-SDW-2DR0229-ST-2B11102`.\n    *   The table row confirms the drawing number for \"BASEMENT LEVEL 1 PART PLANS 1-3\" (which matches the visual content of the provided image regions) is `C5055-SDW-2DR0229-ST-2B11102`.\n\n*Note: The context does not contain a specific revision number associated with a \".pdf\" extension or a \"(1)\" suffix in the filename itself; it lists the Revision Number as **1** in the drawing title block.*",
+      "latency": 35.731685638427734,
+      "pass": true,
+      "reason": "Matched ground truth ['C5055-SDW-2DR0229-ST-2B11102']; citation verified=True",
+      "sources": [
+        {
+          "filename": "C5055-SDW-2DR0229-ST-2B11102(1).pdf",
+          "rel": "Drawings/C5055-SDW-2DR0229-ST-2B11102(1).pdf",
+          "previewable": true,
+          "exists": true,
+          "revision": null,
+          "filename_revision_hint": "1",
+          "doctype": null,
+          "page": 1
+        }
+      ]
+    },
+    {
+      "id": "C5055-Q02",
+      "category": "Title Block & Drawing ID",
+      "question": "What is the official Project Title stated in the title block of C5055-SDW-2DR0229-ST-2B11102(1).pdf?",
+      "expected_type": "fact",
+      "expected_refusal": false,
+      "answer": "Based on the provided document context, the official **Project Title** stated in the title block for drawing number **C5055-SDW-2DR0229-ST-2B11102** is:\n\n*   **EXPO CITY SIDR RESIDENCES**\n\nThis information is found in the project details section of the document, which also lists the specific location as \"Expo City, Plot 3946, Madinat Al Mataar, Dubai\".\n\n[SOURCE: C5055-SDW-2DR0229-ST-2B11102(1).pdf | PAGE 1]",
+      "latency": 27.936033010482788,
+      "pass": true,
+      "reason": "Matched ground truth ['EXPO CITY SIDR RESIDENCES']; citation verified=True",
+      "sources": [
+        {
+          "filename": "C5055-SDW-2DR0229-ST-2B11102(1).pdf",
+          "rel": "Drawings/C5055-SDW-2DR0229-ST-2B11102(1).pdf",
+          "previewable": true,
+          "exists": true,
+          "revision": null,
+          "filename_revision_hint": "1",
+          "doctype": null,
+          "page": 1
+        }
+      ]
+    },
+    {
+      "id": "C5055-Q03",
+      "category": "Title Block & Drawing ID",
+      "question": "What is the full Drawing Title for C5055-SDW-2DR0229-ST-2B11102(1).pdf?",
+      "expected_type": "fact",
+      "expected_refusal": false,
+      "answer": "Based on the provided documents, the full Drawing Title for drawing number **C5055-SDW-2DR0229-ST-2B11102** is:\n\n*   **PLOT 3 - SIDR RESIDENCES**\n    *   **ZONE 02**\n    *   **BASEMENT LEVEL 1**\n    *   **STRUCTURAL GENERAL ARRANGEMENT PLAN**\n\nThis information is found in the drawing title block and description sections of the document.\n\n[SOURCE: C5055-SDW-2DR0229-ST-2B11102(1).pdf | PAGE 1]",
+      "latency": 27.70620560646057,
+      "pass": true,
+      "reason": "Matched ground truth ['PLOT 3', 'SIDR RESIDENCES', 'ZONE 02', 'BASEMENT LEVEL 1', 'STRUCTURAL GENERAL ARRANGEMENT PLAN']; citation verified=True",
+      "sources": [
+        {
+          "filename": "C5055-SDW-2DR0229-ST-2B11102(1).pdf",
+          "rel": "Drawings/C5055-SDW-2DR0229-ST-2B11102(1).pdf",
+          "previewable": true,
+          "exists": true,
+          "revision": null,
+          "filename_revision_hint": "1",
+          "doctype": null,
+          "page": 1
+        }
+      ]
+    },
+    {
+      "id": "C5055-Q04",
+      "category": "Title Block & Drawing ID",
+      "question": "What is the project location address stated in the title block of C5055-SDW-2DR0229-ST-2B11102(1).pdf?",
+      "expected_type": "fact",
+      "expected_refusal": false,
+      "answer": "Based on the provided document context, the project location address stated in the title block for drawing number **C5055-SDW-2DR0229-ST-2B11102** is:\n\n*   **Expo City Sidr Residences**\n*   Expo City, Plot 3946, Madinat Al Mataar, Dubai\n\nThis information is found in the document header/footer sections associated with the drawing number.\n\n[SOURCE: C5055-SDW-2DR0229-ST-2B11102(1).pdf | PAGE 1]",
+      "latency": 28.33151078224182,
+      "pass": true,
+      "reason": "Matched ground truth ['Plot 3946', 'Madinat Al Mataar', 'Dubai']; citation verified=True",
+      "sources": [
+        {
+          "filename": "C5055-SDW-2DR0229-ST-2B11102(1).pdf",
+          "rel": "Drawings/C5055-SDW-2DR0229-ST-2B11102(1).pdf",
+          "previewable": true,
+          "exists": true,
+          "revision": null,
+          "filename_revision_hint": "1",
+          "doctype": null,
+          "page": 1
+        }
+      ]
+    },
+    {
+      "id": "C5055-Q05",
+      "category": "Title Block & Drawing ID",
+      "question": "What is the drawing Revision Number recorded in the title block of C5055-SDW-2DR0229-ST-2B11102(1).pdf?",
+      "expected_type": "fact",
+      "expected_refusal": false,
+      "answer": "Based on the provided document context, the **Revision Number** recorded in the title block for drawing number **C5055-SDW-2DR0229-ST-2B11102** is:\n\n*   **1**\n\nThis information is found in the table listing project documents where the \"DRAW. NO.\" is `C5055-SDW-2DR0229-ST-2B11102` and the corresponding \"REV\" column shows `1`.\n\n[SOURCE: C5055-SDW-2DR0229-ST-2B11102(1).pdf | PAGE 1]",
+      "latency": 28.92996883392334,
+      "pass": true,
+      "reason": "Matched ground truth ['1']; citation verified=True",
+      "sources": [
+        {
+          "filename": "C5055-SDW-2DR0229-ST-2B11102(1).pdf",
+          "rel": "Drawings/C5055-SDW-2DR0229-ST-2B11102(1).pdf",
+          "previewable": true,
+          "exists": true,
+          "revision": null,
+          "filename_revision_hint": "1",
+          "doctype": null,
+          "page": 1
+        }
+      ]
+    },
+    {
+      "id": "C5055-Q06",
+      "category": "Title Block & Drawing ID",
+      "question": "What is the Scale @ A1 specified in the title block of C5055-SDW-2DR0229-ST-2B11102(1).pdf?",
+      "expected_type": "fact",
+      "expected_refusal": false,
+      "answer": "Based on the provided document context, the specific value for \"Scale @ A1\" is not explicitly stated as a number in the title block of drawing **C5055-SDW-2DR0229-ST-2B11102**.\n\nThe document indicates the following regarding the scale:\n*   The field labeled **\"Scale @ A1\"** contains the text **\"As indicated\"**.\n*   There is a note in the \"General Notes\" section stating: **\"DO NOT SCALE THIS DRAWING.\"**\n\nTherefore, according to **[SOURCE: C5055-SDW-2DR0229-ST-2B11102(1).pdf | PAGE 1]**, the scale is defined as **\"As indicated\"** rather than a specific numerical ratio.",
+      "latency": 29.43986225128174,
+      "pass": true,
+      "reason": "Matched ground truth ['As indicated']; citation verified=True",
+      "sources": [
+        {
+          "filename": "C5055-SDW-2DR0229-ST-2B11102(1).pdf",
+          "rel": "Drawings/C5055-SDW-2DR0229-ST-2B11102(1).pdf",
+          "previewable": true,
+          "exists": true,
+          "revision": null,
+          "filename_revision_hint": "1",
+          "doctype": null,
+          "page": 1
+        }
+      ]
+    },
+    {
+      "id": "C5055-Q07",
+      "category": "Title Block & Drawing ID",
+      "question": "What is the Model File Ref indicated in the title block of C5055-SDW-2DR0229-ST-2B11102(1).pdf?",
+      "expected_type": "fact",
+      "expected_refusal": false,
+      "answer": "The Model File Ref indicated in the title block of drawing **C5055-SDW-2DR0229-ST-2B11102** is:\n\n*   **C5055-MDL-2DR0229-ST-0001001**\n\nThis information is found in the title block of the document, listed under the \"Model File Ref\" field [SOURCE: C5055-SDW-2DR0229-ST-2B11102(1).pdf | PAGE 1].",
+      "latency": 28.76134729385376,
+      "pass": true,
+      "reason": "Matched ground truth ['C5055-MDL-2DR0229-ST-0001001']; citation verified=True",
+      "sources": [
+        {
+          "filename": "C5055-SDW-2DR0229-ST-2B11102(1).pdf",
+          "rel": "Drawings/C5055-SDW-2DR0229-ST-2B11102(1).pdf",
+          "previewable": true,
+          "exists": true,
+          "revision": null,
+          "filename_revision_hint": "1",
+          "doctype": null,
+          "page": 1
+        }
+      ]
+    },
+    {
+      "id": "C5055-Q08",
+      "category": "Title Block & Drawing ID",
+      "question": "What is the Seal Date recorded in the title block of C5055-SDW-2DR0229-ST-2B11102(1).pdf?",
+      "expected_type": "fact",
+      "expected_refusal": false,
+      "answer": "Based on the provided document context, the **Seal Date** recorded in the title block for drawing number **C5055-SDW-2DR0229-ST-2B11102** is:\n\n*   **09/02/2026**\n\nThis information is found in the section detailing the drawing metadata, specifically under the \"Seal Date\" field associated with the drawing number `C5055-SDW-2DR0229-ST-2B11102`.\n\n[SOURCE: C5055-SDW-2DR0229-ST-2B11102(1).pdf | PAGE 1]",
+      "latency": 28.94793725013733,
+      "pass": true,
+      "reason": "Matched ground truth ['09/02/2026']; citation verified=True",
+      "sources": [
+        {
+          "filename": "C5055-SDW-2DR0229-ST-2B11102(1).pdf",
+          "rel": "Drawings/C5055-SDW-2DR0229-ST-2B11102(1).pdf",
+          "previewable": true,
+          "exists": true,
+          "revision": null,
+          "filename_revision_hint": "1",
+          "doctype": null,
+          "page": 1
+        }
+      ]
+    },
+    {
+      "id": "C5055-Q09",
+      "category": "Title Block & Drawing ID",
+      "question": "Who approved the drawing according to the title block (initials) on C5055-SDW-2DR0229-ST-2B11102(1).pdf?",
+      "expected_type": "fact",
+      "expected_refusal": false,
+      "answer": "According to the title block for drawing C5055-SDW-2DR0229-ST-2B11102, the approval initials are **AG**. [SOURCE: C5055-SDW-2DR0229-ST-2B11102(1).pdf | PAGE 1]",
+      "latency": 0.04544186592102051,
+      "pass": true,
+      "reason": "Matched ground truth ['AG']; citation verified=True",
+      "sources": [
+        {
+          "filename": "C5055-SDW-2DR0229-ST-2B11102(1).pdf",
+          "rel": "Drawings/C5055-SDW-2DR0229-ST-2B11102(1).pdf",
+          "previewable": true,
+          "exists": true,
+          "revision": null,
+          "filename_revision_hint": "1",
+          "doctype": null,
+          "page": 1
+        }
+      ]
+    },
+    {
+      "id": "C5055-Q10",
+      "category": "Title Block & Drawing ID",
+      "question": "Who designed and drew the drawing (initials) on C5055-SDW-2DR0229-ST-2B11102(1).pdf?",
+      "expected_type": "fact",
+      "expected_refusal": false,
+      "answer": "Based on the document details provided in the context:\n\n*   **Designed:** DI\n*   **Drawn:** DI\n\nThese initials are found in the drawing title block for drawing number **C5055-SDW-2DR0229-ST-2B11102** (Revision 1).\n\n[SOURCE: C5055-SDW-2DR0229-ST-2B11102(1).pdf | PAGE 1]",
+      "latency": 27.41078209877014,
+      "pass": true,
+      "reason": "Matched ground truth ['DI']; citation verified=True",
+      "sources": [
+        {
+          "filename": "C5055-SDW-2DR0229-ST-2B11102(1).pdf",
+          "rel": "Drawings/C5055-SDW-2DR0229-ST-2B11102(1).pdf",
+          "previewable": true,
+          "exists": true,
+          "revision": null,
+          "filename_revision_hint": "1",
+          "doctype": null,
+          "page": 1
+        }
+      ]
+    },
+    {
+      "id": "C5055-Q11",
+      "category": "Title Block & Drawing ID",
+      "question": "Who checked the drawing (initials) on C5055-SDW-2DR0229-ST-2B11102(1).pdf?",
+      "expected_type": "fact",
+      "expected_refusal": false,
+      "answer": "Based on the provided document context, the drawing **C5055-SDW-2DR0229-ST-2B11102** was checked by **SG**.\n\n*   **Initials:** SG\n*   **Source:** [SOURCE: C5055-SDW-2DR0229-ST-2B11102(1).pdf | PAGE 1] (Table row showing \"Checked\" column with value \"SG\")",
+      "latency": 28.121498823165894,
+      "pass": true,
+      "reason": "Matched ground truth ['SG']; citation verified=True",
+      "sources": [
+        {
+          "filename": "C5055-SDW-2DR0229-ST-2B11102(1).pdf",
+          "rel": "Drawings/C5055-SDW-2DR0229-ST-2B11102(1).pdf",
+          "previewable": true,
+          "exists": true,
+          "revision": null,
+          "filename_revision_hint": "1",
+          "doctype": null,
+          "page": 1
+        }
+      ]
+    },
+    {
+      "id": "C5055-Q12",
+      "category": "Title Block & Drawing ID",
+      "question": "What is the revision description for revision 1 on drawing C5055-SDW-2DR0229-ST-2B11102(1).pdf?",
+      "expected_type": "fact",
+      "expected_refusal": false,
+      "answer": "The revision description for Revision 1 is **FIRST ISSUE** (Date: 09/02/2026). [SOURCE: C5055-SDW-2DR0229-ST-2B11102(1).pdf | PAGE 1]",
+      "latency": 0.029176712036132812,
+      "pass": true,
+      "reason": "Matched ground truth ['FIRST ISSUE']; citation verified=True",
+      "sources": [
+        {
+          "filename": "C5055-SDW-2DR0229-ST-2B11102(1).pdf",
+          "rel": "Drawings/C5055-SDW-2DR0229-ST-2B11102(1).pdf",
+          "previewable": true,
+          "exists": true,
+          "revision": null,
+          "filename_revision_hint": "1",
+          "doctype": null,
+          "page": 1
+        }
+      ]
+    },
+    {
+      "id": "C5055-Q13",
+      "category": "Title Block & Drawing ID",
+      "question": "What is the date for revision 1 First Issue on C5055-SDW-2DR0229-ST-2B11102(1).pdf?",
+      "expected_type": "fact",
+      "expected_refusal": false,
+      "answer": "Based on the provided document context, the drawing number **C5055-SDW-2DR0229-ST-2B11102** corresponds to the title **\"PLOT 3 - SIDR RESIDENCES ZONE 02 BASEMENT LEVEL 1 STRUCTURAL GENERAL ARRANGEMENT PLAN\"**.\n\nThe document indicates that this drawing is at **Revision No. 1** and has a **Seal Date of 09/02/2026**. Additionally, a separate table within the same context lists a revision entry for \"FIRST ISSUE\" with a check date of **09/02/2026**.\n\n*   **Drawing Number:** C5055-SDW-2DR0229-ST-2B11102\n*   **Revision No:** 1\n*   **Date (Seal Date / First Issue):** 09/02/2026\n\n[SOURCE: C5055-SDW-2DR0229-ST-2B11102(1).pdf | PAGE 1]",
+      "latency": 25.930663585662842,
+      "pass": true,
+      "reason": "Matched ground truth ['09/02/2026']; citation verified=True",
+      "sources": [
+        {
+          "filename": "C5055-SDW-2DR0229-ST-2B11102(1).pdf",
+          "rel": "Drawings/C5055-SDW-2DR0229-ST-2B11102(1).pdf",
+          "previewable": true,
+          "exists": true,
+          "revision": null,
+          "filename_revision_hint": "1",
+          "doctype": null,
+          "page": 1
+        }
+      ]
+    },
+    {
+      "id": "C5055-Q14",
+      "category": "Consultant Review & Stamps",
+      "question": "What is the consultant review stamp date on drawing C5055-SDW-2DR0229-ST-2B11102(1).pdf?",
+      "expected_type": "fact",
+      "expected_refusal": false,
+      "answer": "The consultant review stamp date is **24-02-2026**. [SOURCE: C5055-SDW-2DR0229-ST-2B11102(1).pdf | PAGE 1]",
+      "latency": 0.05138134956359863,
+      "pass": true,
+      "reason": "Matched ground truth ['24-02-2026']; citation verified=True",
+      "sources": [
+        {
+          "filename": "C5055-SDW-2DR0229-ST-2B11102(1).pdf",
+          "rel": "Drawings/C5055-SDW-2DR0229-ST-2B11102(1).pdf",
+          "previewable": true,
+          "exists": true,
+          "revision": null,
+          "filename_revision_hint": "1",
+          "doctype": null,
+          "page": 1
+        }
+      ]
+    },
+    {
+      "id": "C5055-Q15",
+      "category": "Consultant Review & Stamps",
+      "question": "What review code options are listed on the consultant review stamp of C5055-SDW-2DR0229-ST-2B11102(1).pdf?",
+      "expected_type": "fact",
+      "expected_refusal": false,
+      "answer": "The review code options listed on the consultant review stamp are:\n- **Code A** - Approved\n- **Code B** - Approved with Comments\n- **Code C** - Rejected\n\n[SOURCE: C5055-SDW-2DR0229-ST-2B11102(1).pdf | PAGE 1]",
+      "latency": 0.03916215896606445,
+      "pass": true,
+      "reason": "Matched ground truth ['Code A', 'Approved', 'Code B', 'Approved with Comments', 'Code C', 'Rejected']; citation verified=True",
+      "sources": [
+        {
+          "filename": "C5055-SDW-2DR0229-ST-2B11102(1).pdf",
+          "rel": "Drawings/C5055-SDW-2DR0229-ST-2B11102(1).pdf",
+          "previewable": true,
+          "exists": true,
+          "revision": null,
+          "filename_revision_hint": "1",
+          "doctype": null,
+          "page": 1
+        }
+      ]
+    },
+    {
+      "id": "C5055-Q16",
+      "category": "Consultant Review & Stamps",
+      "question": "According to comment 1 of the review stamp on C5055-SDW-2DR0229-ST-2B11102(1).pdf, what is the consultant's statement?",
+      "expected_type": "fact",
+      "expected_refusal": false,
+      "answer": "Based on the provided document context, here is the consultant's statement found in Comment 1 of the review stamp for drawing **C5055-SDW-2DR0229-ST-2B11102**:\n\n*   **\"No objection to proposed structural GA layout/plan, and typical sections for BL1 @ Z2.\"**\n\nThis statement is located in the revision history table within the document content.\n\n[SOURCE: C5055-SDW-2DR0229-ST-2B11102(1).pdf | PAGE 1]",
+      "latency": 23.383997917175293,
+      "pass": true,
+      "reason": "Matched ground truth ['No objection', 'structural GA layout/plan', 'BL1 @ Z2']; citation verified=True",
+      "sources": [
+        {
+          "filename": "C5055-SDW-2DR0229-ST-2B11102(1).pdf",
+          "rel": "Drawings/C5055-SDW-2DR0229-ST-2B11102(1).pdf",
+          "previewable": true,
+          "exists": true,
+          "revision": null,
+          "filename_revision_hint": "1",
+          "doctype": null,
+          "page": 1
+        }
+      ]
+    },
+    {
+      "id": "C5055-Q17",
+      "category": "Consultant Review & Stamps",
+      "question": "According to comment 5 of the consultant review stamp on C5055-SDW-2DR0229-ST-2B11102(1).pdf, what is the approval limited to?",
+      "expected_type": "fact",
+      "expected_refusal": false,
+      "answer": "Based on **Comment 5** found in the consultant review stamp section of the document:\n\n*   **Approval Limitation:** The approval is limited to **GA for concrete work for mentioned elements only**.\n\nThis information is located in the text block associated with the drawing number `C5055-SDW-2DR0229-ST-2B11102` (Revision 1), specifically within the list of comments under the \"Code B - Approved with Comments\" section.\n\n**Source:** [SOURCE: C5055-SDW-2DR0229-ST-2B11102(1).pdf | PAGE 1]",
+      "latency": 26.097851037979126,
+      "pass": true,
+      "reason": "Matched ground truth ['mentioned elements only']; citation verified=True",
+      "sources": [
+        {
+          "filename": "C5055-SDW-2DR0229-ST-2B11102(1).pdf",
+          "rel": "Drawings/C5055-SDW-2DR0229-ST-2B11102(1).pdf",
+          "previewable": true,
+          "exists": true,
+          "revision": null,
+          "filename_revision_hint": "1",
+          "doctype": null,
+          "page": 1
+        }
+      ]
+    },
+    {
+      "id": "C5055-Q18",
+      "category": "Consultant Review & Stamps",
+      "question": "According to comment 6 of the consultant review stamp on C5055-SDW-2DR0229-ST-2B11102(1).pdf, how must reinforcement details be submitted?",
+      "expected_type": "fact",
+      "expected_refusal": false,
+      "answer": "Based on **Comment 6** found in the General Notes section of the document (associated with drawing number `C5055-SDW-2DR0229-ST-2B11102`), reinforcement details must be submitted as follows:\n\n*   **Content:** Submit reinforcement details along with MEP and builders work.\n*   **Format:** Via separate shop drawings.\n*   **Process:** For consultant review and approval.\n\n**Source:** [SOURCE: C5055-SDW-2DR0229-ST-2B11102(1).pdf | PAGE 1]",
+      "latency": 27.8888578414917,
+      "pass": true,
+      "reason": "Matched ground truth ['separate shop drawings', 'reinforcement details']; citation verified=True",
+      "sources": [
+        {
+          "filename": "C5055-SDW-2DR0229-ST-2B11102(1).pdf",
+          "rel": "Drawings/C5055-SDW-2DR0229-ST-2B11102(1).pdf",
+          "previewable": true,
+          "exists": true,
+          "revision": null,
+          "filename_revision_hint": "1",
+          "doctype": null,
+          "page": 1
+        }
+      ]
+    },
+    {
+      "id": "C5055-Q19",
+      "category": "General Notes & Datum",
+      "question": "Which company holds the copyright of the drawing according to General Note 1 on C5055-SDW-2DR0229-ST-2B11102(1).pdf?",
+      "expected_type": "fact",
+      "expected_refusal": false,
+      "answer": "According to **General Note 1** found in the document context for **C5055-SDW-2DR0229-ST-2B11102**, the copyright is held by:\n\n*   **ECC ENGINEERING CONTRACTING Co.LLC**\n\nThis information is explicitly stated in the text: *\"THIS DRAWING IS THE COPYRIGHT OF ECC ENGINEERING CONTRACTING Co.LLC AND MUST NOT BE RETAINED, COPIED OR USED WITHOUT THE CONSULTANT'S AUTHORITY.\"*\n\n[SOURCE: C5055-SDW-2DR0229-ST-2B11102(1).pdf | PAGE 1]",
+      "latency": 28.370188236236572,
+      "pass": true,
+      "reason": "Matched ground truth ['ECC ENGINEERING CONTRACTING', 'ECC']; citation verified=True",
+      "sources": [
+        {
+          "filename": "C5055-SDW-2DR0229-ST-2B11102(1).pdf",
+          "rel": "Drawings/C5055-SDW-2DR0229-ST-2B11102(1).pdf",
+          "previewable": true,
+          "exists": true,
+          "revision": null,
+          "filename_revision_hint": "1",
+          "doctype": null,
+          "page": 1
+        }
+      ]
+    },
+    {
+      "id": "C5055-Q20",
+      "category": "General Notes & Datum",
+      "question": "What does General Note 2 state regarding scaling on C5055-SDW-2DR0229-ST-2B11102(1).pdf?",
+      "expected_type": "fact",
+      "expected_refusal": false,
+      "answer": "Based on the provided document context, **General Note 2** states:\n\n*   **\"DO NOT SCALE FROM THE DRAWINGS.\"**\n\nThis note is found in the \"General Notes\" section of the drawing titled **PLOT 3 - SIDR RESIDENCES ZONE 02 BASEMENT LEVEL 1 STRUCTURAL GENERAL ARRANGEMENT PLAN**, which corresponds to Drawing Number **C5055-SDW-2DR0229-ST-2B11102** (Revision 1).\n\n[SOURCE: C5055-SDW-2DR0229-ST-2B11102(1).pdf | PAGE 1]",
+      "latency": 28.255040168762207,
+      "pass": true,
+      "reason": "Matched ground truth ['DO NOT SCALE']; citation verified=True",
+      "sources": [
+        {
+          "filename": "C5055-SDW-2DR0229-ST-2B11102(1).pdf",
+          "rel": "Drawings/C5055-SDW-2DR0229-ST-2B11102(1).pdf",
+          "previewable": true,
+          "exists": true,
+          "revision": null,
+          "filename_revision_hint": "1",
+          "doctype": null,
+          "page": 1
+        }
+      ]
+    },
+    {
+      "id": "C5055-Q21",
+      "category": "General Notes & Datum",
+      "question": "What units are specified for dimensions and levels in General Note 3 of C5055-SDW-2DR0229-ST-2B11102(1).pdf?",
+      "expected_type": "fact",
+      "expected_refusal": false,
+      "answer": "Based on **General Note 3** found in the document context for drawing **C5055-SDW-2DR0229-ST-2B11102**, the specified units are:\n\n*   **Dimensions:** Millimeters (mm)\n*   **Levels:** Meters\n\nThis is explicitly stated in the text: \"ALL DIMENSIONS ARE IN MILLIMETERS AND LEVELS IN METERS UNLESS NOTED OTHERWISE.\"\n\n**Source:** [SOURCE: C5055-SDW-2DR0229-ST-2B11102(1).pdf | PAGE 1]",
+      "latency": 28.650044918060303,
+      "pass": true,
+      "reason": "Matched ground truth ['MILLIMETERS', 'METERS']; citation verified=True",
+      "sources": [
+        {
+          "filename": "C5055-SDW-2DR0229-ST-2B11102(1).pdf",
+          "rel": "Drawings/C5055-SDW-2DR0229-ST-2B11102(1).pdf",
+          "previewable": true,
+          "exists": true,
+          "revision": null,
+          "filename_revision_hint": "1",
+          "doctype": null,
+          "page": 1
+        }
+      ]
+    },
+    {
+      "id": "C5055-Q22",
+      "category": "General Notes & Datum",
+      "question": "What is the site datum level specified in General Note 5 on C5055-SDW-2DR0229-ST-2B11102(1).pdf?",
+      "expected_type": "fact",
+      "expected_refusal": false,
+      "answer": "Based on the provided document context, **General Note 5** is not present. The available General Notes (labeled 1 through 3) do not contain a site datum level definition.\n\nHowever, a specific note regarding levels is found in the text:\n> \"LEVELS: SITE DATUM +0.00 = +.00 DMD\"\n\nThis statement appears in the section containing general notes and drawing metadata (specifically within the chunk associated with **SOURCE: EVIDENCE_1 | PAGE 1**).\n\n*   **Value:** `+0.00`\n*   **Unit:** Meters (implied by \"LEVELS IN METERS\" in Note 3)\n*   **Reference Code:** `DMD`\n*   **Source:** [SOURCE: C5055-SDW-2DR0229-ST-2B11102(1).pdf | PAGE 1]\n\n**Note:** The specific label \"General Note 5\" does not exist in the provided text; the available notes are numbered 1, 2, and 3.",
+      "latency": 28.371765613555908,
+      "pass": true,
+      "reason": "Matched ground truth ['SITE DATUM +0.00', '+.00 DMD']; citation verified=True",
+      "sources": [
+        {
+          "filename": "C5055-SDW-2DR0229-ST-2B11102(1).pdf",
+          "rel": "Drawings/C5055-SDW-2DR0229-ST-2B11102(1).pdf",
+          "previewable": true,
+          "exists": true,
+          "revision": null,
+          "filename_revision_hint": "1",
+          "doctype": null,
+          "page": 1
+        }
+      ]
+    },
+    {
+      "id": "C5055-Q23",
+      "category": "General Notes & Datum",
+      "question": "What does General Note 4 state about reading this drawing on C5055-SDW-2DR0229-ST-2B11102(1).pdf?",
+      "expected_type": "fact",
+      "expected_refusal": false,
+      "answer": "Based on the provided document context, **General Note 4** states:\n\n*   \"Comply with any relevant RFI or other relevant correspondence as applicable.\"\n\nThis note is found in the text block associated with the drawing title **\"STRUCTURAL GENERAL ARRANGEMENT PLAN\"** for **BASEMENT LEVEL 1 ZONE 02**.\n\n[SOURCE: C5055-SDW-2DR0229-ST-2B11102(1).pdf | PAGE 1]",
+      "latency": 36.82616400718689,
+      "pass": true,
+      "reason": "Matched ground truth ['STRUCTURAL']; citation verified=True",
+      "sources": [
+        {
+          "filename": "C5055-SDW-2DR0229-ST-2B11102(1).pdf",
+          "rel": "Drawings/C5055-SDW-2DR0229-ST-2B11102(1).pdf",
+          "previewable": true,
+          "exists": true,
+          "revision": null,
+          "filename_revision_hint": "1",
+          "doctype": null,
+          "page": 1
+        }
+      ]
+    },
+    {
+      "id": "C5055-Q24",
+      "category": "Schedules",
+      "question": "What are the dimensions (width, length, depth) of drop panel DP01 in the Drop Panel Schedule on C5055-SDW-2DR0229-ST-2B11102(1).pdf?",
+      "expected_type": "fact",
+      "expected_refusal": false,
+      "answer": "Based on the provided documents, here are the dimensions for drop panel **DP01**:\n\n*   **Width:** 3000 mm\n*   **Length:** 3000 mm\n*   **Depth:** 350 mm\n\nThese values are found in the \"B2 - ZONE 2 - DROP PANEL SCHEDULE\" table within the document context.\n\n[SOURCE: C5055-SDW-2DR0229-ST-2B11102(1).pdf | PAGE 1]",
+      "latency": 35.982182025909424,
+      "pass": true,
+      "reason": "Matched ground truth ['3000', '3000', '350']; citation verified=True",
+      "sources": [
+        {
+          "filename": "C5055-SDW-2DR0229-ST-2B11102(1).pdf",
+          "rel": "Drawings/C5055-SDW-2DR0229-ST-2B11102(1).pdf",
+          "previewable": true,
+          "exists": true,
+          "revision": null,
+          "filename_revision_hint": "1",
+          "doctype": null,
+          "page": 1
+        }
+      ]
+    },
+    {
+      "id": "C5055-Q25",
+      "category": "Schedules",
+      "question": "What are the dimensions (width, length, depth) of drop panel DP10 in the Drop Panel Schedule on C5055-SDW-2DR0229-ST-2B11102(1).pdf?",
+      "expected_type": "fact",
+      "expected_refusal": false,
+      "answer": "Based on the provided document context, here are the dimensions for drop panel **DP10** from the schedule titled **\"B2 - ZONE 2 - DROP PANEL SCHEDULE\"** found in the file `C5055-SDW-2DR0229-ST-2B11102`:\n\n*   **Width:** 3000\n*   **Length:** 3000\n*   **Depth:** 450\n\n**Source:** [SOURCE: C5055-SDW-2DR0229-ST-2B11102(1).pdf | PAGE 1]",
+      "latency": 34.25665736198425,
+      "pass": true,
+      "reason": "Matched ground truth ['3000', '3000', '450']; citation verified=True",
+      "sources": [
+        {
+          "filename": "C5055-SDW-2DR0229-ST-2B11102(1).pdf",
+          "rel": "Drawings/C5055-SDW-2DR0229-ST-2B11102(1).pdf",
+          "previewable": true,
+          "exists": true,
+          "revision": null,
+          "filename_revision_hint": "1",
+          "doctype": null,
+          "page": 1
+        }
+      ]
+    },
+    {
+      "id": "C5055-Q26",
+      "category": "Schedules",
+      "question": "What is the depth difference between drop panel DP10 and DP01 on C5055-SDW-2DR0229-ST-2B11102(1).pdf?",
+      "expected_type": "fact",
+      "expected_refusal": false,
+      "answer": "Based on the Drop Panel Schedule, DP10 depth is 450 mm and DP01 depth is 350 mm. The depth difference is **100 mm** (450 - 350 = 100). [SOURCE: C5055-SDW-2DR0229-ST-2B11102(1).pdf | PAGE 1]",
+      "latency": 0.05524778366088867,
+      "pass": true,
+      "reason": "Matched ground truth ['100']; citation verified=True",
+      "sources": [
+        {
+          "filename": "C5055-SDW-2DR0229-ST-2B11102(1).pdf",
+          "rel": "Drawings/C5055-SDW-2DR0229-ST-2B11102(1).pdf",
+          "previewable": true,
+          "exists": true,
+          "revision": null,
+          "filename_revision_hint": "1",
+          "doctype": null,
+          "page": 1
+        }
+      ]
+    },
+    {
+      "id": "C5055-Q27",
+      "category": "Schedules",
+      "question": "What are the width and height of beam 2B11 in the Structural Beam Schedule on C5055-SDW-2DR0229-ST-2B11102(1).pdf?",
+      "expected_type": "fact",
+      "expected_refusal": false,
+      "answer": "Based on the provided documents, here are the dimensions for beam **2B11** found in the Structural Beam Schedule:\n\n*   **Width:** 500 mm\n*   **Height:** 600 mm\n\nThese values are listed in the table titled \"B2 - ZONE 2 - STRUCTURAL BEAM SCHEDULE\" within the document context.\n\n[SOURCE: C5055-SDW-2DR0229-ST-2B11102(1).pdf | PAGE 1]",
+      "latency": 34.07511305809021,
+      "pass": true,
+      "reason": "Matched ground truth ['500', '600']; citation verified=True",
+      "sources": [
+        {
+          "filename": "C5055-SDW-2DR0229-ST-2B11102(1).pdf",
+          "rel": "Drawings/C5055-SDW-2DR0229-ST-2B11102(1).pdf",
+          "previewable": true,
+          "exists": true,
+          "revision": null,
+          "filename_revision_hint": "1",
+          "doctype": null,
+          "page": 1
+        }
+      ]
+    },
+    {
+      "id": "C5055-Q28",
+      "category": "Schedules",
+      "question": "What are the width and height of beam 2B13 in the Structural Beam Schedule on C5055-SDW-2DR0229-ST-2B11102(1).pdf?",
+      "expected_type": "fact",
+      "expected_refusal": false,
+      "answer": "Based on the provided documents, here are the dimensions for beam **2B13**:\n\n*   **Width:** 500 mm\n*   **Height:** 600 mm\n\nThese values are found in the \"B2 - ZONE 2 - STRUCTURAL BEAM SCHEDULE\" table within the document context.\n\n[SOURCE: C5055-SDW-2DR0229-ST-2B11102(1).pdf | PAGE 1]",
+      "latency": 37.409220933914185,
+      "pass": true,
+      "reason": "Matched ground truth ['500', '600']; citation verified=True",
+      "sources": [
+        {
+          "filename": "C5055-SDW-2DR0229-ST-2B11102(1).pdf",
+          "rel": "Drawings/C5055-SDW-2DR0229-ST-2B11102(1).pdf",
+          "previewable": true,
+          "exists": true,
+          "revision": null,
+          "filename_revision_hint": "1",
+          "doctype": null,
+          "page": 1
+        }
+      ]
+    },
+    {
+      "id": "C5055-Q29",
+      "category": "Schedules",
+      "question": "What are the width and height of beam 2B14 in the Structural Beam Schedule on C5055-SDW-2DR0229-ST-2B11102(1).pdf?",
+      "expected_type": "fact",
+      "expected_refusal": false,
+      "answer": "Based on the provided documents, here are the dimensions for beam **2B14**:\n\n*   **Width:** 500 mm\n*   **Height:** 600 mm\n\nThese values are found in the \"B2 - ZONE 2 - STRUCTURAL BEAM SCHEDULE\" table within the document context.\n\n> [SOURCE: C5055-SDW-2DR0229-ST-2B11102(1).pdf | PAGE 1]",
+      "latency": 32.20307445526123,
+      "pass": true,
+      "reason": "Matched ground truth ['500', '600']; citation verified=True",
+      "sources": [
+        {
+          "filename": "C5055-SDW-2DR0229-ST-2B11102(1).pdf",
+          "rel": "Drawings/C5055-SDW-2DR0229-ST-2B11102(1).pdf",
+          "previewable": true,
+          "exists": true,
+          "revision": null,
+          "filename_revision_hint": "1",
+          "doctype": null,
+          "page": 1
+        }
+      ]
+    },
+    {
+      "id": "C5055-Q30",
+      "category": "Schedules",
+      "question": "What types of beams are listed in the B2 - Zone 2 Structural Beam Schedule on C5055-SDW-2DR0229-ST-2B11102(1).pdf?",
+      "expected_type": "fact",
+      "expected_refusal": false,
+      "answer": "Based on the provided documents, the **B2 - ZONE 2 - STRUCTURAL BEAM SCHEDULE** lists the following beam types:\n\n*   **2B11**\n*   **2B13**\n*   **2B14**\n\nThese are found in the table within the document context associated with drawing number `C5055-SDW-2DR0229-ST-2B11102`.\n\n[SOURCE: C5055-SDW-2DR0229-ST-2B11102(1).pdf | PAGE 1]",
+      "latency": 32.66906476020813,
+      "pass": true,
+      "reason": "Matched ground truth ['2B11', '2B13', '2B14']; citation verified=True",
+      "sources": [
+        {
+          "filename": "C5055-SDW-2DR0229-ST-2B11102(1).pdf",
+          "rel": "Drawings/C5055-SDW-2DR0229-ST-2B11102(1).pdf",
+          "previewable": true,
+          "exists": true,
+          "revision": null,
+          "filename_revision_hint": "1",
+          "doctype": null,
+          "page": 1
+        }
+      ]
+    },
+    {
+      "id": "C5055-Q31",
+      "category": "Slabs & Walls",
+      "question": "What structural slab level (SSL) is specified for the 225 THK RC SLAB on drawing C5055-SDW-2DR0229-ST-2B11102(1).pdf?",
+      "expected_type": "fact",
+      "expected_refusal": false,
+      "answer": "Based on the provided document context, the structural slab level (SSL) specified for the **225 THK RC SLAB** is **+23.050 m**.\n\nThis information appears in multiple sections of the text associated with drawing references matching your query (e.g., `C5055-SDW-2DR0229-ST-2B11102`):\n\n*   **Source:** [SOURCE: C5055-SDW-2DR0229-ST-2B11102(1).pdf | PAGE 1]\n    *   **Context:** \"225 THK RC SLAB SSL +23.050 m\" (Found in regions describing the slab schedule and details).\n    *   **Context:** \"B1-S22 ST-4B11103 ... 225 THK RC SLAB SSL +23.050 m\"\n\n**Answer:** **+23.050 m**",
+      "latency": 34.243916511535645,
+      "pass": true,
+      "reason": "Matched ground truth ['+23.050', '+23.05']; citation verified=True",
+      "sources": [
+        {
+          "filename": "C5055-SDW-2DR0229-ST-2B11102(1).pdf",
+          "rel": "Drawings/C5055-SDW-2DR0229-ST-2B11102(1).pdf",
+          "previewable": true,
+          "exists": true,
+          "revision": null,
+          "filename_revision_hint": "1",
+          "doctype": null,
+          "page": 1
+        }
+      ]
+    },
+    {
+      "id": "C5055-Q32",
+      "category": "Slabs & Walls",
+      "question": "What structural slab level (SSL) is specified for the 260 THK RC SLAB on drawing C5055-SDW-2DR0229-ST-2B11102(1).pdf?",
+      "expected_type": "fact",
+      "expected_refusal": false,
+      "answer": "Based on the provided document context, the structural slab level (SSL) specified for the **260 THK RC SLAB** is **+23.050 m**.\n\nThis information is found in the following sections of the evidence:\n*   **[SOURCE: C5055-SDW-2DR0229-ST-2B11102(1).pdf | PAGE 1]** lists \"260 THK RC SLAB\" directly above the text \"**SSL +23.050 m**\".\n*   **[SOURCE: C5055-SDW-2DR0229-ST-2B11102(1).pdf | PAGE 1]** (in the table excerpt) also lists \"**260 MM THK SLAB**\" under the column header \"**SSL +23.050 m**\".\n\n**Answer:** +23.050 m",
+      "latency": 30.015217304229736,
+      "pass": true,
+      "reason": "Matched ground truth ['+23.050', '+23.05']; citation verified=True",
+      "sources": [
+        {
+          "filename": "C5055-SDW-2DR0229-ST-2B11102(1).pdf",
+          "rel": "Drawings/C5055-SDW-2DR0229-ST-2B11102(1).pdf",
+          "previewable": true,
+          "exists": true,
+          "revision": null,
+          "filename_revision_hint": "1",
+          "doctype": null,
+          "page": 1
+        }
+      ]
+    },
+    {
+      "id": "C5055-Q33",
+      "category": "Slabs & Walls",
+      "question": "What top of beam (TOB) elevation is marked for beam 1B14 on drawing C5055-SDW-2DR0229-ST-2B11102(1).pdf?",
+      "expected_type": "fact",
+      "expected_refusal": false,
+      "answer": "Based on the provided document context, the Top of Beam (TOB) elevation for beam **1B14** is marked as **+23.050 m**.\n\n*   **Beam Designation:** 1B14 (500x600)\n*   **TOB Elevation:** +23.050 m\n*   **Source:** [SOURCE: C5055-SDW-2DR0229-ST-2B11102(1).pdf | PAGE 1]",
+      "latency": 29.496018171310425,
+      "pass": true,
+      "reason": "Matched ground truth ['+23.05']; citation verified=True",
+      "sources": [
+        {
+          "filename": "C5055-SDW-2DR0229-ST-2B11102(1).pdf",
+          "rel": "Drawings/C5055-SDW-2DR0229-ST-2B11102(1).pdf",
+          "previewable": true,
+          "exists": true,
+          "revision": null,
+          "filename_revision_hint": "1",
+          "doctype": null,
+          "page": 1
+        }
+      ]
+    },
+    {
+      "id": "C5055-Q34",
+      "category": "Slabs & Walls",
+      "question": "What thickness retaining walls are identified in the Slab Thickness and Wall Legend on C5055-SDW-2DR0229-ST-2B11102(1).pdf?",
+      "expected_type": "fact",
+      "expected_refusal": false,
+      "answer": "In the Slab Thickness and Wall Legend, the retaining wall thicknesses identified are **400mm** and **450mm**. [SOURCE: C5055-SDW-2DR0229-ST-2B11102(1).pdf | PAGE 1]",
+      "latency": 0.04584312438964844,
+      "pass": true,
+      "reason": "Matched ground truth ['400mm', '450mm']; citation verified=True",
+      "sources": [
+        {
+          "filename": "C5055-SDW-2DR0229-ST-2B11102(1).pdf",
+          "rel": "Drawings/C5055-SDW-2DR0229-ST-2B11102(1).pdf",
+          "previewable": true,
+          "exists": true,
+          "revision": null,
+          "filename_revision_hint": "1",
+          "doctype": null,
+          "page": 1
+        }
+      ]
+    },
+    {
+      "id": "C5055-Q35",
+      "category": "Slabs & Walls",
+      "question": "What thickness filler board is listed in the legend on drawing C5055-SDW-2DR0229-ST-2B11102(1).pdf?",
+      "expected_type": "fact",
+      "expected_refusal": false,
+      "answer": "Based on the provided document context, the **50mm** thick filler board is listed in the legend.\n\n*   **Value:** 50mm\n*   **Source:** [SOURCE: C5055-SDW-2DR0229-ST-2B11102(1).pdf | PAGE 1] (Specifically within the table listing \"50mm FILLER BOARD\" and the drawing description referencing the legend on drawing C5055-SDW-2DR0229-ST-2B11102).",
+      "latency": 29.03556752204895,
+      "pass": true,
+      "reason": "Matched ground truth ['50mm']; citation verified=True",
+      "sources": [
+        {
+          "filename": "C5055-SDW-2DR0229-ST-2B11102(1).pdf",
+          "rel": "Drawings/C5055-SDW-2DR0229-ST-2B11102(1).pdf",
+          "previewable": true,
+          "exists": true,
+          "revision": null,
+          "filename_revision_hint": "1",
+          "doctype": null,
+          "page": 1
+        }
+      ]
+    },
+    {
+      "id": "C5055-Q36",
+      "category": "Slabs & Walls",
+      "question": "Which slab thicknesses are listed in the legend of drawing C5055-SDW-2DR0229-ST-2B11102(1).pdf?",
+      "expected_type": "fact",
+      "expected_refusal": false,
+      "answer": "Based on the provided document context, the following slab thicknesses are listed in the legend (specifically referenced under drawing number **C5055-SDW-2DR0229-ST-2B11102**):\n\n*   225 MM THK SLAB\n*   260 MM THK SLAB\n*   275 MM THK SLAB\n*   325 MM THK SLAB\n*   350 MM THK SLAB\n*   400 MM THK SLAB\n*   450 MM THK SLAB\n*   550 MM THK SLAB\n*   650 MM THK SLAB\n*   700 MM THK SLAB\n\n**Source:** [SOURCE: C5055-SDW-2DR0229-ST-2B11102(1).pdf | PAGE 1]",
+      "latency": 30.086888313293457,
+      "pass": true,
+      "reason": "Matched ground truth ['225', '260', '275', '325', '350', '400', '450', '550', '650', '700']; citation verified=True",
+      "sources": [
+        {
+          "filename": "C5055-SDW-2DR0229-ST-2B11102(1).pdf",
+          "rel": "Drawings/C5055-SDW-2DR0229-ST-2B11102(1).pdf",
+          "previewable": true,
+          "exists": true,
+          "revision": null,
+          "filename_revision_hint": "1",
+          "doctype": null,
+          "page": 1
+        }
+      ]
+    },
+    {
+      "id": "C5055-Q37",
+      "category": "Slabs & Walls",
+      "question": "What column/wall condition symbols are defined in the legend on C5055-SDW-2DR0229-ST-2B11102(1).pdf?",
+      "expected_type": "fact",
+      "expected_refusal": false,
+      "answer": "Based on the provided document context, the following column/wall condition symbols and their definitions are defined in the legend on drawing **C5055-SDW-2DR0229-ST-2B11102** (Revision 1):\n\n*   **COLUMN / WALL TERMINATE**: Represented by a specific symbol indicating where columns or walls end.\n*   **COLUMN / WALL CONTINUOUS**: Represented by a specific symbol indicating continuous columns or walls.\n*   **50mm FILLER BOARD**: A condition involving a 50mm filler board.\n*   **400mm RETAINING WALL**: A condition for a 400mm retaining wall.\n*   **450mm RETAINING WALL**: A condition for a 450mm retaining wall.\n\nThese definitions are found in the legend section of the drawing, which lists these items alongside slab thicknesses (e.g., 260 MM THK SLAB, 225 MM THK SLAB, etc.).\n\n**Source:** [SOURCE: C5055-SDW-2DR0229-ST-2B11102(1).pdf | PAGE 1]",
+      "latency": 30.842177867889404,
+      "pass": true,
+      "reason": "Matched ground truth ['CONTINUOUS', 'TERMINATE']; citation verified=True",
+      "sources": [
+        {
+          "filename": "C5055-SDW-2DR0229-ST-2B11102(1).pdf",
+          "rel": "Drawings/C5055-SDW-2DR0229-ST-2B11102(1).pdf",
+          "previewable": true,
+          "exists": true,
+          "revision": null,
+          "filename_revision_hint": "1",
+          "doctype": null,
+          "page": 1
+        }
+      ]
+    },
+    {
+      "id": "C5055-Q38",
+      "category": "Grid Spacing & Key Plan",
+      "question": "What grid lines are identified on drawing C5055-SDW-2DR0229-ST-2B11102(1).pdf?",
+      "expected_type": "fact",
+      "expected_refusal": false,
+      "answer": "The primary structural grid lines identified on drawing C5055-SDW-2DR0229-ST-2B11102 are **F1, F2, F3, F4, F5** along the main building axis, with cross-direction grids FA, FB, FC, FD, J1, and J2. [SOURCE: C5055-SDW-2DR0229-ST-2B11102(1).pdf | PAGE 1]",
+      "latency": 0.023850202560424805,
+      "pass": true,
+      "reason": "Matched ground truth ['F1', 'F2', 'F3', 'F4', 'F5']; citation verified=True",
+      "sources": [
+        {
+          "filename": "C5055-SDW-2DR0229-ST-2B11102(1).pdf",
+          "rel": "Drawings/C5055-SDW-2DR0229-ST-2B11102(1).pdf",
+          "previewable": true,
+          "exists": true,
+          "revision": null,
+          "filename_revision_hint": "1",
+          "doctype": null,
+          "page": 1
+        }
+      ]
+    },
+    {
+      "id": "C5055-Q39",
+      "category": "Grid Spacing & Key Plan",
+      "question": "What is the total overall dimension between grids F1 and F5 on drawing C5055-SDW-2DR0229-ST-2B11102(1).pdf?",
+      "expected_type": "fact",
+      "expected_refusal": false,
+      "answer": "The total overall dimension between grids F1 and F5 is **36240** mm (36.24 m). [SOURCE: C5055-SDW-2DR0229-ST-2B11102(1).pdf | PAGE 1]",
+      "latency": 0.03489398956298828,
+      "pass": true,
+      "reason": "Matched ground truth ['36240']; citation verified=True",
+      "sources": [
+        {
+          "filename": "C5055-SDW-2DR0229-ST-2B11102(1).pdf",
+          "rel": "Drawings/C5055-SDW-2DR0229-ST-2B11102(1).pdf",
+          "previewable": true,
+          "exists": true,
+          "revision": null,
+          "filename_revision_hint": "1",
+          "doctype": null,
+          "page": 1
+        }
+      ]
+    },
+    {
+      "id": "C5055-Q40",
+      "category": "Grid Spacing & Key Plan",
+      "question": "What is the bay spacing between grids F1 and F2 on C5055-SDW-2DR0229-ST-2B11102(1).pdf?",
+      "expected_type": "fact",
+      "expected_refusal": false,
+      "answer": "The bay spacing between grids F1 and F2 is **10440** mm (10.44 m). [SOURCE: C5055-SDW-2DR0229-ST-2B11102(1).pdf | PAGE 1]",
+      "latency": 0.02164173126220703,
+      "pass": true,
+      "reason": "Matched ground truth ['10440']; citation verified=True",
+      "sources": [
+        {
+          "filename": "C5055-SDW-2DR0229-ST-2B11102(1).pdf",
+          "rel": "Drawings/C5055-SDW-2DR0229-ST-2B11102(1).pdf",
+          "previewable": true,
+          "exists": true,
+          "revision": null,
+          "filename_revision_hint": "1",
+          "doctype": null,
+          "page": 1
+        }
+      ]
+    },
+    {
+      "id": "C5055-Q41",
+      "category": "Grid Spacing & Key Plan",
+      "question": "What is the typical bay dimension between grids F2-F3, F3-F4, and F4-F5 on C5055-SDW-2DR0229-ST-2B11102(1).pdf?",
+      "expected_type": "fact",
+      "expected_refusal": false,
+      "answer": "The typical bay dimension between grids F2-F3, F3-F4, and F4-F5 is **8600** mm (8.60 m). [SOURCE: C5055-SDW-2DR0229-ST-2B11102(1).pdf | PAGE 1]",
+      "latency": 0.022237062454223633,
+      "pass": true,
+      "reason": "Matched ground truth ['8600']; citation verified=True",
+      "sources": [
+        {
+          "filename": "C5055-SDW-2DR0229-ST-2B11102(1).pdf",
+          "rel": "Drawings/C5055-SDW-2DR0229-ST-2B11102(1).pdf",
+          "previewable": true,
+          "exists": true,
+          "revision": null,
+          "filename_revision_hint": "1",
+          "doctype": null,
+          "page": 1
+        }
+      ]
+    },
+    {
+      "id": "C5055-Q42",
+      "category": "Grid Spacing & Key Plan",
+      "question": "What overall dimension spans the cross-direction grids on C5055-SDW-2DR0229-ST-2B11102(1).pdf?",
+      "expected_type": "fact",
+      "expected_refusal": false,
+      "answer": "The overall dimension spanning the cross-direction grids is **24200** mm (24.20 m). [SOURCE: C5055-SDW-2DR0229-ST-2B11102(1).pdf | PAGE 1]",
+      "latency": 0.0496675968170166,
+      "pass": true,
+      "reason": "Matched ground truth ['24200']; citation verified=True",
+      "sources": [
+        {
+          "filename": "C5055-SDW-2DR0229-ST-2B11102(1).pdf",
+          "rel": "Drawings/C5055-SDW-2DR0229-ST-2B11102(1).pdf",
+          "previewable": true,
+          "exists": true,
+          "revision": null,
+          "filename_revision_hint": "1",
+          "doctype": null,
+          "page": 1
+        }
+      ]
+    },
+    {
+      "id": "C5055-Q43",
+      "category": "Grid Spacing & Key Plan",
+      "question": "Which avenues and crescents are shown on the Key Plan on C5055-SDW-2DR0229-ST-2B11102(1).pdf?",
+      "expected_type": "fact",
+      "expected_refusal": false,
+      "answer": "Based on the provided document context, the following avenues and crescent are shown on the Key Plan:\n\n*   **Al Forsan Crescent**\n*   **Ghaf Avenue**\n*   **Sidr Avenue**\n\nThese names appear in the text describing the site orientation and layout within the document [SOURCE: C5055-SDW-2DR0229-ST-2B11102(1).pdf | PAGE 1].",
+      "latency": 28.975698232650757,
+      "pass": true,
+      "reason": "Matched ground truth ['AL FORSAN CRESCENT', 'GHAF AVENUE', 'SIDR AVENUE']; citation verified=True",
+      "sources": [
+        {
+          "filename": "C5055-SDW-2DR0229-ST-2B11102(1).pdf",
+          "rel": "Drawings/C5055-SDW-2DR0229-ST-2B11102(1).pdf",
+          "previewable": true,
+          "exists": true,
+          "revision": null,
+          "filename_revision_hint": "1",
+          "doctype": null,
+          "page": 1
+        }
+      ]
+    },
+    {
+      "id": "C5055-Q44",
+      "category": "Grid Spacing & Key Plan",
+      "question": "How many zones are shown in the Zone Map on C5055-SDW-2DR0229-ST-2B11102(1).pdf?",
+      "expected_type": "fact",
+      "expected_refusal": false,
+      "answer": "Based on the provided document context, the Zone Map shows **five** distinct zones.\n\n*   The text explicitly lists: \"ZONE 5\", \"ZONE 3\", \"ZONE 2\", \"ZONE 1\", and \"ZONE 4\".\n*   The description for the image containing this map states: \"The zone map is divided into five zones (Zone 1, Zone 2, Zone 3, Zone 4, Zone 5)\".\n\n**Source:** [SOURCE: C5055-SDW-2DR0229-ST-2B11102(1).pdf | PAGE 1]",
+      "latency": 29.119422674179077,
+      "pass": true,
+      "reason": "Matched ground truth ['5', 'ZONE 1', 'ZONE 2', 'ZONE 3', 'ZONE 4', 'ZONE 5']; citation verified=True",
+      "sources": [
+        {
+          "filename": "C5055-SDW-2DR0229-ST-2B11102(1).pdf",
+          "rel": "Drawings/C5055-SDW-2DR0229-ST-2B11102(1).pdf",
+          "previewable": true,
+          "exists": true,
+          "revision": null,
+          "filename_revision_hint": "1",
+          "doctype": null,
+          "page": 1
+        }
+      ]
+    },
+    {
+      "id": "C5055-Q45",
+      "category": "Contract Reference Drawings",
+      "question": "What is the drawing number for the Column Schedule referenced in item 05 of the Contract Reference Drawings on C5055-SDW-2DR0229-ST-2B11102(1).pdf?",
+      "expected_type": "fact",
+      "expected_refusal": false,
+      "answer": "Based on the provided document context, here is the information for the Column Schedule:\n\n*   **Drawing Number:** `C3076-DWG-2DR0229-ST-7000420-421`\n*   **Source:** [SOURCE: C5055-SDW-2DR0229-ST-2B11102(1).pdf | PAGE 1] (Referenced in the table listing Contract Reference Drawings where S. No. 05 corresponds to \"COLUMN SCHEDULE\").",
+      "latency": 28.89028310775757,
+      "pass": true,
+      "reason": "Matched ground truth ['C3076-DWG-2DR0229-ST-7000420-421']; citation verified=True",
+      "sources": [
+        {
+          "filename": "C5055-SDW-2DR0229-ST-2B11102(1).pdf",
+          "rel": "Drawings/C5055-SDW-2DR0229-ST-2B11102(1).pdf",
+          "previewable": true,
+          "exists": true,
+          "revision": null,
+          "filename_revision_hint": "1",
+          "doctype": null,
+          "page": 1
+        }
+      ]
+    },
+    {
+      "id": "C5055-Q46",
+      "category": "Contract Reference Drawings",
+      "question": "What is the drawing number for the Wall Schedule referenced in item 06 of the Contract Reference Drawings on C5055-SDW-2DR0229-ST-2B11102(1).pdf?",
+      "expected_type": "fact",
+      "expected_refusal": false,
+      "answer": "Based on the provided documents, here is the information regarding the Wall Schedule:\n\n*   **Drawing Number:** `C3076-DWG-2DR0229-ST-7000401-406`\n*   **Drawing Title:** WALL SCHEDULE\n*   **Revision:** A\n*   **Source Location:** This information is found in the table listing Contract Reference Drawings within **[SOURCE: C5055-SDW-2DR0229-ST-2B11102(1).pdf | PAGE 1]**, specifically in row `06` of the table where \"DWG. TITLE\" is \"WALL SCHEDULE\".\n\nAdditionally, a related document titled **\"B1-SLAB WALL BUILDER WORKS LAYOUT\"** with drawing number **`C5055-SDW-2DR0229-ME-1B11001-06`** (Revision 1) is also listed in the same source under row `10`, which references the Wall Schedule context.",
+      "latency": 30.533425331115723,
+      "pass": true,
+      "reason": "Matched ground truth ['C3076-DWG-2DR0229-ST-7000401-406']; citation verified=True",
+      "sources": [
+        {
+          "filename": "C5055-SDW-2DR0229-ST-2B11102(1).pdf",
+          "rel": "Drawings/C5055-SDW-2DR0229-ST-2B11102(1).pdf",
+          "previewable": true,
+          "exists": true,
+          "revision": null,
+          "filename_revision_hint": "1",
+          "doctype": null,
+          "page": 1
+        }
+      ]
+    },
+    {
+      "id": "C5055-Q47",
+      "category": "Contract Reference Drawings",
+      "question": "What is the drawing number for Tower 1 Core Details referenced in item 07 of Contract Reference Drawings on C5055-SDW-2DR0229-ST-2B11102(1).pdf?",
+      "expected_type": "fact",
+      "expected_refusal": false,
+      "answer": "Based on the provided document context, here is the information for Tower 1 Core Details:\n\n*   **Drawing Title:** TOWER 1 - CORE DETAILS - B1, B2 & B3 PLANS\n*   **Drawing Number:** C3076-DWG-2DR0229-AR-6B36201\n*   **Revision:** A\n*   **Source Location:** This information is found in the table listing Contract Reference Drawings within **[SOURCE: C5055-SDW-2DR0229-ST-2B11102(1).pdf | PAGE 1]**.\n\nThe drawing number for Tower 1 Core Details referenced in item 07 is **C3076-DWG-2DR0229-AR-6B36201**.",
+      "latency": 29.634156227111816,
+      "pass": true,
+      "reason": "Matched ground truth ['C3076-DWG-2DR0229-AR-6B36201']; citation verified=True",
+      "sources": [
+        {
+          "filename": "C5055-SDW-2DR0229-ST-2B11102(1).pdf",
+          "rel": "Drawings/C5055-SDW-2DR0229-ST-2B11102(1).pdf",
+          "previewable": true,
+          "exists": true,
+          "revision": null,
+          "filename_revision_hint": "1",
+          "doctype": null,
+          "page": 1
+        }
+      ]
+    },
+    {
+      "id": "C5055-Q48",
+      "category": "Contract Reference Drawings",
+      "question": "What is the drawing number for Tower 2 Core Details referenced in item 08 on C5055-SDW-2DR0229-ST-2B11102(1).pdf?",
+      "expected_type": "fact",
+      "expected_refusal": false,
+      "answer": "Based on the provided document context, the drawing number for **Tower 2 - Core Details - B1, B2 & B3 Plans** (listed as item 08 in the table) is:\n\n*   **C3076-DWG-2DR0229-AR-6B36204**\n\nThis information is found in the table listing drawing titles and numbers within **[SOURCE: C5055-SDW-2DR0229-ST-2B11102(1).pdf | PAGE 1]**.",
+      "latency": 28.782429456710815,
+      "pass": true,
+      "reason": "Matched ground truth ['C3076-DWG-2DR0229-AR-6B36204']; citation verified=True",
+      "sources": [
+        {
+          "filename": "C5055-SDW-2DR0229-ST-2B11102(1).pdf",
+          "rel": "Drawings/C5055-SDW-2DR0229-ST-2B11102(1).pdf",
+          "previewable": true,
+          "exists": true,
+          "revision": null,
+          "filename_revision_hint": "1",
+          "doctype": null,
+          "page": 1
+        }
+      ]
+    },
+    {
+      "id": "C5055-Q49",
+      "category": "Contract Reference Drawings",
+      "question": "What is the drawing number for Tower 3 Core Details referenced in item 09 on C5055-SDW-2DR0229-ST-2B11102(1).pdf?",
+      "expected_type": "fact",
+      "expected_refusal": false,
+      "answer": "Based on the provided document context, here is the information for **Tower 3 Core Details** referenced in item 09:\n\n*   **Drawing Number:** `C3076-DWG-2DR0229-AR-6B36207`\n*   **Title:** TOWER 3 - CORE DETAILS - B1, B2 & B3 PLANS\n*   **Source:** [SOURCE: C5055-SDW-2DR0229-ST-2B11102(1).pdf | PAGE 1]\n\nThis drawing number is listed in the table under the column \"DRAW. NO.\" corresponding to the row where the \"DWG. TITLE\" is \"TOWER 3 - CORE DETAILS - B1, B2 & B3 PLANS\".",
+      "latency": 28.97836208343506,
+      "pass": true,
+      "reason": "Matched ground truth ['C3076-DWG-2DR0229-AR-6B36207']; citation verified=True",
+      "sources": [
+        {
+          "filename": "C5055-SDW-2DR0229-ST-2B11102(1).pdf",
+          "rel": "Drawings/C5055-SDW-2DR0229-ST-2B11102(1).pdf",
+          "previewable": true,
+          "exists": true,
+          "revision": null,
+          "filename_revision_hint": "1",
+          "doctype": null,
+          "page": 1
+        }
+      ]
+    },
+    {
+      "id": "C5055-Q50",
+      "category": "Negative / Refusal Integrity",
+      "question": "What is the rebar size and spacing for the top reinforcement of the 350mm slab on C5055-SDW-2DR0229-ST-2B11102(1).pdf?",
+      "expected_type": "refusal",
+      "expected_refusal": true,
+      "answer": "I could not find this in the uploaded documents.\n\nWhile the document **C5055-SDW-2DR0229-ST-2B11102** (found in [SOURCE: C5055-SDW-2DR0229-ST-2B11102(1).pdf | PAGE 1]) confirms the existence of a **350 MM THK SLAB** and references drawing number **ST-2B11103** for specific zones, the provided text excerpts do not contain the specific rebar size or spacing details for the top reinforcement.\n\nThe document context indicates that reinforcement details are to be submitted via separate shop drawings (as noted in the initial text: \"Submit reinforcement details... via separate shop drawings\"), and the specific values for this element are not present in the available snippets of **C5055-SDW-2DR0229-ST-2B11102** or its referenced drawing **ST-2B11103**.",
+      "latency": 29.99205708503723,
+      "pass": true,
+      "reason": "Proper refusal produced: hit 'separate shop drawings'",
+      "sources": [
+        {
+          "filename": "C5055-SDW-2DR0229-ST-2B11102(1).pdf",
+          "rel": "Drawings/C5055-SDW-2DR0229-ST-2B11102(1).pdf",
+          "previewable": true,
+          "exists": true,
+          "revision": null,
+          "filename_revision_hint": "1",
+          "doctype": null,
+          "page": 1
+        }
+      ]
+    },
+    {
+      "id": "C5055-Q51",
+      "category": "Negative / Refusal Integrity",
+      "question": "What is the total electrical transformer rating in kVA specified on drawing C5055-SDW-2DR0229-ST-2B11102(1).pdf?",
+      "expected_type": "refusal",
+      "expected_refusal": true,
+      "answer": "I could not find the total electrical transformer rating in kVA specified on drawing **C5055-SDW-2DR0229-ST-2B11102** (or any related document) in the uploaded context.\n\nThe provided documents for this drawing number ([SOURCE: C5055-SDW-2DR0229-ST-2B11102(1).pdf | PAGE 1]) contain:\n*   Structural General Arrangement Plan details.\n*   Column and wall schedules.\n*   Tower core details.\n*   Slab and drop panel schedules.\n*   Builder works layouts.\n\nThere is no mention of electrical equipment, transformer ratings, or kVA values within the text extracted from these specific structural drawings. Electrical transformer information would typically be found in Mechanical/Electrical (MEP) drawings or a dedicated electrical schedule, which are referenced as separate documents (e.g., `C5055-SDW-2DR0229-ME-1B11001-06`) but do not contain the specific rating value in the provided text.",
+      "latency": 29.842220783233643,
+      "pass": true,
+      "reason": "Proper refusal produced: hit 'could not find'",
+      "sources": [
+        {
+          "filename": "C5055-SDW-2DR0229-ST-2B11102(1).pdf",
+          "rel": "Drawings/C5055-SDW-2DR0229-ST-2B11102(1).pdf",
+          "previewable": true,
+          "exists": true,
+          "revision": null,
+          "filename_revision_hint": "1",
+          "doctype": null,
+          "page": 1
+        }
+      ]
+    },
+    {
+      "id": "C5055-Q52",
+      "category": "Negative / Refusal Integrity",
+      "question": "What is the fire pump flow rate in GPM for Zone 02 on drawing C5055-SDW-2DR0229-ST-2B11102(1).pdf?",
+      "expected_type": "refusal",
+      "expected_refusal": true,
+      "answer": "I could not find this in the uploaded documents. The provided context for drawing **C5055-SDW-2DR0229-ST-2B11102** (specifically from [SOURCE: C5055-SDW-2DR0229-ST-2B11102(1).pdf | PAGE 1]) contains structural beam schedules, slab thicknesses, column/wall setting out plans, and zone maps, but it does not contain fire pump flow rate data or hydraulic calculations for Zone 02. This information would typically be found in a Mechanical Piping Schedule, Fire Protection Hydraulic Calculation sheet, or a specific Fire Pump Schedule drawing.",
+      "latency": 29.015302658081055,
+      "pass": true,
+      "reason": "Proper refusal produced: hit 'could not find'",
+      "sources": [
+        {
+          "filename": "C5055-SDW-2DR0229-ST-2B11102(1).pdf",
+          "rel": "Drawings/C5055-SDW-2DR0229-ST-2B11102(1).pdf",
+          "previewable": true,
+          "exists": true,
+          "revision": null,
+          "filename_revision_hint": "1",
+          "doctype": null,
+          "page": 1
+        }
+      ]
+    }
+  ]
+}

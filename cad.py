@@ -174,12 +174,9 @@ def render_images(doc, out_dir, dpi=150):
     return paths
 
 def ingest(path, out_dir):
-    """Load a CAD file; return (data_text, [image_paths]). Rendering failures
-    are non-fatal - the extracted data is still returned."""
-    doc = load_doc(path)
-    data = extract_data(doc)
-    try:
-        imgs = render_images(doc, out_dir)
-    except Exception:
-        imgs = []
+    """Load a CAD file; return (data_text, [image_paths]).
+    Routes through engines.cad_engine to ensure resilient DWG/DXF extraction."""
+    from engines.cad_engine import get_cad_engine
+    engine = get_cad_engine()
+    data, imgs, meta = engine.ingest(path, out_dir)
     return data, imgs

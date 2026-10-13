@@ -71,6 +71,7 @@ class Settings(BaseSettings):
     enable_self_check: bool = False  # Phase 2: worker model self-check for answer verification
     enable_legacy_schedule_context: bool = False  # Legacy flat grids can lose column/entity alignment.
     enable_document_memory: bool = True  # Phase 1 validation run (2026-10-08): on, scoped to the two benchmark documents only via the allowlist below
+    document_memory_allow_all: bool = True  # When True, all documents build DocumentMemory; when False, uses allowlist below
     document_memory_doc_allowlist: Annotated[List[str], NoDecode] = [
         "C3085-RPT-3EH6105-FP-0000001(5).pdf",
         "260610_C3045_2VA_PROJECT_DATA_SHEET_-_STAGE_4.pdf",
@@ -108,6 +109,16 @@ class Settings(BaseSettings):
     render_provider: str = "local"  # 'local' (offline ComfyUI / Diffusers / Ollama endpoint) or 'cloud'
     render_host: str = "http://127.0.0.1:8188"  # local endpoint (e.g. ComfyUI / Diffusers / SD-WebUI)
     render_api_key: str = ""  # optional cloud API key if using cloud provider (e.g. DashScope, Replicate, BFL)
+
+    # ComfyUI Local Image Engine (Stage 2 Integration)
+    comfyui_base_url: str = "http://127.0.0.1:8188"
+    comfyui_timeout: float = 300.0  # Generation execution timeout in seconds
+    comfyui_connect_timeout: float = 3.0  # Fast reachability check timeout in seconds
+    comfyui_ws_timeout: float = 300.0  # WebSocket tracking timeout in seconds
+    image_engine_workflows_dir: str = "workflows"
+    image_engine_concurrency: int = 1  # Single-job serialization for RTX 5080 16GB VRAM safety
+    image_engine_min_resolution: int = 512
+    image_engine_max_resolution: int = 1024
 
     # CAD
     oda_converter: str = ""
@@ -188,11 +199,16 @@ def resolve_role(role: str) -> dict:
         raise ValueError(f"Unknown model role: {role!r} (expected one of {_MODEL_ROLES})")
     s = get_settings()
     if role == "render":
+        base_url = (s.comfyui_base_url or s.render_host).rstrip("/")
         return {
             "model": s.render_model,
             "provider": s.render_provider,
-            "base_url": s.render_host.rstrip("/"),
-            "api_key": s.render_api_key
+            "base_url": base_url,
+            "api_key": s.render_api_key,
+            "timeout": s.comfyui_timeout,
+            "connect_timeout": s.comfyui_connect_timeout,
+            "ws_timeout": s.comfyui_ws_timeout,
+            "concurrency": s.image_engine_concurrency,
         }
     model = {
         "vision": s.vision_model,

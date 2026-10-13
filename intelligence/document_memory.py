@@ -570,7 +570,10 @@ def build_memory_for_document(project_id: int, document_id: int, filename: str,
 
 def is_allowlisted(filename: str) -> bool:
     from config import get_settings
-    allowlist = get_settings().document_memory_doc_allowlist or []
+    s = get_settings()
+    if getattr(s, "document_memory_allow_all", True):
+        return True
+    allowlist = s.document_memory_doc_allowlist or []
     return filename in allowlist
 
 
@@ -685,6 +688,15 @@ def memory_lookup(project_id: int, query: str, permitted_filenames=None, focus_f
             "must", "prohibited", "necessary", "within", "without", "least",
             "what", "how", "many", "they", "there", "does", "that", "this",
         }
+        # These words can describe a requested field, but are too broad to
+        # identify a property on their own. Keep them out of the candidate
+        # overlap signal while requiring a matching field concept when the
+        # question explicitly asks for one (e.g. number/count/quantity).
+        _GENERIC_PROPERTY_WORDS = {"number", "value", "level", "project"}
+        _PROPERTY_INTENT_ALIASES = {
+            "number": {"number", "no", "count", "quantity"},
+            "level": {"level", "floor", "storey", "storeys", "story", "stories"},
+        }
 
         def _tokenize_for_match(text):
             # A word counts as a match-worthy token if it's reasonably long
@@ -724,8 +736,16 @@ def memory_lookup(project_id: int, query: str, permitted_filenames=None, focus_f
         candidates = []
         for idx, score in hits:
             row = rows[idx]
-            if query_content & _prop_content_words(row.property):
-                candidates.append((row, score))
+            property_words = _prop_content_words(row.property)
+            specific_overlap = (query_content - _GENERIC_PROPERTY_WORDS) & property_words
+            if not specific_overlap:
+                continue
+            property_lower_words = set(re.findall(r"[a-z0-9]+", (row.property or "").lower()))
+            requested_intents = query_content & _GENERIC_PROPERTY_WORDS
+            if any(not (property_lower_words & _PROPERTY_INTENT_ALIASES.get(intent, {intent}))
+                   for intent in requested_intents if intent in _PROPERTY_INTENT_ALIASES):
+                continue
+            candidates.append((row, score))
         if not candidates:
             return None
 

@@ -1,0 +1,371 @@
+## Phase 2 Completion Report
+
+All three Phase 2 fixes (Fix 4, Fix 5, and Fix 6) have been implemented and verified. All existing regression tests and all new unit tests pass with zero failures.
+
+---
+
+### 1. Test Count & Actual Test Output Summary
+
+- **Phase 2 Baseline Test Count**: 328 passed
+- **Final Test Count**: 343 passed (+15 new tests added across Fixes 4, 5, and 6)
+
+#### Actual Test Runner Output
+```text
+C:\3EH\ExpoDesignAI - Copy> & "C:\Users\RE&DBIM\AppData\Local\Programs\Python\Python312\python.exe" -m unittest discover -s "tests" -p "test_*.py"
+................................................................................
+................................................................................
+................................................................................
+................................................................................
+.......................
+----------------------------------------------------------------------
+Ran 343 tests in 16.132s
+
+OK
+```
+
+---
+
+### 2. Git Diff of Changed Files
+
+#### `main.py`
+```diff
+--- a/main.py
++++ b/main.py
+@@ -2261,16 +2261,64 @@ def retrieve_context(project, query, k=8, user=None, focused_sources=None):
++                # Derive lookup keys from query for schedule/structured data
++                _lookup_keys = []
++                _lookup_key = None
++
++                # 1. Check for TOS/TOPR + Tower pattern
++                _tos_match = _re_read.search(r'(TOS|TOPR)\s*(?:level\s*)?(?:for\s*)?(?:tower\s*)?(\d+)', query, _re_read.IGNORECASE)
++                if _tos_match:
++                    _metric = _tos_match.group(1).upper()
++                    _tower = _tos_match.group(2)
++                    _lookup_key = f"{_metric} Tower {_tower}"
++                    _lookup_keys.append(_lookup_key)
++
++                # 2. Check for legend code pattern (e.g., LX-PT)
++                _legend_match = _re_read.search(r'\b([A-Z]{1,3}-[A-Z]{1,3})\b', query)
++                if _legend_match:
++                    _lk_leg = _legend_match.group(1)
++                    if not _lookup_key:
++                        _lookup_key = _lk_leg
++                    if _lk_leg not in _lookup_keys:
++                        _lookup_keys.append(_lk_leg)
++
++                # 3. Check for element tags / mark codes (e.g., C-1, C1, D-01, D01, B1, W01, S-101)
++                _mark_matches = _re_read.findall(r'\b([A-Za-z]{1,4}[- ]?\d+[A-Za-z0-9]*)\b', query)
++                for _m in _mark_matches:
++                    if _m.lower() not in ('2020', '2021', '2022', '2023', '2024', '2025', '2026', 'page', 'level', 'floor', 'tower'):
++                        if _m not in _lookup_keys:
++                            _lookup_keys.append(_m)
++                        if '-' in _m:
++                            _m_clean = _m.replace('-', '')
++                            if _m_clean not in _lookup_keys:
++                                _lookup_keys.append(_m_clean)
++                        elif ' ' in _m:
++                            _m_dash = _m.replace(' ', '-')
++                            if _m_dash not in _lookup_keys:
++                                _lookup_keys.append(_m_dash)
++
++                # 4. Check for Tower and Level combinations
++                _tw_m = _re_read.search(r'\btower\s*0*(\d+)\b', query, _re_read.IGNORECASE)
++                _lv_m = _re_read.search(r'\b(?:level|floor)\s*0*(\d+)\b', query, _re_read.IGNORECASE)
++                if _tw_m and _lv_m:
++                    _t_num = _tw_m.group(1)
++                    _l_num = _lv_m.group(1)
++                    for _tlk in (
++                        f"Tower {_t_num} Level {_l_num}",
++                        f"TOWER {_t_num} LEVEL {int(_l_num):02d}",
++                        f"TOWER {_t_num} LEVEL {_l_num}",
++                    ):
++                        if _tlk not in _lookup_keys:
++                            _lookup_keys.append(_tlk)
++                elif _tw_m:
++                    _lookup_keys.append(f"Tower {_tw_m.group(1)}")
++                elif _lv_m:
++                    _lookup_keys.append(f"Level {_lv_m.group(1)}")
++                    _lookup_keys.append(f"Level {int(_lv_m.group(1)):02d}")
++
++                # 5. Check for schedule / table keywords or field queries
++                _sched_kw_m = _re_read.search(
++                    r'\b(schedule|table|column|beam|door|window|wall|slab|footing|finish|finishes|area|gfa|nisa|nsa|bua|rebar|reinforcement|concrete\s+grade|grade|thickness|dimension)\b',
++                    query, _re_read.IGNORECASE
++                )
++                if _sched_kw_m:
++                    _sched_phrases = _re_read.findall(
++                        r'\b((?:column|door|window|beam|slab|wall|footing)\s+[A-Za-z0-9_-]+|concrete\s+grade|floor\s+gfa|gfa|finishes|finish\s+schedule|door\s+schedule|column\s+schedule)\b',
++                        query, _re_read.IGNORECASE
++                    )
++                    for _sp in _sched_phrases:
++                        if _sp not in _lookup_keys:
++                            _lookup_keys.append(_sp)
++
++                if _lookup_keys and not _lookup_key:
++                    _lookup_key = _lookup_keys[0]
++
++                if _lookup_keys or _lookup_key:
++                    _session = db.SessionLocal()
++                    try:
++                        _proj = _session.query(db.Project).filter_by(name=project).first()
++                        if _proj:
++                            # Query ScheduleRow, StructuredRecord, and Quantity
++                            ...
+@@ -2921,6 +2969,18 @@ def process_document(project, save_path, filename, disc, category, folder_id=No
+                     logger.warning("Quantities extraction failed: {}", e)
+                     raise
+ 
++                # Knowledge Hub: Entity Extraction (Requirement, Evidence, GraphEdge)
++                try:
++                    from knowledge.extraction import EntityExtractor
++                    with db.SessionLocal() as _s_ee:
++                        _proj_ee = _s_ee.query(db.Project).filter_by(name=project).first()
++                        _proj_id_ee = _proj_ee.id if _proj_ee else None
++                    if _proj_id_ee:
++                        _entity_counts = EntityExtractor.extract_and_index(_proj_id_ee, filename, meta)
++                        logger.info("KnowledgeHub EntityExtractor indexed entities for {}: {}", filename, _entity_counts)
++                except Exception as _e_ee:
++                    logger.warning("KnowledgeHub EntityExtractor failed: {}", _e_ee)
++
+                 # Phase 1: AI Document Memory (additive, non-blocking).
+@@ -4155,20 +4215,19 @@ async def ask_stream(req: AskRequest, request: Request):
++        from services.query_router import QueryRouter
++        route_res = QueryRouter.route_query(
++            project=req.project,
++            question=req.query,
++            user=user,
++            exact_documents=docs,
++            focus_doc=req.focus_doc,
++            retrieve_context_func=retrieve_context,
++            focused_sources=focused_sources,
++        )
++
++        if route_res.is_deterministic:
++            ans = route_res.answer
++            src_items = route_res.sources
++            yield f"data: {json.dumps({'type': 'token', 'content': ans})}\n\n"
++            yield f"data: {json.dumps({'type': 'done', 'sources': src_items, 'context': ''})}\n\n"
++            return
+```
+
+#### `intelligence/document_query.py`
+```diff
+--- a/intelligence/document_query.py
++++ b/intelligence/document_query.py
+@@ -129,24 +129,32 @@ def query_document(question, project_id, retrieve_context_func, call_qwen_func,
+     user = context.get('user')
+     if pid is None or user is None or not db.user_can_access(user,name):
+         return {'status':'NOT_FOUND','answer':'No accessible project evidence.','provenance':[]},timings
+-    from intelligence.exact_answers import exact_answer
+-    exact = exact_answer(question,db.list_documents(name,user))
+-    if exact:
+-        exact['route']='source_table'
+-        exact['provenance']=exact.pop('sources',[])
+-        timings['total']=time.perf_counter()-started
+-        return exact,timings
+-    if context.get('selected_guid') and re.search(r'\b(selected|highlight|isolate|zoom|guid)\b',question,re.I):
++    from services.query_router import QueryRouter
++    route_res = QueryRouter.route_query(
++        project=project_id,
++        question=question,
++        user=user,
++        selected_guid=context.get('selected_guid'),
++    )
++
++    if route_res.is_deterministic:
++        resp = {
++            'status': route_res.status,
++            'answer': route_res.answer,
++            'route': route_res.route,
++            'provenance': route_res.provenance,
++        }
++        if route_res.query_plan:
++            resp['query_plan'] = route_res.query_plan
++        timings['total'] = time.perf_counter() - started
++        return resp, timings
++
++    if route_res.route == 'model_qa':
+         from intelligence.structured_query import execute_model_qa
+-        result,elapsed=execute_model_qa(question,name,call_qwen_func,context)
+-        timings['total']=elapsed
+-        return result,timings
+-    plan = robust_parse_query(question,pid)
+-    if plan['route_target']=='structured':
+-        result,timings['sqlite'] = execute_structured_query(plan,pid,question,user)
+-        if result['status'] in ('SUCCESS','AMBIGUOUS'):
+-            timings['total'] = time.perf_counter()-started
+-            return result,timings
++        result, elapsed = execute_model_qa(question, name, call_qwen_func, context)
++        timings['total'] = elapsed
++        return result, timings
+```
+
+#### `services/query_router.py` (New File)
+```python
+"""
+Unified query routing service for Expo Design AI.
+Routes questions across deterministic exact tables, structured records,
+DocumentMemory, model BIM tools, and guarded RAG context retrieval.
+Shared by both /ask_stream and /api/query_document to guarantee identical,
+verified answers across streaming and batch endpoints.
+"""
+from dataclasses import dataclass, field
+from typing import Any, Callable, Dict, List, Optional
+import os
+import re
+
+from loguru import logger
+import db
+from intelligence.answer_publication import validate_precomputed_answer
+from intelligence.document_query import robust_parse_query, execute_structured_query
+
+@dataclass
+class RouteResult:
+    route: str  # 'source_table', 'structured', 'document_memory', 'model_qa', 'rag'
+    status: str  # 'SUCCESS', 'NOT_FOUND', 'AMBIGUOUS', 'ERROR', 'UNVERIFIED'
+    answer: str = ""
+    is_deterministic: bool = False
+    sources: List[Dict[str, Any]] = field(default_factory=list)
+    provenance: List[Dict[str, Any]] = field(default_factory=list)
+    query_plan: Optional[Dict[str, Any]] = None
+    ...
+
+class QueryRouter:
+    @staticmethod
+    def route_query(...) -> RouteResult:
+        ...
+```
+
+#### `knowledge/hub.py`
+```diff
+--- a/knowledge/hub.py
++++ b/knowledge/hub.py
+@@ -44,3 +44,28 @@ class KnowledgeHub:
+-    def __init__(self):
++    def __init__(self, load_db: bool = False):
+         self._graph = KnowledgeGraph()
+         self._provenance = get_tracker()
+         self._precedence = get_precedence()
+         self._entities: Dict[str, EngineeringEntity] = {}
++        if load_db:
++            try:
++                self.load_from_sqlite()
++            except Exception as e:
++                logger.warning("KnowledgeHub initial load_from_sqlite skipped: {}", e)
++
++    def _resolve_pid(self, project_id: Any) -> Optional[int]:
++        ...
++    def save_requirement_to_sqlite(self, entity: RequirementEntity) -> bool:
++        ...
++    def save_evidence_to_sqlite(self, entity: EvidenceEntity) -> bool:
++        ...
++    def save_edge_to_sqlite(self, edge: GraphEdge, project_id: Any) -> bool:
++        ...
++    def save_to_sqlite(self, project_id: Any = None):
++        ...
++    def load_from_sqlite(self, project_id: Any = None):
++        ...
++    def remove_project(self, project: str):
++        ...
+```
+
+#### `knowledge/extraction.py`
+```diff
+--- a/knowledge/extraction.py
++++ b/knowledge/extraction.py
+@@ -169,24 +169,55 @@ def extract_drawing_metadata(filename: str, project_id: str = "") -> Optional[Di
+-def index_structured_entities(project_id: str, filename: str,
++def index_structured_entities(project_id: Any, filename: str,
+                               meta: Dict[str, Any]) -> Dict[str, int]:
+     hub = get_hub()
+-    counts = {"requirements": 0, "drawings": 0, "schedules": 0, "evidence": 0}
++    counts = {"requirements": 0, "drawings": 0, "schedules": 0, "evidence": 0, "relationships": 0}
++    clean_fn = re.sub(r'[^a-zA-Z0-9_-]', '_', filename)
+     ...
++    # Add evidence for each page
++    if doc_type == "pdf":
++        for page in meta.get("pages", []):
++            ...
++            ev_id = f"ev-{clean_fn}-p{pg_num}-{counts['evidence']}"
++            hub.add_evidence(..., evidence_id=ev_id)
++    ...
++    # Add requirements with unique IDs and link to page evidence via 'supports'
++    for req in reqs:
++        req_id_str = f"{clean_fn}-req-{counts['requirements']}"
++        req_entity_id = hub.add_requirement(..., req_id=req_id_str)
++        if pg in page_evidence_ids:
++            hub.add_relationship(page_evidence_ids[pg], "supports", req_entity_id, confidence=0.8)
++
++class EntityExtractor:
++    """Extracts typed entities from document metadata into the KnowledgeHub."""
++    def __init__(self, hub=None):
++        self.hub = hub or get_hub()
++    @classmethod
++    def extract_and_index(cls, project_id: Any, filename: str, meta: Dict[str, Any]) -> Dict[str, int]:
++        return index_structured_entities(project_id, filename, meta)
++    def extract(self, project_id: Any, filename: str, meta: Dict[str, Any]) -> Dict[str, int]:
++        return index_structured_entities(project_id, filename, meta)
+```
+
+---
+
+### 3. List of New Tests Added and What Each Covers
+
+| Test File | Test Method | Coverage |
+|:---|:---|:---|
+| [`tests/test_fix4_schedule_retrieval.py`](file:///C:/3EH/ExpoDesignAI%20-%20Copy/tests/test_fix4_schedule_retrieval.py) | `test_tos_topr_tower_retrieval` | Backward-compatibility: TOS/TOPR patterns retrieve levels from `db.Quantity` into prompt context. |
+| | `test_element_tag_schedule_row_retrieval` | Mark/tag parsing: queries for element tags (e.g. `C-1`, `D-01`, `W01`) retrieve matching rows from `db.ScheduleRow`. |
+| | `test_tower_level_combination_structured_records` | Compound queries: queries with Tower and Level (e.g. "Tower 1 Level 3") retrieve from `db.StructuredRecord`. |
+| | `test_general_schedule_keyword_retrieval` | Keywords: "door schedule", "finishes", "area", "gfa" query `table_name` and `schedule` columns across tables. |
+| | `test_unrelated_query_no_false_positive` | Precision: queries without schedule tags do not inject structured rows into context. |
+| [`tests/test_fix5_query_router.py`](file:///C:/3EH/ExpoDesignAI%20-%20Copy/tests/test_fix5_query_router.py) | `test_source_table_exact_answer_route` | Unified routing for exact table answers: verified answers return deterministic route `source_table`. |
+| | `test_structured_query_route` | Unified routing for structured DB questions: returns deterministic route `structured` with query plan. |
+| | `test_document_memory_route` | Unified routing for DocumentMemory: returns deterministic route `document_memory` verified against source pages. |
+| | `test_rag_fallback_route` | RAG fallback: open-ended conceptual questions return `route="rag"` with context retrieval. |
+| [`tests/test_fix6_knowledge_hub_sqlite.py`](file:///C:/3EH/ExpoDesignAI%20-%20Copy/tests/test_fix6_knowledge_hub_sqlite.py) | `test_add_requirement_persists_to_sqlite` | Persistence: `KnowledgeHub.add_requirement()` commits a row to SQLite `db.Requirement`. |
+| | `test_add_evidence_persists_to_sqlite` | Persistence: `KnowledgeHub.add_evidence()` commits a row to SQLite `db.Evidence`. |
+| | `test_add_relationship_persists_to_sqlite` | Persistence: `KnowledgeHub.add_relationship()` commits a row to SQLite `db.GraphEdge`. |
+| | `test_load_from_sqlite_rehydrates_hub` | Rehydration: `KnowledgeHub.load_from_sqlite()` rehydrates in-memory graph, requirements, evidence, and edges from SQLite on restart. |
+| | `test_remove_project_purges_sqlite_and_memory` | Purge: `KnowledgeHub.remove_project()` wipes in-memory nodes/edges and deletes corresponding SQLite rows. |
+| | `test_entity_extractor_populates_sqlite_tables` | Ingestion pipeline: `EntityExtractor.extract_and_index()` extracts entities, generates unique IDs, links `supports` edges, and populates SQLite tables. |
+
+---
+
+### 4. Audit Discrepancies and Observations
+
+1. **`EntityExtractor` Class**:
+   - *Audit Statement*: "call EntityExtractor during document ingestion so those tables get populated."
+   - *Reality*: The repository had no `EntityExtractor` class; it had `index_structured_entities(...)` inside `knowledge/extraction.py`.
+   - *Resolution*: Created `class EntityExtractor` with `extract_and_index()` and `extract()` methods wrapping `index_structured_entities`, ensuring compatibility with both functional and object-oriented caller patterns.
+2. **Entity ID Collisions**:
+   - The legacy `index_structured_entities` used non-unique IDs like `auto-0`, which would collide and overwrite across different documents under SQLite's unique constraint `(project_id, req_id)`.
+   - Updated ID generation to prefix the sanitized filename: `f"{clean_fn}-req-{counts['requirements']}"` and `f"ev-{clean_fn}-p{pg_num}-{counts['evidence']}"`.
+3. **GraphEdge and Provenance Field Shapes**:
+   - `ProvenanceTracker.create()` returns a Python `dict`, not an object with attributes.
+   - `GraphEdge` has a `properties` attribute, not `metadata`.
+   - `knowledge/hub.py` was updated to defensively inspect both dict keys and object attributes.
+4. **Hub Instance Isolation**:
+   - Setting `load_db=False` by default in `KnowledgeHub.__init__` allows unit tests (like `test_project_cleanup.py`) to construct isolated in-memory test fixtures without SQLite state leakage, while the global production singleton `_hub = KnowledgeHub(load_db=True)` loads from SQLite on server boot.
+
+---
+
+### 5. Side Effects and Migration Guidance
+
+- **New Uploads**: All documents uploaded going forward will automatically extract requirements, evidence, and support graph edges into the SQLite `requirements`, `evidence`, and `graph_edges` tables.
+- **Pre-Existing Documents**: Documents uploaded prior to this fix have not had their `Requirement`, `Evidence`, and `GraphEdge` rows populated.
+- **How to Populate Existing Documents**:
+  Run this one-line command to re-index all existing documents into the Knowledge Hub SQLite tables:
+  ```powershell
+  & "C:\Users\RE&DBIM\AppData\Local\Programs\Python\Python312\python.exe" -c "
+  import glob, json, os, db
+  from knowledge.extraction import EntityExtractor
+  with db.SessionLocal() as s:
+      for proj in s.query(db.Project).all():
+          for idx_path in glob.glob(f'data/docs/{proj.name}/*.index.json'):
+              with open(idx_path, 'r', encoding='utf-8') as f:
+                  meta = json.load(f)
+              fn = os.path.basename(idx_path)[:-11]
+              EntityExtractor.extract_and_index(proj.id, fn, meta)
+  print('Knowledge Hub re-indexing completed successfully.')
+  "
+  ```

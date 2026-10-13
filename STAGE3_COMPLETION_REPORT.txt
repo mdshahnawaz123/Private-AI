@@ -1,0 +1,150 @@
+================================================================================
+EXPO DESIGN AI — LOCAL IMAGE ENGINE
+STAGE 3 IMPLEMENTATION & VERIFICATION REPORT
+================================================================================
+Document ID: EXP-RPT-IMG-STAGE3-20261013
+Date: October 13, 2026
+Git Branch: feature/image-engine-comfyui
+Status: STAGE 3 COMPLETED & VERIFIED (AWAITING STAGE 4 APPROVAL)
+
+TEST SUITE SUMMARY:
+- Baseline Test Suite: 353 PASSING TESTS
+- Stage 2 Total Tests: 379 PASSING TESTS (+26 new tests)
+- Stage 3 Total Tests: 396 PASSING TESTS (+17 new tests)
+- Failures: 0
+- Errors: 0
+- Pass Rate: 100%
+
+--------------------------------------------------------------------------------
+1. SCOPE EXECUTION SUMMARY
+--------------------------------------------------------------------------------
+In accordance with user authorization for Stage 3, the persistent job queue,
+database persistence layer, Alembic migration, and project-contained image
+storage were fully implemented and verified against the complete regression
+test suite.
+
+No frontend files were modified, and no production API endpoints in main.py
+were mounted during Stage 3 (reserved for Stage 4).
+
+1.1 Database Models & Helper Functions (db.py):
+  - ImageJob Model:
+    * id: String(64) primary key with default generator (imgjob-<12-hex>).
+    * project_id: Foreign key to projects.id (CASCADE delete), indexed.
+    * user_id: Foreign key to users.id, indexed.
+    * workflow_id: String(100) referencing registered ComfyUI workflow.
+    * status: String(30), indexed (queued, running, completed, failed, cancelled).
+    * comfy_prompt_id: String(100) tracking ComfyUI prompt ID.
+    * input_params: JSON storing generation parameters.
+    * progress: Integer (0-100%).
+    * current_step / total_steps: Integer tracking live step progress.
+    * error_message: Text storing error / timeout / OOM diagnostics.
+    * created_at / updated_at / completed_at: DateTime timestamps.
+    * outputs: Cascading relationship to ImageOutput.
+  - ImageOutput Model:
+    * id: String(64) primary key with default generator (out-<12-hex>).
+    * job_id: Foreign key to image_jobs.id (CASCADE delete), indexed.
+    * filename, file_path, thumbnail_path, width, height, seed.
+    * output_metadata: JSON sidecar payload.
+  - Project Purge Integration:
+    * Extended _purge_project_row() to automatically remove related ImageOutput
+      records before ImageJob records during permanent project purges.
+  - Database Helper API:
+    * create_image_job(), update_image_job(), get_image_job(), list_image_jobs(),
+      add_image_output(), get_image_output().
+
+1.2 Alembic Database Migration:
+  - alembic/versions/d4e5f6a7b8c9_image_engine_tables.py
+  - Branches from c3d4e5f6a7b8 (head).
+  - Implements upgrade() and downgrade() for image_jobs and image_outputs tables and indices.
+  - Verified against tests/test_deployment_schema.py.
+
+1.3 Project-Contained Image Storage (services/image_engine/image_storage.py):
+  - Strict Project Containment:
+    * Uses services.ingestion.contained_upload_path to ensure all files reside under
+      <data_dir>/projects/<project>/generated_images/<job_id>/.
+    * Enforces path containment; raises StorageSecurityError on traversal attempts.
+  - Filename Sanitization:
+    * Strips path separators and unsafe shell characters.
+  - Atomic Writes:
+    * Writes images and metadata sidecars via temporary files before atomic replace.
+  - Thumbnail Generation:
+    * Generates 256x256 antialiased thumbnails using Pillow (LANCZOS).
+  - Metadata Sidecar:
+    * Saves companion .meta.json file alongside every generated image.
+  - Cross-Project Access Enforcement:
+    * get_output_paths() verifies requesting project matches job's owning project.
+
+1.4 Job Service & FIFO Execution Scheduler (services/image_engine/job_service.py):
+  - Single-Worker FIFO Queue:
+    * Uses asyncio.Queue with single worker task (concurrency = 1).
+    * Strictly preserves the 16 GB VRAM envelope on RTX 5080 while Ollama is running.
+  - Crash Recovery:
+    * _reconcile_interrupted_jobs() resets stale in-flight jobs to failed on startup.
+  - Execution Tracking:
+    * Preflight ComfyUI reachability check.
+    * Graph compilation via workflow_registry.
+    * Input image upload support for sketch-to-render workflows.
+    * Live step and percentage progress streaming into SQLite.
+  - Cancellation:
+    * Supports cancellation; dispatches interrupt signal to ComfyUI if running.
+  - Resource & Error Trapping:
+    * Catches ComfyUIOutOfMemoryError and records actionable memory instructions.
+    * Handles timeouts and disconnected states without server crashes.
+  - Audit Logging:
+    * Logs audit events (image.job.create, image.job.complete, image.job.fail, image.job.cancel).
+
+--------------------------------------------------------------------------------
+2. MODIFIED & CREATED FILES MANIFEST
+--------------------------------------------------------------------------------
+Modified Files:
+  - db.py
+  - config.py (from Stage 2)
+
+Created Files:
+  - services/image_engine/image_storage.py
+  - services/image_engine/job_service.py
+  - alembic/versions/d4e5f6a7b8c9_image_engine_tables.py
+  - tests/test_image_engine_storage.py
+  - tests/test_image_engine_job_service.py
+  - services/image_engine/__init__.py (Stage 2)
+  - services/image_engine/schemas.py (Stage 2)
+  - services/image_engine/comfyui_client.py (Stage 2)
+  - services/image_engine/workflow_registry.py (Stage 2)
+  - workflows/architecture_concept.json (Stage 2)
+  - workflows/sketch_to_render.json (Stage 2)
+  - workflows/render_enhancement.json (Stage 2)
+  - tests/test_image_engine_config.py (Stage 2)
+  - tests/test_image_engine_schemas.py (Stage 2)
+  - tests/test_image_engine_workflow_registry.py (Stage 2)
+  - tests/test_image_engine_comfy_client.py (Stage 2)
+
+--------------------------------------------------------------------------------
+3. TEST RESULTS BREAKDOWN
+--------------------------------------------------------------------------------
+Image Engine Unit Test Suites:
+  - tests/test_image_engine_config.py: 3 passed
+  - tests/test_image_engine_schemas.py: 9 passed
+  - tests/test_image_engine_workflow_registry.py: 8 passed
+  - tests/test_image_engine_comfy_client.py: 6 passed
+  - tests/test_image_engine_storage.py: 7 passed
+  - tests/test_image_engine_job_service.py: 10 passed
+  Total Image Engine Tests: 43 PASSED
+
+Full Regression Test Suite:
+  Command: python -m unittest discover -s "tests" -p "test_*.py"
+  Ran 396 tests in 23.069s
+  Result: OK (0 failures, 0 errors)
+  Total Passing Tests: 396 (353 baseline + 26 Stage 2 + 17 Stage 3)
+
+--------------------------------------------------------------------------------
+4. ROLLBACK INSTRUCTIONS
+--------------------------------------------------------------------------------
+To revert Stage 3:
+  cd "C:\3EH\ExpoDesignAI - Copy"
+  git checkout main -- db.py
+  Remove-Item "services/image_engine/image_storage.py"
+  Remove-Item "services/image_engine/job_service.py"
+  Remove-Item "alembic/versions/d4e5f6a7b8c9_image_engine_tables.py"
+  Remove-Item "tests/test_image_engine_storage.py"
+  Remove-Item "tests/test_image_engine_job_service.py"
+================================================================================

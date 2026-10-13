@@ -1056,7 +1056,10 @@ function _renderEngineStatusUI(){
   }
 }
 
+let _pollingStudio = false;
 async function _pollStudioStatus(){
+  if(_pollingStudio) return;
+  _pollingStudio = true;
   try {
     const res = await fetch(`${API}/api/image-engine/status`);
     if(res.ok){
@@ -1064,6 +1067,9 @@ async function _pollStudioStatus(){
       _renderEngineStatusUI();
     }
   } catch(e){}
+  finally {
+    _pollingStudio = false;
+  }
 }
 
 async function _toggleEngineService(){
@@ -1080,38 +1086,46 @@ async function _toggleEngineService(){
     const res = await fetch(`${API}/api/image-engine/service/${action}`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${localStorage.getItem('token') || ''}`,
         'Content-Type': 'application/json'
       }
     });
+    if(!res.ok){
+      const err = await res.json().catch(()=>({}));
+      throw new Error(err.detail || `Server status ${res.status}`);
+    }
     const data = await res.json();
     if(action === 'start'){
       toast('Starting AI Studio Engine… initializing RTX 5080');
       let attempts = 0;
+      let checkBusy = false;
       const interval = setInterval(async () => {
+        if(checkBusy) return;
         attempts++;
+        checkBusy = true;
         try {
-          const sRes = await fetch(`${API}/api/image-engine/status`);
+          const sRes = await fetch(`${API}/api/image-engine/service/status`);
           if(sRes.ok){
             const s = await sRes.json();
             if(s.available){
               clearInterval(interval);
-              _studioEngineStatus = s;
               delete btn.dataset.loading;
               btn.disabled = false;
-              _renderEngineStatusUI();
+              await _pollStudioStatus();
               toast('AI Studio Engine is ready!');
               if(window._refreshStudio) window._refreshStudio();
               return;
             }
           }
         } catch(e){}
-        if(attempts >= 20){
+        finally {
+          checkBusy = false;
+        }
+        if(attempts >= 25){
           clearInterval(interval);
           delete btn.dataset.loading;
           btn.disabled = false;
-          _renderEngineStatusUI();
-          toast('Engine initialization in progress. Click Refresh in a moment.');
+          await _pollStudioStatus();
+          toast('Engine starting in background, click Refresh in a moment');
         }
       }, 1500);
     } else {
@@ -1121,7 +1135,7 @@ async function _toggleEngineService(){
         btn.disabled = false;
         await _pollStudioStatus();
         if(window._refreshStudio) window._refreshStudio();
-      }, 1000);
+      }, 800);
     }
   } catch(err){
     toast('Engine control failed: ' + err.message);

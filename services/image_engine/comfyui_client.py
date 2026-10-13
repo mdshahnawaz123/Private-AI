@@ -99,7 +99,8 @@ class ComfyUIClient:
         Returns EngineStatus with available=False on connection error (never throws).
         """
         try:
-            async with httpx.AsyncClient(timeout=self.connect_timeout) as client:
+            fast_timeout = httpx.Timeout(2.0, connect=0.5)
+            async with httpx.AsyncClient(timeout=fast_timeout) as client:
                 resp = await client.get(f"{self.base_url}/system_stats")
                 if resp.status_code != 200:
                     return EngineStatus(

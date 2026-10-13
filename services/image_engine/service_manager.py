@@ -86,21 +86,21 @@ def start_engine() -> Dict[str, Any]:
     CREATE_NO_WINDOW = 0x08000000
     flags = DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP | CREATE_NO_WINDOW
 
-    cmd = [python_exe, main_py, "--listen", COMFY_HOST, "--port", str(COMFY_PORT), "--highvram"]
     try:
-        proc = subprocess.Popen(
-            cmd,
-            cwd=COMFY_DIR,
-            stdout=log_handle,
-            stderr=log_handle,
-            creationflags=flags,
-            close_fds=True,
+        ps_cmd = (
+            f'powershell.exe -NoProfile -ExecutionPolicy Bypass -Command '
+            f'"Start-Process -FilePath \'{python_exe}\' '
+            f'-ArgumentList \'main.py --listen {COMFY_HOST} --port {COMFY_PORT} --highvram\' '
+            f'-WorkingDirectory \'{COMFY_DIR}\' '
+            f'-RedirectStandardOutput \'{log_file}\' '
+            f'-RedirectStandardError \'{log_file}\' '
+            f'-WindowStyle Hidden"'
         )
-        logger.info(f"Started AI Studio Engine in background: PID={proc.pid} at {COMFY_DIR}")
+        subprocess.run(ps_cmd, shell=True, check=True, timeout=10)
+        logger.info(f"Launched AI Studio Engine via Start-Process at {COMFY_DIR}")
         return {
             "status": "starting",
             "available": False,
-            "pid": proc.pid,
             "message": "AI Studio Engine launched. Please wait a few seconds for initialization.",
         }
     except Exception as exc:

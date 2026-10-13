@@ -184,6 +184,19 @@ foreach ($baseUrl in $hostsToModels.Keys) {
 }
 $logRoot = [System.IO.Path]::GetFullPath($settings.data)
 New-Item -ItemType Directory -Path $logRoot -Force | Out-Null
+
+# Auto-start AI Studio Engine (ComfyUI) in background if not already running
+$comfyDir = "C:\3EH\ComfyUI"
+if (Test-Path (Join-Path $comfyDir "main.py")) {
+    $comfyPortListening = (Get-NetTCPConnection -LocalPort 8188 -State Listen -ErrorAction SilentlyContinue)
+    if (-not $comfyPortListening) {
+        $comfyPy = Join-Path $comfyDir "venv\Scripts\python.exe"
+        if (-not (Test-Path $comfyPy)) { $comfyPy = $python }
+        Start-Process -FilePath $comfyPy -ArgumentList 'main.py --listen 127.0.0.1 --port 8188 --highvram' `
+            -WorkingDirectory $comfyDir -WindowStyle Hidden
+    }
+}
+
 Start-Process -FilePath $python -ArgumentList 'main.py' -WorkingDirectory $PSScriptRoot -WindowStyle Hidden `
     -RedirectStandardOutput (Join-Path $logRoot 'server.stdout.log') `
     -RedirectStandardError (Join-Path $logRoot 'server.stderr.log')

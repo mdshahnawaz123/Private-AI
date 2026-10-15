@@ -1623,6 +1623,8 @@ async def project_schedules(project: str, request: Request):
 app.include_router(api_v1)
 from services.image_engine.api import image_router
 app.include_router(image_router)
+from services.cad_api import cad_router
+app.include_router(cad_router)
 
 vectorstores = {}
 _index_mutation_lock = threading.RLock()
@@ -1962,7 +1964,17 @@ def _units_from_meta(meta):
             inh = (pg.get("header_inherited_tables") or "").strip()
             if inh:
                 units.append(("[STRUCTURED TABLE]\n" + inh, pg.get("page")))
-            vis = (pg.get("vision") or "")
+            from intelligence.ocr_evidence import page_ocr_primary, vision_without_ocr, OCR_LABEL
+            ocr_primary = page_ocr_primary(pg)
+            if ocr_primary:
+                # Tables go in only as self-contained [TABLE ROW] units below; a
+                # markdown copy inside the page text was re-parsed by the generic
+                # table_row_units() in the excerpt/guard paths into junk rows.
+                units.append((OCR_LABEL + "\n" + ocr_primary, pg.get("page")))
+            from intelligence.ocr_evidence import ocr_table_units
+            for _row in ocr_table_units(pg):  # OCR'd ruled tables + table images
+                units.append((_row, pg.get("page")))
+            vis = vision_without_ocr(pg)
             inspection = pg.get('inspection_text') or ''
             if inspection:
                 units.append(('[UNVERIFIED PAGE INSPECTION]\n'+inspection, pg.get('page')))
@@ -1973,6 +1985,13 @@ def _units_from_meta(meta):
     elif meta.get("sheets"):  # excel
         for sh in meta["sheets"]:
             rows = sh.get("rows") or []
+            if sh.get("summaries"):
+                units.extend((x, sh.get("sheet")) for x in sh["summaries"])
+            elif sh.get("summary"):
+                units.append((sh["summary"], sh.get("sheet")))
+            if sh.get("row_units"):
+                units.extend((u, sh.get("sheet")) for u in sh["row_units"])
+                continue
             body = "\n".join(" | ".join(str(c) for c in r) for r in rows)
             if body.strip():
                 units.append((body, sh.get("sheet")))
@@ -1983,6 +2002,13 @@ def _units_from_meta(meta):
             vis = v.get("vision") or ""
             if vis.strip():
                 units.append((vis, v.get("image")))
+    elif t == "docx" and meta.get("sections") is not None:
+        for sec in meta.get("sections") or []:
+            if (sec.get("text") or "").strip():
+                head = sec.get("heading") or None
+                units.append((("[SECTION] " + head + "\n" if head else "") + sec["text"], head))
+        for u in meta.get("row_units") or []:
+            units.append((u, u.split(" | ", 1)[0].replace("[TABLE ROW] ", "")))
     elif t == "docx":
         body = "\n".join(meta.get("paragraphs") or [])
         if body.strip():
@@ -1992,6 +2018,10 @@ def _units_from_meta(meta):
             if tb.strip():
                 units.append((tb, "table %d" % (i + 1)))
     elif t == "image":
+        if (meta.get("ocr_text") or "").strip():
+            units.append(("[OCR TEXT]\n" + meta["ocr_text"], None))
+        for u in meta.get("table_units") or []:
+            units.append((u, None))
         vis = meta.get("vision") or ""
         if vis.strip():
             units.append((vis, None))
@@ -2007,11 +2037,11 @@ def index_structured(collection, meta, source, folder_id=None):
     for body, page in _units_from_meta(meta):
         md = {"source": source, "folder_id": folder_id,
               "source_sha256":meta.get('source_sha256'),
-              "evidence_state":'REVIEW_REQUIRED' if meta.get('type')=='image' or body.startswith('[UNVERIFIED') else 'INTERPRETED'}
+              "evidence_state":'REVIEW_REQUIRED' if body.startswith('[UNVERIFIED') or (meta.get('type')=='image' and not body.startswith(('[OCR TEXT]','[TABLE ROW]'))) else 'INTERPRETED'}
         if page is not None:
             md["page"] = page
         document = LCDocument(page_content=body, metadata=md)
-        if body.startswith("[TABLE ROW]") or body.startswith("[STRUCTURED TABLE]"):
+        if body.startswith(("[TABLE ROW]", "[STRUCTURED TABLE]", "[SHEET SUMMARY]")):
             all_chunks.append(document)  # Never separate row values from their headers/entities.
         else:
             split_chunks=splitter.split_documents([document])
@@ -2266,6 +2296,32 @@ def retrieve_context(project: str, query: str, k: int, user=None, focused_source
                 docs = []
         except Exception:
             pass
+
+        # Whole-table context (2026-10-14 pipeline audit): when a retrieved chunk is
+        # one row of a table, also include that table's other rows from the same
+        # page, so "which row is highest / list all X" questions see the whole
+        # table -- the way a person reading the row sees the table around it.
+        try:
+            _tbl_keys = set()
+            for _d in docs:
+                _m = re.search(r'^Table: (.+)$', _d.page_content, re.M)
+                if _d.page_content.startswith('[TABLE ROW]') and _m:
+                    _tbl_keys.add((_d.metadata.get('source'), _d.metadata.get('page'), _m.group(1).strip()))
+            if _tbl_keys:
+                _have = {_d.page_content for _d in docs}
+                _extra, _budget = [], 14000
+                for _d in getattr(getattr(vs, 'docstore', None), '_dict', {}).values():
+                    _pc = getattr(_d, 'page_content', '')
+                    if _pc in _have or not _pc.startswith('[TABLE ROW]'):
+                        continue
+                    _m = re.search(r'^Table: (.+)$', _pc, re.M)
+                    _key = (_d.metadata.get('source'), _d.metadata.get('page'), _m.group(1).strip() if _m else None)
+                    if _key in _tbl_keys and _permitted(_d) and _budget - len(_pc) > 0:
+                        _extra.append(_d); _have.add(_pc); _budget -= len(_pc)
+                if _extra:
+                    docs = docs + _extra
+        except Exception as _te:
+            logger.warning('table sibling expansion skipped: {}', _te)
 
         # Phase 2 (Task 1): Read structured rows/quantities — inject as HIGH-PRIORITY context
         try:
@@ -2843,6 +2899,13 @@ def process_document(project, save_path, filename, disc, category, folder_id=Non
             if not result.get('success'):raise RuntimeError(result.get('error','Image extraction failed'))
             combined = '[UNVERIFIED IMAGE EXTRACTION]\n'+result['raw_text']
             meta = {"type": "image", "vision": combined}
+            try:
+                from services.office_extract import image_structured
+                meta.update(image_structured(save_path))
+                if meta.get("ocr_text"):
+                    combined = "[OCR TEXT]\n" + meta["ocr_text"] + "\n\n" + combined
+            except Exception as _ie:
+                logger.warning('Image OCR skipped: {}', _ie)
             db.set_progress(key, "reading image", 1, 1)
         elif cad.is_cad(save_path):
             data, imgs = cad.ingest(save_path, save_path + "_render")
@@ -2909,6 +2972,25 @@ def process_document(project, save_path, filename, disc, category, folder_id=Non
             else:
                 meta['inspection_status']='UNAVAILABLE_REVIEW_REQUIRED'
                 has_warnings = True
+            # OCR is now the primary reader for pages with a broken text layer
+            # (extract.py no longer tile-visions them). If OCR fails on a page,
+            # fall back to vision tiles for that page only, instead of failing
+            # the whole document.
+            _ocr_failed=[p for p in meta.get('pages',[]) if p.get('page_ocr_status')=='FAILED_REVIEW_REQUIRED']
+            if _ocr_failed:
+                import fitz as _fz
+                with _fz.open(save_path) as _fd:
+                    for _p in _ocr_failed:
+                        try:
+                            _tiles=extract.render_page_tiles(_fd[_p['page']-1],save_path+'_pages',_p['page'],zoom=3.0,
+                                                             max_dim=int(os.getenv('EXPO_VISION_TILE_DIM','1500')))
+                            _vt='\n\n'.join(t for t in ((vision.describe_image(_tp) or '').strip() for _tp in _tiles) if t)
+                        except Exception as _ve:
+                            logger.warning('Vision fallback failed for page {} of {}: {}',_p['page'],filename,_ve)
+                            _vt=''
+                        if _vt:
+                            _p['vision']=(str(_p.get('vision') or '')+'\n[UNVERIFIED VISION FALLBACK]\n'+_vt).strip()
+                            _p['page_ocr_status']='VISION_FALLBACK_REVIEW_REQUIRED'
             if any(p.get('page_ocr_status')=='FAILED_REVIEW_REQUIRED' for p in meta.get('pages',[])):
                 raise RuntimeError('Full-page OCR incomplete')
             has_warnings = any(p.get('page_ocr_status','').endswith('REVIEW_REQUIRED') for p in meta.get('pages',[])) or has_warnings
@@ -2928,6 +3010,18 @@ def process_document(project, save_path, filename, disc, category, folder_id=Non
                         raise RuntimeError('Required visual extraction incomplete')
                     by_page = {page['page']:page for page in meta.get('pages',[])}
                     for image in images:
+                        # Table images: carry the cell-OCR grid as a page table so it
+                        # is indexed as citeable [TABLE ROW] units, like ruled tables.
+                        try:
+                            _side=(image.image_path or '')+'.table.json'
+                            if image.page_number in by_page and os.path.isfile(_side):
+                                with open(_side,encoding='utf-8') as _h:
+                                    _g=json.load(_h).get('grid')
+                                if _g:
+                                    by_page[image.page_number].setdefault('ocr_tables',[]).append(
+                                        {'grid':_g,'caption':'','source':'image','image_bbox':None})
+                        except Exception as _ie:
+                            logger.warning('Image table attach failed: {}',_ie)
                         if getattr(image,'vision_status','COMPLETED')=='COMPLETED' and image.page_number in by_page and image.visual_description:
                             page = by_page[image.page_number]
                             page['vision'] = (page.get('vision','')+'\n[UNVERIFIED VISUAL EXTRACTION]\n'+image.visual_description).strip()
@@ -3024,6 +3118,20 @@ def process_document(project, save_path, filename, disc, category, folder_id=Non
                 except Exception as _e_ee:
                     logger.warning("KnowledgeHub EntityExtractor failed: {}", _e_ee)
 
+                if not chunks_n or source_hash(save_path)!=digest:
+                    raise RuntimeError('Index publication incomplete or source changed')
+                final_status = "ready_with_warnings" if has_warnings else "ready"
+                meta['processing_complete']=True
+                meta['evidence_state']='REVIEW_REQUIRED' if has_warnings else 'INTERPRETED'
+                if extract.save_json(save_path+'.index.json',meta) is False:
+                    raise RuntimeError('Completion evidence could not be persisted')
+                db.update_document_status(project, filename, chunks_n, final_status)
+                logger.info("Processed {} -> {} chunks (page-aware), status: {}", filename, chunks_n, final_status)
+                # Document Memory now runs AFTER publication (2026-10-14 pipeline audit):
+                # it is additive and slow (one LLM call per page window -- 23 min to
+                # 2+ hours on a 33-page report), and running it before the status
+                # update kept the document unanswerable ('processing', 0 chunks) for
+                # that whole time, and lost everything if the server restarted.
                 # Phase 1: AI Document Memory (additive, non-blocking).
                 # Gated by enable_document_memory AND an explicit filename
                 # allow-list (config.document_memory_doc_allowlist) -- for
@@ -3054,15 +3162,6 @@ def process_document(project, save_path, filename, disc, category, folder_id=Non
                 except Exception as e:
                     logger.warning("Document memory build failed (non-blocking): {}", e)
 
-                if not chunks_n or source_hash(save_path)!=digest:
-                    raise RuntimeError('Index publication incomplete or source changed')
-                final_status = "ready_with_warnings" if has_warnings else "ready"
-                meta['processing_complete']=True
-                meta['evidence_state']='REVIEW_REQUIRED' if has_warnings else 'INTERPRETED'
-                if extract.save_json(save_path+'.index.json',meta) is False:
-                    raise RuntimeError('Completion evidence could not be persisted')
-                db.update_document_status(project, filename, chunks_n, final_status)
-                logger.info("Processed {} -> {} chunks (page-aware), status: {}", filename, chunks_n, final_status)
             except Exception:
                 # Extraction succeeded and is saved to .extracted.txt; only the
                 # embedding step failed (usually the local model server). Keep the
@@ -3602,6 +3701,65 @@ async def ask_stream(req: QueryRequest, request: Request = None):
                      detail={"query_chars": len(req.query or "")}, user=user, ip=_client_ip(request))
         return StreamingResponse(deterministic_stream(), media_type="text/event-stream")
 
+    # Verified answer agent (intelligence/agent_loop.py): plan -> tools -> answer -> verify -> retry.
+    # EXPO_AGENT_MODE: "admin" (default: admins only), "all" (every user), "off".
+    _agent_mode = os.getenv("EXPO_AGENT_MODE", "admin").strip().lower()
+    _agent_on = (req.mode in ("chat", "agent") and not req.attachment_id
+                 and (_agent_mode == "all" or (_agent_mode == "admin" and (user or {}).get("role") == "admin") or req.mode == "agent"))
+    if _agent_on and len((req.query or "").strip()) < 2:
+        def _empty():
+            yield f"data: {json.dumps({'type':'token','text':'Please type a question about your project documents.'})}\n\n"
+            yield f"data: {json.dumps({'type':'done'})}\n\n"
+        return StreamingResponse(_empty(), media_type="text/event-stream")
+    if _agent_on:
+        _agent_docs = [d for d in exact_documents if d.get('status') in ('ready','ready_with_warnings','verified','published') and os.path.isfile(str(d.get('path','')))]
+        if _agent_docs:
+            def agent_stream():
+                from intelligence.agent_loop import Agent
+                from config import get_settings as _ags
+                _st = _ags()
+                _url = os.getenv("EXPO_CHAT_OLLAMA_HOST") or getattr(_st, "chat_ollama_host", "") or getattr(_st, "ollama_host", "http://127.0.0.1:11434")
+                _focus = [d['filename'] for d in _agent_docs] if req.focus_doc else None
+                def _ret(q):
+                    return retrieve_context(req.project, q, 8, user=user, focused_sources=_focus)
+                agent = Agent(req.project, user, req.query, _agent_docs, _ret, _url,
+                              req.model or "qwen3.5:9b", history=[m.dict() if hasattr(m, 'dict') else m for m in (req.messages or [])])
+                final = None
+                try:
+                    for kind, payload in agent.run():
+                        if kind == "status":
+                            yield f"data: {json.dumps({'type':'status','message':payload})}\n\n"
+                        else:
+                            final = payload
+                except Exception as _ae:
+                    logger.exception("Agent failed")
+                    yield f"data: {json.dumps({'type':'error','message':'The agent could not finish: ' + str(_ae)[:200]})}\n\n"
+                    yield f"data: {json.dumps({'type':'done'})}\n\n"
+                    return
+                _srcs = resolve_sources(req.project, final["sources"]) if final["sources"] else []
+                yield f"data: {json.dumps({'type':'sources','sources':_srcs})}\n\n"
+                yield f"data: {json.dumps({'type':'token','text':final['answer']})}\n\n"
+                try:
+                    structured = response_schema.build_structured_response(req.query, final['answer'], _srcs)
+                except Exception:
+                    structured = {"type": "simple_answer", "summary": final['answer'], "charts": []}
+                if final["charts"]:
+                    structured['charts'] = final["charts"]
+                    if structured.get('type') in ('simple_answer', 'not_found'):
+                        structured['type'] = 'chart'
+                        structured['summary'] = final['answer']
+                    from services import dataviz as _dv2
+                    if _dv2.DASH_Q.search(req.query):
+                        from urllib.parse import quote as _q2
+                        _fn = final["charts"][0].get("sources", [{}])[0].get("filename") or _agent_docs[0]['filename']
+                        structured['dashboard_url'] = '/ui/dashboard.html?project=%s&filename=%s' % (_q2(req.project), _q2(_fn))
+                structured['agent'] = {"steps": final["trace"], "seconds": final["seconds"], "repairs": final["repairs"]}
+                logger.info('Agent answer in {}s, {} tool calls, {} repairs: {}', final["seconds"],
+                            sum(1 for t in final["trace"] if "tool" in t), final["repairs"], req.query[:100])
+                yield f"data: {json.dumps({'type':'structured','data':structured})}\n\n"
+                yield f"data: {json.dumps({'type':'done'})}\n\n"
+            return StreamingResponse(agent_stream(), media_type="text/event-stream")
+
     # Phase 0: Optional orchestrator mode (falls back to direct RAG if orchestrator fails)
     if req.mode == "orchestrated":
         try:
@@ -3625,6 +3783,32 @@ async def ask_stream(req: QueryRequest, request: Request = None):
     except httpx.TransportError as exc:
         logger.warning('Local retrieval service unavailable: {}', type(exc).__name__)
         raise HTTPException(503, 'Local AI retrieval is unavailable. Check that the local model service is running, then retry.') from exc
+    # When retrieval found nothing AND some of this project's documents are not
+    # answerable (still processing, failed, or held for review), say so instead
+    # of letting the model reply "I could not find this in the uploaded
+    # documents" -- that wording made a failed ingestion look like the answer
+    # simply isn't in the document (2026-10-14 pipeline audit).
+    if (not (ctx or '').strip() and not req.focus_doc and not req.attachment_id
+            and req.mode != 'cowork'):
+        _blocked=[d for d in db.list_documents(req.project,user)
+                  if not (d.get('status') in ('ready','ready_with_warnings','verified','published')
+                          and d.get('chunks',0)>0)
+                  and d.get('status') not in ('stored',)]
+        if _blocked:
+            _labels={'processing':'still processing','error':'processing failed',
+                     'review_required':'held for review (extraction incomplete)',
+                     'extracted':'extracted but not indexed'}
+            _lines='\n'.join(f"- {d['filename']}: {_labels.get(d.get('status'), d.get('status') or 'unavailable')}"
+                              for d in _blocked[:10])
+            _msg=('I could not answer from this project\'s documents because the following '
+                  'document(s) are not available for questions yet:\n'+_lines+
+                  '\n\nRe-upload or reprocess the document (or wait for processing to finish), then ask again.')
+            logger.warning('ask_stream: no evidence; unavailable documents in {}: {}', req.project,
+                           [(d['filename'], d.get('status')) for d in _blocked[:10]])
+            def _unavailable_stream():
+                yield f"data: {json.dumps({'type':'token','text':_msg})}\n\n"
+                yield f"data: {json.dumps({'type':'done'})}\n\n"
+            return StreamingResponse(_unavailable_stream(),media_type='text/event-stream')
     if (re.search(r'\bpage\s+\d+\b',req.query,re.I) and not req.focus_doc
             and not req.attachment_id and req.mode != 'cowork'):
         available=[d for d in db.list_documents(req.project,user)
@@ -3838,11 +4022,67 @@ async def ask_stream(req: QueryRequest, request: Request = None):
                             full_response,ctx,srcs,question=req.query)
                         if _final_issues:
                             _issues = _final_issues
+                        if not _issues:
+                            # Say when a cited page was only readable through OCR
+                            # (no usable text layer) -- see intelligence/ocr_evidence.py.
+                            try:
+                                from intelligence.answer_guard import _excerpts_by_page, MARKER as _CMARK
+                                _ex=_excerpts_by_page(ctx)
+                                _cited={(m.group(1).strip(),m.group(2).upper()) for m in _CMARK.finditer(full_response)}
+                                _ocr_pages=sorted({p for (f,p) in _cited if '[OCR TEXT]' in _ex.get((f,p),'')},key=lambda x:(len(x),x))
+                                if _ocr_pages:
+                                    full_response+=('\n\nNote: page '+', '.join(_ocr_pages)+' has no usable text layer in the PDF '
+                                                    'and was read by OCR; check critical values against the original page.')
+                            except Exception as _oe:
+                                logger.warning('OCR citation note failed: {}', _oe)
                 except Exception:
                     logger.exception('Answer publication validation failed; withholding candidate')
                     full_response = 'I could not verify the answer against the retrieved source pages. Please retry or review the cited sources.'
                     _issues = ['Answer publication validation failed']
                     yield f"data: {json.dumps({'type':'error','message':'Answer withheld because evidence validation could not be completed.'})}\n\n"
+                # Page-image fallback (intelligence/page_vision.py): when the text
+                # answer was withheld / "not found", or the question is about a
+                # figure, show the most relevant page IMAGE to the vision model.
+                try:
+                    from intelligence.page_vision import needs_page_vision, candidate_pages, answer_from_pages
+                    _cap_q = re.search(r"\b(Figure|Fig\.?|Table)\s*\d+", req.query or "", re.I)
+                    if (srcs or _cap_q) and not req.attachment_id and needs_page_vision(req.query, full_response, bool(_issues)):
+                        _top = next((s_ for s_ in srcs if isinstance(s_, dict) and (s_.get('source') or s_.get('filename'))), None)
+                        _fname = (_top.get('source') or _top.get('filename')) if _top else None
+                        _doc = next((d for d in db.list_documents(req.project, user)
+                                     if _fname and (d.get('filename') == os.path.basename(_fname))
+                                     and str(d.get('path','')).lower().endswith('.pdf')), None)
+                        _img_doc = None
+                        if not _doc and _fname:
+                            _img_doc = next((d for d in db.list_documents(req.project, user)
+                                             if d.get('filename') == os.path.basename(_fname) and vision.is_image(str(d.get('path','')))), None)
+                        if not _doc and not _img_doc and _cap_q:
+                            # Nothing retrieved: look for the named Figure/Table caption in every PDF of the project.
+                            for _d in db.list_documents(req.project, user):
+                                if str(_d.get('path','')).lower().endswith('.pdf') and candidate_pages(_d['path'], [], req.query):
+                                    _doc = _d
+                                    break
+                        if _img_doc:
+                            from intelligence.page_vision import answer_from_image
+                            yield f"data: {json.dumps({'type':'status','message':'Checking the image...'})}\n\n"
+                            _va = answer_from_image(req.query, _img_doc['path'])
+                            if _va:
+                                logger.info('Image-vision answer used for: {}', req.query[:120])
+                                full_response = _va + f"\n\n[SOURCE: {_img_doc['filename']}]\n\nRead directly from the image by the vision model (not text-verified) - check against the original."
+                        if _doc:
+                            _pages = candidate_pages(_doc['path'], srcs, req.query)
+                            if _pages:
+                                yield f"data: {json.dumps({'type':'status','message':'Checking the page image...'})}\n\n"
+                                _pg, _va = answer_from_pages(req.query, _doc['path'], _pages)
+                                if _va:
+                                    from intelligence.page_vision import page_vision_model as _pvm
+                                    logger.info('Page-vision answer used (model {}, page {} of {}) for: {}', _pvm(), _pg, _doc['filename'], req.query[:120])
+                                    full_response = (_va.strip() + f"\n\n[SOURCE: {_doc['filename']} | PAGE {_pg}]\n\n"
+                                        f"Read directly from the image of page {_pg} by the vision model (not text-verified) - "
+                                        "check against the original page.")
+                                    _issues = []
+                except Exception as _pve:
+                    logger.warning('Page-vision fallback skipped: {}', _pve)
                 yield f"data: {json.dumps({'type':'token','text':full_response})}\n\n"
             msgs.append(AIMessage(content=full_response))
             
@@ -3936,6 +4176,35 @@ async def ask_stream(req: QueryRequest, request: Request = None):
                 subtitle_hint=os.path.basename(req.focus_doc) if getattr(req, "focus_doc", "") else "",
                 focus_doc_used=_focus_used,
             )
+            # Charts / dashboards computed from the file itself (services/dataviz.py):
+            # the model only picks the table and columns; values come from the cells.
+            try:
+                from services import dataviz as _dv
+                if _dv.wants_chart(req.query):
+                    yield f"data: {json.dumps({'type':'status','message':'Building chart from the file...'})}\n\n"
+                    _docs = [d for d in db.list_documents(req.project, user)
+                             if str(d.get('path','')).lower().endswith(('.xlsx','.xlsm','.xls','.pdf')) and os.path.isfile(str(d.get('path','')))]
+                    _cited = {os.path.basename(str((s_ or {}).get('source') or (s_ or {}).get('filename') or '')) for s_ in (srcs or []) if isinstance(s_, dict)}
+                    _docs.sort(key=lambda d: d.get('filename') not in _cited)
+                    _pages = [s_.get('page') for s_ in (srcs or []) if isinstance(s_, dict) and s_.get('page') is not None]
+                    _paths = [d['path'] for d in _docs[:3]]
+                    _spec = _dv.chart_for_question(req.query, _paths, _pages) if _paths else None
+                    if _spec:
+                        structured['charts'] = [_spec] + list(structured.get('charts') or [])
+                        if structured.get('type') in ('simple_answer', 'not_found'):
+                            structured['type'] = 'chart'
+                            structured['summary'] = _dv.chart_summary(_spec)
+                            structured['issues'] = []
+                        logger.info('Chart built ({}) from {} for: {}', _spec.get('chart_type'), _spec.get('subtitle'), req.query[:100])
+                    if _dv.DASH_Q.search(req.query) and _paths:
+                        from urllib.parse import quote as _q
+                        structured['dashboard_url'] = '/ui/dashboard.html?project=%s&filename=%s' % (_q(req.project), _q(os.path.basename(_paths[0])))
+                        if structured.get('type') in ('simple_answer', 'not_found', 'chart'):
+                            structured['type'] = 'chart'
+                            structured['summary'] = 'Dashboard ready for %s: headline totals, charts and data tables, all computed from the file. Open it with the button below.' % os.path.basename(_paths[0])
+                            structured['issues'] = []
+            except Exception as _e_dv:
+                logger.warning('Chart build failed: {}', _e_dv)
             yield f"data: {json.dumps({'type':'structured','data':structured})}\n\n"
         except Exception as _e_rr:
             logger.warning("Response renderer build failed: {}", _e_rr)
@@ -5080,6 +5349,68 @@ async def api_evidence_highlight(request: Request):
     from services.pdf_highlighter import locate_evidence
     result = await run_in_threadpool(locate_evidence, target, page, snippet, meta)
     return result
+
+
+@app.get('/projects/{project}/dashboard')
+async def project_dashboard(project: str, filename: str, request: Request):
+    """Auto-built dashboard (KPIs, charts, table previews) for one Excel/PDF, computed from the file."""
+    user = auth.require_project(request, project)
+    doc = next((d for d in db.list_documents(project, user) if d.get('filename') == filename), None)
+    if not doc or not os.path.isfile(str(doc.get('path') or '')):
+        raise HTTPException(status_code=404, detail='document not found')
+    from services import dataviz
+    import asyncio as _aio
+    return await _aio.to_thread(dataviz.dashboard_for, doc['path'])
+
+
+@app.post('/api/visualize/edit')
+async def api_visualize_edit(request: Request):
+    """Follow-up on the last chart ("show labels", "make it a bar chart", "only top 5",
+    "add approved GFA too"): the local model decides the edit, code applies it."""
+    user = auth.require_user(request)
+    body = await request.json()
+    spec = body.get('spec') or {}
+    instruction = str(body.get('instruction') or '')[:500]
+    project = str(body.get('project') or '')
+    paths = []
+    if project:
+        try:
+            auth.require_project(request, project)
+            paths = [d['path'] for d in db.list_documents(project, user)
+                     if str(d.get('path', '')).lower().endswith(('.xlsx', '.xlsm', '.xls', '.pdf')) and os.path.isfile(str(d.get('path', '')))][:3]
+        except Exception:
+            paths = []
+    from services import dataviz
+    import asyncio as _aio
+    result = await _aio.to_thread(dataviz.edit_chart, spec, instruction, str(body.get('question') or ''), paths)
+    if result.get('spec'):
+        logger.info('Chart edited ({}): {}', result['spec'].get('chart_type'), instruction[:100])
+    return result
+
+
+@app.post('/api/visualize/gif')
+async def api_visualize_gif(request: Request):
+    """Assemble PNG frames captured in the browser into an animated GIF (Pillow, offline)."""
+    auth.require_user(request)
+    body = await request.json()
+    frames = body.get('frames') or []
+    if not frames or len(frames) > 240:
+        raise HTTPException(status_code=400, detail='1-240 frames required')
+    import base64, io
+    from PIL import Image
+    images = []
+    for f in frames:
+        raw = base64.b64decode(str(f).split(',', 1)[-1])
+        im = Image.open(io.BytesIO(raw)).convert('RGB')
+        images.append(im.convert('P', palette=Image.ADAPTIVE, colors=255))
+    fps = max(1, min(int(body.get('fps') or 20), 50))
+    hold = int(body.get('hold_ms') or 1500)
+    durations = [int(1000 / fps)] * len(images)
+    durations[-1] = max(durations[-1], hold)
+    out = io.BytesIO()
+    images[0].save(out, format='GIF', save_all=True, append_images=images[1:], duration=durations, loop=0, optimize=False, disposal=2)
+    return Response(out.getvalue(), media_type='image/gif',
+                    headers={'Content-Disposition': 'attachment; filename="%s.gif"' % re.sub(r'[^A-Za-z0-9_-]+', '-', str(body.get('name') or 'chart'))[:60]})
 
 
 @app.post('/api/visualize/validate-chart')

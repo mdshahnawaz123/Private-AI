@@ -246,6 +246,7 @@ const DESTS=[
   ['studio','AI Design Studio','<path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><circle cx="12" cy="12" r="9"/>'],
   ['models','Models','<path d="M12 2l9 5v10l-9 5-9-5V7z"/>'],
   ['drawings','Drawings','<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/>'],
+  ['cadcraft','CADCraft Studio','<path d="M3 3h18v18H3zM3 9h18M9 3v18"/><circle cx="15" cy="15" r="3"/>'],
   ['documents','Documents','<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/>'],
   ['schedules','Schedules','<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 3v18"/>'],
   ['specifications','Specifications','<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5z"/>'],
@@ -295,6 +296,7 @@ function navigate(dest){
 function renderGeneric(dest){
   const b=$('genericWrap');
   const R={ overview:renderOverview, studio:renderStudio, models:renderModels, drawings:renderDrawings,
+    cadcraft:(typeof renderCadCraftWorkspace === 'function' ? renderCadCraftWorkspace : (c)=>{ c.innerHTML='<div class="ws-scroll">CADCraft engine loading...</div>'; }),
     documents:renderDocuments, schedules:renderSchedules, specifications:renderSpecifications,
     codes:renderCodes, qa:renderQA, reports:renderReports, settings:renderSettings };
   (R[dest]||(()=>{ b.innerHTML=`<div class="ws-scroll">${state('Nothing here yet.')}</div>`; }))(b);
@@ -479,12 +481,40 @@ async function openPdfPreview(f,page=1,highlightSnippet=null,highlightRects=null
 }
 function openInViewer(f){
   const isPdf=/\.pdf$/i.test(f.filename);
+  const isCad=/\.(dwg|dxf)$/i.test(f.filename);
   const v=$('docView');
   if(isPdf){ openPdfPreview(f,1); }
+  else if(isCad){
+    v.innerHTML=`
+      <div class="ws-scroll" style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;text-align:center;padding:40px 20px">
+        <div style="width:68px;height:68px;border-radius:14px;background:rgba(47,107,255,0.12);display:flex;align-items:center;justify-content:center;margin-bottom:18px;border:1px solid rgba(47,107,255,0.28);box-shadow:0 8px 24px rgba(0,0,0,0.25)">
+          <svg class="ico" style="width:36px;height:36px;color:var(--accent2)" viewBox="0 0 24 24"><path d="M3 3h18v18H3zM3 9h18M9 3v18"/><circle cx="15" cy="15" r="3"/></svg>
+        </div>
+        <h3 style="margin:0 0 8px 0;font-size:16px;color:var(--text)">${esc(f.filename)}</h3>
+        <p style="color:var(--muted);max-width:460px;margin:0 0 22px 0;font-size:12.5px;line-height:1.55">
+          AutoCAD 2D vector drawing detected. Open in <b>CADCraft Studio</b> to view vector layers, snap to geometry, edit dimensions, draw new features, and render directly into the AI Design Studio.
+        </p>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center">
+          <button class="primary" style="display:inline-flex;align-items:center;gap:7px;padding:9px 18px" onclick="openCadDrawingFromProject('${esc(f.filename)}')">
+            <span>✏️ Open & Redesign in CADCraft</span>
+          </button>
+          <button class="ghost" style="padding:9px 16px" onclick="openFile('${esc(f.rel)}')">Download file</button>
+        </div>
+      </div>
+    `;
+  }
   else { v.innerHTML=`<div class="ws-scroll">${state('Preview not available for .'+fileExt(f.filename).toLowerCase()+' — open in a new tab.')}<div style="text-align:center"><button class="primary" onclick="openFile('${esc(f.rel)}')">Open file</button></div></div>`; }
   // set copilot context to this document
   setDocContext(f);
 }
+
+async function openCadDrawingFromProject(filename){
+  navigate('cadcraft');
+  if(window.openCadProjectDrawing){
+    await window.openCadProjectDrawing(filename, currentProject);
+  }
+}
+window.openCadDrawingFromProject = openCadDrawingFromProject;
 
 /* ---------- Schedules (new endpoint) ---------- */
 /* Heuristic: does a row's values look like column headers (short, mostly
@@ -2128,9 +2158,10 @@ async function stream(display,endpoint,body){ const bub=addMsg('a','<div class="
       while((i=buf.indexOf('\n\n'))>=0){ const line=buf.slice(0,i); buf=buf.slice(i+2); const dl=line.split('\n').find(l=>l.startsWith('data:')); if(!dl)continue;
         let d; try{d=JSON.parse(dl.slice(5).trim());}catch(e){continue;}
         if(d.type==='sources'){ lastSources=d.sources||[]; }
-        else if(d.type==='token'){ ans+=d.text; bub.innerHTML=mdLite(ans)+(bub._ev||''); $('aiMsgs').scrollTop=$('aiMsgs').scrollHeight; }
+        else if(d.type==='token'){ ans+=d.text; bub.innerHTML=(window.__expoVizQ?'<span style="color:var(--muted)">Building the chart from the file…</span>':mdLite(ans))+(bub._ev||''); $('aiMsgs').scrollTop=$('aiMsgs').scrollHeight; }
         else if(d.type==='error'){ ans+='\n[error] '+d.message; bub.innerHTML=mdLite(ans); }
         else if(d.type==='structured'){ structured=d.data||null; }
+        else if(d.type==='status'){ if(!ans) bub.innerHTML='<span style="color:var(--muted)">'+esc(d.message||'Working')+'…</span>'; }
         else if(d.type==='command_pending'){
           // Cowork mode's run_command proposal. Nothing has executed -- this is
           // purely a notice that the server queued it under d.pending_id. Render
@@ -2174,6 +2205,7 @@ async function stream(display,endpoint,body){ const bub=addMsg('a','<div class="
       }
     }catch(e){ /* never let the renderer break the plain answer that already rendered */ }
     addAnswerActions(bub,displayAns);
+    try{ if(window.ExpoMotion && /```mermaid/i.test(ans)) window.ExpoMotion.renderMermaidIn(bub, ans); }catch(e){}
     $('aiMsgs').scrollTop=$('aiMsgs').scrollHeight;
     aiHist.push({role:'user',content:body.query}); aiHist.push({role:'assistant',content:ans});
   }catch(e){ bub.innerHTML='<span style="color:var(--red)">Request failed: '+esc(e.message||e)+'</span>'; } }
@@ -2326,9 +2358,13 @@ async function sendAi(standards){ const t=$('aiIn'); const q=t.value.trim();
     let scoped=q+revNote;
     const _focus=(ctxDoc&&!useCowork&&['documents','specifications','drawings','schedules'].includes(currentDest))?(ctxDoc.rel||''):'';
     if(_focus) scoped=`Regarding "${ctxDoc.filename}": `+scoped;
-    const _attId=useCowork?null:((currentAttachment&&currentAttachment.id)||null);
+    window.__expoVizQ=false; const _attId=useCowork?null:((currentAttachment&&currentAttachment.id)||null);
     const askBody={project:currentProject,query:prefix+scoped,messages:aiHist.slice(-8),k:8,focus_doc:_focus,attachment_id:_attId};
     if(useCowork) askBody.mode='cowork';
+    window.__expoLastQuestion=q; window.__expoVizQ=/\b(chart|graph|plot|visuali[sz]\w*|dashboard|pie|donut|histogram|infographic)\b/i.test(q)&&!/flow\s*chart/i.test(q);
+    if(!useCowork&&window.ExpoChartChat&&window.ExpoChartChat.last){ try{ const ed=await window.ExpoChartChat.tryEdit(q,currentProject);
+      if(ed){ const b=addMsg('a',esc(ed.reply||'Updated the chart.')); window.ExpoChartChat.render(b,ed); $('aiMsgs').scrollTop=$('aiMsgs').scrollHeight;
+        aiHist.push({role:'user',content:q}); aiHist.push({role:'assistant',content:ed.reply||''}); return; } }catch(e){ console.warn('chart edit',e); } }
     await stream(q,`${API}/ask_stream`,askBody); }
 }
 

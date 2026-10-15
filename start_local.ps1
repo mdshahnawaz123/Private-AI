@@ -75,12 +75,30 @@ function Show-LocalService {
     }
 }
 if (Get-NetTCPConnection -LocalPort $settings.port -State Listen -ErrorAction SilentlyContinue) {
+    $ownerPids = @(Get-NetTCPConnection -LocalPort $settings.port -State Listen -ErrorAction SilentlyContinue |
+        Select-Object -ExpandProperty OwningProcess -Unique)
+
     $isOurs = $false
     try {
         $live = Invoke-RestMethod -Uri "$serviceUrl/health/live" -TimeoutSec 5
-        $ready = Invoke-RestMethod -Uri "$serviceUrl/health/ready" -TimeoutSec 10
-        $isOurs = ($live.service -eq 'expo-design-ai' -and $ready.status -eq 'ready')
+        if ($live.service -eq 'expo-design-ai') {
+            $isOurs = $true
+        }
     } catch { }
+
+    # If HTTP check did not reply (e.g. server was busy, hung, or reloading), verify if the listening process is our python server
+    if (-not $isOurs) {
+        foreach ($procId in $ownerPids) {
+            $proc = Get-CimInstance Win32_Process -Filter "ProcessId=$procId" -ErrorAction SilentlyContinue
+            if ($proc -and $proc.Name -eq 'python.exe') {
+                if (-not $proc.CommandLine -or $proc.CommandLine -match 'main\.py' -or $proc.CommandLine -match 'ExpoDesignAI') {
+                    $isOurs = $true
+                    break
+                }
+            }
+        }
+    }
+
     if ($isOurs -and -not $Restart) {
         Write-Host 'Expo Design AI is already running.'
         Write-Host '(Code changes on disk are NOT picked up by an already-running server.'
@@ -89,14 +107,6 @@ if (Get-NetTCPConnection -LocalPort $settings.port -State Listen -ErrorAction Si
         exit 0
     }
     if ($isOurs -and $Restart) {
-        # $isOurs already proved, via a live request to this exact port, that
-        # it answered as service: expo-design-ai / status: ready -- that IS
-        # the identity check. Stop whatever process(es) own that port; prefer
-        # python.exe by name when Get-CimInstance can see it, but don't require
-        # it (WMI commonly can't read Name/CommandLine for another session's
-        # process even when Stop-Process on the same PID works fine).
-        $ownerPids = @(Get-NetTCPConnection -LocalPort $settings.port -State Listen -ErrorAction SilentlyContinue |
-            Select-Object -ExpandProperty OwningProcess -Unique)
         $stopped = $false
         foreach ($procId in $ownerPids) {
             $proc = Get-CimInstance Win32_Process -Filter "ProcessId=$procId" -ErrorAction SilentlyContinue
@@ -113,7 +123,7 @@ if (Get-NetTCPConnection -LocalPort $settings.port -State Listen -ErrorAction Si
             }
         }
         if (-not $stopped) {
-            throw "Port $($settings.port) is serving a healthy Expo Design AI, but its process could not be stopped (see warnings above). Close it manually, then run start.bat."
+            throw "Port $($settings.port) is serving Expo Design AI, but its process could not be stopped (see warnings above). Close it manually, then run start.bat."
         }
         for ($attempt = 0; $attempt -lt 30; $attempt++) {
             if (-not (Get-NetTCPConnection -LocalPort $settings.port -State Listen -ErrorAction SilentlyContinue)) { break }

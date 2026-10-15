@@ -34,6 +34,12 @@ class CadIntelligenceEngine:
         return os.path.splitext(path or "")[-1].lower() in CAD_EXTS
 
     def find_oda_converter(self) -> Optional[str]:
+        # 1. Internal private package inside project vendor directory
+        root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        vendor_oda = os.path.join(root_dir, "vendor", "oda", "ODAFileConverter.exe")
+        if os.path.exists(vendor_oda):
+            return vendor_oda
+
         if ODA_CONVERTER and os.path.exists(ODA_CONVERTER):
             return ODA_CONVERTER
         for name in ("ODAFileConverter", "ODAFileConverter.exe"):

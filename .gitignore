@@ -55,3 +55,6 @@ _poc_data/
 # Test & audit outputs
 output/
 *.log
+
+# Embedded vendor binaries
+vendor/

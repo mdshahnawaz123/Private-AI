@@ -299,12 +299,22 @@ function navigate(dest){
   if(document.body.clientWidth<=1200) document.body.classList.remove('show-sb');
 }
 function renderCadCraft(c){
-  if (typeof renderCadCraftWorkspace === 'function') {
-    renderCadCraftWorkspace(c);
-  } else if (typeof window !== 'undefined' && typeof window.renderCadCraftWorkspace === 'function') {
-    window.renderCadCraftWorkspace(c);
+  const fn = (typeof renderCadCraftWorkspace === 'function') ? renderCadCraftWorkspace : (typeof window !== 'undefined' && typeof window.renderCadCraftWorkspace === 'function' ? window.renderCadCraftWorkspace : null);
+  if (fn) {
+    fn(c);
   } else {
-    c.innerHTML = '<div class="ws-scroll" style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;text-align:center"><div class="state" style="padding:40px"><div style="font-size:14px;font-weight:600;margin-bottom:8px">Loading CADCraft Studio...</div><p style="color:var(--muted);font-size:12px;margin-bottom:16px">The AutoCAD clean-room drafting workspace is initializing.</p><button class="primary" onclick="location.reload()">Reload Page</button></div></div>';
+    c.innerHTML = '<div class="ws-scroll" style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;text-align:center"><div class="state" style="padding:40px"><div style="font-size:14px;font-weight:600;margin-bottom:8px">Loading CADCraft Studio...</div><p style="color:var(--muted);font-size:12px;margin-bottom:16px">The AutoCAD clean-room drafting workspace is initializing.</p></div></div>';
+    let tries = 0;
+    const checkCad = setInterval(() => {
+      tries++;
+      const readyFn = (typeof renderCadCraftWorkspace === 'function') ? renderCadCraftWorkspace : (typeof window !== 'undefined' ? window.renderCadCraftWorkspace : null);
+      if (typeof readyFn === 'function') {
+        clearInterval(checkCad);
+        if (typeof currentDest === 'undefined' || currentDest === 'cadcraft') readyFn(c);
+      } else if (tries > 60) {
+        clearInterval(checkCad);
+      }
+    }, 50);
   }
 }
 function renderGeneric(dest){

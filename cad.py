@@ -52,6 +52,11 @@ def load_doc(path):
             raise RuntimeError("ezdxf odafc add-on unavailable: %s" % e)
         oda = _find_oda()
         if oda:
+            try:
+                import ezdxf
+                ezdxf.options.set("odafc-addon", "win_exec_path", oda)
+            except Exception:
+                pass
             # best-effort: configure the converter path across ezdxf versions
             for attr in ("win_exec_path", "unix_exec_path", "exec_path"):
                 try:

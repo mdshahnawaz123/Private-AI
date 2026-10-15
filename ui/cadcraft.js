@@ -580,10 +580,12 @@ function _renderCadEntity(ctx, ent, isSelected) {
     ctx.arc(c.x, c.y, Math.max(r, 1), ea, sa, false);
     ctx.stroke();
   } else if (type === 'TEXT') {
-    const p = worldToScreen(ent.x, ent.y);
     const h = (ent.height || 250) * zoom * dpr;
-    ctx.font = `${Math.max(10 * dpr, h)}px sans-serif`;
-    ctx.fillText(ent.text, p.x, p.y);
+    if (h >= 3 || isSelected) {
+      const p = worldToScreen(ent.x, ent.y);
+      ctx.font = `${Math.min(120, Math.max(6 * dpr, h))}px sans-serif`;
+      ctx.fillText(ent.text, p.x, p.y);
+    }
   } else if (type === 'DIMENSION') {
     _renderDimension(ctx, ent, isSelected, dpr);
   }
@@ -594,6 +596,8 @@ function _renderCadEntity(ctx, ent, isSelected) {
 function _renderDimension(ctx, ent, isSelected, dpr) {
   const p1 = worldToScreen(ent.x1, ent.y1);
   const p2 = worldToScreen(ent.x2, ent.y2);
+  const len = Math.hypot(p2.x - p1.x, p2.y - p1.y);
+  if (len < 2 && !isSelected) return;
 
   ctx.beginPath();
   ctx.moveTo(p1.x, p1.y);
@@ -601,20 +605,24 @@ function _renderDimension(ctx, ent, isSelected, dpr) {
   ctx.stroke();
 
   // Architectural ticks (45-degree slashes)
-  const tickLen = 6 * dpr;
-  ctx.beginPath();
-  ctx.moveTo(p1.x - tickLen, p1.y + tickLen);
-  ctx.lineTo(p1.x + tickLen, p1.y - tickLen);
-  ctx.moveTo(p2.x - tickLen, p2.y + tickLen);
-  ctx.lineTo(p2.x + tickLen, p2.y - tickLen);
-  ctx.stroke();
+  const tickLen = Math.min(len * 0.2, 6 * dpr);
+  if (tickLen > 1) {
+    ctx.beginPath();
+    ctx.moveTo(p1.x - tickLen, p1.y + tickLen);
+    ctx.lineTo(p1.x + tickLen, p1.y - tickLen);
+    ctx.moveTo(p2.x - tickLen, p2.y + tickLen);
+    ctx.lineTo(p2.x + tickLen, p2.y - tickLen);
+    ctx.stroke();
+  }
 
   // Dimension text at midpoint
-  const midX = (p1.x + p2.x) / 2;
-  const midY = (p1.y + p2.y) / 2 - 8 * dpr;
-  ctx.font = `bold ${10 * dpr}px monospace`;
-  ctx.textAlign = 'center';
-  ctx.fillText(ent.text || '', midX, midY);
+  if ((len >= 24 || isSelected) && ent.text) {
+    const midX = (p1.x + p2.x) / 2;
+    const midY = (p1.y + p2.y) / 2 - 6 * dpr;
+    ctx.font = `bold ${Math.min(13 * dpr, Math.max(8 * dpr, len * 0.1))}px monospace`;
+    ctx.textAlign = 'center';
+    ctx.fillText(ent.text, midX, midY);
+  }
 }
 
 function _renderDraftingPreview(ctx) {
@@ -1470,8 +1478,12 @@ async function _loadCadFromFile(file) {
       headers: _getCadAuthHeaders(),
       body: fd
     });
-    const data = await res.json();
+    const data = await res.json().catch(() => ({}));
     hideCadLoading();
+    if (!res.ok) {
+      toast(`CAD parse error: ${data.detail || data.error || ('HTTP ' + res.status)}`);
+      return;
+    }
     if (data.success && data.entities && data.entities.length > 0) {
       cadEntities = data.entities;
       if (data.layers && data.layers.length) cadLayers = data.layers;
@@ -1488,7 +1500,7 @@ async function _loadCadFromFile(file) {
       _drawCadCanvas();
       toast(`Opened ${file.name} (0 vector entities in model space)`);
     } else {
-      toast(data.error || 'Could not parse CAD file.');
+      toast(data.detail || data.error || 'Could not parse CAD file.');
     }
   } catch (err) {
     hideCadLoading();
@@ -1514,8 +1526,12 @@ async function openCadProjectDrawing(filename, projectName) {
       headers: _getCadAuthHeaders(),
       body: fd
     });
-    const data = await res.json();
+    const data = await res.json().catch(() => ({}));
     hideCadLoading();
+    if (!res.ok) {
+      toast(`CAD load error: ${data.detail || data.error || ('HTTP ' + res.status)}`);
+      return;
+    }
     if (data.success && data.entities && data.entities.length > 0) {
       cadEntities = data.entities;
       if (data.layers && data.layers.length) cadLayers = data.layers;
@@ -1532,7 +1548,7 @@ async function openCadProjectDrawing(filename, projectName) {
       _drawCadCanvas();
       toast(`Opened ${filename} (0 vector entities in model space)`);
     } else {
-      toast(data.error || 'Could not parse CAD file.');
+      toast(data.detail || data.error || 'Could not parse CAD file.');
     }
   } catch (err) {
     hideCadLoading();
@@ -1710,4 +1726,14 @@ function _showCadCraftInfoModal() {
 // Global exports for workspace integration
 window.renderCadCraftWorkspace = renderCadCraftWorkspace;
 window.openCadProjectDrawing = openCadProjectDrawing;
+
+// If user is currently on the cadcraft tab, render immediately upon script load
+try {
+  if (typeof currentDest !== 'undefined' && currentDest === 'cadcraft') {
+    const c = (typeof $ === 'function') ? $('genericWrap') : document.getElementById('genericWrap');
+    if (c) renderCadCraftWorkspace(c);
+  }
+} catch (e) {
+  console.warn('[CADCraft] Auto-mount check:', e);
+}
 

@@ -8,6 +8,8 @@ Exposes endpoints to:
 - Serve architectural and structural sample CAD drawings
 """
 import io
+import json
+import hashlib
 import math
 import os
 import re
@@ -81,12 +83,33 @@ def _load_or_convert_dwg(cad_eng, dwg_path: str, filename: str) -> Dict[str, Any
         hash_key = str(int(os.path.getmtime(dwg_path))) if os.path.exists(dwg_path) else "0"
     safe_name = re.sub(r'[^a-zA-Z0-9_\-\.]', '_', filename)
     cached_dxf = os.path.join(cache_dir, f"{safe_name}_{hash_key}_{file_size}.dxf")
+    cached_json = os.path.join(cache_dir, f"{safe_name}_{hash_key}_{file_size}.json")
+
+    if os.path.exists(cached_json) and os.path.getsize(cached_json) > 10:
+        try:
+            with open(cached_json, "r", encoding="utf-8") as f:
+                res = json.load(f)
+            res["filename"] = filename
+            res["cached"] = True
+            return res
+        except Exception as e:
+            logger.warning(f"Failed to load cached JSON: {e}")
+
+    def _atomic_write_json(data_dict, target_path):
+        try:
+            tmp = target_path + f".tmp_{os.getpid()}"
+            with open(tmp, "w", encoding="utf-8") as f:
+                json.dump(data_dict, f)
+            os.replace(tmp, target_path)
+        except Exception as e:
+            logger.warning(f"Failed to write cached JSON: {e}")
 
     if os.path.exists(cached_dxf):
         try:
             res = CadService.parse_dxf_stream(cached_dxf)
             res["filename"] = filename
             res["cached"] = True
+            _atomic_write_json(res, cached_json)
             return res
         except Exception as e:
             logger.warning(f"Failed to load cached DXF: {e}")
@@ -99,6 +122,7 @@ def _load_or_convert_dwg(cad_eng, dwg_path: str, filename: str) -> Dict[str, Any
             pass
         res = CadService.parse_dxf_stream(doc)
         res["filename"] = filename
+        _atomic_write_json(res, cached_json)
         return res
 
     meta = cad_eng.extract_dwg_fallback(dwg_path)

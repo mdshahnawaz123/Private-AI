@@ -204,6 +204,11 @@ function _renderPlotTable(plots) {
     countBadge.textContent = `${filtered.length} plot${filtered.length === 1 ? '' : 's'}`;
   }
 
+  if (!filtered.length) {
+    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:32px;color:var(--muted)">No plots registered for this project. Upload a CAD drawing (.dxf/.dwg) or Excel schedule (.xlsx) to import plots.</td></tr>`;
+    return;
+  }
+
   tbody.innerHTML = filtered.map(p => {
     const isSel = p.plot_id === _mpdSelectedPlotId;
     const badge = p.status === 'compliant'

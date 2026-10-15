@@ -293,8 +293,19 @@ def save_plots_bulk(project_id: str, plots: List[MasterplanPlot], author: str = 
 def get_project_summary(project_id: str) -> MasterplanProject:
     plots = get_plots(project_id)
     if not plots:
-        seed_default_masterplan(project_id)
-        plots = get_plots(project_id)
+        return MasterplanProject(
+            project_id=project_id,
+            name=project_id,
+            total_area_sqm=0.0,
+            total_plots=0,
+            total_gfa_sqm=0.0,
+            average_far=0.0,
+            compliant_plots=0,
+            warning_plots=0,
+            violation_plots=0,
+            land_use_breakdown={},
+            boundary=None
+        )
 
     total_area = sum(p.area_sqm for p in plots)
     total_gfa = sum(p.achieved_gfa for p in plots)
@@ -567,20 +578,42 @@ def delete_file_record(project_id: str, file_id_or_name: str) -> bool:
     try:
         with conn:
             cur = conn.cursor()
-            cur.execute("SELECT file_path, filename FROM mp_files WHERE project_id = ? AND (id = ? OR filename = ?)", (project_id, file_id_or_name, file_id_or_name))
+            cur.execute("SELECT id, file_path, filename FROM mp_files WHERE project_id = ? AND (id = ? OR filename = ?)", (project_id, file_id_or_name, file_id_or_name))
             row = cur.fetchone()
-            if row:
-                f_path = row["file_path"]
-                f_name = row["filename"]
-                conn.execute("DELETE FROM mp_files WHERE project_id = ? AND (id = ? OR filename = ?)", (project_id, file_id_or_name, file_id_or_name))
-                conn.execute("DELETE FROM mp_file_relations WHERE project_id = ? AND (cad_file = ? OR excel_file = ?)", (project_id, f_name, f_name))
-                if f_path and os.path.exists(f_path):
+            f_name = row["filename"] if row else file_id_or_name
+            f_path = row["file_path"] if row else None
+
+            # Delete from database tables
+            conn.execute("DELETE FROM mp_files WHERE project_id = ? AND (id = ? OR filename = ?)", (project_id, file_id_or_name, file_id_or_name))
+            conn.execute("DELETE FROM mp_file_relations WHERE project_id = ? AND (cad_file = ? OR excel_file = ?)", (project_id, f_name, f_name))
+
+            # Delete physical file from stored path
+            if f_path and os.path.exists(f_path):
+                try:
+                    os.remove(f_path)
+                except Exception:
+                    pass
+
+            # Also check project masterplan directory for the physical file
+            base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+            mp_dir = os.path.join(base_dir, "data", "projects", project_id, "masterplan")
+            if os.path.exists(mp_dir):
+                alt_path = os.path.join(mp_dir, f_name)
+                if os.path.exists(alt_path):
                     try:
-                        os.remove(f_path)
+                        os.remove(alt_path)
                     except Exception:
                         pass
-                return True
-            return False
+
+            # Check if any masterplan files remain for this project
+            cur.execute("SELECT count(*) FROM mp_files WHERE project_id = ?", (project_id,))
+            remaining = cur.fetchone()[0]
+            if remaining == 0:
+                # No files left: cleanly purge plots and audit log for this project
+                conn.execute("DELETE FROM mp_plots WHERE project_id = ?", (project_id,))
+                conn.execute("DELETE FROM mp_audit_log WHERE project_id = ?", (project_id,))
+
+            return True if row else False
     finally:
         conn.close()
 

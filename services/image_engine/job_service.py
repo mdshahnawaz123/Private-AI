@@ -418,20 +418,21 @@ class JobService:
 
             db.update_image_job(job_id, progress=92)
 
-            # 6. Retrieve and persist generated image files
+            # 6. Retrieve and persist generated media files
             saved_count = 0
             for node_id, node_out in outputs_map.items():
-                images = node_out.get("images", [])
-                for img_info in images:
-                    fn = img_info.get("filename")
-                    subfolder = img_info.get("subfolder", "")
-                    ftype = img_info.get("type", "output")
+                media_items = node_out.get("images", []) + node_out.get("videos", []) + node_out.get("gifs", [])
+                for media_info in media_items:
+                    fn = media_info.get("filename")
+                    subfolder = media_info.get("subfolder", "")
+                    ftype = media_info.get("type", "output")
                     if fn:
                         img_bytes = await self.client.get_image_bytes(
                             filename=fn, subfolder=subfolder, folder_type=ftype
                         )
+                        is_video = fn.lower().endswith((".mp4", ".webm", ".mkv", ".mov", ".avi"))
                         composite_metadata = {}
-                        if request.edit_mask_path:
+                        if request.edit_mask_path and not is_video:
                             from services.image_engine.masked_edit import composite_edit
                             reference_path = self.storage.validate_input_image(request.project, request.input_image_path)
                             mask_path = self.storage.validate_input_image(request.project, request.edit_mask_path)
@@ -454,12 +455,15 @@ class JobService:
                                 "comfy_prompt_id": comfy_prompt_id,
                                 "steps": request.steps,
                                 "cfg": request.cfg,
+                                "width": request.width,
+                                "height": request.height,
+                                "media_type": "video" if is_video else "image",
                             },
                         )
                         saved_count += 1
 
             if saved_count == 0:
-                raise ComfyUIError("Workflow completed but produced no output images")
+                raise ComfyUIError("Workflow completed but produced no output media artifacts")
 
             # 7. Mark completed
             db.update_image_job(

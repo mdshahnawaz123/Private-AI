@@ -120,6 +120,8 @@ class TestImageEngineWorkflowRegistry(unittest.TestCase):
             mock_object_info[name] = {}
         for name in ("ImageScaleToTotalPixels", "ReferenceLatent", "GetImageSize"):
             mock_object_info[name] = {}
+        for name in ("ModelSamplingSD3", "Wan22ImageToVideoLatent", "CreateVideo", "SaveVideo"):
+            mock_object_info[name] = {}
         missing_report = self.registry.validate_against_comfy_object_info(mock_object_info)
         # All standard nodes in our 3 starter workflows exist in mock_object_info
         for wf_id, missing in missing_report.items():

@@ -43,7 +43,7 @@ class WorkflowMetadata(BaseModel):
     name: str = Field(..., description="Human-readable name")
     version: str = Field(default="1.0.0", description="Workflow schema version")
     description: str = Field(default="", description="Detailed summary of workflow purpose")
-    category: Literal["concept", "sketch", "enhancement", "general"] = Field(
+    category: Literal["concept", "sketch", "enhancement", "video", "general"] = Field(
         default="general", description="Architectural category"
     )
     required_models: List[str] = Field(default_factory=list, description="Model checkpoint files required")
@@ -72,14 +72,17 @@ class JobSubmissionRequest(BaseModel):
     building_type: Optional[str] = Field(
         default="Commercial", description="Building typology (Residential, High-rise, etc.)"
     )
-    width: int = Field(default=1024, ge=512, le=1024, description="Output image width (multiple of 64)")
-    height: int = Field(default=1024, ge=512, le=1024, description="Output image height (multiple of 64)")
+    width: int = Field(default=1024, ge=480, le=1920, description="Output width (multiple of 16)")
+    height: int = Field(default=1024, ge=480, le=1920, description="Output height (multiple of 16)")
     seed: Optional[int] = Field(default=None, ge=0, le=2**63 - 1, description="Optional deterministic seed")
     steps: Optional[int] = Field(default=20, ge=4, le=50, description="Sampling steps")
     cfg: Optional[float] = Field(default=7.0, ge=1.0, le=20.0, description="Classifier-free guidance scale")
     denoise: Optional[float] = Field(
         default=0.7, ge=0.05, le=1.0, description="Denoising strength for img2img workflows"
     )
+    frames: Optional[int] = Field(default=49, ge=17, le=161, description="Number of video frames generated")
+    fps: Optional[int] = Field(default=16, ge=8, le=60, description="Video playback frames per second")
+    camera_motion: Optional[str] = Field(default=None, description="Architectural camera movement preset")
     input_image_path: Optional[str] = Field(
         default=None, description="Server-relative path to uploaded reference sketch/render"
     )
@@ -93,9 +96,9 @@ class JobSubmissionRequest(BaseModel):
 
     @field_validator("width", "height")
     @classmethod
-    def validate_dimension_multiple_of_64(cls, val: int) -> int:
-        if val % 64 != 0:
-            raise ValueError(f"Dimension {val} must be a multiple of 64")
+    def validate_dimension_multiple_of_16(cls, val: int) -> int:
+        if val % 16 != 0:
+            raise ValueError(f"Dimension {val} must be a multiple of 64 (or 16 for video)")
         return val
 
 
@@ -107,6 +110,7 @@ class JobOutput(BaseModel):
     width: int = Field(..., description="Image width in pixels")
     height: int = Field(..., description="Image height in pixels")
     seed: Optional[int] = Field(default=None, description="Seed used for this generation")
+    media_type: Optional[str] = Field(default="image", description="Media type ('image' or 'video')")
     metadata: Dict[str, Any] = Field(default_factory=dict, description="Generation metadata sidecar")
     download_url: Optional[str] = Field(default=None, description="Authenticated download endpoint")
     thumbnail_url: Optional[str] = Field(default=None, description="Authenticated thumbnail endpoint")

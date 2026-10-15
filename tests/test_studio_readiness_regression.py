@@ -10,7 +10,9 @@ class StudioReadinessRegression(unittest.TestCase):
    for node in graph.values():
     spec=result.setdefault(node['class_type'],{'input':{'required':{}}})
     for k,v in node['inputs'].items():
-     if k.endswith('_name'):spec['input']['required'][k]=[[v]]
+     if k.endswith('_name'):
+      req = spec['input']['required'].setdefault(k, [[]])
+      if v not in req[0]: req[0].append(v)
   return result
  def test_installed_models_publishable(self):
   r=self.registry();self.assertEqual(r.validate_against_comfy_object_info(self.info(r), validate_models=True),{})

@@ -144,25 +144,48 @@ class ImageStorage:
         except Exception as exc:
             raise ValueError(f"Corrupted or invalid output image data: {exc}") from exc
 
-        job_dir = self.get_job_dir(project, job_id)
         clean_name = self._sanitize_filename(filename)
-        if not clean_name.lower().endswith((".png", ".jpg", ".jpeg", ".webp")):
-            clean_name += f".{img_format.lower()}"
+        is_video = clean_name.lower().endswith((".mp4", ".webm", ".mkv", ".mov", ".avi"))
+        meta_payload = metadata or {}
 
+        if is_video:
+            width = int(meta_payload.get("width", 1280))
+            height = int(meta_payload.get("height", 704))
+            pil_img = None
+        else:
+            # Validate image format and extract dimensions
+            try:
+                pil_img = Image.open(io.BytesIO(image_bytes))
+                width, height = pil_img.size
+                img_format = pil_img.format or "PNG"
+            except Exception as exc:
+                raise ValueError(f"Corrupted or invalid output image data: {exc}") from exc
+
+            if not clean_name.lower().endswith((".png", ".jpg", ".jpeg", ".webp")):
+                clean_name += f".{img_format.lower()}"
+
+        job_dir = self.get_job_dir(project, job_id)
         dest_path = job_dir / clean_name
 
-        # 1. Write original image atomically
+        # 1. Write original file atomically
         temp_path = dest_path.with_suffix(".tmp")
         with open(temp_path, "wb") as f:
             f.write(image_bytes)
         temp_path.replace(dest_path)
 
         # 2. Generate and save thumbnail (max 256x256)
-        thumb_filename = f"thumb_{clean_name}"
+        thumb_filename = f"thumb_{Path(clean_name).stem}.png"
         thumb_path = job_dir / thumb_filename
         try:
-            thumb_img = pil_img.copy()
-            thumb_img.thumbnail((256, 256), Image.Resampling.LANCZOS)
+            if pil_img:
+                thumb_img = pil_img.copy()
+                thumb_img.thumbnail((256, 256), Image.Resampling.LANCZOS)
+            else:
+                # Video poster thumbnail
+                thumb_img = Image.new("RGB", (256, 144), color=(15, 23, 42))
+                from PIL import ImageDraw
+                draw = ImageDraw.Draw(thumb_img)
+                draw.polygon([(118, 57), (118, 87), (145, 72)], fill=(47, 107, 255))
             thumb_buf = io.BytesIO()
             thumb_img.save(thumb_buf, format="PNG", optimize=True)
             thumb_temp = thumb_path.with_suffix(".tmp")
@@ -175,7 +198,6 @@ class ImageStorage:
             thumb_rel = None
 
         # 3. Save sidecar metadata JSON
-        meta_payload = metadata or {}
         sidecar_path = job_dir / f"{clean_name}.meta.json"
         try:
             sidecar_temp = sidecar_path.with_suffix(".tmp")
@@ -188,6 +210,7 @@ class ImageStorage:
                         "width": width,
                         "height": height,
                         "seed": seed,
+                        "media_type": "video" if is_video else "image",
                         "metadata": meta_payload,
                     },
                     f,
@@ -210,7 +233,7 @@ class ImageStorage:
             width=width,
             height=height,
             seed=seed,
-            metadata=meta_payload,
+            metadata={**meta_payload, "media_type": "video" if is_video else "image"},
         )
 
         return JobOutput(
@@ -222,6 +245,7 @@ class ImageStorage:
             width=width,
             height=height,
             seed=seed,
+            media_type="video" if is_video else "image",
             metadata=meta_payload,
         )
 

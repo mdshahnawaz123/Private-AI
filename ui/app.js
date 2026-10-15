@@ -258,6 +258,7 @@ const DESTS=[
   ['codes','Codes & Standards','<path d="M12 20h9"/><path d="M3 6l9-3 9 3"/><path d="M4 10v8M20 10v8M9 21V10M15 21V10"/>'],
   ['qa','QA & Issues','<path d="M10.3 3.9l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.7-3l-8-14a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/>'],
   ['reports','Reports','<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 17V9M12 17v-5M15 17v-3"/>'],
+  ['video','AI Video Studio','<polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>'],
 ];
 function buildNav(){
   $('navMain').innerHTML=DESTS.map(([k,l,p])=>`<a data-dest="${k}">${svg(p)}<span>${l}</span><span class="badge" data-badge="${k}" hidden></span></a>`).join('');
@@ -278,6 +279,7 @@ function setActiveNav(dest){ document.querySelectorAll('#app .nav a[data-dest]')
    ============================================================ */
 function navigate(dest){
   if(currentDest==='studio' && dest!=='studio' && _studioPollTimer){ clearInterval(_studioPollTimer); _studioPollTimer=null; }
+  if(currentDest==='video' && dest!=='video' && _videoPollTimer){ clearInterval(_videoPollTimer); _videoPollTimer=null; }
   if(dest==='settings' && !(currentUser&&currentUser.role==='admin')){ dest='overview'; }
   currentDest=dest; setActiveNav(dest);
   on3D=(dest==='design');
@@ -319,7 +321,7 @@ function renderCadCraft(c){
 }
 function renderGeneric(dest){
   const b=$('genericWrap');
-  const R={ overview:renderOverview, studio:renderStudio, models:renderModels, drawings:renderDrawings,
+  const R={ overview:renderOverview, studio:renderStudio, video:renderVideoStudio, models:renderModels, drawings:renderDrawings,
     cadcraft:renderCadCraft,
     documents:renderDocuments, schedules:renderSchedules, specifications:renderSpecifications,
     codes:renderCodes, qa:renderQA, reports:renderReports, settings:renderSettings };
@@ -427,7 +429,7 @@ async function renderOverview(b){
       ${tile('Schedules', c.schedules, 'structured data')}
     </div>
     <div style="margin-top:22px" class="tiles">
-      ${['design','studio','drawings','documents','schedules','codes','qa','reports'].map(k=>{ const m=DESTS.find(d=>d[0]===k); return `<div class="tile" style="cursor:pointer" onclick="navigate('${k}')"><h4>${svg(m[2])} ${esc(m[1])}</h4><p>Open workspace →</p></div>`; }).join('')}
+      ${['design','studio','video','cadcraft','drawings','documents','schedules','codes','qa','reports'].map(k=>{ const m=DESTS.find(d=>d[0]===k); return `<div class="tile" style="cursor:pointer" onclick="navigate('${k}')"><h4>${svg(m[2])} ${esc(m[1])}</h4><p>Open workspace →</p></div>`; }).join('')}
     </div>`;
   }catch(e){ $('ovBody').innerHTML=state('Dashboard stats unavailable.','err'); }
 }
@@ -1948,6 +1950,799 @@ function parseDims(text){ const dim={},loc={},rest=[]; (text||'').split('\n').fo
   const k=m[0].trim(), v=m.slice(1).join(':').trim(); const kl=k.toLowerCase();
   if(/(height|length|width|thickness|area|volume|depth|perimeter)/.test(kl)) dim[k]=v;
   else if(/^(x|y|z)$|elevation|position/.test(kl)) loc[k]=v; else rest.push(k+': '+v); }); return {dim,loc,rest}; }
+
+/* ============================================================
+   AI VIDEO STUDIO (Wan 2.2 TI2V 5B)
+   ============================================================ */
+let _videoJobs = [];
+let _videoEngineStatus = null;
+let _videoPollTimer = null;
+let _videoMode = 'i2v'; // 'i2v' = Image-to-Video, 't2v' = Text-to-Video
+let _videoInputFile = null;
+let _videoInputPreview = null;
+let _activeHeroVideo = null;
+let _videoCameraMotion = 'orbit';
+let _videoRes = { width: 1280, height: 704 };
+let _videoFrames = 49;
+let _videoFps = 16;
+let _videoSteps = 20;
+let _videoCfg = 5.0;
+
+const CAMERA_PRESETS = [
+  { id: 'orbit', label: 'Orbit 360', icon: '🛸', prompt: 'Smooth 360-degree orbital camera rotation around the architectural facade, slow cinematic rotation', desc: 'Continuous exterior sweep' },
+  { id: 'drone', label: 'Drone Aerial', icon: '✈️', prompt: 'Cinematic drone aerial fly-through descending slowly towards the building canopy and landscape', desc: 'High-altitude descent' },
+  { id: 'walk', label: 'Walkthrough', icon: '🚶', prompt: 'Eye-level cinematic forward walkthrough entering the architectural pavilion, steady glide', desc: 'Ground entrance push' },
+  { id: 'dolly', label: 'Dolly Pan', icon: '➡️', prompt: 'Smooth horizontal lateral dolly pan tracking across facade louvers and glass curtain walls', desc: 'Horizontal reveal' },
+  { id: 'crane', label: 'Crane Rise', icon: '⬆️', prompt: 'Vertical crane pedestal shot rising gracefully from courtyard reflection pool to rooftop terrace', desc: 'Vertical ascent' },
+  { id: 'zoom', label: 'Slow Reveal', icon: '🔍', prompt: 'Slow dramatic cinematic zoom-in revealing intricate material textures, sun reflection, and ambient light', desc: 'Focus on fine details' },
+];
+
+const ATMOSPHERE_PRESETS = [
+  { label: 'Golden Hour Flare', text: 'dramatic golden hour sunset, warm sunlight glint on glass facade, long soft shadows' },
+  { label: 'Twilight Uplighting', text: 'dusk twilight ambiance, warm architectural uplighting on structural columns, glowing interior' },
+  { label: 'Moving Cloud Shadows', text: 'dynamic time-lapse sky, soft shifting cloud shadows sweeping over building volume' },
+  { label: 'Rainy Reflections', text: 'subtle drizzle, glossy wet pavement reflections, moody cinematic architectural atmosphere' },
+  { label: 'Biophilic Breeze', text: 'gentle breeze rustling lush landscaped terraces, soft water ripples in courtyard pool' },
+];
+
+async function _loadVideoJobs(){
+  if(!currentProject) return;
+  try {
+    const r = await fetch(`${API}/api/image-engine/jobs?project=${encodeURIComponent(currentProject)}&limit=50`);
+    if(r.ok){
+      const all = await r.json();
+      _videoJobs = all.filter(j => j.workflow_id && j.workflow_id.includes('video'));
+    }
+  } catch(e){
+    _videoJobs = [];
+  }
+}
+
+async function _fetchVideoStatus(){
+  try {
+    const r = await fetch(`${API}/api/image-engine/video/status`);
+    if(r.ok){
+      _videoEngineStatus = await r.json();
+      return _videoEngineStatus;
+    }
+  } catch(e){}
+  _videoEngineStatus = null;
+  return null;
+}
+
+async function renderVideoStudio(b){
+  if(_videoPollTimer){ clearInterval(_videoPollTimer); _videoPollTimer = null; }
+  if(!currentProject){
+    b.innerHTML = `<div class="ws-scroll">${state('Select a project first to use the AI Video Studio.')}</div>`;
+    return;
+  }
+
+  b.innerHTML = `<div class="ws-scroll" id="videoLoading">${state('Connecting to Wan 2.2 Video Engine…','load')}</div>`;
+
+  await Promise.all([_loadVideoJobs(), _fetchVideoStatus()]);
+
+  const isReady = _videoEngineStatus && _videoEngineStatus.ready;
+  const isEngineOnline = _videoEngineStatus && _videoEngineStatus.engine_available;
+  const deviceName = _videoEngineStatus ? (_videoEngineStatus.device || 'NVIDIA RTX 5080') : 'RTX 5080';
+  const vramFree = _videoEngineStatus && _videoEngineStatus.vram_free_mb ? `${Math.round(_videoEngineStatus.vram_free_mb / 1024)}GB VRAM Free` : '16GB VRAM';
+
+  // Determine latest completed output to display in Hero player
+  if(!_activeHeroVideo && _videoJobs.length){
+    for(const j of _videoJobs){
+      if(j.status === 'completed' && j.outputs && j.outputs.length){
+        _activeHeroVideo = { job: j, output: j.outputs[0] };
+        break;
+      }
+    }
+  }
+
+  b.innerHTML = `
+    <div class="studio-layout">
+      <!-- SIDEBAR CONTROLS -->
+      <div class="studio-sidebar" id="videoSidebar">
+        <div style="font-size:13px;font-weight:700;display:flex;align-items:center;gap:7px;margin-bottom:6px">
+          <svg class="ico" viewBox="0 0 24 24" style="color:var(--accent);width:18px;height:18px"><polygon points="23 7 16 12 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
+          Architectural Video Studio
+        </div>
+        <div style="font-size:11px;color:var(--muted);line-height:1.4;margin-bottom:12px">
+          Generate cinematic architectural flythroughs, camera pans, and walkthroughs using <b>Wan 2.2 TI2V 5B</b>.
+        </div>
+
+        <!-- Mode Tabs -->
+        <div class="video-mode-tabs">
+          <button type="button" class="video-mode-tab ${_videoMode==='i2v'?'active':''}" id="vTabI2V">
+            🎬 Image to Video
+          </button>
+          <button type="button" class="video-mode-tab ${_videoMode==='t2v'?'active':''}" id="vTabT2V">
+            ✍️ Text to Video
+          </button>
+        </div>
+
+        <!-- Reference Image Dropzone (for Image to Video) -->
+        <div class="studio-field" id="videoDropzoneWrap" style="${_videoMode==='t2v'?'display:none':''}">
+          <div style="display:flex;align-items:center;justify-content:space-between">
+            <label>Initial Frame / Render</label>
+            <button type="button" class="studio-enhance-btn" id="vGrab3dBtn" style="padding:2px 8px;font-size:10.5px" title="Capture current 3D viewport canvas as start frame">
+              <span>📸 Grab 3D View</span>
+            </button>
+          </div>
+          <div class="studio-dropzone" id="videoDropzone" style="${_videoInputPreview?'display:none':''}">
+            <div id="videoDropzoneContent">
+              <svg class="ico" viewBox="0 0 24 24" style="width:26px;height:26px;margin:0 auto 6px;color:var(--faint)"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+              <div style="font-size:12px;font-weight:600">Drop starting frame or render</div>
+              <div style="font-size:10.5px;color:var(--faint);margin-top:2px">or click to browse</div>
+            </div>
+            <input type="file" id="videoFileInput" accept="image/png,image/jpeg,image/webp">
+          </div>
+          <div class="studio-preview-wrap" id="videoPreviewWrap" style="${_videoInputPreview?'display:block':'display:none'}">
+            <img id="videoPreviewImg" src="${_videoInputPreview||''}" alt="Initial Frame">
+            <button class="studio-preview-remove" id="videoPreviewRemove" title="Remove start frame">×</button>
+          </div>
+          <div style="font-size:10.5px;color:var(--faint);margin-top:3px">
+            Wan 2.2 will preserve building geometry and materials while smoothly animating camera motion and atmospheric lighting.
+          </div>
+        </div>
+
+        <!-- Camera Motion Presets -->
+        <div class="studio-field">
+          <label>Camera Trajectory Preset</label>
+          <div class="video-camera-grid">
+            ${CAMERA_PRESETS.map(c => `
+              <div class="video-camera-btn ${c.id===_videoCameraMotion?'active':''}" data-cam="${c.id}" data-prompt="${esc(c.prompt)}">
+                <div class="video-camera-btn-title"><span>${c.icon}</span> ${esc(c.label)}</div>
+                <div class="video-camera-btn-desc">${esc(c.desc)}</div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+
+        <!-- Prompt Field -->
+        <div class="studio-field">
+          <label for="videoPrompt">Animation Brief</label>
+          <textarea class="studio-textarea" id="videoPrompt" placeholder="Describe the scene, camera movement, light dynamics, reflection ripples, and atmosphere..."></textarea>
+          
+          <div style="font-size:10px;font-weight:700;color:var(--faint);letter-spacing:.4px;margin-top:4px">ATMOSPHERE & LIGHTING PRESETS</div>
+          <div class="studio-chips" id="videoAtmosChips">
+            ${ATMOSPHERE_PRESETS.map(a => `<span class="studio-chip" data-text="${esc(a.text)}">${esc(a.label)}</span>`).join('')}
+          </div>
+        </div>
+
+        <!-- Negative Prompt -->
+        <details class="studio-details">
+          <summary>Negative Motion Filter</summary>
+          <div style="margin-top:8px" class="studio-field">
+            <input class="studio-input" id="videoNegPrompt" value="jitter, strobe, flickering, sudden jerk, distorted geometry, warped structural pillars, blurry, noisy artifacts, watermarks">
+          </div>
+        </details>
+
+        <!-- Video Parameters -->
+        <div class="studio-field">
+          <label for="videoResSel">Format & Aspect Ratio</label>
+          <select class="studio-select" id="videoResSel">
+            <option value="1280x704" selected>16:9 Landscape (1280x704) — Recommended 720p</option>
+            <option value="704x1280">9:16 Vertical Reel (704x1280) — Mobile Presentation</option>
+            <option value="832x480">16:9 Fast Preview (832x480) — Rapid Test</option>
+          </select>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <div class="studio-field">
+            <label for="videoFramesSel">Duration</label>
+            <select class="studio-select" id="videoFramesSel">
+              <option value="49" selected>3 seconds (49 frames)</option>
+              <option value="81">5 seconds (81 frames)</option>
+            </select>
+          </div>
+          <div class="studio-field">
+            <label for="videoFpsSel">Frame Rate</label>
+            <select class="studio-select" id="videoFpsSel">
+              <option value="16" selected>16 fps (Cinematic)</option>
+              <option value="24">24 fps (Smooth)</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Sampling Settings -->
+        <details class="studio-details">
+          <summary>Diffusion Sampling & Seed</summary>
+          <div style="margin-top:10px;display:flex;flex-direction:column;gap:10px">
+            <div class="studio-slider-row">
+              <span style="width:75px">Steps: <b id="videoStepsVal">20</b></span>
+              <input type="range" id="videoSteps" min="10" max="35" step="1" value="20">
+            </div>
+            <div class="studio-slider-row">
+              <span style="width:75px">CFG: <b id="videoCfgVal">5.0</b></span>
+              <input type="range" id="videoCfg" min="1.0" max="10.0" step="0.5" value="5.0">
+            </div>
+            <div style="display:flex;align-items:center;gap:8px">
+              <input type="number" class="studio-input" id="videoSeed" placeholder="Random seed" style="flex:1" disabled>
+              <label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--muted);cursor:pointer;white-space:nowrap">
+                <input type="checkbox" id="videoRandomSeed" checked> Random
+              </label>
+            </div>
+          </div>
+        </details>
+
+        <!-- Generate Button -->
+        <button type="button" class="primary" id="videoGenBtn" style="padding:11px 16px;font-size:13px;font-weight:700;margin-top:14px;display:flex;align-items:center;justify-content:center;gap:8px;box-shadow:0 4px 14px rgba(47,107,255,.35)">
+          <svg class="ico" viewBox="0 0 24 24" style="width:16px;height:16px"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          Generate Cinematic Video
+        </button>
+
+        <!-- Progress Card -->
+        <div class="studio-progress-card" id="videoProgressCard" style="display:none;margin-top:12px">
+          <div class="studio-progress-h">
+            <span style="font-size:11.5px;font-weight:700" id="videoProgressLabel">Synthesizing frames…</span>
+            <span style="font-size:11.5px;color:var(--accent2);font-weight:700" id="videoProgressPct">0%</span>
+          </div>
+          <div class="studio-pbar" style="margin-top:7px">
+            <div class="studio-pbar-fill" id="videoPbarFill" style="width:0%"></div>
+          </div>
+          <div style="font-size:10px;color:var(--muted);margin-top:5px;display:flex;justify-content:space-between">
+            <span id="videoProgressStep">Diffusion latent sampling…</span>
+            <a href="javascript:void(0)" id="videoCancelBtn" style="color:var(--red);text-decoration:none">Cancel</a>
+          </div>
+        </div>
+      </div>
+
+      <!-- MAIN AREA: HERO PLAYER + REEL GALLERY -->
+      <div class="studio-main" id="videoMainArea">
+        <!-- Top Status Bar -->
+        <div class="studio-status-bar" style="margin-bottom:14px">
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <span class="video-badge accent">Wan 2.2 TI2V 5B</span>
+            <span class="video-badge">${esc(deviceName)}</span>
+            <span class="video-badge">${esc(vramFree)}</span>
+            <div class="studio-pill ${isReady?'online':(isEngineOnline?'warn':'offline')}" id="videoStatusPill" style="cursor:pointer" title="Click to view model status & download manager">
+              <span class="studio-pill-dot"></span>
+              ${isReady ? 'Wan 2.2 Ready' : (isEngineOnline ? '⚡ Wan 2.2 Weights Setup' : 'ComfyUI Offline')}
+            </div>
+          </div>
+          <button type="button" class="studio-enhance-btn" id="videoModelMgrBtn" style="padding:4px 10px;font-size:11px">
+            <span>⚙️ Model Weights & Setup</span>
+          </button>
+        </div>
+
+        <!-- HERO VIDEO PLAYER -->
+        <div id="videoHeroContainer">
+          ${_renderHeroPlayerHtml(_activeHeroVideo)}
+        </div>
+
+        <!-- PROJECT VIDEO TAKES REEL -->
+        <div style="margin-top:22px">
+          <div class="dt-toolbar">
+            <b>Project Video Takes (<span id="videoCountLabel">${_videoJobs.filter(j=>j.outputs&&j.outputs.length).length}</span>)</b>
+            <span style="font-size:11px;color:var(--muted);margin-left:auto">Click any take to play in high-definition viewer</span>
+          </div>
+          <div class="studio-gallery-grid" id="videoGalleryGrid">
+            ${_renderVideoGalleryHtml()}
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  _wireVideoEvents(b);
+}
+
+function _renderHeroPlayerHtml(item){
+  if(!item || !item.output){
+    return `
+      <div class="video-hero-player-wrap" style="padding:46px 20px;text-align:center;background:radial-gradient(ellipse at center, rgba(47,107,255,.07) 0%, #040711 70%)">
+        <svg class="ico" viewBox="0 0 24 24" style="width:48px;height:48px;margin:0 auto 14px;color:var(--faint)"><polygon points="23 7 16 12 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
+        <div style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:6px">No video take loaded</div>
+        <p style="font-size:12px;color:var(--muted);max-width:480px;margin:0 auto 16px;line-height:1.5">
+          Select an architectural camera preset and click <b>Generate Cinematic Video</b> on the left, or click a previously rendered take from the reel below.
+        </p>
+      </div>
+    `;
+  }
+
+  const o = item.output;
+  const j = item.job || {};
+  const meta = o.metadata || {};
+  const videoUrl = `${API}/api/image-engine/outputs/${esc(o.output_id)}/file`;
+  const promptText = meta.original_prompt || meta.prompt || j.prompt || 'Architectural animation';
+
+  return `
+    <div class="video-hero-player-wrap">
+      <div class="video-hero-player-bar">
+        <div style="display:flex;align-items:center;gap:8px;overflow:hidden">
+          <span style="font-size:12px;font-weight:700;color:#fff;white-space:nowrap">🎬 Active Take:</span>
+          <span style="font-size:11.5px;color:var(--accent2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(promptText)}</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+          <span class="video-badge accent">${o.width}×${o.height}</span>
+          <span class="video-badge">${meta.fps||16} FPS</span>
+          <span class="video-badge">${meta.frames||49} Frames</span>
+        </div>
+      </div>
+
+      <video id="videoHero" class="video-hero-player" controls autoplay loop playsinline preload="auto">
+        <source src="${videoUrl}" type="video/mp4">
+        Your browser does not support the video tag.
+      </video>
+
+      <div class="video-hero-footer">
+        <div style="display:flex;align-items:center;gap:6px">
+          <span style="font-size:11px;color:var(--muted)">Playback:</span>
+          <button type="button" class="tb" style="padding:3px 8px;font-size:10.5px" onclick="document.getElementById('videoHero').playbackRate=0.5">0.5x</button>
+          <button type="button" class="tb on" style="padding:3px 8px;font-size:10.5px" onclick="document.getElementById('videoHero').playbackRate=1.0">1.0x</button>
+          <button type="button" class="tb" style="padding:3px 8px;font-size:10.5px" onclick="document.getElementById('videoHero').playbackRate=1.5">1.5x</button>
+          <button type="button" class="tb" style="padding:3px 8px;font-size:10.5px" onclick="document.getElementById('videoHero').requestFullscreen()">⛶ Fullscreen</button>
+        </div>
+
+        <div style="display:flex;align-items:center;gap:8px;margin-left:auto">
+          ${o.seed!=null ? `<span class="video-badge" style="font-family:monospace;font-size:10px">Seed: ${o.seed}</span>` : ''}
+          <a class="primary" href="${videoUrl}" download="${esc(o.filename)}" style="text-decoration:none;padding:5px 12px;font-size:11px;font-weight:700;display:inline-flex;align-items:center;gap:6px">
+            <svg class="ico" viewBox="0 0 24 24" style="width:13px;height:13px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Download MP4
+          </a>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function _renderVideoGalleryHtml(){
+  const completedJobs = _videoJobs.filter(j => j.status === 'completed' && j.outputs && j.outputs.length);
+  if(!completedJobs.length){
+    return `<div style="grid-column:1/-1">${state('No architectural video takes generated yet for this project.')}</div>`;
+  }
+
+  return completedJobs.flatMap(j => (j.outputs || []).map(o => {
+    const meta = o.metadata || {};
+    const thumbUrl = o.thumbnail_url ? `${API}${o.thumbnail_url}` : `${API}/api/image-engine/outputs/${o.output_id}/thumb`;
+    const promptText = meta.original_prompt || meta.prompt || j.prompt || 'Architectural animation';
+    const isHero = _activeHeroVideo && _activeHeroVideo.output && _activeHeroVideo.output.output_id === o.output_id;
+
+    return `
+      <div class="studio-card video-card ${isHero?'on':''}" style="cursor:pointer;position:relative" data-job-id="${esc(j.job_id)}" data-output-id="${esc(o.output_id)}">
+        <div style="position:relative;aspect-ratio:16/9;background:#050811;overflow:hidden">
+          <img class="studio-card-thumb" src="${thumbUrl}" alt="Take" style="aspect-ratio:16/9;object-fit:cover;width:100%;height:100%" onerror="this.src='/ui/favicon.svg'">
+          <div class="video-card-play-icon">
+            <svg viewBox="0 0 24 24" fill="currentColor"><polygon points="6 4 20 12 6 20 6 4"/></svg>
+          </div>
+          <div style="position:absolute;bottom:6px;left:6px">
+            <span class="video-badge" style="background:rgba(0,0,0,.75);font-size:9.5px;padding:2px 6px">🎬 ${o.width}×${o.height}</span>
+          </div>
+        </div>
+        <div class="studio-card-info" style="padding:8px 10px">
+          <div class="studio-card-prompt" style="font-size:11.5px;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${esc(promptText)}</div>
+          <div class="studio-card-meta" style="margin-top:4px;display:flex;justify-content:space-between;align-items:center">
+            <span>${j.completed_at ? new Date(j.completed_at).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}) : 'Generated'}</span>
+            <span style="color:var(--accent2);font-weight:600">${meta.frames||49}f · ${meta.fps||16}fps</span>
+          </div>
+        </div>
+      </div>
+    `;
+  })).join('');
+}
+
+function _wireVideoEvents(b){
+  // Mode tabs
+  $('vTabI2V').onclick = () => {
+    _videoMode = 'i2v';
+    $('vTabI2V').classList.add('active');
+    $('vTabT2V').classList.remove('active');
+    $('videoDropzoneWrap').style.display = 'block';
+  };
+  $('vTabT2V').onclick = () => {
+    _videoMode = 't2v';
+    $('vTabT2V').classList.add('active');
+    $('vTabI2V').classList.remove('active');
+    $('videoDropzoneWrap').style.display = 'none';
+  };
+
+  // Dropzone events
+  const dropzone = $('videoDropzone');
+  const fileInput = $('videoFileInput');
+  dropzone.onclick = () => fileInput.click();
+  fileInput.onchange = (e) => {
+    if(e.target.files && e.target.files[0]) _handleVideoFile(e.target.files[0]);
+  };
+  dropzone.ondragover = (e) => { e.preventDefault(); dropzone.classList.add('dragover'); };
+  dropzone.ondragleave = () => dropzone.classList.remove('dragover');
+  dropzone.ondrop = (e) => {
+    e.preventDefault();
+    dropzone.classList.remove('dragover');
+    if(e.dataTransfer.files && e.dataTransfer.files[0]) _handleVideoFile(e.dataTransfer.files[0]);
+  };
+  $('videoPreviewRemove').onclick = () => {
+    _videoInputFile = null;
+    _videoInputPreview = null;
+    $('videoPreviewWrap').style.display = 'none';
+    $('videoDropzone').style.display = 'block';
+    fileInput.value = '';
+  };
+
+  // Grab from 3D viewport
+  $('vGrab3dBtn').onclick = () => {
+    try {
+      const frame = $('viewerFrame');
+      if(frame && frame.contentWindow){
+        const canvas = frame.contentWindow.document.querySelector('canvas');
+        if(canvas){
+          canvas.toBlob(blob => {
+            if(blob){
+              const f = new File([blob], `viewport_${Date.now()}.png`, { type: 'image/png' });
+              _handleVideoFile(f);
+              toast('Captured 3D viewport camera view as starting frame!');
+            }
+          }, 'image/png');
+          return;
+        }
+      }
+    } catch(err){}
+    toast('No active 3D model canvas in view. Upload a render file directly.');
+  };
+
+  // Camera presets
+  document.querySelectorAll('.video-camera-btn').forEach(btn => {
+    btn.onclick = () => {
+      document.querySelectorAll('.video-camera-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      _videoCameraMotion = btn.dataset.cam;
+      const promptEl = $('videoPrompt');
+      if(!promptEl.value.trim()){
+        promptEl.value = btn.dataset.prompt;
+      }
+    };
+  });
+
+  // Atmosphere chips
+  $('videoAtmosChips').querySelectorAll('.studio-chip').forEach(chip => {
+    chip.onclick = () => {
+      const p = $('videoPrompt');
+      const text = chip.dataset.text;
+      if(!p.value.includes(text)){
+        p.value = p.value.trim() ? `${p.value.trim()}, ${text}` : text;
+      }
+    };
+  });
+
+  // Resolution
+  $('videoResSel').onchange = (e) => {
+    const [w, h] = e.target.value.split('x').map(Number);
+    _videoRes = { width: w, height: h };
+  };
+
+  // Sliders
+  $('videoSteps').oninput = (e) => {
+    _videoSteps = Number(e.target.value);
+    $('videoStepsVal').textContent = _videoSteps;
+  };
+  $('videoCfg').oninput = (e) => {
+    _videoCfg = Number(e.target.value);
+    $('videoCfgVal').textContent = _videoCfg.toFixed(1);
+  };
+  $('videoRandomSeed').onchange = (e) => {
+    $('videoSeed').disabled = e.target.checked;
+    if(e.target.checked) $('videoSeed').value = '';
+  };
+
+  // Generate button
+  $('videoGenBtn').onclick = _submitVideoJob;
+
+  // Model setup modal openers
+  $('videoStatusPill').onclick = openVideoModelModal;
+  $('videoModelMgrBtn').onclick = openVideoModelModal;
+
+  // Reel card clicks -> load in hero
+  document.querySelectorAll('.video-card').forEach(card => {
+    card.onclick = () => {
+      const jId = card.dataset.jobId;
+      const oId = card.dataset.outputId;
+      const job = _videoJobs.find(j => j.job_id === jId);
+      if(job && job.outputs){
+        const out = job.outputs.find(o => o.output_id === oId) || job.outputs[0];
+        _activeHeroVideo = { job, output: out };
+        $('videoHeroContainer').innerHTML = _renderHeroPlayerHtml(_activeHeroVideo);
+        document.querySelectorAll('.video-card').forEach(c => c.classList.toggle('on', c.dataset.outputId === oId));
+        $('videoHero').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+    };
+  });
+}
+
+function _handleVideoFile(file){
+  if(!file.type.startsWith('image/')){
+    toast('Please select a valid image file (PNG, JPG, WEBP).');
+    return;
+  }
+  _videoInputFile = file;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    _videoInputPreview = e.target.result;
+    $('videoPreviewImg').src = _videoInputPreview;
+    $('videoPreviewWrap').style.display = 'block';
+    $('videoDropzone').style.display = 'none';
+  };
+  reader.readAsDataURL(file);
+}
+
+async function _submitVideoJob(){
+  const prompt = $('videoPrompt').value.trim();
+  if(!prompt){
+    toast('Please enter an architectural animation prompt.');
+    $('videoPrompt').focus();
+    return;
+  }
+
+  if(_videoMode === 'i2v' && !_videoInputFile){
+    toast('Image-to-Video requires an initial frame. Upload an image or switch to Text-to-Video.');
+    return;
+  }
+
+  const negPrompt = $('videoNegPrompt').value.trim();
+  const frames = Number($('videoFramesSel').value) || 49;
+  const fps = Number($('videoFpsSel').value) || 16;
+  const isRandSeed = $('videoRandomSeed').checked;
+  const seed = isRandSeed ? Math.floor(Math.random() * 1000000000) : (Number($('videoSeed').value) || 42);
+
+  // Show progress UI
+  $('videoProgressCard').style.display = 'block';
+  $('videoProgressPct').textContent = '0%';
+  $('videoPbarFill').style.width = '0%';
+  $('videoProgressLabel').textContent = 'Queuing video job…';
+  $('videoProgressStep').textContent = 'Allocating RTX 5080 resources…';
+  $('videoGenBtn').disabled = true;
+
+  try {
+    let jobId = null;
+
+    if(_videoMode === 'i2v' && _videoInputFile){
+      const form = new FormData();
+      form.append('project', currentProject);
+      form.append('workflow_id', 'video_wan2_2_5b');
+      form.append('prompt', prompt);
+      if(negPrompt) form.append('negative_prompt', negPrompt);
+      form.append('camera_motion', _videoCameraMotion);
+      form.append('width', String(_videoRes.width));
+      form.append('height', String(_videoRes.height));
+      form.append('steps', String(_videoSteps));
+      form.append('cfg', String(_videoCfg));
+      form.append('frames', String(frames));
+      form.append('fps', String(fps));
+      form.append('seed', String(seed));
+      form.append('image_file', _videoInputFile);
+
+      const r = await fetch(`${API}/api/image-engine/submit-multipart`, {
+        method: 'POST',
+        body: form
+      });
+      if(!r.ok){
+        const err = await r.json().catch(()=>({}));
+        throw new Error(err.detail || `Server returned HTTP ${r.status}`);
+      }
+      const st = await r.json();
+      jobId = st.job_id;
+    } else {
+      // Text-to-Video mode
+      const payload = {
+        project: currentProject,
+        workflow_id: 'video_wan2_2_5b',
+        prompt: prompt,
+        negative_prompt: negPrompt || undefined,
+        camera_motion: _videoCameraMotion,
+        width: _videoRes.width,
+        height: _videoRes.height,
+        steps: _videoSteps,
+        cfg: _videoCfg,
+        frames: frames,
+        fps: fps,
+        seed: seed
+      };
+
+      const r = await fetch(`${API}/api/image-engine/submit`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if(!r.ok){
+        const err = await r.json().catch(()=>({}));
+        throw new Error(err.detail || `Server returned HTTP ${r.status}`);
+      }
+      const st = await r.json();
+      jobId = st.job_id;
+    }
+
+    _pollVideoJob(jobId);
+  } catch(exc){
+    $('videoProgressCard').style.display = 'none';
+    $('videoGenBtn').disabled = false;
+    toast(`Video generation failed: ${exc.message}`);
+  }
+}
+
+function _pollVideoJob(jobId){
+  if(_videoPollTimer){ clearInterval(_videoPollTimer); _videoPollTimer = null; }
+
+  $('videoCancelBtn').onclick = async () => {
+    try {
+      await fetch(`${API}/api/image-engine/jobs/${jobId}/cancel`, { method: 'POST' });
+      toast('Video generation canceled.');
+    } catch(e){}
+    clearInterval(_videoPollTimer);
+    $('videoProgressCard').style.display = 'none';
+    $('videoGenBtn').disabled = false;
+  };
+
+  _videoPollTimer = setInterval(async () => {
+    try {
+      const r = await fetch(`${API}/api/image-engine/jobs/${jobId}`);
+      if(!r.ok) return;
+      const st = await r.json();
+
+      const pct = Math.max(0, Math.min(100, st.progress_percent || 0));
+      $('videoProgressPct').textContent = `${pct}%`;
+      $('videoPbarFill').style.width = `${pct}%`;
+
+      if(st.current_step && st.total_steps){
+        $('videoProgressStep').textContent = `Sampling step ${st.current_step} / ${st.total_steps}`;
+      } else if(st.status === 'queued'){
+        $('videoProgressStep').textContent = 'Waiting in ComfyUI queue…';
+      } else {
+        $('videoProgressStep').textContent = 'Wan 2.2 TI2V 5B generating video tensors…';
+      }
+
+      if(st.status === 'completed'){
+        clearInterval(_videoPollTimer);
+        _videoPollTimer = null;
+        $('videoProgressCard').style.display = 'none';
+        $('videoGenBtn').disabled = false;
+        toast('🎉 Architectural video generated successfully!');
+
+        await _loadVideoJobs();
+        if(st.outputs && st.outputs.length){
+          _activeHeroVideo = { job: st, output: st.outputs[0] };
+          $('videoHeroContainer').innerHTML = _renderHeroPlayerHtml(_activeHeroVideo);
+        }
+        $('videoGalleryGrid').innerHTML = _renderVideoGalleryHtml();
+        $('videoCountLabel').textContent = _videoJobs.filter(j=>j.outputs&&j.outputs.length).length;
+        _wireVideoEvents(document);
+      } else if(st.status === 'failed'){
+        clearInterval(_videoPollTimer);
+        _videoPollTimer = null;
+        $('videoProgressCard').style.display = 'none';
+        $('videoGenBtn').disabled = false;
+        toast(`Video job failed: ${st.error || 'Check ComfyUI logs'}`);
+      }
+    } catch(err){}
+  }, 1500);
+}
+
+async function openVideoModelModal(){
+  const st = await _fetchVideoStatus();
+  const models = st ? st.models : {};
+  const isReady = st && st.ready;
+  const isOnline = st && st.engine_available;
+  const dlState = st && st.download_state ? st.download_state : {};
+
+  const modal = el('div', 'studio-modal', `
+    <div class="studio-modal-card" style="max-width:680px;padding:24px;border-radius:12px;display:flex;flex-direction:column;gap:16px">
+      <div style="display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);padding-bottom:12px">
+        <div style="display:flex;align-items:center;gap:8px">
+          <svg class="ico" viewBox="0 0 24 24" style="color:var(--accent);width:20px;height:20px"><polygon points="23 7 16 12 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
+          <span style="font-size:15px;font-weight:700">Wan 2.2 TI2V 5B Model Weights Manager</span>
+        </div>
+        <button class="tb" id="vModalClose" style="padding:4px 8px;font-size:14px">×</button>
+      </div>
+
+      <div style="font-size:12px;color:var(--muted);line-height:1.5">
+        To run Wan 2.2 Text/Image-to-Video locally on your <b>RTX 5080 (16GB VRAM)</b>, ComfyUI requires three model weight files. The system checks their presence in <code>C:\\3EH\\ComfyUI\\models</code>.
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:10px">
+        ${Object.entries(models).map(([k, m]) => `
+          <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:12px 14px;display:flex;align-items:center;justify-content:space-between">
+            <div>
+              <div style="font-size:12.5px;font-weight:700;color:var(--text);display:flex;align-items:center;gap:6px">
+                <span>${m.present ? '✅' : '⏳'}</span>
+                ${esc(m.label)}
+              </div>
+              <div style="font-size:10.5px;color:var(--muted);margin-top:2px">
+                File: <code>${esc(m.filename)}</code> · Size: ~${m.size_gb} GB · Target: <code>${esc(m.folder)}/</code>
+              </div>
+            </div>
+            <div>
+              ${m.present ? '<span class="video-badge green">Installed</span>' : '<span class="video-badge warn">Not Downloaded</span>'}
+            </div>
+          </div>
+        `).join('')}
+      </div>
+
+      <!-- Download status or trigger -->
+      <div id="vDlProgressSection" style="${dlState.active ? 'display:block' : 'display:none'};background:rgba(47,107,255,.08);border:1px solid rgba(47,107,255,.25);border-radius:8px;padding:12px">
+        <div style="display:flex;justify-content:space-between;font-size:11.5px;font-weight:700">
+          <span id="vDlFileLabel">Downloading ${esc(dlState.current_file||'weights')}…</span>
+          <span id="vDlPctLabel" style="color:var(--accent2)">${dlState.percent||0}%</span>
+        </div>
+        <div class="studio-pbar" style="margin-top:6px">
+          <div class="studio-pbar-fill" id="vDlPbarFill" style="width:${dlState.percent||0}%"></div>
+        </div>
+        <div style="font-size:10px;color:var(--muted);margin-top:4px" id="vDlSpeedLabel">
+          Speed: ${dlState.speed_mbps||0} MB/s
+        </div>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:10px;margin-top:4px">
+        ${!isReady ? `
+          <button type="button" class="primary" id="vStartDlBtn" style="padding:9px 16px;font-size:12px;font-weight:700;display:inline-flex;align-items:center;gap:6px" ${dlState.active?'disabled':''}>
+            <svg class="ico" viewBox="0 0 24 24" style="width:14px;height:14px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            ${dlState.active ? 'Downloading in Background…' : 'Start Automatic Background Download (~16.8 GB)'}
+          </button>
+        ` : `
+          <div class="video-badge green" style="padding:6px 14px;font-size:12px">
+            ✨ All Wan 2.2 model weights are installed and ready for inference!
+          </div>
+        `}
+      </div>
+
+      <details class="studio-details" style="margin-top:8px">
+        <summary>Manual Download Terminal Commands (Alternative)</summary>
+        <div style="margin-top:8px;font-size:11px;color:var(--text);line-height:1.6">
+          If you prefer downloading directly via PowerShell terminal:
+          <pre style="background:#02050e;border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-size:10.5px;color:#38bdf8;overflow-x:auto;margin-top:4px">
+# 1. Diffusion Model (9.31 GB)
+curl.exe -L "https://huggingface.co/Comfy-Org/Wan_2.2_ComfyUI_Repackaged/resolve/main/split_files/diffusion_models/wan2.2_ti2v_5B_fp16.safetensors" -o "C:\\3EH\\ComfyUI\\models\\diffusion_models\\wan2.2_ti2v_5B_fp16.safetensors"
+
+# 2. Text Encoder UMT5-XXL FP8 (6.27 GB)
+curl.exe -L "https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/text_encoders/umt5_xxl_fp8_e4m3fn_scaled.safetensors" -o "C:\\3EH\\ComfyUI\\models\\text_encoders\\umt5_xxl_fp8_e4m3fn_scaled.safetensors"
+
+# 3. VAE (1.31 GB)
+curl.exe -L "https://huggingface.co/Comfy-Org/Wan_2.2_ComfyUI_Repackaged/resolve/main/split_files/vae/wan2.2_vae.safetensors" -o "C:\\3EH\\ComfyUI\\models\\vae\\wan2.2_vae.safetensors"</pre>
+        </div>
+      </details>
+    </div>
+  `);
+
+  document.body.appendChild(modal);
+
+  $('vModalClose').onclick = () => modal.remove();
+  modal.onclick = (e) => { if(e.target === modal) modal.remove(); };
+
+  const startBtn = $('vStartDlBtn');
+  if(startBtn){
+    startBtn.onclick = async () => {
+      startBtn.disabled = true;
+      startBtn.textContent = 'Starting download task…';
+      try {
+        const r = await fetch(`${API}/api/image-engine/video/download-weights`, { method: 'POST' });
+        if(r.ok){
+          toast('Background weight download started.');
+          $('vDlProgressSection').style.display = 'block';
+          // Poll download progress
+          const dlTimer = setInterval(async () => {
+            const fresh = await _fetchVideoStatus();
+            const curState = fresh ? fresh.download_state : null;
+            if(curState){
+              $('vDlFileLabel').textContent = `Downloading ${esc(curState.current_file || 'weights')}…`;
+              $('vDlPctLabel').textContent = `${curState.percent || 0}%`;
+              $('vDlPbarFill').style.width = `${curState.percent || 0}%`;
+              $('vDlSpeedLabel').textContent = `Speed: ${curState.speed_mbps || 0} MB/s · ${curState.status}`;
+              if(!curState.active){
+                clearInterval(dlTimer);
+                if(curState.status === 'completed'){
+                  toast('🎉 All Wan 2.2 model weights downloaded successfully!');
+                  modal.remove();
+                  renderVideoStudio($('genericWrap'));
+                } else if(curState.status === 'failed'){
+                  toast(`Download failed: ${curState.error}`);
+                  startBtn.disabled = false;
+                  startBtn.textContent = 'Retry Download';
+                }
+              }
+            }
+          }, 2000);
+        }
+      } catch(err){
+        startBtn.disabled = false;
+        startBtn.textContent = 'Download Failed (Click to retry)';
+      }
+    };
+  }
+}
 
 /* ============================================================
    DESIGN AI COPILOT

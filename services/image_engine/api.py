@@ -9,9 +9,12 @@ Provides project-isolated REST endpoints for:
 - Output image and thumbnail retrieval with strict path containment
 """
 
+import asyncio
 import uuid
-from typing import List, Optional
+from pathlib import Path
+from typing import List, Optional, Dict, Any
 
+import httpx
 from fastapi import APIRouter, HTTPException, Query, Request, UploadFile
 from fastapi.responses import FileResponse
 
@@ -321,9 +324,11 @@ async def get_output_file(output_id: str, request: Request):
     except FileNotFoundError as fnf_err:
         raise HTTPException(404, str(fnf_err))
 
+    ext = file_path.suffix.lower()
+    media_type = "video/mp4" if ext == ".mp4" else ("video/webm" if ext == ".webm" else "image/png")
     return FileResponse(
         path=str(file_path),
-        media_type="image/png",
+        media_type=media_type,
         filename=output["filename"],
     )
 
@@ -359,9 +364,11 @@ async def get_output_thumbnail(output_id: str, request: Request):
         raise HTTPException(404, str(fnf_err))
 
     target_path = thumb_path if (thumb_path and thumb_path.exists()) else file_path
+    ext = target_path.suffix.lower()
+    media_type = "video/mp4" if ext == ".mp4" else ("video/webm" if ext == ".webm" else "image/png")
     return FileResponse(
         path=str(target_path),
-        media_type="image/png",
+        media_type=media_type,
     )
 
 
@@ -412,3 +419,163 @@ async def enhance_prompt_endpoint(request: Request, payload: PromptEnhanceReques
     except ValueError as exc:
         raise HTTPException(400, str(exc)) from exc
     return PromptEnhanceResponse(**res)
+
+
+# ---------------------------------------------------------------------------
+# Video Engine (Wan 2.2 TI2V 5B) Model Status & Weight Downloader
+# ---------------------------------------------------------------------------
+COMFY_MODELS_ROOT = Path("C:/3EH/ComfyUI/models")
+
+WAN_MODELS_SPEC = {
+    "diffusion": {
+        "label": "Wan 2.2 TI2V 5B Diffusion Model",
+        "filename": "wan2.2_ti2v_5B_fp16.safetensors",
+        "alternatives": ["wan2.2_ti2v_5B_fp8_scaled.safetensors"],
+        "folder": "diffusion_models",
+        "url": "https://huggingface.co/Comfy-Org/Wan_2.2_ComfyUI_Repackaged/resolve/main/split_files/diffusion_models/wan2.2_ti2v_5B_fp16.safetensors",
+        "size_gb": 9.31,
+    },
+    "text_encoder": {
+        "label": "UMT5-XXL FP8 Text Encoder",
+        "filename": "umt5_xxl_fp8_e4m3fn_scaled.safetensors",
+        "alternatives": ["umt5_xxl_fp16.safetensors"],
+        "folder": "text_encoders",
+        "url": "https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/text_encoders/umt5_xxl_fp8_e4m3fn_scaled.safetensors",
+        "size_gb": 6.27,
+    },
+    "vae": {
+        "label": "Wan 2.2 VAE",
+        "filename": "wan2.2_vae.safetensors",
+        "alternatives": [],
+        "folder": "vae",
+        "url": "https://huggingface.co/Comfy-Org/Wan_2.2_ComfyUI_Repackaged/resolve/main/split_files/vae/wan2.2_vae.safetensors",
+        "size_gb": 1.31,
+    },
+}
+
+_video_download_state: Dict[str, Any] = {
+    "active": False,
+    "current_file": None,
+    "downloaded_bytes": 0,
+    "total_bytes": 0,
+    "percent": 0,
+    "speed_mbps": 0.0,
+    "status": "idle",
+    "error": None,
+}
+
+
+@image_router.get("/video/status")
+async def get_video_status(request: Request):
+    """
+    Check availability of Wan 2.2 TI2V 5B model weights in local ComfyUI instance.
+    """
+    auth.require_user(request)
+    models_status = {}
+    all_ready = True
+
+    for key, spec in WAN_MODELS_SPEC.items():
+        folder = COMFY_MODELS_ROOT / spec["folder"]
+        target = folder / spec["filename"]
+        present = target.exists() and target.stat().st_size > 1024 * 1024
+
+        if not present:
+            for alt in spec.get("alternatives", []):
+                alt_path = folder / alt
+                if alt_path.exists() and alt_path.stat().st_size > 1024 * 1024:
+                    present = True
+                    break
+
+        if not present:
+            all_ready = False
+
+        models_status[key] = {
+            "label": spec["label"],
+            "filename": spec["filename"],
+            "folder": spec["folder"],
+            "present": present,
+            "size_gb": spec["size_gb"],
+            "url": spec["url"],
+            "local_path": str(target),
+        }
+
+    engine_st = await get_job_service().client.check_health()
+
+    return {
+        "ready": all_ready and engine_st.available,
+        "engine_available": engine_st.available,
+        "device": engine_st.device,
+        "vram_free_mb": engine_st.vram_free_mb,
+        "models": models_status,
+        "download_state": _video_download_state,
+    }
+
+
+async def _background_download_wan():
+    global _video_download_state
+    _video_download_state["active"] = True
+    _video_download_state["error"] = None
+    _video_download_state["status"] = "downloading"
+
+    try:
+        import time
+        for key, spec in WAN_MODELS_SPEC.items():
+            folder = COMFY_MODELS_ROOT / spec["folder"]
+            folder.mkdir(parents=True, exist_ok=True)
+            target = folder / spec["filename"]
+
+            # Skip if already present
+            if target.exists() and target.stat().st_size > 1024 * 1024 * 50:
+                continue
+
+            _video_download_state["current_file"] = spec["filename"]
+            _video_download_state["percent"] = 0
+            part_path = target.with_suffix(".part")
+
+            async with httpx.AsyncClient(timeout=None, follow_redirects=True) as client:
+                async with client.stream("GET", spec["url"], headers={"User-Agent": "Mozilla/5.0"}) as resp:
+                    if resp.status_code != 200:
+                        raise RuntimeError(f"HTTP {resp.status_code} downloading {spec['filename']}")
+                    total = int(resp.headers.get("content-length", 0))
+                    _video_download_state["total_bytes"] = total
+                    downloaded = 0
+                    start_t = time.time()
+
+                    with open(part_path, "wb") as f:
+                        async for chunk in resp.aiter_bytes(chunk_size=1024 * 256):
+                            if not chunk:
+                                break
+                            f.write(chunk)
+                            downloaded += len(chunk)
+                            _video_download_state["downloaded_bytes"] = downloaded
+                            if total > 0:
+                                _video_download_state["percent"] = int(downloaded * 100 / total)
+                            elapsed = time.time() - start_t
+                            if elapsed > 0:
+                                _video_download_state["speed_mbps"] = round((downloaded / (1024 * 1024)) / elapsed, 2)
+
+            # Atomic rename once complete
+            if part_path.exists():
+                part_path.replace(target)
+
+        _video_download_state["active"] = False
+        _video_download_state["status"] = "completed"
+        _video_download_state["percent"] = 100
+    except Exception as exc:
+        _video_download_state["active"] = False
+        _video_download_state["status"] = "failed"
+        _video_download_state["error"] = str(exc)
+
+
+@image_router.post("/video/download-weights")
+async def trigger_download_wan(request: Request):
+    """
+    Trigger automated background download of Wan 2.2 model weights into ComfyUI.
+    """
+    auth.require_user(request)
+    if _video_download_state.get("active"):
+        return {"status": "already_running", "download_state": _video_download_state}
+
+    asyncio.create_task(_background_download_wan())
+    return {"status": "started", "download_state": _video_download_state}
+

@@ -60,7 +60,8 @@ class TestJobService(unittest.IsolatedAsyncioTestCase):
                 spec = mock_info.setdefault(node.get("class_type"), {"input": {"required": {}}})
                 for k, v in node.get("inputs", {}).items():
                     if isinstance(k, str) and k.endswith("_name"):
-                        spec["input"]["required"][k] = [[v]]
+                        req = spec["input"]["required"].setdefault(k, [[]])
+                        if v not in req[0]: req[0].append(v)
         self.mock_client.get_object_info.return_value = mock_info
 
         # Create 128x128 sample image bytes

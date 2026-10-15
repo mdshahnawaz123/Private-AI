@@ -105,7 +105,15 @@ class WorkflowRegistry:
             raise WorkflowValidationError("Workflow graph is empty")
 
         has_output_node = False
-        output_node_types = {"SaveImage", "PreviewImage", "ImageSave", "SaveImageWebsocket"}
+        output_node_types = {
+            "SaveImage",
+            "PreviewImage",
+            "ImageSave",
+            "SaveImageWebsocket",
+            "SaveVideo",
+            "SaveWEBM",
+            "VHS_VideoCombine",
+        }
 
         for node_id, node_def in graph.items():
             if not isinstance(node_def, dict):
@@ -126,7 +134,7 @@ class WorkflowRegistry:
 
         if not has_output_node:
             raise WorkflowValidationError(
-                "Workflow contains no recognized output node (SaveImage or PreviewImage)"
+                "Workflow contains no recognized output node (SaveImage, PreviewImage, or SaveVideo)"
             )
 
     @classmethod
@@ -314,6 +322,8 @@ class WorkflowRegistry:
         empty_latent_nodes: List[Tuple[str, Dict[str, Any]]] = []
         ksampler_nodes: List[Tuple[str, Dict[str, Any]]] = []
         load_image_nodes: List[Tuple[str, Dict[str, Any]]] = []
+        wan_latent_nodes: List[Tuple[str, Dict[str, Any]]] = []
+        create_video_nodes: List[Tuple[str, Dict[str, Any]]] = []
 
         for node_id, node in graph.items():
             c_type = node.get("class_type")
@@ -325,6 +335,10 @@ class WorkflowRegistry:
                 ksampler_nodes.append((node_id, node))
             elif c_type == "LoadImage":
                 load_image_nodes.append((node_id, node))
+            elif c_type == "Wan22ImageToVideoLatent":
+                wan_latent_nodes.append((node_id, node))
+            elif c_type == "CreateVideo":
+                create_video_nodes.append((node_id, node))
 
         def conditioning_text_node(link):
             seen = set()
@@ -356,14 +370,16 @@ class WorkflowRegistry:
                 btype_part = f" of a {request.building_type}" if request.building_type else ""
                 style_part = f" in {request.architectural_style} style" if request.architectural_style else ""
                 arch_prefix = f"Architectural render{btype_part}{style_part}. "
+            if getattr(request, "camera_motion", None):
+                arch_prefix += f"Cinematic camera motion: {request.camera_motion}. "
             full_prompt = f"{arch_prefix}{request.prompt}, highly detailed, professional architectural visualization"
-            if load_image_nodes:
+            if load_image_nodes and not wan_latent_nodes:
                 baseline = clip_text_nodes[0][1]["inputs"].get("text", "")
                 full_prompt = baseline + "\nRequested edit: " + request.prompt
             clip_text_nodes[0][1]["inputs"]["text"] = full_prompt
 
             if len(clip_text_nodes) > 1 and request.negative_prompt:
-                baseline = clip_text_nodes[1][1]["inputs"].get("text", "") if load_image_nodes else ""
+                baseline = clip_text_nodes[1][1]["inputs"].get("text", "") if (load_image_nodes and not wan_latent_nodes) else ""
                 clip_text_nodes[1][1]["inputs"]["text"] = (baseline + "; " + request.negative_prompt).strip("; ")
 
         # 2. Bind dimensions to EmptyLatentImage
@@ -388,6 +404,27 @@ class WorkflowRegistry:
         if load_image_nodes and request.input_image_path:
             filename = os.path.basename(request.input_image_path)
             load_image_nodes[0][1]["inputs"]["image"] = filename
+
+        # 5. Bind Wan 2.2 Video Latent parameters
+        for _, w_node in wan_latent_nodes:
+            w_inputs = w_node["inputs"]
+            w_inputs["width"] = request.width
+            w_inputs["height"] = request.height
+            if getattr(request, "frames", None):
+                w_inputs["length"] = request.frames
+            if request.input_image_path and load_image_nodes:
+                filename = os.path.basename(request.input_image_path)
+                load_image_nodes[0][1]["inputs"]["image"] = filename
+                w_inputs["start_image"] = [load_image_nodes[0][0], 0]
+            else:
+                # Text-to-Video mode: omit start_image
+                if "start_image" in w_inputs:
+                    del w_inputs["start_image"]
+
+        # 6. Bind CreateVideo FPS
+        for _, v_node in create_video_nodes:
+            if getattr(request, "fps", None):
+                v_node["inputs"]["fps"] = float(request.fps)
 
         # Bind FLUX.2 Klein scheduler, guidance and seed without replacing linked
         # width/height inputs that are derived from the uploaded source image.

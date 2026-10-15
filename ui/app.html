@@ -501,6 +501,33 @@ body.chat-expanded #ai .ctx-actions{display:none}
 .studio-design-card-rationale{font-size:10px;color:var(--muted);margin-top:4px;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 
 /* ============================================================
+   AI Video Studio (Wan 2.2 TI2V 5B) Styles
+   ============================================================ */
+.video-mode-tabs{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:12px;background:var(--surface2);padding:3px;border-radius:var(--r-md);border:1px solid var(--border)}
+.video-mode-tab{display:flex;align-items:center;justify-content:center;gap:6px;padding:7px 10px;border-radius:var(--r-sm);font-size:11.5px;font-weight:600;color:var(--muted);cursor:pointer;border:none;background:transparent;transition:all .15s}
+.video-mode-tab:hover{color:var(--text);background:rgba(255,255,255,.03)}
+.video-mode-tab.active{background:var(--card);color:var(--accent2);box-shadow:var(--shadow-sm);border:1px solid rgba(47,107,255,.3)}
+.video-camera-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:6px}
+.video-camera-btn{display:flex;flex-direction:column;align-items:flex-start;gap:3px;padding:7px 9px;background:var(--card);border:1px solid var(--border);border-radius:var(--r-sm);cursor:pointer;text-align:left;transition:all .15s}
+.video-camera-btn:hover{border-color:var(--accent);background:rgba(47,107,255,.05);transform:translateY(-1px)}
+.video-camera-btn.active{border-color:var(--accent);background:rgba(47,107,255,.18);box-shadow:0 0 10px rgba(47,107,255,.25)}
+.video-camera-btn-title{font-size:11px;font-weight:700;color:var(--text);display:flex;align-items:center;gap:5px}
+.video-camera-btn.active .video-camera-btn-title{color:var(--accent2)}
+.video-camera-btn-desc{font-size:9.5px;color:var(--muted);line-height:1.25}
+.video-hero-player-wrap{background:#040711;border:1px solid var(--border);border-radius:var(--r-lg);overflow:hidden;position:relative;box-shadow:var(--shadow-2);display:flex;flex-direction:column}
+.video-hero-player-bar{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:#090e1d;border-bottom:1px solid var(--border)}
+.video-hero-player{width:100%;max-height:540px;background:#000;display:block;outline:none}
+.video-hero-footer{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:#090e1d;border-top:1px solid var(--border);gap:10px;flex-wrap:wrap}
+.video-badge{display:inline-flex;align-items:center;gap:5px;padding:3px 8px;border-radius:12px;font-size:10.5px;font-weight:600;background:rgba(255,255,255,.06);color:var(--text);border:1px solid var(--border)}
+.video-badge.accent{background:rgba(47,107,255,.18);color:var(--accent2);border-color:rgba(47,107,255,.35)}
+.video-badge.green{background:rgba(53,208,127,.15);color:var(--green);border-color:rgba(53,208,127,.3)}
+.video-badge.warn{background:rgba(255,184,0,.15);color:var(--yellow);border-color:rgba(255,184,0,.3)}
+.video-card-play-icon{position:absolute;inset:0;display:grid;place-items:center;background:rgba(0,0,0,.35);transition:background .15s}
+.video-card:hover .video-card-play-icon{background:rgba(47,107,255,.4)}
+.video-card-play-icon svg{width:36px;height:36px;color:#fff;filter:drop-shadow(0 2px 6px rgba(0,0,0,.7));transition:transform .15s}
+.video-card:hover .video-card-play-icon svg{transform:scale(1.15)}
+
+/* ============================================================
    CADCraft Studio (storytold/cadcraft pure Rust integration)
    ============================================================ */
 .cad-workspace-root{position:absolute;inset:0;display:flex;flex-direction:column;overflow:hidden;background:#090d18;color:var(--text);font-family:"Inter","Segoe UI",sans-serif}

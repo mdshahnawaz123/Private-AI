@@ -220,14 +220,16 @@ class ComfyUIClient:
                 if not content:
                     raise ComfyUIError(f"Retrieved image {filename!r} is empty (0 bytes)")
 
-                # Verify valid image payload
-                try:
-                    img = Image.open(io.BytesIO(content))
-                    img.verify()
-                except Exception as img_err:
-                    raise ComfyUIError(
-                        f"Retrieved image {filename!r} contains corrupted image data: {img_err}"
-                    ) from img_err
+                # Verify valid media payload
+                is_video = filename.lower().endswith((".mp4", ".webm", ".mkv", ".mov", ".avi"))
+                if not is_video:
+                    try:
+                        img = Image.open(io.BytesIO(content))
+                        img.verify()
+                    except Exception as img_err:
+                        raise ComfyUIError(
+                            f"Retrieved image {filename!r} contains corrupted image data: {img_err}"
+                        ) from img_err
 
                 return content
         except httpx.RequestError as exc:

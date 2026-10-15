@@ -1,0 +1,224 @@
+{
+  "_meta": {
+    "id": "video_wan2_2_5b",
+    "name": "Wan 2.2 TI2V 5B — Architectural Video Studio",
+    "version": "1.0.0",
+    "category": "video",
+    "description": "Text-to-Video and Image-to-Video architectural flythrough animation powered by Wan 2.2 TI2V 5B on local ComfyUI.",
+    "license_notes": "Wan 2.2: Apache-2.0. Required UMT5 text encoder and Wan 2.2 VAE use their respective model licenses.",
+    "parameters": [
+      {
+        "name": "prompt",
+        "type": "string",
+        "label": "Animation Prompt",
+        "description": "Architectural scene, camera trajectory, lighting dynamics, and atmospheric motion",
+        "required": true
+      },
+      {
+        "name": "negative_prompt",
+        "type": "string",
+        "label": "Negative Prompt",
+        "description": "Motion artifacts, jitter, flickering, distortion to avoid",
+        "default": "jitter, strobe, flickering, sudden jerk, distorted geometry, warped structural pillars, blurry, noisy artifacts, watermarks"
+      },
+      {
+        "name": "width",
+        "type": "integer",
+        "label": "Width",
+        "default": 1280,
+        "min_value": 640,
+        "max_value": 1920
+      },
+      {
+        "name": "height",
+        "type": "integer",
+        "label": "Height",
+        "default": 704,
+        "min_value": 480,
+        "max_value": 1280
+      },
+      {
+        "name": "seed",
+        "type": "integer",
+        "label": "Seed",
+        "description": "Deterministic seed for reproducible camera motions",
+        "default": null
+      },
+      {
+        "name": "steps",
+        "type": "integer",
+        "label": "Sampling Steps",
+        "default": 20,
+        "min_value": 10,
+        "max_value": 35
+      },
+      {
+        "name": "cfg",
+        "type": "float",
+        "label": "CFG Scale",
+        "default": 5.0,
+        "min_value": 1.0,
+        "max_value": 10.0
+      },
+      {
+        "name": "frames",
+        "type": "integer",
+        "label": "Video Frames",
+        "description": "Total frames (49 = ~3s at 16fps, 81 = ~5s at 16fps)",
+        "default": 49,
+        "min_value": 17,
+        "max_value": 121
+      },
+      {
+        "name": "fps",
+        "type": "integer",
+        "label": "Playback FPS",
+        "default": 16,
+        "min_value": 12,
+        "max_value": 30
+      },
+      {
+        "name": "input_image_path",
+        "type": "image",
+        "label": "Starting Frame (Image-to-Video)",
+        "description": "Optional initial render, 3D viewport capture, or concept sketch to animate into video",
+        "required": false
+      }
+    ]
+  },
+  "1": {
+    "class_type": "UNETLoader",
+    "inputs": {
+      "unet_name": "wan2.2_ti2v_5B_fp16.safetensors",
+      "weight_dtype": "default"
+    }
+  },
+  "2": {
+    "class_type": "ModelSamplingSD3",
+    "inputs": {
+      "model": [
+        "1",
+        0
+      ],
+      "shift": 8.0
+    }
+  },
+  "3": {
+    "class_type": "CLIPLoader",
+    "inputs": {
+      "clip_name": "umt5_xxl_fp8_e4m3fn_scaled.safetensors",
+      "type": "wan",
+      "device": "default"
+    }
+  },
+  "4": {
+    "class_type": "VAELoader",
+    "inputs": {
+      "vae_name": "wan2.2_vae.safetensors"
+    }
+  },
+  "5": {
+    "class_type": "CLIPTextEncode",
+    "inputs": {
+      "clip": [
+        "3",
+        0
+      ],
+      "text": "Smooth cinematic architectural fly-through of a contemporary cultural pavilion with warm timber louvers, calm reflecting pool, soft evening ambient lighting."
+    }
+  },
+  "6": {
+    "class_type": "CLIPTextEncode",
+    "inputs": {
+      "clip": [
+        "3",
+        0
+      ],
+      "text": "jitter, strobe, flickering, sudden jerk, distorted geometry, warped structural pillars, blurry, noisy artifacts, watermarks"
+    }
+  },
+  "7": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "example.png"
+    }
+  },
+  "8": {
+    "class_type": "Wan22ImageToVideoLatent",
+    "inputs": {
+      "vae": [
+        "4",
+        0
+      ],
+      "width": 1280,
+      "height": 704,
+      "length": 49,
+      "batch_size": 1,
+      "start_image": [
+        "7",
+        0
+      ]
+    }
+  },
+  "9": {
+    "class_type": "KSampler",
+    "inputs": {
+      "model": [
+        "2",
+        0
+      ],
+      "positive": [
+        "5",
+        0
+      ],
+      "negative": [
+        "6",
+        0
+      ],
+      "latent_image": [
+        "8",
+        0
+      ],
+      "seed": 42,
+      "steps": 20,
+      "cfg": 5.0,
+      "sampler_name": "uni_pc",
+      "scheduler": "simple",
+      "denoise": 1.0
+    }
+  },
+  "10": {
+    "class_type": "VAEDecode",
+    "inputs": {
+      "samples": [
+        "9",
+        0
+      ],
+      "vae": [
+        "4",
+        0
+      ]
+    }
+  },
+  "11": {
+    "class_type": "CreateVideo",
+    "inputs": {
+      "images": [
+        "10",
+        0
+      ],
+      "fps": 16.0
+    }
+  },
+  "12": {
+    "class_type": "SaveVideo",
+    "inputs": {
+      "video": [
+        "11",
+        0
+      ],
+      "filename_prefix": "video/ExpoDesign_Wan22",
+      "format": "mp4"
+    }
+  }
+}

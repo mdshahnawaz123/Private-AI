@@ -56,6 +56,13 @@ class TestCadService(unittest.TestCase):
         self.assertGreater(parsed["entity_count"], 10)
         self.assertIn("extents", parsed)
 
+    def test_dwg_converter_detection_and_fallback(self):
+        from engines.cad_engine import CadIntelligenceEngine
+        eng = CadIntelligenceEngine()
+        converter = eng.find_oda_converter()
+        self.assertIsNotNone(converter)
+        self.assertTrue(os.path.exists(converter))
+
 
 class TestCadAPI(unittest.TestCase):
     @classmethod

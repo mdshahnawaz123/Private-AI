@@ -163,6 +163,13 @@ function renderCadCraftWorkspace(container) {
         <div class="cad-canvas-wrap" id="cadCanvasWrap">
           <canvas id="cadCanvas"></canvas>
 
+          <!-- LOADING OVERLAY -->
+          <div class="cad-loading-overlay" id="cadLoadingOverlay" style="display:none">
+            <div class="cad-spinner"></div>
+            <div id="cadLoadingText" style="font-weight:600;font-size:13px;color:#fff">Loading CAD drawing...</div>
+            <div id="cadLoadingSubtext" style="font-size:11px;color:var(--muted)">Converting vector geometry & layers</div>
+          </div>
+
           <!-- UCS ICON OVERLAY -->
           <div class="cad-ucs-icon">
             <svg viewBox="0 0 40 40" width="40" height="40">
@@ -387,7 +394,7 @@ function _initCadCraftEngine() {
   _refreshCadLayersUI();
 
   // Load sample apartment plan by default if empty
-  if (cadEntities.length === 0) {
+  if (cadEntities.length === 0 && !window._cadSkipDefaultSample) {
     _loadCadSample('sample_apartment_plan');
   } else {
     _drawCadCanvas();
@@ -1382,8 +1389,62 @@ async function _loadCadSample(sampleId) {
   }
 }
 
+function showCadLoading(title, sub) {
+  const ov = $('cadLoadingOverlay');
+  const txt = $('cadLoadingText');
+  const subEl = $('cadLoadingSubtext');
+  if (ov) ov.style.display = 'flex';
+  if (txt && title) txt.textContent = title;
+  if (subEl && sub) subEl.textContent = sub;
+}
+
+function hideCadLoading() {
+  const ov = $('cadLoadingOverlay');
+  if (ov) ov.style.display = 'none';
+}
+
+function _showDwgFallbackModal(filename, meta) {
+  const old = $('cadDwgModal');
+  if (old) old.remove();
+
+  const ov = document.createElement('div');
+  ov.id = 'cadDwgModal';
+  ov.className = 'cad-modal-overlay';
+  const fileSizeMb = meta && meta.file_size ? (meta.file_size / (1024 * 1024)).toFixed(2) + ' MB' : 'N/A';
+  ov.innerHTML = `
+    <div class="cad-modal-box" style="width:560px">
+      <div class="cad-modal-head">
+        <div style="display:flex;align-items:center;gap:8px">
+          <svg class="ico" style="color:var(--amber)" viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          <strong style="font-size:14px">AutoCAD DWG Drawing Detected</strong>
+        </div>
+        <button class="cad-modal-close" onclick="$('cadDwgModal').remove()">&times;</button>
+      </div>
+      <div class="cad-modal-body">
+        <p style="margin-top:0">The drawing <b>${filename}</b> is an AutoCAD proprietary binary DWG file.</p>
+        <div style="background:#16233b;padding:12px 14px;border-radius:8px;border:1px solid var(--border);margin:12px 0;font-size:12px;line-height:1.7">
+          <div><span style="color:var(--muted)">AutoCAD Version:</span> <b>${meta.dwg_version || 'AutoCAD 2018/2021/2024 (AC1032)'}</b></div>
+          <div><span style="color:var(--muted)">Drawing Sheet No:</span> <b>${meta.drawing_number || 'Detected in titleblock'}</b></div>
+          <div><span style="color:var(--muted)">Binary File Size:</span> <b>${fileSizeMb}</b></div>
+        </div>
+        <p style="color:var(--muted);font-size:12px;line-height:1.55">
+          AutoCAD DWG vector geometry is converted via the free <b>Open Design Alliance (ODA) File Converter</b>.
+          If conversion takes a moment on large multi-megabyte files, you can also export directly as standard <b>DXF</b> format from AutoCAD or Revit for instant loading.
+        </p>
+        <div style="display:flex;gap:10px;margin-top:18px;justify-content:flex-end">
+          <button class="cad-btn" onclick="$('cadDwgModal').remove()">Close</button>
+          <button class="cad-btn primary" onclick="$('cadDwgModal').remove(); _loadCadSample('sample_apartment_plan');">Load Architectural Sample</button>
+        </div>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(ov);
+}
+
 async function _loadCadFromFile(file) {
   try {
+    const isDwg = file.name.toLowerCase().endsWith('.dwg');
+    showCadLoading(`Parsing ${file.name}...`, isDwg ? 'Converting AutoCAD DWG vector geometry via ODA engine...' : 'Extracting layers, lines, dimensions & text...');
     toast(`Parsing ${file.name}...`);
     const fd = new FormData();
     fd.append('file', file);
@@ -1393,18 +1454,27 @@ async function _loadCadFromFile(file) {
       body: fd
     });
     const data = await res.json();
-    if (data.success && data.entities) {
+    hideCadLoading();
+    if (data.success && data.entities && data.entities.length > 0) {
       cadEntities = data.entities;
       if (data.layers && data.layers.length) cadLayers = data.layers;
       currentDrawingTitle = file.name;
       _refreshCadLayersUI();
       zoomExtents();
-      logCmd(`Opened CAD file: ${file.name} (${cadEntities.length} entities)`);
-      toast(`Successfully opened ${file.name}`);
+      logCmd(`Opened CAD file: ${file.name} (${cadEntities.length} entities, ${cadLayers.length} layers)`);
+      toast(`Successfully opened ${file.name} (${cadEntities.length} entities)`);
+    } else if (data.dwg_fallback) {
+      _showDwgFallbackModal(file.name, data.metadata || {});
+    } else if (data.success && data.entities) {
+      cadEntities = [];
+      _refreshCadLayersUI();
+      _drawCadCanvas();
+      toast(`Opened ${file.name} (0 vector entities in model space)`);
     } else {
       toast(data.error || 'Could not parse CAD file.');
     }
   } catch (err) {
+    hideCadLoading();
     toast(`CAD open error: ${err.message}`);
   }
 }
@@ -1416,6 +1486,8 @@ async function openCadProjectDrawing(filename, projectName) {
   }
   projectName = projectName || (typeof currentProject !== 'undefined' ? currentProject : '');
   try {
+    const isDwg = filename.toLowerCase().endsWith('.dwg');
+    showCadLoading(`Loading ${filename} in CADCraft...`, isDwg ? 'Converting AutoCAD DWG vector geometry via ODA engine...' : 'Extracting layers, lines, dimensions & text...');
     toast(`Loading ${filename} in CADCraft...`);
     const fd = new FormData();
     fd.append('project', projectName);
@@ -1426,18 +1498,27 @@ async function openCadProjectDrawing(filename, projectName) {
       body: fd
     });
     const data = await res.json();
-    if (data.success && data.entities) {
+    hideCadLoading();
+    if (data.success && data.entities && data.entities.length > 0) {
       cadEntities = data.entities;
       if (data.layers && data.layers.length) cadLayers = data.layers;
       currentDrawingTitle = filename;
       _refreshCadLayersUI();
       zoomExtents();
-      logCmd(`Opened project drawing: ${filename} (${cadEntities.length} entities)`);
-      toast(`Successfully opened ${filename}`);
+      logCmd(`Opened project drawing: ${filename} (${cadEntities.length} entities, ${cadLayers.length} layers)`);
+      toast(`Successfully opened ${filename} (${cadEntities.length} entities)`);
+    } else if (data.dwg_fallback) {
+      _showDwgFallbackModal(filename, data.metadata || {});
+    } else if (data.success && data.entities) {
+      cadEntities = [];
+      _refreshCadLayersUI();
+      _drawCadCanvas();
+      toast(`Opened ${filename} (0 vector entities in model space)`);
     } else {
       toast(data.error || 'Could not parse CAD file.');
     }
   } catch (err) {
+    hideCadLoading();
     toast(`CAD load error: ${err.message}`);
   }
 }

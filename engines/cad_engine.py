@@ -61,6 +61,8 @@ class CadIntelligenceEngine:
             if not oda:
                 return None  # Will trigger fallback extraction
             try:
+                import ezdxf
+                ezdxf.options.set("odafc-addon", "win_exec_path", oda)
                 from ezdxf.addons import odafc
                 for attr in ("win_exec_path", "unix_exec_path", "exec_path"):
                     try:

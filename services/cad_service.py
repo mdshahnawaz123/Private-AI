@@ -43,13 +43,15 @@ class CadService:
     """High-performance CAD parsing, drafting, and export service."""
 
     @staticmethod
-    def parse_dxf_stream(file_stream: io.StringIO | io.BytesIO | str) -> Dict[str, Any]:
+    def parse_dxf_stream(file_stream: Any) -> Dict[str, Any]:
         """
-        Parse DXF stream/file into structured JSON entities for the CADCraft canvas.
+        Parse DXF stream/file or ezdxf Drawing into structured JSON entities for the CADCraft canvas.
         Extracts layers, lines, polylines, circles, arcs, text, dimensions, and extents.
         """
         try:
-            if isinstance(file_stream, str):
+            if hasattr(file_stream, "modelspace"):
+                doc = file_stream
+            elif isinstance(file_stream, str):
                 if os.path.exists(file_stream):
                     doc = ezdxf.readfile(file_stream)
                 else:
@@ -219,6 +221,99 @@ class CadService:
                         "text": label,
                     })
                     entity_id_counter += 1
+
+            elif etype == "ELLIPSE":
+                try:
+                    cx, cy = float(e.dxf.center.x), float(e.dxf.center.y)
+                    major = e.dxf.major_axis
+                    ratio = float(e.dxf.ratio)
+                    r = math.hypot(major.x, major.y)
+                    rot = math.atan2(major.y, major.x)
+                    pts = []
+                    for step in range(36):
+                        th = (step / 36.0) * 2 * math.pi
+                        lx = r * math.cos(th)
+                        ly = r * ratio * math.sin(th)
+                        gx = cx + lx * math.cos(rot) - ly * math.sin(rot)
+                        gy = cy + lx * math.sin(rot) + ly * math.cos(rot)
+                        _update_extents(gx, gy)
+                        pts.append([round(gx, 3), round(gy, 3)])
+                    if pts:
+                        entities.append({
+                            "id": f"ent_{entity_id_counter}",
+                            "type": "POLYLINE",
+                            "layer": layer_name,
+                            "color": color,
+                            "points": pts,
+                            "closed": True,
+                        })
+                        entity_id_counter += 1
+                except Exception:
+                    pass
+
+            elif etype == "SPLINE":
+                try:
+                    pts = [[round(float(p[0]), 3), round(float(p[1]), 3)] for p in e.flattening(distance=0.5)]
+                    if pts:
+                        for p in pts:
+                            _update_extents(p[0], p[1])
+                        entities.append({
+                            "id": f"ent_{entity_id_counter}",
+                            "type": "POLYLINE",
+                            "layer": layer_name,
+                            "color": color,
+                            "points": pts,
+                            "closed": False,
+                        })
+                        entity_id_counter += 1
+                except Exception:
+                    pass
+
+            elif etype in ("SOLID", "TRACE"):
+                try:
+                    pts = []
+                    for vname in ("vtx0", "vtx1", "vtx2", "vtx3"):
+                        v = getattr(e.dxf, vname, None)
+                        if v is not None:
+                            _update_extents(float(v.x), float(v.y))
+                            pts.append([round(float(v.x), 3), round(float(v.y), 3)])
+                    if len(pts) >= 3:
+                        entities.append({
+                            "id": f"ent_{entity_id_counter}",
+                            "type": "POLYLINE",
+                            "layer": layer_name,
+                            "color": color,
+                            "points": pts,
+                            "closed": True,
+                        })
+                        entity_id_counter += 1
+                except Exception:
+                    pass
+
+            elif etype == "INSERT":
+                try:
+                    pos = getattr(e.dxf, "insert", None)
+                    if pos:
+                        ix, iy = float(pos.x), float(pos.y)
+                        _update_extents(ix, iy)
+                        for a in getattr(e, "attribs", []):
+                            atxt = (getattr(a.dxf, "text", "") or "").strip()
+                            apos = getattr(a.dxf, "insert", None)
+                            if atxt and apos:
+                                _update_extents(float(apos.x), float(apos.y))
+                                entities.append({
+                                    "id": f"ent_{entity_id_counter}",
+                                    "type": "TEXT",
+                                    "layer": layer_name,
+                                    "color": color,
+                                    "x": round(float(apos.x), 3),
+                                    "y": round(float(apos.y), 3),
+                                    "text": atxt,
+                                    "height": round(float(getattr(a.dxf, "height", 2.5) or 2.5), 2),
+                                })
+                                entity_id_counter += 1
+                except Exception:
+                    pass
 
         # Default extents if drawing is empty
         if min_x == float("inf"):

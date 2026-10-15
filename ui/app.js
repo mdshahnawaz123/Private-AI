@@ -523,10 +523,12 @@ function openInViewer(f){
 }
 
 async function openCadDrawingFromProject(filename){
+  window._cadSkipDefaultSample = true;
   navigate('cadcraft');
   if(window.openCadProjectDrawing){
     await window.openCadProjectDrawing(filename, currentProject);
   }
+  window._cadSkipDefaultSample = false;
 }
 window.openCadDrawingFromProject = openCadDrawingFromProject;
 

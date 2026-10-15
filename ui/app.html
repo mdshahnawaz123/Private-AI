@@ -565,6 +565,9 @@ body.chat-expanded #ai .ctx-actions{display:none}
 .cad-modal-body{padding:16px;font-size:12.5px;line-height:1.5;color:var(--text)}
 .cad-action-btn{display:inline-flex;align-items:center;gap:6px;margin:4px 0;padding:7px 14px;background:linear-gradient(135deg,var(--accent),var(--violet));color:#fff;border:none;border-radius:6px;font-weight:600;font-size:12px;cursor:pointer;box-shadow:0 3px 10px rgba(47,107,255,.3);transition:all .15s}
 .cad-action-btn:hover{filter:brightness(1.12);transform:translateY(-1px);box-shadow:0 4px 14px rgba(47,107,255,.45)}
+.cad-loading-overlay{position:absolute;inset:0;background:rgba(9,13,24,.82);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;z-index:50;backdrop-filter:blur(3px)}
+.cad-spinner{width:36px;height:36px;border:3px solid rgba(47,107,255,.2);border-top-color:var(--accent);border-radius:50%;animation:cadSpin .8s linear infinite}
+@keyframes cadSpin{to{transform:rotate(360deg)}}
 </style>
 </head>
 <body>
@@ -731,7 +734,7 @@ body.chat-expanded #ai .ctx-actions{display:none}
 <script src="/ui/vendor_components/expo_motion.js?v=2"></script>
 <script src="/ui/vendor_components/expo_chart_chat.js?v=1"></script>
 <script src="/ui/response_renderer.js?v=4"></script>
-<script src="/ui/app.js?v=78"></script>
-<script src="/ui/cadcraft.js?v=3"></script>
+<script src="/ui/app.js?v=79"></script>
+<script src="/ui/cadcraft.js?v=4"></script>
 </body>
 </html>

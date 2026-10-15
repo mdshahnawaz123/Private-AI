@@ -107,6 +107,78 @@ class MasterplanAIAgent:
                 action_performed="UNDO"
             )
 
+        # Check for Reconcile / Relation / Ground Truth / Files queries
+        if any(k in q for k in ("reconcil", "relation", "stabiliz", "link", "ground truth", "cad vs excel", "cross reference", "source file", "uploaded file", "show files", "list files")):
+            files = db.get_file_records(project_id)
+            rel = db.get_latest_file_relation(project_id)
+
+            lines = [
+                f"### 🔗 Masterplan Multi-Source Linkage & Ground Truth Status",
+                f"- **Project**: `{project_id}`",
+                f"- **Registered Source Documents**: {len(files)}",
+                ""
+            ]
+            if files:
+                lines.append("#### 📂 Uploaded Source Files:")
+                for f in files:
+                    lines.append(f"- **{f['filename']}** ({f['file_type'].upper()} · {f['plots_count']} plots · Status: `{f['status']}`)")
+            else:
+                lines.append("_No source documents uploaded yet for this project._")
+
+            lines.append("")
+            if rel and rel.get("status") == "stabilized_linked":
+                lines.append("#### ✅ Certified Ground Truth Relation Active:")
+                lines.append(f"- **CAD Vector Geometry**: `{rel['cad_file']}`")
+                lines.append(f"- **Excel Development Register**: `{rel['excel_file']}`")
+                lines.append(f"- **Stabilized Parcels**: {rel['matched_plots']} parcels unified")
+                if rel.get("resolutions"):
+                    lines.append("- **Confirmed Discrepancy Resolutions**:")
+                    for p_id, res_val in rel["resolutions"].items():
+                        lines.append(f"  • Plot **{p_id}**: Adopted **{str(res_val).upper()}** value")
+                lines.append("\nThe Agentic AI spatial model is actively evaluating FAR density, setbacks, and land use using this verified ground truth.")
+            else:
+                cad_f = [f for f in files if f['file_type'] == 'cad']
+                exc_f = [f for f in files if f['file_type'] == 'excel']
+                if cad_f and exc_f:
+                    lines.append("⚡ **Ready for Cross-Reconciliation**: Both CAD drawing and Excel register are uploaded. Click **Reconcile & Link** in the toolbar to stabilize the relation.")
+                else:
+                    lines.append("⚠️ **Incomplete Sources**: Upload both a CAD drawing (.dxf/.dwg) and an Excel register (.xlsx) under MPD to establish an automated cross-file relationship.")
+
+            return MasterplanAIQueryResponse(
+                answer="\n".join(lines),
+                intent="QUERY_RELATION",
+                tools_called=["get_file_records", "get_latest_file_relation"],
+                highlight_plots=[]
+            )
+
+        # Check for direct Adopt / Stabilize instruction in chat (e.g., 'adopt cad for P-105')
+        adopt_m = re.search(r"(?:adopt|stabilize|use|choose)\s*(cad|excel)\s*(?:for|on)?\s*(?:plot\s*|p[-_ ]*)?(\d+)", q)
+        if adopt_m:
+            choice = adopt_m.group(1).lower()
+            plot_num = int(adopt_m.group(2))
+            plot_id = f"P-{plot_num:03d}"
+            plot = db.get_plot(project_id, plot_id) or db.get_plot(project_id, f"P-{plot_num}")
+            if plot:
+                rel = db.get_latest_file_relation(project_id) or {}
+                resolutions = rel.get("resolutions", {})
+                resolutions[plot.plot_id] = choice
+                db.save_file_relation(
+                    project_id=project_id,
+                    cad_file=rel.get("cad_file", "CAD Geometry"),
+                    excel_file=rel.get("excel_file", "Excel Register"),
+                    status="stabilized_linked",
+                    matched_plots=max(rel.get("matched_plots", 1), 1),
+                    resolutions=resolutions
+                )
+                self.spatial_engine.run_project_audit(project_id)
+                return MasterplanAIQueryResponse(
+                    answer=f"✅ **Stabilized Ground Truth for Plot {plot.plot_id}**: Confirmed adoption of **{choice.upper()}** as the certified ground truth. Spatial calculations and compliance audits have been synchronized.",
+                    intent="STABILIZE_RELATION",
+                    tools_called=["stabilize_relation"],
+                    highlight_plots=[plot.plot_id],
+                    action_performed="STABILIZE"
+                )
+
         # Check for Spatial Audit request
         if any(k in q for k in ("audit", "validate", "check compliance", "violations", "encroach")):
             audit_res = self._execute_tool("run_spatial_audit", {}, project_id)
@@ -196,9 +268,11 @@ class MasterplanAIAgent:
         # Check for specific Plot ID query (e.g. P-105, Plot 105)
         id_m = re.search(r"(?:P|PLOT)[-_ ]*(\d+)", q, re.IGNORECASE)
         if id_m:
-            target_id = f"P-{id_m.group(1)}"
-            plot = db.get_plot(project_id, target_id)
+            num = int(id_m.group(1))
+            target_id = f"P-{num:03d}"
+            plot = db.get_plot(project_id, target_id) or db.get_plot(project_id, f"P-{num}")
             if plot:
+                rel = db.get_latest_file_relation(project_id)
                 lines = [
                     f"### 🎯 Detailed Inspection: Plot {plot.plot_id}",
                     f"- **Land Use**: {plot.land_use}",
@@ -211,6 +285,15 @@ class MasterplanAIAgent:
                     f"- **Parking**: {plot.parking_provided} bays provided vs {plot.parking_required} bays required",
                     f"- **Regulatory Status**: **{plot.status.upper()}**"
                 ]
+                if rel and rel.get("resolutions") and plot.plot_id in rel["resolutions"]:
+                    res_choice = rel["resolutions"][plot.plot_id]
+                    lines.append(f"- **Ground Truth Link**: Verified & Stabilized (Adopted **{str(res_choice).upper()}** value)")
+                elif rel and rel.get("status") == "stabilized_linked":
+                    lines.append(f"- **Ground Truth Link**: Verified from CAD ⟷ Excel unified model")
+
+                if plot.notes:
+                    lines.append(f"- **Provenance**: {plot.notes}")
+
                 if plot.violations:
                     lines.append(f"\n⚠️ **Violations / Notes**: {'; '.join(plot.violations)}")
                 return MasterplanAIQueryResponse(

@@ -3008,6 +3008,15 @@ function updateCtxActions(){
     A('Focus concept prompt','<path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/>',()=>{ const p=$('studioPrompt'); if(p){ p.focus(); } });
     A('Ask Copilot for architectural prompts','<circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>',()=>{ setAiTab('chat'); $('aiIn').value='Suggest 3 detailed architectural prompts for an innovative exhibition pavilion:'; $('aiIn').focus(); });
     A('Refresh backend status & jobs','<circle cx="12" cy="12" r="9"/>',()=>{ if(window._refreshStudio) window._refreshStudio(); });
+  } else if(currentDest==='mpd'){
+    A('Check FAR Violations','<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>',()=>{ setAiTab('chat'); $('aiIn').value='Check FAR violations across masterplan plots'; sendAi(); });
+    A('Audit Setbacks','<rect x="3" y="3" width="18" height="18" rx="2"/><rect x="7" y="7" width="10" height="10" stroke-dasharray="2 2"/>',()=>{ setAiTab('chat'); $('aiIn').value='Audit setback encroachments and buffer compliance'; sendAi(); });
+    A('Summarize Land Use GFA','<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 17V9M12 17v-5M15 17v-3"/>',()=>{ setAiTab('chat'); $('aiIn').value='Summarize residential, commercial and mixed use GFA breakdown'; sendAi(); });
+    A('Check Parking Deficit','<circle cx="12" cy="12" r="9"/><path d="M9 17V7h4a3 3 0 0 1 0 6H9"/>',()=>{ setAiTab('chat'); $('aiIn').value='Check parking requirements and deficit across all plots'; sendAi(); });
+    const selPlot = (typeof window._getMpdSelectedPlotId === 'function') ? window._getMpdSelectedPlotId() : null;
+    if(selPlot){
+      A(`Inspect Plot (${selPlot})`,'<circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>',()=>{ setAiTab('chat'); $('aiIn').value=`Inspect plot ${selPlot} parameters, FAR and setback limits`; sendAi(); });
+    }
   } else {
     A('Ask Design AI','<circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>',()=>{ setAiTab('chat'); $('aiIn').focus(); });
   }
@@ -3055,12 +3064,13 @@ async function findSimilar(){
   setAiTab('chat');
 }
 function updateAiCtx(){
-  const map={ design:viewerLoaded?'3D model + selection':'Project documents', studio:'AI Design Studio', drawings:'Drawing viewer', documents:'Project documents',
+  const map={ design:viewerLoaded?'3D model + selection':'Project documents', studio:'AI Design Studio', mpd:'Masterplan (MPD)', drawings:'Drawing viewer', documents:'Project documents',
     specifications:'Specifications', schedules:'Schedules & quantities', codes:'Codes / standards (KB)',
     qa:'QA & issues', reports:'Reports', overview:'Project overview', settings:'Project' };
   $('aiCtx').innerHTML=`Context: <b>${esc(map[currentDest]||'Project')}</b>${currentRevision?` · Rev ${esc(currentRevision)}`:''}`;
   const ph={ design:'Ask Design AI about this element, model, drawings, specifications or codes…',
     studio:'Ask Design AI to craft architectural concept prompts, suggest materials or lighting…',
+    mpd:'Ask Design AI about masterplan plots, FAR limits, setbacks, or zoning…',
     drawings:'Ask Design AI about this drawing, revision, detail or requirement…',
     documents:'Ask Design AI about this document…', specifications:'Ask Design AI about this specification…',
     schedules:'Ask Design AI about these quantities / data…', codes:'Ask Design AI about this requirement…',
@@ -3282,6 +3292,42 @@ async function sendAi(standards){ const t=$('aiIn'); const q=t.value.trim();
   const documentQuestion=/\b(pdf|document|schedule|specification|uploaded|gfa|nsa|nisa|bua|area schedule)\b/i.test(q);
   if(!useCowork&&currentDest==='design'&&on3D&&viewerLoaded&&!documentQuestion&&!standards&&!currentAttachment){ const ctx=await getViewerCtx();
     await stream(q,`${API}/ask_model`,{project:currentProject,query:q+revNote,context:ctx.context||'',selection:ctx.selection||(lastSel&&lastSel.text)||'',messages:aiHist.slice(-6)}); }
+  else if(!useCowork&&currentDest==='mpd'&&!standards){
+    const selPlot = (typeof window._getMpdSelectedPlotId === 'function') ? window._getMpdSelectedPlotId() : null;
+    const bub = addMsg('a', '<div class="ai-working" role="status"><span class="ai-working-dot"></span><div><strong>Masterplan Spatial Reasoning</strong><small>Evaluating zoning, FAR and parcel parameters with Qwen 3.5 9B…</small></div></div>');
+    try {
+      const res = await fetch(`${API}/api/v1/masterplan/projects/${encodeURIComponent(currentProject)}/ai-query`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: q,
+          project_id: currentProject,
+          selected_plot_id: selPlot
+        })
+      });
+      if(!res.ok){
+        const err = await res.json().catch(()=>({detail:'Masterplan AI query error'}));
+        bub.innerHTML = `<span style="color:var(--red)">${esc(err.detail || 'Masterplan AI query error')}</span>`;
+        return;
+      }
+      const data = await res.json();
+      let toolBadges = '';
+      if(data.tools_called && data.tools_called.length){
+        toolBadges = '<div style="margin-top:8px;display:flex;gap:4px;flex-wrap:wrap">' + data.tools_called.map(t => `<span class="mpd-badge" style="font-size:9.5px;padding:2px 6px">Tool: ${esc(t)}</span>`).join('') + '</div>';
+      }
+      bub.innerHTML = `<div>${mdLite(data.answer)}</div>${toolBadges}`;
+      aiHist.push({role:'user',content:q});
+      aiHist.push({role:'assistant',content:data.answer});
+
+      if(data.highlight_plots && data.highlight_plots.length && typeof window._highlightMpdPlots === 'function'){
+        window._highlightMpdPlots(data.highlight_plots);
+      }
+    } catch(err){
+      bub.innerHTML = `<span style="color:var(--red)">Failed to reach masterplan reasoning engine: ${esc(err.message)}</span>`;
+    }
+    $('aiMsgs').scrollTop = $('aiMsgs').scrollHeight;
+    return;
+  }
   else { const prefix=(standards||currentDest==='codes')?'Using the codes/standards knowledge base, ':'';
     let scoped=q+revNote;
     const _focus=(ctxDoc&&!useCowork&&['documents','specifications','drawings','schedules'].includes(currentDest))?(ctxDoc.rel||''):'';

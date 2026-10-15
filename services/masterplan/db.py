@@ -76,10 +76,43 @@ def init_db():
                     author TEXT NOT NULL
                 )
             """)
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS mp_files (
+                    id TEXT PRIMARY KEY,
+                    project_id TEXT NOT NULL,
+                    filename TEXT NOT NULL,
+                    file_type TEXT NOT NULL,
+                    file_size INTEGER DEFAULT 0,
+                    file_path TEXT NOT NULL,
+                    status TEXT DEFAULT 'uploaded',
+                    plots_count INTEGER DEFAULT 0,
+                    meta_json TEXT DEFAULT '{}',
+                    uploaded_at TEXT NOT NULL
+                )
+            """)
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS mp_file_relations (
+                    id TEXT PRIMARY KEY,
+                    project_id TEXT NOT NULL,
+                    cad_file TEXT,
+                    excel_file TEXT,
+                    pdf_file TEXT,
+                    status TEXT NOT NULL,
+                    matched_plots INTEGER DEFAULT 0,
+                    discrepancies_json TEXT DEFAULT '[]',
+                    resolutions_json TEXT DEFAULT '{}',
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                )
+            """)
             conn.execute("CREATE INDEX IF NOT EXISTS idx_mp_plots_project ON mp_plots(project_id)")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_mp_audit_project ON mp_audit_log(project_id, timestamp)")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_mp_files_project ON mp_files(project_id, uploaded_at)")
     finally:
         conn.close()
+
+# Initialize tables on import
+init_db()
 
 
 def row_to_plot(row: sqlite3.Row) -> MasterplanPlot:
@@ -478,3 +511,155 @@ def seed_default_masterplan(project_id: str = "C3085 - 3EH -Expo Hills"):
 
     save_plots_bulk(project_id, plots_data, author="System Initialization")
     logger.info(f"Seeded default masterplan for {project_id} with {len(plots_data)} plots.")
+
+
+def save_file_record(
+    project_id: str,
+    filename: str,
+    file_type: str,
+    file_size: int,
+    file_path: str,
+    plots_count: int = 0,
+    meta: Optional[Dict[str, Any]] = None,
+    status: str = "uploaded"
+) -> Dict[str, Any]:
+    init_db()
+    file_id = str(uuid.uuid4())
+    now = datetime.now(timezone.utc).isoformat()
+    meta_json = json.dumps(meta or {})
+    conn = get_connection()
+    try:
+        with conn:
+            conn.execute("""
+                INSERT INTO mp_files (id, project_id, filename, file_type, file_size, file_path, status, plots_count, meta_json, uploaded_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (file_id, project_id, filename, file_type, file_size, file_path, status, plots_count, meta_json, now))
+    finally:
+        conn.close()
+    return {
+        "id": file_id,
+        "project_id": project_id,
+        "filename": filename,
+        "file_type": file_type,
+        "file_size": file_size,
+        "file_path": file_path,
+        "status": status,
+        "plots_count": plots_count,
+        "meta": meta or {},
+        "uploaded_at": now
+    }
+
+
+def get_file_records(project_id: str) -> List[Dict[str, Any]]:
+    init_db()
+    conn = get_connection()
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM mp_files WHERE project_id = ? ORDER BY uploaded_at DESC", (project_id,))
+        rows = cur.fetchall()
+        files = []
+        for r in rows:
+            meta = {}
+            if r["meta_json"]:
+                try:
+                    meta = json.loads(r["meta_json"])
+                except Exception:
+                    pass
+            files.append({
+                "id": r["id"],
+                "project_id": r["project_id"],
+                "filename": r["filename"],
+                "file_type": r["file_type"],
+                "file_size": r["file_size"],
+                "file_path": r["file_path"],
+                "status": r["status"],
+                "plots_count": r["plots_count"],
+                "meta": meta,
+                "uploaded_at": r["uploaded_at"]
+            })
+        return files
+    finally:
+        conn.close()
+
+
+def update_file_status(file_id: str, status: str):
+    conn = get_connection()
+    try:
+        with conn:
+            conn.execute("UPDATE mp_files SET status = ? WHERE id = ?", (status, file_id))
+    finally:
+        conn.close()
+
+
+def save_file_relation(
+    project_id: str,
+    cad_file: str,
+    excel_file: str,
+    pdf_file: Optional[str] = None,
+    status: str = "stabilized_linked",
+    matched_plots: int = 0,
+    discrepancies: Optional[List[Dict[str, Any]]] = None,
+    resolutions: Optional[Dict[str, Any]] = None
+) -> Dict[str, Any]:
+    init_db()
+    rel_id = str(uuid.uuid4())
+    now = datetime.now(timezone.utc).isoformat()
+    disc_json = json.dumps(discrepancies or [])
+    res_json = json.dumps(resolutions or {})
+    conn = get_connection()
+    try:
+        with conn:
+            conn.execute("""
+                INSERT INTO mp_file_relations (id, project_id, cad_file, excel_file, pdf_file, status, matched_plots, discrepancies_json, resolutions_json, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (rel_id, project_id, cad_file, excel_file, pdf_file or "", status, matched_plots, disc_json, res_json, now, now))
+    finally:
+        conn.close()
+    return {
+        "id": rel_id,
+        "project_id": project_id,
+        "cad_file": cad_file,
+        "excel_file": excel_file,
+        "status": status,
+        "matched_plots": matched_plots,
+        "discrepancies": discrepancies or [],
+        "resolutions": resolutions or {},
+        "updated_at": now
+    }
+
+
+def get_latest_file_relation(project_id: str) -> Optional[Dict[str, Any]]:
+    init_db()
+    conn = get_connection()
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM mp_file_relations WHERE project_id = ? ORDER BY updated_at DESC LIMIT 1", (project_id,))
+        row = cur.fetchone()
+        if not row:
+            return None
+        discrepancies = []
+        resolutions = {}
+        if row["discrepancies_json"]:
+            try:
+                discrepancies = json.loads(row["discrepancies_json"])
+            except Exception:
+                pass
+        if row["resolutions_json"]:
+            try:
+                resolutions = json.loads(row["resolutions_json"])
+            except Exception:
+                pass
+        return {
+            "id": row["id"],
+            "project_id": row["project_id"],
+            "cad_file": row["cad_file"],
+            "excel_file": row["excel_file"],
+            "pdf_file": row["pdf_file"],
+            "status": row["status"],
+            "matched_plots": row["matched_plots"],
+            "discrepancies": discrepancies,
+            "resolutions": resolutions,
+            "updated_at": row["updated_at"]
+        }
+    finally:
+        conn.close()

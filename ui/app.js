@@ -47,7 +47,9 @@ function mdLite(s){
   // Escape before formatting: source text and model output are never HTML.
   const inline=t=>esc(t).replace(/`([^`]+)`/g,'<code>$1</code>').replace(/\*\*([^*]+)\*\*/g,'<strong>$1</strong>')
     .replace(/\[SOURCE:\s*([^\]\n]+?)\s*\|\s*PAGE\s+(\d+|UNPAGINATED)\s*\]/gi,
-      (marker,name,page)=>'<details class="source-detail"><summary>Source · '+(page==='UNPAGINATED'?'unpaginated':'page '+page)+'</summary><div class="source-full">'+marker+'</div></details>');
+      (marker,name,page)=>'<details class="source-detail"><summary>Source · '+(page==='UNPAGINATED'?'unpaginated':'page '+page)+'</summary><div class="source-full">'+marker+'</div></details>')
+    .replace(/\[([^\]]+)\]\(cadcraft:([^)]+)\)/gi,
+      (m,label,fname)=>'<div style="margin:8px 0"><button class="cad-action-btn" onclick="openCadDrawingFromProject(\''+esc(fname)+'\')"><svg class="ico" style="width:14px;height:14px;vertical-align:middle;margin-right:6px" viewBox="0 0 24 24"><path d="M3 3h18v18H3zM3 9h18M9 3v18"/><circle cx="15" cy="15" r="3"/></svg>'+esc(label)+'</button></div>');
   const lines=String(s==null?'':s).replace(/\r\n/g,'\n').split('\n');
   const out=[]; let i=0;
   // Citation markers are valid inside Markdown table cells. Protect their

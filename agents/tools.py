@@ -164,6 +164,35 @@ class ToolRegistry:
         ))
 
         self.register(ToolDefinition(
+            name="cad_inspect",
+            description="Inspect a 2D CAD/DXF drawing using CADCraft engine. Returns layers, dimensions, bounding extents, room names, and entity statistics.",
+            parameters={
+                "type": "object",
+                "properties": {
+                    "drawing_name": {"type": "string", "description": "CAD filename or sample ID (apartment, core, bracket)"},
+                    "project": {"type": "string", "description": "Project name"},
+                },
+            },
+            permission=ToolPermission.READ,
+        ))
+
+        self.register(ToolDefinition(
+            name="cad_draft",
+            description="Draft or redesign an architectural 2D CAD floor plan or column grid into CADCraft Studio. Saves the drawing into project Drawings.",
+            parameters={
+                "type": "object",
+                "properties": {
+                    "project": {"type": "string", "description": "Project name"},
+                    "plan_type": {"type": "string", "enum": ["apartment", "core", "bracket"], "description": "Type of plan to draft"},
+                    "filename": {"type": "string", "description": "Target DXF filename e.g. layout.dxf"},
+                    "title": {"type": "string", "description": "Drawing title"},
+                },
+                "required": ["project", "plan_type", "filename"],
+            },
+            permission=ToolPermission.WRITE,
+        ))
+
+        self.register(ToolDefinition(
             name="query_ifc",
             description="Query IFC model data",
             parameters={

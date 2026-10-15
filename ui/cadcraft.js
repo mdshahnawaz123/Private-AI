@@ -1406,6 +1406,10 @@ async function _loadCadFromFile(file) {
 }
 
 async function openCadProjectDrawing(filename, projectName) {
+  if (filename && filename.startsWith('sample_')) {
+    await _loadCadSample(filename);
+    return;
+  }
   projectName = projectName || (typeof currentProject !== 'undefined' ? currentProject : '');
   try {
     toast(`Loading ${filename} in CADCraft...`);

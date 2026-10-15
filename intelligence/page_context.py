@@ -87,9 +87,11 @@ def select_page_context(path, filename, query, budget=32000, max_chars_per_page=
                     pass
             raw_text=str(entry.get('text') or '')
             structured_drawing=_extract_drawing_structures(raw_text)
-            native_parts = [p for p in (structured_drawing, rows_text, tbl, raw_text) if p]
+            from intelligence.ocr_evidence import page_ocr_primary, vision_without_ocr, OCR_LABEL
+            _ocr=page_ocr_primary(entry)
+            native_parts = [p for p in (structured_drawing, rows_text, tbl, raw_text, (OCR_LABEL+'\n'+_ocr) if _ocr else '') if p]
             native='\n\n'.join(native_parts)
-            observation='\n'.join(str(entry.get(key) or '') for key in ('vision','inspection_text')).strip()
+            observation='\n'.join(x for x in (vision_without_ocr(entry), str(entry.get('inspection_text') or '')) if x).strip()
             if observation:native+='\n[UNVERIFIED EXTRACTION; REVIEW_REQUIRED]\n'+observation
             pages.append((entry['page'],native))
     except (OSError, ValueError, KeyError):

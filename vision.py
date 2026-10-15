@@ -44,6 +44,8 @@ EXTRACTION_PROMPT = (
     "2) DRAWING DESCRIPTION - describe the elements, layout, symbols and what the "
     "drawing depicts. Do NOT state any dimension or value that is not visibly "
     "written in the image.\n\n"
+    "Never guess a location, city, country, building or project name that is not "
+    "written in the image.\n"
     "Do not summarise, omit, or invent anything."
 )
 

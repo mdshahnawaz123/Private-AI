@@ -51,7 +51,26 @@ def supplement_pages(path, meta, timeout=120):
                         raise RuntimeError('Full-page OCR process failed: '+completed.stderr[-700:])
                     with open(cache,encoding='utf-8') as handle:
                         result = json.load(handle)
+                # Column-aware reading order (two-column report pages were
+                # interleaved line by line). Recomputed from the cached boxes,
+                # so existing caches benefit without re-running OCR.
+                try:
+                    from services.ocr_layout import reading_order_text
+                    _ordered = reading_order_text(result.get('boxes'))
+                    if _ordered and _ordered.strip():
+                        result = dict(result, text=_ordered)
+                except Exception:
+                    pass
                 entry['ocr'] = result
+                # Ruled tables: OCR each cell on its own (services/table_cells.py).
+                try:
+                    import re as _re
+                    from services.table_cells import page_tables
+                    if page.find_tables().tables:
+                        captions = _re.findall(r'(?m)^Table \d+\b[^\n]{0,120}', result.get('text') or '')
+                        entry['ocr_tables'] = page_tables(path, digest, entry['page'], rotation, captions)
+                except Exception as exc:
+                    entry['ocr_tables_error'] = str(exc)[:300]
                 entry.pop('page_ocr_error',None)
                 entry['interpretation_state']='INTERPRETED' if result.get('text','').strip() else 'AMBIGUOUS'
                 entry['verification_state']='REVIEW_REQUIRED'

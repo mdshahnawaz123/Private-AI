@@ -6,6 +6,14 @@
 <title>Expo Design AI</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+/* "Download" on AI messages: small, quiet, shown on hover (was unstyled and stretched full height) */
+.msg { position: relative; }
+.copy-msg-btn { position: absolute; top: 2px; align-self: flex-start; height: auto; width: auto;
+  background: transparent; border: 1px solid rgba(255,255,255,.12); color: #8ea0ba; border-radius: 6px;
+  padding: 2px 8px; font-size: 11px; line-height: 1.6; cursor: pointer; opacity: 0; transition: opacity .15s ease; }
+.msg:hover .copy-msg-btn, .copy-msg-btn:focus-visible { opacity: 1; }
+.copy-msg-btn:hover { color: #e8eef7; border-color: rgba(255,255,255,.28); background: rgba(255,255,255,.05); }
 </style>
 <style>
   :root{
@@ -1680,6 +1688,23 @@ async function sendMessage() {
   const isImg = f => /^image\//.test(f.type) || /\.(png|jpe?g|webp|gif|bmp)$/i.test(f.name);
   const imgFiles = attachedFiles.filter(isImg);
   const docFiles = attachedFiles.filter(f => !isImg(f));
+  window.__expoLastQuestion = text;
+  window.__expoVizQ = /\b(chart|graph|plot|visuali[sz]\w*|dashboard|pie|donut|histogram|infographic)\b/i.test(text) && !/flow\s*chart|flowchart/i.test(text);
+  if (!imgFiles.length && window.ExpoChartChat && window.ExpoChartChat.last) {
+    try {
+      const ed = await window.ExpoChartChat.tryEdit(text, typeof currentProject !== 'undefined' ? currentProject : '');
+      if (ed) {
+        appendMessage('ai', ed.reply || 'Updated the chart.');
+        const b = chatEl.lastElementChild && chatEl.lastElementChild.querySelector('.bubble');
+        if (b) window.ExpoChartChat.render(b, ed);
+        currentMessages.push({ role: 'assistant', content: ed.reply || 'Updated the chart.' });
+        isStreaming = false;
+        sendBtn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>`;
+        sendBtn.title = 'Send'; sendBtn.onclick = sendMessage; inputEl.focus();
+        return;
+      }
+    } catch (e) { console.warn('chart edit', e); }
+  }
 
   try {
     if (imgFiles.length) {
@@ -1805,14 +1830,22 @@ async function streamResponse(prompt, endpoint, formData) {
           const data = JSON.parse(line.slice(6));
           if (data.type === 'token') {
             fullText += data.text;
-            bubble.innerHTML = formatText(fullText) + '<span class="cursor-blink"></span>';
+            bubble.innerHTML = window.__expoVizQ
+              ? '<span style="color:#8ea0ba">Building the chart from the file…</span><span class="cursor-blink"></span>'
+              : formatText(fullText) + '<span class="cursor-blink"></span>';
 
           chatEl.scrollTop = chatEl.scrollHeight;
         } else if (data.type === 'sources') {
           sources = data.sources;
+        } else if (data.type === 'status') {
+          if (!fullText) bubble.innerHTML = '<span style="color:#8ea0ba">' + escapeHtml(data.message || 'Working') + '…</span><span class="cursor-blink"></span>';
+        } else if (data.type === 'structured') {
+          window.__lastStructured = data.data;
         } else if (data.type === 'done') {
           bubble.innerHTML = formatText(fullText);
           renderSources(msgEl, sources);
+          try { expoRenderVisuals(bubble, window.__lastStructured, fullText); } catch (e) { console.warn('visuals', e); }
+          window.__lastStructured = null;
         } else if (data.type === 'error') {
           bubble.innerHTML = `${ICONS.alert} <span style="color:#ef4444">${escapeHtml(data.message)}</span>`;
         }
@@ -2629,6 +2662,43 @@ async function loadDocumentCoverage(){
     }
     if(!data.documents.length) rows.textContent='No accessible documents in this project.';
   }catch(error){rows.textContent=error.message;}
+}
+</script>
+<script src="/ui/vendor_components/chart_renderer.js?v=6"></script>
+<script src="/ui/vendor_components/expo_motion.js?v=2"></script>
+<script src="/ui/vendor_components/expo_chart_chat.js?v=1"></script>
+<script>
+/* Charts, dashboard link and animated diagrams for the chat (same as the Design Workspace). */
+function expoRenderVisuals(bubble, st, text) {
+  if (st && st.charts && st.charts.length && window.ExpoChartRenderer) {
+    if (/could not find|not find|does not contain|no (?:specific )?(?:data|information)/i.test(text || '')) {
+      const sp = st.charts[0];
+      const items = sp.data ? sp.data.map(d => [d.name, d.value]) : (sp.categories || []).map((c, i) => [c, ((sp.series || [])[0] || {data: []}).data[i]]);
+      let note = st.type === 'chart' && st.summary ? st.summary : '';
+      if (!note && items.length) {
+        const tot = items.reduce((a, b) => a + (+b[1] || 0), 0) || 1;
+        const hi = items.reduce((a, b) => (+b[1] > +a[1] ? b : a)), lo = items.reduce((a, b) => (+b[1] < +a[1] ? b : a));
+        const f = v => Number(v).toLocaleString(undefined, { maximumFractionDigits: 2 });
+        note = `${sp.title}: ${items.length} items. Largest ${hi[0]} (${f(hi[1])}, ${(100 * hi[1] / tot).toFixed(1)}% of total); smallest ${lo[0]} (${f(lo[1])}). ${sp.subtitle || ''}`;
+      }
+      bubble.innerHTML = '<p>' + String(note).replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])) + '</p>';
+    }
+    const box = document.createElement('div');
+    box.style.cssText = 'margin-top:10px;max-width:760px';
+    bubble.appendChild(box);
+    if (window.ExpoChartChat) window.ExpoChartChat.remember(st.charts[0], window.__expoLastQuestion, typeof currentProject !== 'undefined' ? currentProject : '');
+    st.charts.forEach((spec, i) => {
+      const w = window.ExpoChartRenderer.render(spec, box);
+      if (w && window.ExpoMotion) window.ExpoMotion.attach(w, { delay: 150 * i });
+    });
+  }
+  if (st && st.dashboard_url) {
+    const a = document.createElement('a');
+    a.href = st.dashboard_url; a.target = '_blank'; a.rel = 'noopener'; a.textContent = 'Open dashboard';
+    a.style.cssText = 'display:inline-block;margin-top:10px;background:#2f6bff;color:#fff;border-radius:8px;padding:7px 14px;font-weight:600;text-decoration:none';
+    bubble.appendChild(a);
+  }
+  if (window.ExpoMotion && /```mermaid/i.test(text || '')) window.ExpoMotion.renderMermaidIn(bubble, text);
 }
 </script>
 </body>

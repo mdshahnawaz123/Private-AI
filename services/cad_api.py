@@ -16,6 +16,21 @@ import re
 from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, File, Form, HTTPException, Request, Response, UploadFile
 from fastapi.responses import JSONResponse
+from starlette.concurrency import run_in_threadpool
+
+MAX_CAD_ENTITIES = 200_000
+MAX_CAD_UPLOAD_MB = 200
+
+
+def _safe_name(name: str, default: str = "drawing.dxf") -> str:
+    base = os.path.basename((name or "").replace("\\", "/")).strip()
+    base = re.sub(r"[^A-Za-z0-9._ -]+", "_", base).strip(" .")
+    return base or default
+
+
+def _check_entities(entities):
+    if len(entities) > MAX_CAD_ENTITIES:
+        raise HTTPException(413, "Drawing too large (%d entities, limit %d)" % (len(entities), MAX_CAD_ENTITIES))
 from pydantic import BaseModel, Field
 from loguru import logger
 from PIL import Image, ImageDraw
@@ -148,26 +163,42 @@ async def parse_cad_file(
     Parse an uploaded DXF file or an existing project drawing into CADCraft JSON entities.
     """
     settings = get_settings()
+    auth.require_user(request)
+    if project:
+        auth.require_project(request, project)
 
     # 1. From direct upload
     if file:
-        content_bytes = await file.read()
+        content_bytes = await file.read(MAX_CAD_UPLOAD_MB * 1024 * 1024 + 1)
+        if len(content_bytes) > MAX_CAD_UPLOAD_MB * 1024 * 1024:
+            raise HTTPException(413, "CAD file larger than %d MB" % MAX_CAD_UPLOAD_MB)
         ext = os.path.splitext(file.filename or "")[-1].lower()
         if ext == ".dxf":
             try:
-                res = CadService.parse_dxf_stream(io.BytesIO(content_bytes))
-                res["filename"] = file.filename
+                res = await run_in_threadpool(CadService.parse_dxf_stream, io.BytesIO(content_bytes))
+                res["filename"] = _safe_name(file.filename)
                 return res
             except Exception as e:
                 raise HTTPException(400, f"Error parsing DXF: {e}")
         elif ext == ".dwg":
             from engines.cad_engine import CadIntelligenceEngine
             cad_eng = CadIntelligenceEngine()
-            tmp_path = os.path.join(settings.data_dir, "tmp", file.filename)
-            os.makedirs(os.path.dirname(tmp_path), exist_ok=True)
+            import uuid as _uuid
+            fname = _safe_name(file.filename, "drawing.dwg")
+            tmp_dir = os.path.join(settings.data_dir, "tmp")
+            os.makedirs(tmp_dir, exist_ok=True)
+            tmp_path = os.path.join(tmp_dir, "%s_%s" % (_uuid.uuid4().hex[:8], fname))
             with open(tmp_path, "wb") as f:
                 f.write(content_bytes)
-            return _load_or_convert_dwg(cad_eng, tmp_path, file.filename)
+            try:
+                return await run_in_threadpool(_load_or_convert_dwg, cad_eng, tmp_path, fname)
+            finally:
+                try:
+                    os.remove(tmp_path)
+                except OSError:
+                    pass
+        else:
+            raise HTTPException(400, "Only .dxf and .dwg files are supported")
 
     # 2. From project document path
     if project and filename:
@@ -186,7 +217,7 @@ async def parse_cad_file(
         ext = os.path.splitext(filename)[-1].lower()
         if ext == ".dxf":
             try:
-                res = CadService.parse_dxf_stream(target_path)
+                res = await run_in_threadpool(CadService.parse_dxf_stream, target_path)
                 res["filename"] = filename
                 return res
             except Exception as e:
@@ -194,7 +225,7 @@ async def parse_cad_file(
         elif ext == ".dwg":
             from engines.cad_engine import CadIntelligenceEngine
             cad_eng = CadIntelligenceEngine()
-            return _load_or_convert_dwg(cad_eng, target_path, filename)
+            return await run_in_threadpool(_load_or_convert_dwg, cad_eng, target_path, filename)
 
     raise HTTPException(400, "Provide either a file upload or project and filename.")
 
@@ -207,9 +238,10 @@ async def save_cad_to_project(request: Request, payload: SaveCadRequest):
     """
     user = auth.require_roles(request, "admin", "lead", "user")
     auth.require_project(request, payload.project)
+    _check_entities(payload.entities)
     settings = get_settings()
 
-    filename = payload.filename.strip()
+    filename = _safe_name(payload.filename)
     if not filename.lower().endswith(".dxf"):
         filename += ".dxf"
 
@@ -234,19 +266,22 @@ async def save_cad_to_project(request: Request, payload: SaveCadRequest):
     out_path = os.path.join(proj_doc_dir, clean_name)
 
     # Generate DXF string
-    dxf_content = CadService.generate_dxf(
-        entities=payload.entities,
-        layers=payload.layers,
-        title=clean_name,
-    )
+    try:
+        dxf_content = await run_in_threadpool(CadService.generate_dxf, payload.entities, payload.layers, clean_name)
+    except (ValueError, TypeError) as e:
+        raise HTTPException(400, f"Invalid drawing data: {e}")
 
-    with open(out_path, "w", encoding="utf-8") as f:
+    existed = os.path.exists(out_path)
+    tmp_out = out_path + ".tmp"
+    with open(tmp_out, "w", encoding="utf-8") as f:
         f.write(dxf_content)
+    os.replace(tmp_out, out_path)
 
     # Record in database
     file_size = os.path.getsize(out_path)
     client_ip = request.client.host if request.client else "127.0.0.1"
-    db.record_document(
+    if not existed:
+      db.record_document(
         project=payload.project,
         filename=clean_name,
         path=out_path,
@@ -271,17 +306,18 @@ async def save_cad_to_project(request: Request, payload: SaveCadRequest):
 
 
 @cad_router.post("/export-dxf")
-async def export_dxf_file(payload: ExportCadRequest):
+async def export_dxf_file(request: Request, payload: ExportCadRequest):
     """Generate and return a downloadable AutoCAD DXF file."""
-    filename = payload.filename or "cadcraft_drawing.dxf"
+    auth.require_user(request)
+    _check_entities(payload.entities)
+    filename = _safe_name(payload.filename or "cadcraft_drawing.dxf", "cadcraft_drawing.dxf")
     if not filename.lower().endswith(".dxf"):
         filename += ".dxf"
 
-    dxf_content = CadService.generate_dxf(
-        entities=payload.entities,
-        layers=payload.layers,
-        title=filename,
-    )
+    try:
+        dxf_content = await run_in_threadpool(CadService.generate_dxf, payload.entities, payload.layers, filename)
+    except (ValueError, TypeError) as e:
+        raise HTTPException(400, f"Invalid drawing data: {e}")
 
     return Response(
         content=dxf_content,
@@ -302,6 +338,14 @@ async def render_cad_for_ai(request: Request, payload: RenderCadForAiRequest):
     entities = payload.entities
     if not entities:
         raise HTTPException(400, "Cannot render empty drawing")
+    _check_entities(entities)
+    try:
+        return await run_in_threadpool(_render_for_ai, payload, entities)
+    except (ValueError, TypeError, KeyError, IndexError) as e:
+        raise HTTPException(400, f"Invalid drawing data: {e}")
+
+
+def _render_for_ai(payload, entities):
 
     w = max(512, min(payload.width, 2048))
     h = max(512, min(payload.height, 2048))

@@ -255,6 +255,11 @@ def _start_recycle_bin_sweeper():
                         logger.exception('Expired project cleanup incomplete; retained for retry')
                 if purged_projects:
                     logger.info("Recycle-bin sweep: purged {} expired project(s)", len(purged_projects))
+                try:
+                    from services.orphan_sweep import sweep as _orphan_sweep
+                    _orphan_sweep(DATA_DIR)
+                except Exception:
+                    logger.exception("orphan sweep failed")
             except Exception:
                 logger.exception("recycle-bin sweep failed")
             _recycle_bin_sweeper_stop.wait(24 * 3600)
@@ -1623,6 +1628,10 @@ async def project_schedules(project: str, request: Request):
 app.include_router(api_v1)
 from services.image_engine.api import image_router
 app.include_router(image_router)
+
+# Drawing-to-Blender integration
+from expo_blender.api import router as blender_router
+app.include_router(blender_router)
 from services.cad_api import cad_router
 app.include_router(cad_router)
 
@@ -1749,7 +1758,7 @@ class QueryRequest(BaseModel):
     project: str = "default"
     messages: List[Message] = []
     k: int = 3
-    model: str = "qwen2.5vl:7b"
+    model: str = "qwen3.5:9b"
     mode: str = "chat"
     discipline: str = ""
     focus_doc: str = ""
@@ -3642,6 +3651,36 @@ def page_evidence_refusal():
     return StreamingResponse(events(),media_type='text/event-stream')
 
 
+
+_RG_STOP = set("""what which who whom whose where when how many much is are was were the a an of for in on to and or its it this that there their with by from be does do did total number value please show give tell me project""".split())
+def _router_answer_ok(question: str, answer: str) -> bool:
+    """Reject deterministic answers that only echo a heading, miss the asked-for
+    subject, or give no figure for a numeric question (C3045 V20/V25/V29)."""
+    import re as _re
+    body = _re.sub(r"\[SOURCE:[^\]]*\]", " ", answer or "")
+    body = "\n".join(l for l in body.splitlines() if not l.strip().lower().startswith("source qualifications"))
+    body = _re.sub(r"\[TABLE ROW\]|Table:|Entity:|[>*#|_`\"]", " ", body)
+    if not body.strip():
+        return True
+    low = body.lower()
+    qw = [w for w in _re.findall(r"[a-z][a-z\-/]{2,}", (question or "").lower()) if w not in _RG_STOP and (len(w) > 3 or w.upper() in (question or ""))]
+    def _hit(w):
+        stem = w[:-1] if w.endswith("s") else w
+        return stem[:6] in low
+    _generic = {"units", "unit", "area", "areas", "residential", "required", "proposed", "level", "levels", "floor", "floors", "building", "type", "types", "provided", "percentage", "ratio", "efficiency", "spaces", "space"}
+    _spec = [w for w in qw if w not in _generic] or qw
+    if _spec and not any(_hit(w) for w in _spec):
+        return False
+    aw = [w for w in _re.findall(r"[a-z][a-z\-]{2,}|\d[\d,\.]*", low) if w not in _RG_STOP]
+    qset = set((question or "").lower().split())
+    new = [w for w in aw if not any(w[:5] in q for q in qset)]
+    if len(new) < 1:
+        return False
+    if _re.search(r"\b(how many|how much|area|percent|percentage|number of|count|total|size|height|width|length|ratio|far)\b", (question or "").lower()) \
+            and not _re.search(r"\d", body):
+        return False
+    return True
+
 @app.post("/ask_stream")
 async def ask_stream(req: QueryRequest, request: Request = None):
     user = auth.require_project(request, req.project)
@@ -3690,7 +3729,15 @@ async def ask_stream(req: QueryRequest, request: Request = None):
         focus_doc=req.focus_doc,
         db_module=db,
     )
-    if _route_res and _route_res.is_deterministic and _route_res.status in ("SUCCESS", "AMBIGUOUS") and not req.attachment_id and req.mode != "cowork":
+    try:
+        from services import dataviz as _dvr
+        _viz_req = bool(_dvr.wants_chart(req.query) or _dvr.DASH_Q.search(req.query))
+    except Exception:
+        _viz_req = False
+    if _route_res and _route_res.is_deterministic and _route_res.status == "SUCCESS" and not _router_answer_ok(req.query, getattr(_route_res, "answer", "") or ""):
+        logger.info("ask_stream: router answer rejected by relevance gate; using agent ({})", getattr(_route_res, "route", ""))
+        _route_res = None
+    if _route_res and _route_res.is_deterministic and _route_res.status in ("SUCCESS", "AMBIGUOUS") and not req.attachment_id and req.mode != "cowork" and not _viz_req:
         def deterministic_stream():
             sources = resolve_sources(req.project, _route_res.sources)
             yield f"data: {json.dumps({'type':'sources','sources':sources})}\n\n"
@@ -4530,8 +4577,32 @@ async def rename_project_folder(project: str, folder_id: int, request: Request):
 @app.delete("/projects/{project}/folders/{folder_id}")
 async def delete_project_folder(project: str, folder_id: int, request: Request):
     user = _require_manage(request, project)
+    folder = next((f for f in db.list_folders(project) if int(f["id"]) == int(folder_id)), None)
+    if folder is None:
+        raise HTTPException(404, "Folder not found")
+    # Documents in the folder go to the recycle bin (restorable) instead of
+    # being left behind as hidden, still-indexed orphans.
+    docs = [d for d in db.list_documents(project) if d.get("folder_id") == folder["id"]]
+    moved = 0
+    for d in docs:
+        try:
+            m, _ = await run_in_threadpool(_soft_delete_document_files, project, d, user, _client_ip(request))
+            moved += m
+        except Exception:
+            logger.exception("folder delete: could not recycle {}", d.get("filename"))
     db.delete_folder(folder_id, by=user)
-    return {"status": "ok"}
+    fdir = os.path.join(DOCS_DIR, project, re.sub(r"[^A-Za-z0-9._-]+", "_", folder["name"]).strip("_") or ("folder_%d" % int(folder_id)))
+    try:
+        if os.path.isdir(fdir) and os.path.abspath(fdir).startswith(os.path.abspath(os.path.join(DOCS_DIR, project)) + os.sep):
+            for rootd, dirs, files in os.walk(fdir, topdown=False):
+                if not files and not dirs:
+                    os.rmdir(rootd)
+            if os.path.isdir(fdir) and not os.listdir(fdir):
+                os.rmdir(fdir)
+    except Exception:
+        logger.exception("folder delete: could not remove empty folder directory")
+    return {"status": "ok", "documents_recycled": len(docs), "moved_files": moved,
+            "recycle_bin_days": db.RECYCLE_BIN_RETENTION_DAYS}
 
 @app.get("/projects/{project}/folders/{folder_id}/members")
 async def folder_members_list(project: str, folder_id: int, request: Request):
@@ -4953,6 +5024,16 @@ async def delete_document(project: str, filename: str, request: Request):
     doc = next((d for d in db.list_documents(project) if d["filename"] == filename), None)
     if not doc:
         raise HTTPException(404, "Document not found")
+    moved, info = await run_in_threadpool(_soft_delete_document_files, project, doc, user, _client_ip(request))
+    if not info:
+        raise HTTPException(404, "Document not found")
+    return {"status": "deleted", "moved_files": moved, "recycle_bin_days": db.RECYCLE_BIN_RETENTION_DAYS}
+
+
+def _soft_delete_document_files(project, doc, user, ip):
+    """Purge a document from the index, move its file + every sidecar to the
+    recycle bin and mark the row deleted. Shared by document and folder delete."""
+    filename = doc["filename"]
     path = doc.get("path")
 
     _purge_source_from_index(project, filename)
@@ -4974,10 +5055,8 @@ async def delete_document(project: str, filename: str, request: Request):
                 except Exception:
                     logger.exception("delete_document: could not move " + c)
 
-    info = db.soft_delete_document(project, filename, user=user, ip=_client_ip(request))
-    if not info:
-        raise HTTPException(404, "Document not found")
-    return {"status": "deleted", "moved_files": moved, "recycle_bin_days": db.RECYCLE_BIN_RETENTION_DAYS}
+    info = db.soft_delete_document(project, filename, user=user, ip=ip)
+    return moved, info
 
 @app.post("/projects/{project}/documents/{filename}/restore")
 async def restore_document(project: str, filename: str, request: Request):
@@ -5185,7 +5264,7 @@ async def recycle_bin_purge_project_now(project: str, request: Request):
     user = auth.require_roles(request, "admin")
     from services.project_cleanup import ProjectCleanupError
     try:
-        result = _permanently_purge_project(project)
+        result = await run_in_threadpool(_permanently_purge_project, project)
     except ProjectCleanupError as exc:
         raise HTTPException(exc.status_code, str(exc)) from exc
     db.audit("project.purge_now", project=project, user=user, ip=_client_ip(request))
@@ -5200,7 +5279,13 @@ def _permanently_purge_project(project):
         for identity in [key for key, value in _pending_commands.items() if value['project'] == name]:
             _pending_commands.pop(identity, None)
         knowledge_hub.remove_project(name)
-    return purge_project(project, DATA_DIR, job_queue, clear_caches=clear_caches)
+    result = purge_project(project, DATA_DIR, job_queue, clear_caches=clear_caches)
+    try:
+        from services.orphan_sweep import sweep as _orphan_sweep
+        result["leftovers_removed"] = len(_orphan_sweep(DATA_DIR))
+    except Exception:
+        logger.exception("orphan sweep after purge failed")
+    return result
 
 @app.get("/projects/{project}/file")
 async def project_file(project: str, rel: str, request: Request):
@@ -5779,194 +5864,10 @@ async def readiness():
 
 @app.post("/api/ai/render")
 async def ai_render_viewport(request: Request):
-    """
-    Renders a photorealistic architectural visualization from the 3D viewport.
-    Accepts snapshot base64 image + user style/prompt.
-    Uses configurable render model (from config.py: FLUX.2-klein-4B, Qwen-Image-2.1-Turbo, etc.)
-    Runs offline locally via local endpoint / local Qwen VL, or via configured API.
-    """
-    import base64
-    import json
-    import httpx
-    from starlette.concurrency import run_in_threadpool
-    from config import resolve_role, get_settings
-    
-    try:
-        body = await request.json()
-    except Exception:
-        body = {}
-        
-    image_b64 = body.get("image", "")
-    prompt = body.get("prompt", "Photorealistic modern architectural render, natural lighting, highly detailed materials, 8k resolution, cinematic atmosphere")
-    style = body.get("style", "realistic")
+    """Legacy renderer is disabled: use the authenticated local Studio job API."""
+    auth.require_user(request)
+    raise HTTPException(503, "Legacy render endpoint disabled for offline safety. Use Design Studio's local image workflows.")
 
-    if "," in image_b64:
-        image_b64 = image_b64.split(",", 1)[1]
-
-    # Resolve configured render model and provider from config
-    render_cfg = resolve_role("render")
-    active_model = body.get("model") or render_cfg.get("model") or "FLUX.2-klein-4B"
-    provider = body.get("provider") or render_cfg.get("provider") or "local"
-    host_url = render_cfg.get("base_url") or "http://127.0.0.1:8188"
-    api_key = body.get("api_key") or render_cfg.get("api_key") or os.getenv("DASHSCOPE_API_KEY", "")
-
-    def _render():
-        # 1. Local Offline Image Generation Endpoint (e.g. ComfyUI / Diffusers / SD-WebUI serving FLUX.2-klein-4B)
-        if provider == "local" and host_url:
-            try:
-                # Fast connection check
-                probe = httpx.get(f"{host_url}", timeout=1.2)
-                if probe.status_code < 500:
-                    headers = {"Content-Type": "application/json"}
-                    sd_payload = {
-                        "prompt": f"{prompt}. Architectural style: {style}. Photorealistic, ultra detailed.",
-                        "steps": 8,
-                        "width": 1024,
-                        "height": 1024,
-                        "init_images": [image_b64] if image_b64 else []
-                    }
-                    local_resp = httpx.post(f"{host_url}/sdapi/v1/img2img", json=sd_payload, headers=headers, timeout=12.0)
-                    if local_resp.status_code == 200:
-                        data = local_resp.json()
-                        images = data.get("images", [])
-                        if images:
-                            return {
-                                "success": True,
-                                "image_url": f"data:image/png;base64,{images[0]}",
-                                "model": active_model,
-                                "provider": "local-diffusion"
-                            }
-            except Exception as e:
-                logger.debug(f"Local diffusion server offline at {host_url}: {e}")
-
-        # 2. Cloud Qwen-Image-2.1-Turbo / DashScope (if API key available)
-        if api_key and ("qwen" in active_model.lower() or provider == "cloud"):
-            try:
-                headers = {
-                    "Authorization": f"Bearer {api_key}",
-                    "Content-Type": "application/json"
-                }
-                payload = {
-                    "model": "qwen-image-2.1-turbo",
-                    "input": {
-                        "prompt": f"{prompt}. Architectural style: {style}. Realistic lighting, ray tracing, sharp details."
-                    },
-                    "parameters": {
-                        "size": "1024*1024",
-                        "n": 1
-                    }
-                }
-                if image_b64:
-                    payload["input"]["image"] = f"data:image/png;base64,{image_b64}"
-                    
-                resp = httpx.post(
-                    "https://dashscope.aliyuncs.com/api/v1/services/aigc/text2image/image-synthesis",
-                    headers=headers,
-                    json=payload,
-                    timeout=45.0
-                )
-                if resp.status_code == 200:
-                    data = resp.json()
-                    res_url = None
-                    if "output" in data and "results" in data["output"] and len(data["output"]["results"]) > 0:
-                        res_url = data["output"]["results"][0].get("url")
-                    if res_url:
-                        return {"success": True, "image_url": res_url, "model": active_model, "provider": "qwen-image-turbo"}
-            except Exception as e:
-                logger.warning(f"Qwen-Image-Turbo cloud call failed: {e}")
-
-        # 3. Offline Local Vision & Photorealistic Image Synthesis Pipeline
-        # When an external diffusion server isn't running, this synthesizes an architectural render image
-        # by applying photographic exposure, golden hour / sky lighting grading, ambient occlusion enhancement,
-        # and architectural bloom, accompanied by Qwen-VL's structural analysis.
-        try:
-            rendered_image_b64 = ""
-            if image_b64:
-                try:
-                    import io
-                    import numpy as np
-                    from PIL import Image, ImageEnhance, ImageFilter
-                    import cv2
-                    
-                    raw_data = base64.b64decode(image_b64)
-                    pil_img = Image.open(io.BytesIO(raw_data)).convert("RGB")
-                    
-                    # 1. Architectural tone mapping & contrast
-                    contrast = ImageEnhance.Contrast(pil_img).enhance(1.22)
-                    color = ImageEnhance.Color(contrast).enhance(1.18)
-                    sharp = ImageEnhance.Sharpness(color).enhance(1.3)
-                    
-                    # 2. Lighting & Style atmosphere color grading
-                    np_img = np.array(sharp)
-                    st_low = style.lower()
-                    if "evening" in st_low or "dusk" in st_low or "golden" in st_low:
-                        # Warm golden / twilight tone curve
-                        np_img[:, :, 0] = np.clip(np_img[:, :, 0] * 1.12 + 10, 0, 255) # Red boost
-                        np_img[:, :, 1] = np.clip(np_img[:, :, 1] * 1.05 + 5, 0, 255)  # Green
-                        np_img[:, :, 2] = np.clip(np_img[:, :, 2] * 0.95 - 5, 0, 255)  # Blue slight dip
-                    elif "daylight" in st_low or "clean" in st_low:
-                        # Crisp daylight tone curve
-                        np_img[:, :, 0] = np.clip(np_img[:, :, 0] * 1.02, 0, 255)
-                        np_img[:, :, 1] = np.clip(np_img[:, :, 1] * 1.04 + 4, 0, 255)
-                        np_img[:, :, 2] = np.clip(np_img[:, :, 2] * 1.08 + 8, 0, 255) # Sky blue tint
-                    elif "interior" in st_low or "luxury" in st_low:
-                        # Warm ambient interior illumination
-                        np_img[:, :, 0] = np.clip(np_img[:, :, 0] * 1.08 + 8, 0, 255)
-                        np_img[:, :, 1] = np.clip(np_img[:, :, 1] * 1.05 + 5, 0, 255)
-                    
-                    # 3. Soft architectural bloom on highlights
-                    gray = cv2.cvtColor(np_img, cv2.COLOR_RGB2GRAY)
-                    _, thresh = cv2.threshold(gray, 200, 255, cv2.THRESH_BINARY)
-                    bloom = cv2.GaussianBlur(thresh, (21, 21), 11)
-                    bloom_3ch = cv2.cvtColor(bloom, cv2.COLOR_GRAY2RGB)
-                    np_img = np.clip(np_img.astype(np.int16) + (bloom_3ch * 0.22).astype(np.int16), 0, 255).astype(np.uint8)
-                    
-                    out_pil = Image.fromarray(np_img)
-                    out_buf = io.BytesIO()
-                    out_pil.save(out_buf, format="PNG", quality=95)
-                    rendered_image_b64 = f"data:image/png;base64,{base64.b64encode(out_buf.getvalue()).decode('utf-8')}"
-                except Exception as img_err:
-                    logger.debug(f"Local image shader processing notice: {img_err}")
-
-            s = get_settings()
-            vision_host = (s.vision_ollama_host or s.ollama_host or "http://127.0.0.1:11434").rstrip("/")
-            q_payload = {
-                "model": s.vision_model or "qwen2.5vl:7b",
-                "messages": [
-                    {
-                        "role": "user",
-                        "content": f"You are an architectural visualization engine. Analyze this 3D viewport snapshot for: '{prompt}' in '{style}' style. Produce a structured render specification:\n1. Camera & Composition\n2. Sun & Lighting Angles\n3. Material & Texture Mapping\n4. Environmental Atmosphere.\nKeep it concise and ready for offline diffusion rendering with {active_model}.",
-                        "images": [image_b64] if image_b64 else []
-                    }
-                ],
-                "stream": False,
-                "options": {"temperature": 0.2, "num_predict": 450}
-            }
-            q_resp = httpx.post(f"{vision_host}/api/chat", json=q_payload, timeout=25.0)
-            analysis = ""
-            if q_resp.status_code == 200:
-                analysis = q_resp.json().get("message", {}).get("content", "")
-            
-            return {
-                "success": True,
-                "provider": "offline-qwen-local",
-                "model": active_model,
-                "image_url": rendered_image_b64,
-                "analysis": analysis,
-                "snapshot": f"data:image/png;base64,{image_b64}" if image_b64 else "",
-                "prompt": prompt,
-                "note": f"Render configured for offline model: {active_model}. Architectural lighting, exposure tone-mapping, and composition analyzed locally."
-            }
-        except Exception as ex:
-            return {
-                "success": False,
-                "model": active_model,
-                "error": str(ex),
-                "snapshot": f"data:image/png;base64,{image_b64}" if image_b64 else ""
-            }
-
-    result = await run_in_threadpool(_render)
-    return JSONResponse(result)
 
 @app.get("/health")
 async def health(request: Request, project: str = "default"):

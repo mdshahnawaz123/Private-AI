@@ -60,6 +60,27 @@ class ImageStorage:
         job_path.mkdir(parents=True, exist_ok=True)
         return job_path
 
+    def validate_input_image(self, project: str, path: str) -> str:
+        root = Path(self.projects_dir).resolve()
+        try:
+            project_root = Path(contained_upload_path(self.projects_dir, project, "generated_images", "ownership")).parent.resolve()
+        except ValueError as exc:
+            raise StorageSecurityError("Invalid project image root") from exc
+        candidate = Path(path).resolve()
+        if not project_root.is_relative_to(root) or project_root == root:
+            raise StorageSecurityError("Invalid project image root")
+        if not candidate.is_relative_to(project_root) or not candidate.is_file():
+            raise StorageSecurityError("Reference image must belong to the selected project")
+        try:
+            with Image.open(candidate) as image:
+                image.verify()
+            with Image.open(candidate) as image:
+                if image.getexif().get(274, 1) != 1:
+                    raise StorageSecurityError("Upload the reference again to normalize its orientation")
+        except (OSError, SyntaxError) as exc:
+            raise StorageSecurityError("Reference must be a valid image") from exc
+        return str(candidate)
+
     def save_input_image(
         self, project: str, job_id: str, image_bytes: bytes, original_filename: str = "sketch.png"
     ) -> Path:
@@ -76,6 +97,15 @@ class ImageStorage:
         except Exception as exc:
             raise ValueError(f"Uploaded file is not a valid image: {exc}") from exc
 
+        # Normalize EXIF orientation on the stored copy, preserving source pixels otherwise.
+        from PIL import ImageOps
+        with Image.open(io.BytesIO(image_bytes)) as source:
+            if source.getexif().get(274, 1) != 1:
+                normalized = ImageOps.exif_transpose(source)
+                buffer = io.BytesIO()
+                normalized.save(buffer, format="PNG")
+                image_bytes = buffer.getvalue()
+                original_filename = Path(original_filename).stem + ".png"
         clean_name = self._sanitize_filename(original_filename)
         dest_filename = f"input_{clean_name}"
         job_dir = self.get_job_dir(project, job_id)

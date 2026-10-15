@@ -9,7 +9,7 @@ from intelligence.answer_guard import MARKER
 
 def prepare_citations(context, sources):
     allowed={(str(s.get('source') or s.get('filename') or ''),
-              str(s.get('page') if s.get('page') is not None else 'UNPAGINATED'))
+              str(s.get('page') if s.get('page') is not None else 'UNPAGINATED').upper())
              for s in sources if isinstance(s,dict)}
     identities={}
     reverse={}
@@ -28,13 +28,13 @@ def prepare_citations(context, sources):
 def resolve_citations(answer, identities):
     # Some local models prepend the literal word "Citation:" inside a marker.
     # Normalize only syntax; both the assigned handle and page must still match.
-    handle_marker=re.compile(r'\[(?:Citation:\s*)?SOURCE:\s*(EVIDENCE_\d+)\s*\|\s*PAGE\s+(\d+|UNPAGINATED)\s*\]',re.I)
+    handle_marker=re.compile(r'\[(?:Citation:\s*)?SOURCE:\s*(EVIDENCE_\d+)\s*\\?\|\s*PAGE\s+(\d+|UNPAGINATED|[^\]|\n]{1,80}?)\s*\]',re.I)
     def replace(match):
         key=(match[1].strip(),match[2].upper())
         target=identities.get(key)
         return f'[SOURCE: {target[0]} | PAGE {target[1]}]' if target else match[0]
     resolved=handle_marker.sub(replace,answer)
-    return re.sub(r'\[Citation:\s*(\[SOURCE:\s*[^\[\]]+\|\s*PAGE\s+(?:\d+|UNPAGINATED)\s*\])\]',r'\1',resolved,flags=re.I)
+    return re.sub(r'\[Citation:\s*(\[SOURCE:\s*[^\[\]]+\|\s*PAGE\s+(?:\d+|UNPAGINATED|[^\]|\n]{1,80}?)\s*\])\]',r'\1',resolved,flags=re.I)
 
 
 def append_source_qualifications(answer, context, sources):
@@ -43,7 +43,7 @@ def append_source_qualifications(answer, context, sources):
     from intelligence.source_semantics import explicit_states, native_revision
     excerpts=_excerpts_by_page(context)
     allowed={(str(s.get('source') or s.get('filename') or ''),
-              str(s.get('page') if s.get('page') is not None else 'UNPAGINATED'))
+              str(s.get('page') if s.get('page') is not None else 'UNPAGINATED').upper())
              for s in sources if isinstance(s,dict)}
     notes=[];seen=set()
     for match in MARKER.finditer(answer):

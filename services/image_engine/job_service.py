@@ -104,8 +104,41 @@ class JobService:
 
         # 2. Verify workflow is registered
         graph = self.registry.get_workflow(request.workflow_id)
-        if any(node.get("class_type") == "Flux2Scheduler" for node in graph.values()):
-            request = request.model_copy(update={"steps": 4, "cfg": 1.0})
+        import secrets
+        settings = {"seed": request.seed if request.seed is not None else secrets.randbits(63)}
+        metadata = self.registry.get_metadata(request.workflow_id)
+        for parameter in metadata.parameters:
+            if parameter.name not in ("steps", "cfg"):
+                continue
+            value = getattr(request, parameter.name) if parameter.name in request.model_fields_set else parameter.default
+            if value is None:
+                value = parameter.default
+            if (parameter.min_value is not None and value < parameter.min_value
+                    or parameter.max_value is not None and value > parameter.max_value):
+                raise ValueError(f"{parameter.name} is outside this workflow's supported range")
+            settings[parameter.name] = value
+        if "denoise" in request.model_fields_set and not any("denoise" in node.get("inputs", {}) for node in graph.values()):
+            raise ValueError("Denoise is not supported by this workflow")
+        if request.negative_prompt and not any(p.name == "negative_prompt" for p in metadata.parameters):
+            raise ValueError("Negative prompts are not supported by this workflow")
+        reference_edit = any(node.get("class_type") == "LoadImage" for node in graph.values())
+        if reference_edit and not request.input_image_path:
+            raise ValueError("This workflow requires a reference image")
+        if request.input_image_path:
+            if not reference_edit:
+                raise ValueError("This workflow does not accept a reference image")
+            settings["input_image_path"] = self.storage.validate_input_image(request.project, request.input_image_path)
+        if reference_edit and request.enhance_prompt:
+            raise ValueError("Automatic creative prompt enhancement is unavailable for reference edits; submit explicit editing instructions")
+        if request.edit_mask_path:
+            if not reference_edit or not request.input_image_path:
+                raise ValueError("Masked edits require a reference-image workflow")
+            from services.image_engine.masked_edit import load_pair
+            settings['edit_mask_path'] = self.storage.validate_input_image(request.project, request.edit_mask_path)
+            load_pair(settings['input_image_path'], settings['edit_mask_path'])
+        request = request.model_copy(update=settings)
+        # Build before enqueue so unsupported overrides fail without creating a job.
+        self.registry.build_prompt_graph(request)
         health = await self.client.check_health()
         if not health.available:
             raise ValueError(f"Image renderer unavailable at {self.client.base_url}. Start ComfyUI before generating.")
@@ -350,7 +383,8 @@ class JobService:
 
             # 3. If an input image was provided (sketch or render), upload to ComfyUI
             if request.input_image_path:
-                with open(request.input_image_path, "rb") as f:
+                reference_path = self.storage.validate_input_image(request.project, request.input_image_path)
+                with open(reference_path, "rb") as f:
                     img_bytes = f.read()
                 upload_name = f"{job_id}_{Path(request.input_image_path).name}"
                 upload_res = await self.client.upload_image(img_bytes, upload_name)
@@ -396,6 +430,13 @@ class JobService:
                         img_bytes = await self.client.get_image_bytes(
                             filename=fn, subfolder=subfolder, folder_type=ftype
                         )
+                        composite_metadata = {}
+                        if request.edit_mask_path:
+                            from services.image_engine.masked_edit import composite_edit
+                            reference_path = self.storage.validate_input_image(request.project, request.input_image_path)
+                            mask_path = self.storage.validate_input_image(request.project, request.edit_mask_path)
+                            img_bytes, composite_metadata = composite_edit(reference_path, mask_path, img_bytes)
+                            fn = Path(fn).stem + '_masked.png'
                         self.storage.save_output_image(
                             project=request.project,
                             job_id=job_id,
@@ -403,6 +444,7 @@ class JobService:
                             filename=fn,
                             seed=request.seed,
                             metadata={
+                                **composite_metadata,
                                 "workflow_id": request.workflow_id,
                                 "prompt": request.prompt,
                                 "original_prompt": orig_prompt,

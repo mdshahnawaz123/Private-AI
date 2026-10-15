@@ -373,6 +373,10 @@ def _parse_json_array(raw: str) -> List[Dict[str, Any]]:
 # facts as VERIFIED without weakening the check that matters: every word and
 # number in the quote still has to appear in the source, in the same order.
 _DELIM_RE = re.compile(r"[\s|]+")
+# Used by the supersede-on-rebuild key in build_memory_for_document(); was
+# referenced but never defined, so every memory build crashed with a
+# NameError at the very end (after all LLM extraction work was done).
+_WS_RE = re.compile(r"\s+")
 _QUOTE_RE = re.compile(r"[\u2018\u2019\u201c\u201d'\"]+")
 _MD_EMPHASIS_RE = re.compile(r"\*{1,2}|_{1,2}(?=\w)|(?<=\w)_{1,2}")
 
@@ -460,10 +464,39 @@ def build_memory_for_document(project_id: int, document_id: int, filename: str,
         revision = _guess_revision(meta)
         rows_to_insert = []
 
+        # Wall-clock budget for the whole build (2026-10-14 pipeline audit): with
+        # OCR/vision text a 33-page report produced ~80 windows that each hit the
+        # 120 s model deadline -- hours of GPU time for zero rows. Stop after the
+        # budget; facts from completed windows are still kept.
+        import time as _time
+        _budget = float(os.getenv("EXPO_MEMORY_BUILD_BUDGET_S", "1200"))
+        _started = _time.monotonic()
+        _timeouts = 0
         for window in windows:
+            if _time.monotonic() - _started > _budget:
+                logger.warning("document_memory: build budget {}s exhausted for {} after {}/{} windows",
+                               int(_budget), filename, counts.get("attempted", 0), len(windows))
+                break
+            if _timeouts >= 3:
+                logger.warning("document_memory: stopping build for {} after 3 model deadline timeouts", filename)
+                break
+            # Yield the GPU to people asking questions: wait (bounded) while any
+            # interactive answer is in flight; waiting does not count against
+            # the build budget.
+            try:
+                from services.model_admission import document_model_admission as _adm
+                _w0 = _time.monotonic()
+                while _adm.active() and _time.monotonic() - _w0 < 600:
+                    _time.sleep(2)
+                _started += _time.monotonic() - _w0
+            except Exception:
+                pass
+            counts["attempted"] = counts.get("attempted", 0) + 1
             try:
                 facts = _call_model(window["text"], model_role=model_role)
             except Exception as e:
+                if "deadline" in str(e):
+                    _timeouts += 1
                 logger.warning("document_memory: extraction pass failed for a window of {}: {}", filename, e)
                 continue
             for fact in facts:

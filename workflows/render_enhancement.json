@@ -2,151 +2,328 @@
   "_meta": {
     "id": "render_enhancement",
     "name": "Render Enhancement",
-    "version": "1.0.0",
+    "version": "2.0.0",
     "category": "enhancement",
-    "description": "Enhances viewport or 3D engine renders (e.g. Blender Cycles, IFC snapshot) with photorealistic material textures and atmospheric lighting.",
-    "license_notes": "Preserves base camera perspective and geometry while refining material shaders and environmental illumination.",
+    "description": "Enhances architectural renders with realistic materials, lighting, reflections and planting while using the input image as the design reference.",
+    "license_notes": "Uses the installed FLUX.2 Klein 4B image-edit workflow. Image generation is AI-based; exact geometry preservation is not guaranteed.",
     "parameters": [
       {
         "name": "prompt",
         "type": "string",
-        "label": "Atmospheric Enhancements",
-        "description": "Lighting conditions, surface texture details, glass reflections",
+        "label": "Design Brief / Prompt",
+        "description": "Architectural visualization instructions",
         "required": true
+      },
+      {
+        "name": "negative_prompt",
+        "type": "string",
+        "label": "Avoid / Negative Prompt",
+        "description": "Elements and defects to avoid",
+        "required": false,
+        "default": "extra floors, missing floors, changed building massing, distorted geometry, warped perspective, changed camera angle, moved columns, closed parking openings, missing ramps, altered window layout, altered storefronts, illegible signage, text overlay, watermark, blurry details, low resolution, oversaturated colors, cartoon, plastic materials, excessive vegetation covering the façade"
       },
       {
         "name": "input_image_path",
         "type": "image",
-        "label": "Base 3D Render",
-        "description": "Source 3D rendering snapshot",
+        "label": "Reference Image",
+        "description": "Source render or sketch uploaded to ComfyUI",
         "required": true
-      },
-      {
-        "name": "denoise",
-        "type": "float",
-        "label": "Enhancement Strength",
-        "description": "Denoising level (0.25 = subtle texture polish, 0.50 = rich material overhaul)",
-        "default": 0.35,
-        "min_value": 0.15,
-        "max_value": 0.65
       },
       {
         "name": "steps",
         "type": "integer",
-        "label": "Steps",
+        "label": "Sampling Steps",
+        "description": "FLUX.2 Klein base model sampling steps",
         "default": 20,
-        "min_value": 15,
-        "max_value": 40
+        "min_value": 8,
+        "max_value": 30
       },
       {
         "name": "cfg",
         "type": "float",
-        "label": "CFG Scale",
-        "default": 6.5,
+        "label": "Guidance Scale",
+        "description": "Guidance scale for the FLUX.2 Klein base workflow",
+        "default": 5.0,
         "min_value": 1.0,
-        "max_value": 12.0
+        "max_value": 8.0
       },
       {
         "name": "seed",
         "type": "integer",
         "label": "Seed",
+        "description": "Seed for reproducible generation; leave empty for app default behavior",
         "default": null
       }
     ]
   },
-  "1": {
-    "class_type": "CheckpointLoaderSimple",
-    "inputs": {
-      "ckpt_name": "architectural_concept_v1.safetensors"
-    }
-  },
-  "2": {
-    "class_type": "LoadImage",
-    "inputs": {
-      "image": "render_input.png"
-    }
-  },
-  "3": {
-    "class_type": "VAEEncode",
-    "inputs": {
-      "pixels": [
-        "2",
-        0
-      ],
-      "vae": [
-        "1",
-        2
-      ]
-    }
-  },
-  "4": {
-    "class_type": "CLIPTextEncode",
-    "inputs": {
-      "clip": [
-        "1",
-        1
-      ],
-      "text": "Photorealistic architectural visualization, highly detailed concrete textures, physically based glass reflections, warm sunset golden hour lighting, cinematic ray tracing"
-    }
-  },
-  "5": {
-    "class_type": "CLIPTextEncode",
-    "inputs": {
-      "clip": [
-        "1",
-        1
-      ],
-      "text": "noisy, flat shading, low-resolution textures, oversaturated, blurry, CGI artifacts"
-    }
-  },
-  "6": {
-    "class_type": "KSampler",
-    "inputs": {
-      "cfg": 6.5,
-      "denoise": 0.35,
-      "latent_image": [
-        "3",
-        0
-      ],
-      "model": [
-        "1",
-        0
-      ],
-      "negative": [
-        "5",
-        0
-      ],
-      "positive": [
-        "4",
-        0
-      ],
-      "sampler_name": "dpmpp_2m",
-      "scheduler": "karras",
-      "seed": 42,
-      "steps": 20
-    }
-  },
-  "7": {
-    "class_type": "VAEDecode",
-    "inputs": {
-      "samples": [
-        "6",
-        0
-      ],
-      "vae": [
-        "1",
-        2
-      ]
-    }
-  },
-  "8": {
-    "class_type": "SaveImage",
+  "9": {
     "inputs": {
       "filename_prefix": "ExpoRenderEnhanced",
       "images": [
-        "7",
+        "75:65",
         0
       ]
+    },
+    "class_type": "SaveImage",
+    "_meta": {
+      "title": "Save Image"
+    }
+  },
+  "76": {
+    "inputs": {
+      "image": "expo_input.png"
+    },
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "Load Image"
+    }
+  },
+  "75:61": {
+    "inputs": {
+      "sampler_name": "euler"
+    },
+    "class_type": "KSamplerSelect",
+    "_meta": {
+      "title": "KSamplerSelect"
+    }
+  },
+  "75:62": {
+    "inputs": {
+      "steps": 20,
+      "width": [
+        "75:100",
+        0
+      ],
+      "height": [
+        "75:100",
+        1
+      ]
+    },
+    "class_type": "Flux2Scheduler",
+    "_meta": {
+      "title": "Flux2Scheduler"
+    }
+  },
+  "75:63": {
+    "inputs": {
+      "cfg": 5.0,
+      "model": [
+        "75:70",
+        0
+      ],
+      "positive": [
+        "75:79:77",
+        0
+      ],
+      "negative": [
+        "75:79:101",
+        0
+      ]
+    },
+    "class_type": "CFGGuider",
+    "_meta": {
+      "title": "CFG Guider"
+    }
+  },
+  "75:64": {
+    "inputs": {
+      "noise": [
+        "75:73",
+        0
+      ],
+      "guider": [
+        "75:63",
+        0
+      ],
+      "sampler": [
+        "75:61",
+        0
+      ],
+      "sigmas": [
+        "75:62",
+        0
+      ],
+      "latent_image": [
+        "75:66",
+        0
+      ]
+    },
+    "class_type": "SamplerCustomAdvanced",
+    "_meta": {
+      "title": "SamplerCustomAdvanced"
+    }
+  },
+  "75:65": {
+    "inputs": {
+      "samples": [
+        "75:64",
+        0
+      ],
+      "vae": [
+        "75:72",
+        0
+      ]
+    },
+    "class_type": "VAEDecode",
+    "_meta": {
+      "title": "VAE Decode"
+    }
+  },
+  "75:73": {
+    "inputs": {
+      "noise_seed": 42
+    },
+    "class_type": "RandomNoise",
+    "_meta": {
+      "title": "RandomNoise"
+    }
+  },
+  "75:70": {
+    "inputs": {
+      "unet_name": "flux-2-klein-4b.safetensors",
+      "weight_dtype": "default"
+    },
+    "class_type": "UNETLoader",
+    "_meta": {
+      "title": "Load Diffusion Model"
+    }
+  },
+  "75:71": {
+    "inputs": {
+      "clip_name": "qwen_3_4b.safetensors",
+      "type": "flux2",
+      "device": "default"
+    },
+    "class_type": "CLIPLoader",
+    "_meta": {
+      "title": "Load CLIP"
+    }
+  },
+  "75:74": {
+    "inputs": {
+      "text": "Enhance the uploaded architectural render into a photorealistic, high-end architectural visualization. Treat the source image as the fixed design reference. Preserve the visible building massing, floor count, structural grid, parking openings, ramps, façade proportions, window and door positions, signage, storefront layout, camera angle, perspective, and overall composition as closely as possible. Improve only material realism, concrete and stone texture, physically plausible glass reflections, metal finishes, natural daylight, shadows, planting, and surface detail. Maintain open parking façades and natural ventilation. Do not add or remove floors, move structural elements, close openings, or redesign the architecture.",
+      "clip": [
+        "75:71",
+        0
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "CLIP Text Encode (Positive Prompt)"
+    }
+  },
+  "75:67": {
+    "inputs": {
+      "text": "extra floors, missing floors, changed building massing, distorted geometry, warped perspective, changed camera angle, moved columns, closed parking openings, missing ramps, altered window layout, altered storefronts, illegible signage, text overlay, watermark, blurry details, low resolution, oversaturated colors, cartoon, plastic materials, excessive vegetation covering the façade",
+      "clip": [
+        "75:71",
+        0
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "CLIP Text Encode (Negative Prompt)"
+    }
+  },
+  "75:72": {
+    "inputs": {
+      "vae_name": "flux2-vae.safetensors"
+    },
+    "class_type": "VAELoader",
+    "_meta": {
+      "title": "Load VAE"
+    }
+  },
+  "75:66": {
+    "inputs": {
+      "width": [
+        "75:100",
+        0
+      ],
+      "height": [
+        "75:100",
+        1
+      ],
+      "batch_size": 1
+    },
+    "class_type": "EmptyFlux2LatentImage",
+    "_meta": {
+      "title": "Empty Flux 2 Latent"
+    }
+  },
+  "75:80": {
+    "inputs": {
+      "upscale_method": "nearest-exact",
+      "megapixels": 1,
+      "resolution_steps": 1,
+      "image": [
+        "76",
+        0
+      ]
+    },
+    "class_type": "ImageScaleToTotalPixels",
+    "_meta": {
+      "title": "Scale Image to Total Pixels"
+    }
+  },
+  "75:79:101": {
+    "inputs": {
+      "conditioning": [
+        "75:67",
+        0
+      ],
+      "latent": [
+        "75:79:78",
+        0
+      ]
+    },
+    "class_type": "ReferenceLatent",
+    "_meta": {
+      "title": "Set Reference Latent"
+    }
+  },
+  "75:79:78": {
+    "inputs": {
+      "pixels": [
+        "75:80",
+        0
+      ],
+      "vae": [
+        "75:72",
+        0
+      ]
+    },
+    "class_type": "VAEEncode",
+    "_meta": {
+      "title": "VAE Encode"
+    }
+  },
+  "75:79:77": {
+    "inputs": {
+      "conditioning": [
+        "75:74",
+        0
+      ],
+      "latent": [
+        "75:79:78",
+        0
+      ]
+    },
+    "class_type": "ReferenceLatent",
+    "_meta": {
+      "title": "Set Reference Latent"
+    }
+  },
+  "75:100": {
+    "inputs": {
+      "image": [
+        "75:80",
+        0
+      ]
+    },
+    "class_type": "GetImageSize",
+    "_meta": {
+      "title": "Get Image Size"
     }
   }
 }

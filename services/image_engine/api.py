@@ -79,10 +79,7 @@ async def get_engine_status(request: Request):
 @image_router.post("/service/start")
 async def start_image_engine_service(request: Request):
     """Start the local AI Studio Engine process."""
-    client_host = getattr(request.client, "host", "") if request.client else ""
-    user = getattr(request.state, "user", None)
-    if not user and client_host not in ("127.0.0.1", "localhost", "::1", "testclient"):
-        auth.require_user(request)
+    auth.require_roles(request, "admin")
     from services.image_engine.service_manager import start_engine
     return start_engine()
 
@@ -90,10 +87,7 @@ async def start_image_engine_service(request: Request):
 @image_router.post("/service/stop")
 async def stop_image_engine_service(request: Request):
     """Stop the local AI Studio Engine process."""
-    client_host = getattr(request.client, "host", "") if request.client else ""
-    user = getattr(request.state, "user", None)
-    if not user and client_host not in ("127.0.0.1", "localhost", "::1", "testclient"):
-        auth.require_user(request)
+    auth.require_roles(request, "admin")
     from services.image_engine.service_manager import stop_engine
     return stop_engine()
 
@@ -101,10 +95,7 @@ async def stop_image_engine_service(request: Request):
 @image_router.get("/service/status")
 async def get_service_lifecycle_status(request: Request):
     """Check whether the AI Studio Engine is reachable."""
-    client_host = getattr(request.client, "host", "") if request.client else ""
-    user = getattr(request.state, "user", None)
-    if not user and client_host not in ("127.0.0.1", "localhost", "::1", "testclient"):
-        auth.require_user(request)
+    auth.require_user(request)
     from services.image_engine.service_manager import is_engine_reachable
     reachable = is_engine_reachable()
     return {
@@ -191,6 +182,27 @@ async def submit_image_job(request: Request):
                 except ValueError as img_err:
                     raise HTTPException(400, f"Invalid uploaded reference image: {img_err}")
 
+        edit_mask_path = None
+        mask_file = form.get('edit_mask')
+        if mask_file and hasattr(mask_file, 'read'):
+            mask_bytes = await mask_file.read()
+            if not mask_bytes or len(mask_bytes) > 25 * 1024 * 1024:
+                raise HTTPException(400, 'Mask must be nonempty and at most 25 MB')
+            try:
+                from services.image_engine.masked_edit import load_pair
+                if not input_image_path:
+                    raise ValueError('A mask requires an uploaded reference image')
+                # Validate original mask before storage orientation normalization.
+                import io
+                from PIL import Image
+                with Image.open(io.BytesIO(mask_bytes)) as mask_image:
+                    if mask_image.format != 'PNG' or mask_image.getexif().get(274, 1) != 1:
+                        raise ValueError('Mask must be an upright PNG')
+                edit_mask_path = str(svc.storage.save_input_image(project_str, f'mask-{uuid.uuid4().hex[:8]}', mask_bytes, 'mask.png'))
+                load_pair(input_image_path, edit_mask_path)
+            except (ValueError, OSError) as exc:
+                raise HTTPException(400, str(exc)) from exc
+
         try:
             width = int(form.get("width")) if form.get("width") else 1024
             height = int(form.get("height")) if form.get("height") else 1024
@@ -213,6 +225,7 @@ async def submit_image_job(request: Request):
                 architectural_style=str(form.get("architectural_style", "")) or None,
                 building_type=str(form.get("building_type", "")) or None,
                 input_image_path=input_image_path,
+                edit_mask_path=edit_mask_path,
                 enhance_prompt=enhance_prompt_val,
             )
         except Exception as exc:
@@ -393,12 +406,9 @@ async def enhance_prompt_endpoint(request: Request, payload: PromptEnhanceReques
     Immediately unloads VRAM to preserve RTX 5080 resources for image generation.
     """
     auth.require_user(request)
-    from services.image_engine.prompt_reasoner import enhance_architectural_prompt
-    res = await enhance_architectural_prompt(
-        prompt=payload.prompt,
-        building_type=payload.building_type,
-        architectural_style=payload.architectural_style,
-        unload_vram=True,
-    )
+    from services.image_engine.design_brief import generate_design_brief
+    try:
+        res = await generate_design_brief(payload)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
     return PromptEnhanceResponse(**res)
-

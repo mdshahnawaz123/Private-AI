@@ -239,6 +239,9 @@ async def enhance_architectural_prompt(
             "error": "Empty prompt",
         }
 
+    from services.image_engine.comfyui_client import ComfyUIClient
+    local_url = ComfyUIClient._validate_and_normalize_url(OLLAMA_URL)
+
     # Construct user message
     parts = []
     if building_type:
@@ -265,8 +268,8 @@ async def enhance_architectural_prompt(
     }
 
     try:
-        async with httpx.AsyncClient(timeout=timeout_sec) as client:
-            resp = await client.post(f"{OLLAMA_URL}/api/chat", json=payload)
+        async with httpx.AsyncClient(timeout=timeout_sec, trust_env=False) as client:
+            resp = await client.post(f"{local_url}/api/chat", json=payload)
             resp.raise_for_status()
             data = resp.json()
 

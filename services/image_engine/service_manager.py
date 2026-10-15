@@ -10,6 +10,8 @@ from typing import Optional, Dict, Any
 import httpx
 from loguru import logger
 
+_owned_process = None
+
 COMFY_DIR = os.getenv("EXPO_COMFYUI_DIR", r"C:\3EH\ComfyUI")
 COMFY_PORT = int(os.getenv("EXPO_COMFYUI_PORT", "8188"))
 COMFY_HOST = os.getenv("EXPO_COMFYUI_HOST", "127.0.0.1")
@@ -18,8 +20,10 @@ COMFY_HOST = os.getenv("EXPO_COMFYUI_HOST", "127.0.0.1")
 def is_engine_reachable(timeout_sec: float = 1.5) -> bool:
     """Check if the local ComfyUI engine is currently responding to HTTP requests."""
     try:
-        with httpx.Client(timeout=timeout_sec) as client:
-            resp = client.get(f"http://{COMFY_HOST}:{COMFY_PORT}/system_stats")
+        from services.image_engine.comfyui_client import ComfyUIClient
+        url = ComfyUIClient._validate_and_normalize_url(f"http://{COMFY_HOST}:{COMFY_PORT}")
+        with httpx.Client(timeout=timeout_sec, trust_env=False) as client:
+            resp = client.get(f"{url}/system_stats")
             return resp.status_code == 200
     except Exception:
         return False
@@ -71,80 +75,34 @@ def start_engine() -> Dict[str, Any]:
             "message": f"Engine root directory or main.py not found at {COMFY_DIR}",
         }
 
-    log_file = os.path.join(COMFY_DIR, "comfyui_server.log")
+    global _owned_process
+    from pathlib import Path
+    from services.image_engine.comfyui_client import ComfyUIClient
     try:
-        log_handle = open(log_file, "a", encoding="utf-8")
-        log_handle.write(f"\n--- AI Studio Engine started at {time.strftime('%Y-%m-%d %H:%M:%S')} ---\n")
-        log_handle.flush()
-    except Exception as e:
-        logger.warning(f"Failed to open comfy log file: {e}")
-        log_handle = subprocess.DEVNULL
-
-    # Windows detached background process flags
-    DETACHED_PROCESS = 0x00000008
-    CREATE_NEW_PROCESS_GROUP = 0x00000200
-    CREATE_NO_WINDOW = 0x08000000
-    flags = DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP | CREATE_NO_WINDOW
-
-    try:
-        ps_cmd = (
-            f'powershell.exe -NoProfile -ExecutionPolicy Bypass -Command '
-            f'"Start-Process -FilePath \'{python_exe}\' '
-            f'-ArgumentList \'main.py --listen {COMFY_HOST} --port {COMFY_PORT} --highvram\' '
-            f'-WorkingDirectory \'{COMFY_DIR}\' '
-            f'-RedirectStandardOutput \'{log_file}\' '
-            f'-RedirectStandardError \'{log_file}\' '
-            f'-WindowStyle Hidden"'
-        )
-        subprocess.run(ps_cmd, shell=True, check=True, timeout=10)
-        logger.info(f"Launched AI Studio Engine via Start-Process at {COMFY_DIR}")
-        return {
-            "status": "starting",
-            "available": False,
-            "message": "AI Studio Engine launched. Please wait a few seconds for initialization.",
-        }
-    except Exception as exc:
-        logger.error(f"Failed to launch AI Studio Engine: {exc}")
-        return {
-            "status": "error",
-            "available": False,
-            "message": f"Failed to start engine: {exc}",
-        }
+        ComfyUIClient._validate_and_normalize_url(f"http://{COMFY_HOST}:{COMFY_PORT}")
+        log_root = Path(__file__).resolve().parents[2] / "data" / "image-engine"
+        log_root.mkdir(parents=True, exist_ok=True)
+        with (log_root / "comfy.stdout.log").open("ab") as stdout, (log_root / "comfy.stderr.log").open("ab") as stderr:
+            _owned_process = subprocess.Popen(
+                [python_exe, main_py, "--listen", COMFY_HOST, "--port", str(COMFY_PORT), "--disable-auto-launch"],
+                cwd=COMFY_DIR, stdout=stdout, stderr=stderr,
+                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+        return {"status": "starting", "available": False, "pid": _owned_process.pid,
+                "message": "Local engine launched; wait for readiness."}
+    except (OSError, ValueError) as exc:
+        return {"status": "error", "available": False, "message": str(exc)}
 
 
 def stop_engine() -> Dict[str, Any]:
-    """
-    Cleanly terminate the ComfyUI engine process tree and release the port.
-    """
-    pid = find_process_on_port(COMFY_PORT)
-    if not pid:
-        if not is_engine_reachable():
-            return {
-                "status": "offline",
-                "available": False,
-                "message": "AI Studio Engine is already stopped.",
-            }
-
+    """Stop only the still-live child created by this manager, never an arbitrary port owner."""
+    global _owned_process
+    if _owned_process is None or _owned_process.poll() is not None:
+        return {"status": "unmanaged", "available": is_engine_reachable(),
+                "message": "No owned engine process to stop. Stop externally started ComfyUI from its launcher."}
     try:
-        if pid:
-            subprocess.run(["taskkill", "/F", "/T", "/PID", str(pid)], capture_output=True, check=False)
-            logger.info(f"Terminated AI Studio Engine process PID={pid}")
-        else:
-            # Fallback stop by port if PID wasn't found directly
-            kill_cmd = f'powershell -NoProfile -Command "Get-NetTCPConnection -LocalPort {COMFY_PORT} -State Listen -ErrorAction SilentlyContinue | ForEach-Object {{ Stop-Process -Id $_.OwningProcess -Force }}"'
-            subprocess.run(kill_cmd, shell=True, capture_output=True, check=False)
-
-        # Wait briefly for port release
-        time.sleep(0.5)
-        return {
-            "status": "offline",
-            "available": False,
-            "message": "AI Studio Engine stopped successfully.",
-        }
-    except Exception as exc:
-        logger.error(f"Failed to stop AI Studio Engine: {exc}")
-        return {
-            "status": "error",
-            "available": False,
-            "message": f"Failed to stop engine: {exc}",
-        }
+        _owned_process.terminate()
+        _owned_process.wait(timeout=10)
+        _owned_process = None
+        return {"status": "offline", "available": False, "message": "Owned engine process stopped."}
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        return {"status": "error", "available": True, "message": str(exc)}

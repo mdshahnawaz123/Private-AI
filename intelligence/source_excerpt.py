@@ -26,7 +26,7 @@ def _native_table_excerpt(question,evidence,sources):
     """
     from intelligence.table_evidence import table_row_units
     allowed={(str(s.get('source') or s.get('filename') or ''),
-              str(s.get('page') if s.get('page') is not None else 'UNPAGINATED'))
+              str(s.get('page') if s.get('page') is not None else 'UNPAGINATED').upper())
              for s in sources if isinstance(s,dict)}
     query_terms={t.casefold() for t in re.findall(r'[A-Za-z0-9]+',question)
                  if t.casefold() not in _TABLE_STOP and len(t)>1}
@@ -85,7 +85,7 @@ def _native_table_excerpt(question,evidence,sources):
 def _native_text_excerpt(question,evidence,sources):
     """Quote one unambiguous native sentence when a PDF answer is in prose."""
     allowed={(str(s.get('source') or s.get('filename') or ''),
-              str(s.get('page') if s.get('page') is not None else 'UNPAGINATED'))
+              str(s.get('page') if s.get('page') is not None else 'UNPAGINATED').upper())
              for s in sources if isinstance(s,dict)}
     query_terms={t.casefold() for t in re.findall(r'[A-Za-z0-9]+',question)
                  if t.casefold() not in _TEXT_STOP and len(t)>1}
@@ -134,7 +134,7 @@ def source_excerpt(question, evidence, sources):
         return (_native_table_excerpt(question,evidence,sources)
                 or _native_text_excerpt(question,evidence,sources))
     allowed={(str(s.get('source') or s.get('filename') or ''),
-              str(s.get('page') if s.get('page') is not None else 'UNPAGINATED'))
+              str(s.get('page') if s.get('page') is not None else 'UNPAGINATED').upper())
              for s in sources if isinstance(s,dict)}
     candidates=[]
     for key,body in _excerpts_by_page(evidence).items():

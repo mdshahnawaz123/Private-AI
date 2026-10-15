@@ -178,6 +178,11 @@ def process_document_pipeline(project_id, save_path, filename, resume=False, exp
 
         from knowledge.extraction import parse_generic_tables
 
+        # Same embedded image (same PDF xref) is often repeated on every page --
+        # logos, title-block artwork. Describe it once and reuse the result
+        # (this report: 114 image instances, only 50 distinct; 66 were two
+        # repeated header images re-sent to the vision model page after page).
+        xref_results = {}
         for i in range(len(doc)):
             if i+1 in completed_pages:
                 continue
@@ -440,7 +445,23 @@ def process_document_pipeline(project_id, save_path, filename, resume=False, exp
                 if itype in ("ENGINEERING_TABLE", "UNKNOWN"):
                     from services.vision_adapter import extract_visual_table
 
-                    res = extract_visual_table(img_path, text,drawing=True)
+                    # Ruled table inside the image -> cell-by-cell OCR grid
+                    # (services/image_tables.py); otherwise the usual OCR/vision.
+                    _grid = None
+                    try:
+                        from services.image_tables import table_from_image
+                        _grid = table_from_image(img_path)
+                    except Exception as _te:
+                        logger.warning(f"Image table detection failed for {img_filename}: {_te}")
+                    if _grid:
+                        res = {"success": True, "engine": "IMAGE_TABLE_CELL_OCR",
+                               "raw_text": "\n".join("| " + " | ".join(r) + " |" for r in _grid)}
+                    elif xref in xref_results:
+                        res = dict(xref_results[xref])
+                    else:
+                        res = extract_visual_table(img_path, text,drawing=True)
+                        if res.get("raw_text"):
+                            xref_results[xref] = dict(res)
                     ext_method = res.get("engine", "FAILED")
                     md_text = res.get("raw_text")
 

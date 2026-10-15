@@ -48,8 +48,8 @@ class TestImageEngineWorkflowRegistry(unittest.TestCase):
             width=1024,
             height=768,
             seed=123456,
-            steps=30,
-            cfg=8.0,
+            steps=4,
+            cfg=1.0,
         )
         graph = self.registry.build_prompt_graph(req)
 
@@ -117,6 +117,8 @@ class TestImageEngineWorkflowRegistry(unittest.TestCase):
         for name in ("UNETLoader", "CLIPLoader", "VAELoader", "ConditioningZeroOut",
                      "EmptyFlux2LatentImage", "RandomNoise", "KSamplerSelect",
                      "Flux2Scheduler", "CFGGuider", "SamplerCustomAdvanced"):
+            mock_object_info[name] = {}
+        for name in ("ImageScaleToTotalPixels", "ReferenceLatent", "GetImageSize"):
             mock_object_info[name] = {}
         missing_report = self.registry.validate_against_comfy_object_info(mock_object_info)
         # All standard nodes in our 3 starter workflows exist in mock_object_info

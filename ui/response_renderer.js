@@ -208,7 +208,8 @@
       body = summary + charts + metrics + tables + calcs + issues + sources;
     }
 
-    card.innerHTML = header + `<div class="rr-body">${body}</div>` + exportsBar;
+    const dash = structured.dashboard_url ? `<div style="margin:10px 0"><a href="${esc(structured.dashboard_url)}" target="_blank" rel="noopener" style="display:inline-block;background:#2f6bff;color:#fff;border-radius:8px;padding:7px 14px;font-weight:600;text-decoration:none">Open dashboard</a></div>` : '';
+    card.innerHTML = header + `<div class="rr-body">${dash}${body}</div>` + exportsBar;
     wire(card, structured);
     return card;
   }
@@ -220,8 +221,10 @@
       const cWrap = card.querySelector('.rr-charts-wrap');
       if(cWrap){
         cWrap.innerHTML = '';
-        structured.charts.forEach(chartSpec => {
-          window.ExpoChartRenderer.render(chartSpec, cWrap);
+        if (window.ExpoChartChat) window.ExpoChartChat.remember(structured.charts[0], window.__expoLastQuestion, (typeof currentProject !== 'undefined') ? currentProject : '');
+        structured.charts.forEach((chartSpec, i) => {
+          const w = window.ExpoChartRenderer.render(chartSpec, cWrap);
+          if (w && window.ExpoMotion) window.ExpoMotion.attach(w, { delay: 150 * i });
         });
       }
     }

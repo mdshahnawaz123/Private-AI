@@ -18,6 +18,11 @@
     '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
   }[c]));
 
+  function colorAt(spec, i){
+    const c = spec && Array.isArray(spec.colors) ? spec.colors[i] : null;
+    return (typeof c === 'string' && /^#[0-9a-f]{3,8}$/i.test(c)) ? c : COLORS[i % COLORS.length];
+  }
+
   function formatNum(n){
     if (n == null || isNaN(n)) return '—';
     return Number(n).toLocaleString(undefined, { maximumFractionDigits: 2 });
@@ -129,7 +134,7 @@
       const val = Number(d.value) || 0;
       const sliceAngle = (val / total) * 2 * Math.PI;
       const nextAngle = curAngle + sliceAngle;
-      const color = COLORS[i % COLORS.length];
+      const color = colorAt(spec, i);
 
       const x1 = cx + r * Math.cos(curAngle);
       const y1 = cy + r * Math.sin(curAngle);
@@ -176,6 +181,29 @@
       });
 
       svg.appendChild(path);
+      const showVals = spec.show_values != null ? spec.show_values : data.length <= 10;
+      if (showVals && val > 0 && val / total >= 0.03) {
+        const mid = curAngle + sliceAngle / 2;
+        const small = sliceAngle < 0.7;
+        const lr = small ? r + 16 : (isDonut ? (r + innerR) / 2 : r * 0.62);
+        const lt = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        lt.setAttribute('x', cx + lr * Math.cos(mid));
+        lt.setAttribute('y', cy + lr * Math.sin(mid) + 4);
+        lt.setAttribute('text-anchor', small ? (Math.cos(mid) >= 0 ? 'start' : 'end') : 'middle');
+        lt.setAttribute('fill', small ? '#e8eef7' : '#ffffff');
+        lt.setAttribute('font-size', '10');
+        lt.setAttribute('font-weight', '600');
+        const valTxt = (showPercentage || spec.percentage) ? pctStr : (formatNum(val) + ' (' + pctStr + ')');
+        if (spec.show_names) {
+          const nm = d.name.length > 18 ? d.name.slice(0, 17) + '…' : d.name;
+          const t1 = document.createElementNS('http://www.w3.org/2000/svg', 'tspan'); t1.setAttribute('x', lt.getAttribute('x')); t1.setAttribute('dy', '-0.3em'); t1.textContent = nm;
+          const t2 = document.createElementNS('http://www.w3.org/2000/svg', 'tspan'); t2.setAttribute('x', lt.getAttribute('x')); t2.setAttribute('dy', '1.15em'); t2.setAttribute('font-weight', '400'); t2.textContent = valTxt;
+          lt.appendChild(t1); lt.appendChild(t2);
+        } else {
+          lt.textContent = valTxt;
+        }
+        svg.appendChild(lt);
+      }
       curAngle = nextAngle;
     });
 
@@ -199,8 +227,8 @@
     const series = spec.series || [];
     if (!cats.length || !series.length) return null;
 
-    const width = 500, height = 260;
-    const padding = { top: 20, right: 20, bottom: 40, left: 50 };
+    const width = 560, height = 310;
+    const padding = { top: 20, right: 20, bottom: 64, left: 72 };
     const chartW = width - padding.left - padding.right;
     const chartH = height - padding.top - padding.bottom;
 
@@ -227,7 +255,7 @@
         const bH = (val / maxVal) * chartH;
         const bX = groupX + sIdx * barWidth;
         const bY = padding.top + chartH - bH;
-        const color = COLORS[sIdx % COLORS.length];
+        const color = colorAt(spec, sIdx);
 
         const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
         rect.setAttribute('x', bX);
@@ -250,6 +278,16 @@
         rect.addEventListener('mouseleave', () => { tooltip.style.display = 'none'; });
 
         svg.appendChild(rect);
+        if (spec.show_values) {
+          const vt = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+          vt.setAttribute('x', bX + barWidth / 2);
+          vt.setAttribute('y', bY - 4);
+          vt.setAttribute('text-anchor', 'middle');
+          vt.setAttribute('fill', '#e8eef7');
+          vt.setAttribute('font-size', numSeries > 1 || cats.length > 8 ? '8' : '10');
+          vt.textContent = formatNum(val);
+          svg.appendChild(vt);
+        }
       });
     });
 
@@ -262,8 +300,8 @@
     const series = spec.series || [];
     if (!cats.length || !series.length) return null;
 
-    const width = 500, height = 260;
-    const padding = { top: 20, right: 20, bottom: 40, left: 50 };
+    const width = 560, height = 310;
+    const padding = { top: 20, right: 20, bottom: 64, left: 72 };
     const chartW = width - padding.left - padding.right;
     const chartH = height - padding.top - padding.bottom;
 
@@ -290,7 +328,7 @@
         const val = Number((s.data || [])[cIdx]) || 0;
         const segH = (val / maxVal) * chartH;
         curY -= segH;
-        const color = COLORS[sIdx % COLORS.length];
+        const color = colorAt(spec, sIdx);
 
         const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
         rect.setAttribute('x', bX);
@@ -327,8 +365,8 @@
     const series = spec.series || [];
     if (!cats.length || !series.length) return null;
 
-    const width = 500, height = 260;
-    const padding = { top: 20, right: 20, bottom: 40, left: 50 };
+    const width = 560, height = 310;
+    const padding = { top: 20, right: 20, bottom: 64, left: 72 };
     const chartW = width - padding.left - padding.right;
     const chartH = height - padding.top - padding.bottom;
 
@@ -346,7 +384,7 @@
     const stepX = cats.length > 1 ? chartW / (cats.length - 1) : chartW / 2;
 
     series.forEach((s, sIdx) => {
-      const color = COLORS[sIdx % COLORS.length];
+      const color = colorAt(spec, sIdx);
       const points = [];
 
       (s.data || []).forEach((val, cIdx) => {
@@ -428,10 +466,14 @@
       const txt = document.createElementNS('http://www.w3.org/2000/svg', 'text');
       txt.setAttribute('x', x);
       txt.setAttribute('y', padding.top + chartH + 18);
-      txt.setAttribute('text-anchor', 'middle');
+      const tilt = catBand < 70;
+      txt.setAttribute('text-anchor', tilt ? 'end' : 'middle');
+      if (tilt) txt.setAttribute('transform', `rotate(-35 ${x} ${padding.top + chartH + 14})`);
       txt.setAttribute('fill', '#8ea0ba');
       txt.setAttribute('font-size', '10.5');
-      txt.textContent = cat.length > 14 ? (cat.slice(0, 12) + '…') : cat;
+      const maxc = tilt ? 18 : 14;
+      txt.textContent = cat.length > maxc ? (cat.slice(0, maxc - 2) + '…') : cat;
+      const tt = document.createElementNS('http://www.w3.org/2000/svg', 'title'); tt.textContent = cat; txt.appendChild(tt);
       svg.appendChild(txt);
     });
   }
@@ -441,9 +483,9 @@
     let items = [];
     if (chartType === 'pie' || chartType === 'donut') {
       const data = spec.data || (spec.series && spec.series[0] && spec.series[0].data) || [];
-      items = data.map((d, i) => ({ name: d.name, color: COLORS[i % COLORS.length] }));
+      items = data.map((d, i) => ({ name: d.name, color: colorAt(spec, i) }));
     } else {
-      items = (spec.series || []).map((s, i) => ({ name: s.name, color: COLORS[i % COLORS.length] }));
+      items = (spec.series || []).map((s, i) => ({ name: s.name, color: colorAt(spec, i) }));
     }
 
     if (!items.length) return null;

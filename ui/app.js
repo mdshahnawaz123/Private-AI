@@ -850,6 +850,7 @@ let _studioPollTimer = null;
 let _studioWorkflows = [];
 let _studioSelectedAspect = { width: 1024, height: 1024 };
 let _studioSelectedFile = null;
+let _studioSelectedMask = null;
 let _studioActiveJob = null;
 let _studioJobs = [];
 let _studioEngineStatus = null;
@@ -915,12 +916,27 @@ async function renderStudio(b){
           </div>
         </div>
 
+        <div class="studio-field">
+          <label for="studioDesignMode">Design intent</label>
+          <select class="studio-input" id="studioDesignMode"><option value="concept">New concept</option><option value="materials">Change finishes only</option><option value="enhancement">Improve render quality only</option><option value="creative_facade">Redesign facade screen — keep building shape</option></select>
+          <div style="font-size:11px;color:var(--faint);margin-top:6px">Screen redesign changes the outer pattern and screen materials. Keep the building shape, floors, structure, openings and camera fixed. Review generated geometry before use.</div>
+          <label for="studioMaskFile">Protect area outside facade screen (optional)</label>
+          <input class="studio-input" type="file" id="studioMaskFile" accept="image/png">
+          <div style="font-size:11px;color:var(--faint)">Upload an opaque black-and-white PNG matching the upright reference dimensions. White = replace screen area; black = retain original pixels. Include openings and structure in black. This composites the generated screen; inspect alignment and edges.</div>
+          <button type="button" class="studio-enhance-btn" id="studioMaskClear">Remove mask</button>
+          <label for="studioProtected">Keep unchanged</label>
+          <input class="studio-input" id="studioProtected" maxlength="600" placeholder="Additional elements to protect, separated by commas">
+          <label for="studioMaterials">Material palette</label>
+          <input class="studio-input" id="studioMaterials" maxlength="600" placeholder="For example: warm limestone, bronze screens, clear glass">
+          <label for="studioLighting">Lighting</label>
+          <input class="studio-input" id="studioLighting" maxlength="300" placeholder="Keep the source lighting, or describe the requested change">
+        </div>
         <!-- Prompt Field -->
         <div class="studio-field">
           <div style="display:flex;align-items:center;justify-content:space-between">
             <label for="studioPrompt">Architectural Prompt</label>
             <button type="button" class="studio-enhance-btn" id="studioEnhanceBtn" title="Use AI reasoning (qwen3.5:9b) to enrich materials, lighting, and composition">
-              <span>✨ Enhance with Reasoning</span>
+              <span>Develop 3 options</span>
             </button>
           </div>
           <textarea class="studio-textarea" id="studioPrompt" placeholder="Describe architectural geometry, materials, facade, lighting, surrounding landscape..."></textarea>
@@ -933,8 +949,10 @@ async function renderStudio(b){
             <div id="studioConstraintsWrap" class="studio-constraints-wrap" style="display:none"></div>
             <div id="studioReasoningText"></div>
             <div id="studioDesignOptionsWrap" style="display:none">
-              <div style="font-size:10px;font-weight:700;color:var(--accent2);letter-spacing:.3px;margin:8px 0 4px 0;text-transform:uppercase">Architectural Design Schemes (Click to apply)</div>
-              <div id="studioDesignOptionsList" class="studio-design-options"></div>
+              <div style="font-size:10px;font-weight:700;color:var(--accent2);letter-spacing:.3px;margin:8px 0 4px 0;text-transform:uppercase">Compare design proposals — select an option</div>
+              <div id="studioDesignOptionsList" class="studio-design-options" style="grid-template-columns:1fr"></div>
+              <button type="button" class="studio-enhance-btn" id="studioRenderAlternatives">Generate all 3 previews</button>
+              <div style="font-size:11px;color:var(--muted);margin-top:6px">Uses the same reference and seed. Compare geometry manually; these previews are not validated drawings.</div>
             </div>
           </div>
 
@@ -1287,7 +1305,19 @@ function _wireStudioControls(){
         }
         const desc = $('studioWfDesc');
         if(desc) desc.textContent = wf.description || '';
-        const reqImg = wf.category === 'sketch_to_render' || wf.category === 'render_enhancement';
+        const reqImg = (wf.parameters || []).some(p => p.type === 'image' && p.required);
+        const auto = $('studioAutoEnhance'), enhance = $('studioEnhanceBtn');
+        if(auto){ auto.disabled = reqImg; if(reqImg) auto.checked = false; }
+        if(enhance){ enhance.disabled = false; enhance.title = 'Develop three proposals from a structured written brief'; }
+        const mode = $('studioDesignMode');
+        if(mode){ mode.value = reqImg ? (wf.category === 'enhancement' ? 'enhancement' : 'materials') : 'concept';
+          Array.from(mode.options).forEach(option => option.disabled = reqImg ? option.value === 'concept' : option.value !== 'concept'); }
+        document.querySelectorAll('.studio-res-btn').forEach(button => {
+          button.disabled = reqImg;
+          button.title = reqImg ? 'Reference image framing determines the output size' : 'Choose concept output size';
+        });
+        const negative = $('studioNegPrompt');
+        if(negative){ negative.disabled = !(wf.parameters || []).some(p => p.name === 'negative_prompt'); if(negative.disabled) negative.value = ''; }
         const lbl = $('studioDropzoneLabel');
         if(lbl) lbl.innerHTML = reqImg ? 'Reference Image / Sketch <b style="color:var(--accent2)">(Required)</b>' : 'Reference Image / Sketch <span style="font-weight:400;color:var(--faint)">(Optional)</span>';
       }
@@ -1309,6 +1339,8 @@ function _wireStudioControls(){
     if(!f.type.startsWith('image/')){ toast('Only image files (PNG, JPG, WEBP) are supported'); return; }
     if(f.size > 25 * 1024 * 1024){ toast('Image file exceeds 25 MB limit'); return; }
     _studioSelectedFile = f;
+    _studioSelectedMask = null;
+    if($('studioMaskFile')) $('studioMaskFile').value = '';
     const url = URL.createObjectURL(f);
     if(previewImg) previewImg.src = url;
     if(previewWrap) previewWrap.style.display = '';
@@ -1330,11 +1362,26 @@ function _wireStudioControls(){
     removeBtn.onclick = e => {
       e.stopPropagation();
       _studioSelectedFile = null;
+      _studioSelectedMask = null;
+      if($('studioMaskFile')) $('studioMaskFile').value = '';
       if(fileInput) fileInput.value = '';
       if(previewWrap) previewWrap.style.display = 'none';
       if(dropContent) dropContent.style.display = '';
     };
   }
+
+  const maskInput = $('studioMaskFile');
+  if(maskInput) maskInput.onchange = () => {
+    const file = maskInput.files[0];
+    if(file && (!_studioSelectedFile || file.type !== 'image/png' || file.size > 25*1024*1024)){
+      toast('Select a reference first, then a PNG mask up to 25 MB');
+      maskInput.value = ''; _studioSelectedMask = null; return;
+    }
+    _studioSelectedMask = file || null;
+  };
+  if($('studioMaskClear')) $('studioMaskClear').onclick = () => {
+    _studioSelectedMask = null; if(maskInput) maskInput.value = '';
+  };
 
   // Preset chips
   const chips = $('studioChips');
@@ -1359,6 +1406,7 @@ function _wireStudioControls(){
   const designOptionsList = $('studioDesignOptionsList');
   const revertLink = $('studioRevertPrompt');
   let _preEnhancedPrompt = '';
+  let _proposalSnapshot = null;
 
   const _escHtml = (s) => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
@@ -1380,20 +1428,27 @@ function _wireStudioControls(){
           body: JSON.stringify({
             prompt: curPrompt,
             building_type: 'Architecture',
-            architectural_style: 'Contemporary'
+            architectural_style: 'Contemporary',
+            mode: $('studioDesignMode')?.value || 'concept',
+            protected_elements: ($('studioProtected')?.value || '').split(',').map(s=>s.trim()).filter(Boolean),
+            materials: $('studioMaterials')?.value || '',
+            lighting: $('studioLighting')?.value || ''
           })
         });
         if(res.ok){
           const data = await res.json();
           if(data.success && data.enhanced_prompt){
             _preEnhancedPrompt = curPrompt;
+            _proposalSnapshot = { project: currentProject, workflow: wfSel.value, reference: _studioSelectedFile, mask: _studioSelectedMask, options: data.design_options };
+            if($('studioRenderAlternatives')) $('studioRenderAlternatives').disabled = false;
             promptEl.value = data.enhanced_prompt;
+            if(data.error) toast(data.error);
 
             // Render preserved constraints
             if(constraintsWrap){
               if(data.preserved_constraints && data.preserved_constraints.length){
                 constraintsWrap.innerHTML = data.preserved_constraints.map(c => 
-                  `<span class="studio-constraint-badge" title="Hard constraint strictly preserved">🔒 ${_escHtml(c)}</span>`
+                  `<span class="studio-constraint-badge" title="Requested constraint — requires visual verification">Keep: ${_escHtml(c)}</span>`
                 ).join('');
                 constraintsWrap.style.display = 'flex';
               } else {
@@ -1415,7 +1470,9 @@ function _wireStudioControls(){
                       <span>${_escHtml(opt.title)}</span>
                     </div>
                     ${opt.style ? `<div class="studio-design-card-style">${_escHtml(opt.style)}</div>` : ''}
-                    ${opt.rationale ? `<div class="studio-design-card-rationale">${_escHtml(opt.rationale)}</div>` : ''}
+                    ${opt.rationale ? `<div style="font-size:12px;line-height:1.5;margin-top:8px">${_escHtml(opt.rationale)}</div>` : ''}
+                    <div style="font-size:12px;line-height:1.6;margin-top:6px"><b>Materials:</b> ${_escHtml(opt.materials)}<br><b>Change:</b> ${_escHtml(opt.changes)}<br><b>Shading:</b> ${_escHtml(opt.shading_strategy)}</div>
+                    <details style="font-size:11px;margin-top:8px"><summary>Review full rendering brief</summary><div style="white-space:pre-wrap;line-height:1.5">${_escHtml(opt.prompt)}</div></details>
                   </div>
                 `).join('');
                 designOptionsWrap.style.display = '';
@@ -1468,6 +1525,40 @@ function _wireStudioControls(){
     };
   }
 
+  const renderAlternatives = $('studioRenderAlternatives');
+  if(renderAlternatives) renderAlternatives.onclick = async () => {
+    const snapshot = _proposalSnapshot;
+    if(!snapshot || snapshot.options.length !== 3){ toast('Develop three options first'); return; }
+    if(snapshot.project !== currentProject || snapshot.workflow !== wfSel.value || snapshot.reference !== _studioSelectedFile || snapshot.mask !== _studioSelectedMask){ toast('Reference, mask or workflow changed. Develop the options again.'); return; }
+    const wf = _studioWorkflows.find(w=>w.id===snapshot.workflow);
+    const requiresImage = (wf.parameters || []).some(p=>p.type==='image' && p.required);
+    if(requiresImage && !snapshot.reference){ toast('Upload the reference image first'); return; }
+    const randomSeed = new Uint32Array(1); crypto.getRandomValues(randomSeed);
+    const requestedSeed = $('studioSeed')?.value.trim();
+    const seed = requestedSeed ? Number(requestedSeed) : randomSeed[0];
+    if(!Number.isSafeInteger(seed) || seed<0){toast('Enter a valid seed');return;}
+    const settings = {width:_studioSelectedAspect.width,height:_studioSelectedAspect.height,steps:Number($('studioSteps')?.value||20),cfg:Number($('studioCfg')?.value||5),seed};
+    renderAlternatives.disabled = true;
+    let submitted = 0;
+    try {
+      for(const option of snapshot.options){
+        const payload = {project:snapshot.project,workflow_id:snapshot.workflow,prompt:option.prompt,...settings,enhance_prompt:false};
+        let response;
+        if(snapshot.reference){
+          const form = new FormData();Object.entries(payload).forEach(([k,v])=>form.append(k,String(v)));
+          form.append('input_image',snapshot.reference);
+          if(snapshot.mask) form.append('edit_mask',snapshot.mask);
+          response = await fetch(`${API}/api/image-engine/jobs`,{method:'POST',body:form});
+        }else response = await fetch(`${API}/api/image-engine/jobs`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+        const result = await response.json();
+        if(!response.ok) throw new Error(result.detail || 'Preview submission failed');
+        submitted++;
+      }
+      toast(`Queued ${submitted} previews with the same seed ${seed}`);
+    }catch(error){toast(`${submitted} previews queued; ${error.message}. Submitted jobs are retained.`);}
+    finally{ renderAlternatives.disabled=submitted>0; await _loadStudioJobs(); _updateActiveJobUI(); }
+  };
+
   // Aspect ratio buttons
   document.querySelectorAll('.studio-res-btn').forEach(btn => {
     btn.onclick = () => {
@@ -1518,7 +1609,7 @@ function _wireStudioControls(){
 
       const wfId = wfSel ? wfSel.value : 'architecture_concept';
       const wf = _studioWorkflows.find(w => w.id === wfId);
-      if(wf && (wf.category === 'sketch_to_render' || wf.category === 'render_enhancement') && !_studioSelectedFile){
+      if(wf && (wf.parameters || []).some(p => p.type === 'image' && p.required) && !_studioSelectedFile){
         toast('This workflow requires a reference sketch or image');
         return;
       }
@@ -1548,6 +1639,7 @@ function _wireStudioControls(){
           fd.append('cfg', String(cfg));
           if(seed !== null && !isNaN(seed)) fd.append('seed', String(seed));
           fd.append('input_image', _studioSelectedFile);
+          if(_studioSelectedMask) fd.append('edit_mask', _studioSelectedMask);
           fd.append('enhance_prompt', String(autoEnhance));
 
           res = await fetch(`${API}/api/image-engine/jobs`, {
@@ -1559,7 +1651,7 @@ function _wireStudioControls(){
             project: currentProject,
             workflow_id: wfId,
             prompt: prompt,
-            negative_prompt: neg || null,
+            negative_prompt: ($('studioNegPrompt')?.disabled ? null : neg || null),
             width: _studioSelectedAspect.width,
             height: _studioSelectedAspect.height,
             steps: steps,
@@ -1766,7 +1858,7 @@ function _openStudioLightbox(out, job){
           <div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid rgba(255,255,255,.06)"><span class="muted">Workflow</span><b>${esc(job.workflow_id)}</b></div>
           <div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid rgba(255,255,255,.06)"><span class="muted">Resolution</span><b>${out.width} × ${out.height}</b></div>
           <div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid rgba(255,255,255,.06)"><span class="muted">Steps / CFG</span><b>${out.metadata?.steps ?? 4} / CFG ${out.metadata?.cfg ?? 1.0}</b></div>
-          <div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid rgba(255,255,255,.06)"><span class="muted">Seed</span><b>${job.seed!=null?job.seed:'Auto'}</b></div>
+          <div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid rgba(255,255,255,.06)"><span class="muted">Seed</span><b>${out.seed!=null?out.seed:'Unavailable'}</b></div>
           <div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid rgba(255,255,255,.06)"><span class="muted">Generated</span><span>${esc(dateStr)}</span></div>
         </div>
 
@@ -2385,7 +2477,7 @@ async function sendAi(standards){ const t=$('aiIn'); const q=t.value.trim();
     const _focus=(ctxDoc&&!useCowork&&['documents','specifications','drawings','schedules'].includes(currentDest))?(ctxDoc.rel||''):'';
     if(_focus) scoped=`Regarding "${ctxDoc.filename}": `+scoped;
     window.__expoVizQ=false; const _attId=useCowork?null:((currentAttachment&&currentAttachment.id)||null);
-    const askBody={project:currentProject,query:prefix+scoped,messages:aiHist.slice(-8),k:8,focus_doc:_focus,attachment_id:_attId};
+    const askBody={project:currentProject,query:prefix+scoped,messages:aiHist.slice(-8),k:8,model:'qwen3.5:9b',focus_doc:_focus,attachment_id:_attId};
     if(useCowork) askBody.mode='cowork';
     window.__expoLastQuestion=q; window.__expoVizQ=/\b(chart|graph|plot|visuali[sz]\w*|dashboard|pie|donut|histogram|infographic)\b/i.test(q)&&!/flow\s*chart/i.test(q);
     if(!useCowork&&window.ExpoChartChat&&window.ExpoChartChat.last){ try{ const ed=await window.ExpoChartChat.tryEdit(q,currentProject);

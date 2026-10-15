@@ -352,57 +352,69 @@ class CadService:
         doc = ezdxf.new("R2000")
         msp = doc.modelspace()
 
+        def _lname(n):
+            # DXF layer names cannot contain < > / \ " : ; ? * | = ` and must not be empty
+            n = re.sub(r'[<>/\\":;?*|=`]', "_", str(n or "0")).strip()[:255]
+            return n or "0"
+
+        def _f(v, default=0.0):
+            try:
+                x = float(v)
+            except (TypeError, ValueError):
+                return float(default)
+            return x if math.isfinite(x) else float(default)
+
         # Add layers
         if layers:
             for l in layers:
-                lname = l.get("name", "0")
+                lname = _lname(l.get("name", "0"))
                 if lname not in doc.layers:
                     doc.layers.add(lname)
 
         for ent in entities:
             etype = ent.get("type", "").upper()
-            layer = ent.get("layer", "0")
+            layer = _lname(ent.get("layer", "0"))
             if layer not in doc.layers:
                 doc.layers.add(layer)
 
             dxf_attribs = {"layer": layer}
 
             if etype == "LINE":
-                x1, y1 = ent.get("x1", 0.0), ent.get("y1", 0.0)
-                x2, y2 = ent.get("x2", 0.0), ent.get("y2", 0.0)
+                x1, y1 = _f(ent.get("x1"), 0.0), _f(ent.get("y1"), 0.0)
+                x2, y2 = _f(ent.get("x2"), 0.0), _f(ent.get("y2"), 0.0)
                 msp.add_line((x1, y1), (x2, y2), dxfattribs=dxf_attribs)
 
             elif etype in ("POLYLINE", "RECTANGLE"):
-                pts = ent.get("points")
+                pts = [(_f(p[0]), _f(p[1])) for p in (ent.get("points") or []) if isinstance(p, (list, tuple)) and len(p) >= 2]
                 if not pts and etype == "RECTANGLE":
-                    rx, ry = ent.get("x", 0.0), ent.get("y", 0.0)
-                    rw, rh = ent.get("width", 10.0), ent.get("height", 10.0)
+                    rx, ry = _f(ent.get("x"), 0.0), _f(ent.get("y"), 0.0)
+                    rw, rh = _f(ent.get("width"), 10.0), _f(ent.get("height"), 10.0)
                     pts = [(rx, ry), (rx + rw, ry), (rx + rw, ry + rh), (rx, ry + rh)]
                 if pts:
                     is_closed = bool(ent.get("closed", True if etype == "RECTANGLE" else False))
                     msp.add_lwpolyline(pts, close=is_closed, dxfattribs=dxf_attribs)
 
             elif etype == "CIRCLE":
-                cx, cy = ent.get("cx", 0.0), ent.get("cy", 0.0)
-                r = ent.get("radius", 5.0)
+                cx, cy = _f(ent.get("cx"), 0.0), _f(ent.get("cy"), 0.0)
+                r = _f(ent.get("radius"), 5.0)
                 msp.add_circle((cx, cy), radius=r, dxfattribs=dxf_attribs)
 
             elif etype == "ARC":
-                cx, cy = ent.get("cx", 0.0), ent.get("cy", 0.0)
-                r = ent.get("radius", 5.0)
-                sa = ent.get("start_angle", 0.0)
-                ea = ent.get("end_angle", 180.0)
+                cx, cy = _f(ent.get("cx"), 0.0), _f(ent.get("cy"), 0.0)
+                r = _f(ent.get("radius"), 5.0)
+                sa = _f(ent.get("start_angle"), 0.0)
+                ea = _f(ent.get("end_angle"), 180.0)
                 msp.add_arc((cx, cy), radius=r, start_angle=sa, end_angle=ea, dxfattribs=dxf_attribs)
 
             elif etype == "TEXT":
-                txt = ent.get("text", "")
-                tx, ty = ent.get("x", 0.0), ent.get("y", 0.0)
-                h = ent.get("height", 2.5)
+                txt = str(ent.get("text", ""))[:2000]
+                tx, ty = _f(ent.get("x"), 0.0), _f(ent.get("y"), 0.0)
+                h = _f(ent.get("height"), 2.5)
                 msp.add_text(txt, dxfattribs={**dxf_attribs, "height": h}).set_placement((tx, ty))
 
             elif etype == "DIMENSION":
-                x1, y1 = ent.get("x1", 0.0), ent.get("y1", 0.0)
-                x2, y2 = ent.get("x2", 0.0), ent.get("y2", 0.0)
+                x1, y1 = _f(ent.get("x1"), 0.0), _f(ent.get("y1"), 0.0)
+                x2, y2 = _f(ent.get("x2"), 0.0), _f(ent.get("y2"), 0.0)
                 dist = math.hypot(x2 - x1, y2 - y1)
                 text = ent.get("text") or f"{dist:.0f}"
                 # Add dimension linework and text

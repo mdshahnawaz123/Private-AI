@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Expo Design AI - Dashboard</title>
+<link rel="stylesheet" href="/ui/fonts.css?v=2">
+<style>
+:root{--bg:#0a0f1a;--panel:#0f1828;--card:#111c30;--border:#1e2c45;--border2:#28395a;--text:#e8eef7;--muted:#8ea0ba;--faint:#5f6f87;--accent:#2f6bff;--green:#35d07f;--amber:#f5b73d;--violet:#8a6cff;--cyan:#31d0c5}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,"Segoe UI",system-ui,Arial,sans-serif;font-size:13px}
+header{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:18px 28px;border-bottom:1px solid var(--border);background:var(--panel);position:sticky;top:0;z-index:5}
+h1{font-size:18px;margin:0;font-weight:700}
+.sub{color:var(--muted);font-size:12px;margin-top:3px}
+.btn{background:#16233b;border:1px solid var(--border2);color:var(--text);border-radius:8px;padding:7px 14px;font-size:12px;cursor:pointer}
+.btn.primary{background:var(--accent);border-color:var(--accent)}
+main{padding:22px 28px 60px;max-width:1500px;margin:0 auto}
+.kpis{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px;margin-bottom:22px}
+.kpi{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px 16px;position:relative;overflow:hidden;opacity:0;transform:translateY(8px);animation:rise .5s ease forwards}
+.kpi::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--c,var(--accent))}
+.kpi .l{color:var(--muted);font-size:11.5px;line-height:1.35;min-height:30px}
+.kpi .v{font-size:24px;font-weight:700;margin-top:6px;font-variant-numeric:tabular-nums}
+.kpi .c{color:var(--faint);font-size:11px;margin-top:4px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(460px,1fr));gap:14px}
+.cell{opacity:0;animation:rise .5s ease forwards}
+h2{font-size:14px;margin:28px 0 10px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.06em}
+.tbl{background:var(--card);border:1px solid var(--border);border-radius:12px;margin-bottom:14px;overflow:auto}
+.tbl .t{padding:10px 14px;font-weight:600;border-bottom:1px solid var(--border)}
+table{border-collapse:collapse;width:100%;font-size:12px}
+th,td{padding:6px 10px;border-bottom:1px solid var(--border);text-align:left;white-space:nowrap}
+th{color:var(--muted);font-weight:600;background:#0d1626;position:sticky;top:0}
+td.n{text-align:right;font-variant-numeric:tabular-nums}
+.empty,.err{padding:40px;text-align:center;color:var(--muted)}
+@keyframes rise{to{opacity:1;transform:none}}
+@media (max-width:640px){header,main{padding-left:16px;padding-right:16px}.grid{grid-template-columns:1fr}}
+@media (prefers-reduced-motion:reduce){.kpi,.cell{animation:none;opacity:1;transform:none}}
+</style>
+</head>
+<body>
+<header>
+  <div><h1 id="title">Dashboard</h1><div class="sub" id="sub">Loading...</div></div>
+  <div style="display:flex;gap:8px"><button class="btn" id="replay">Replay animation</button><button class="btn primary" onclick="window.print()">Print / PDF</button></div>
+</header>
+<main id="main"><div class="empty">Building dashboard from the file...</div></main>
+<script src="/ui/vendor_components/chart_renderer.js?v=6"></script>
+<script src="/ui/vendor_components/expo_motion.js?v=2"></script>
+<script>
+(async function(){
+  const q = new URLSearchParams(location.search);
+  const project = q.get('project') || '', filename = q.get('filename') || '';
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const isNum = s => /^[-+]?[\d,]*\.?\d+%?$/.test(String(s).replace(/\s/g,''));
+  const colors = ['#2f6bff','#35d07f','#8a6cff','#f5b73d','#31d0c5','#f2585f','#ff8d3b','#60a5fa'];
+  document.getElementById('title').textContent = filename || 'Dashboard';
+  let token = null; try { token = localStorage.getItem('expo_token'); } catch(e) {}
+  const main = document.getElementById('main');
+  let d;
+  try {
+    const r = await fetch('/projects/' + encodeURIComponent(project) + '/dashboard?filename=' + encodeURIComponent(filename), { headers: token ? { Authorization: 'Bearer ' + token } : {} });
+    if (!r.ok) throw new Error(r.status === 401 ? 'Please sign in to Expo Design AI first, then reopen this link.' : 'Could not build the dashboard (' + r.status + ').');
+    d = await r.json();
+  } catch (e) { main.innerHTML = '<div class="err">' + esc(e.message) + '</div>'; document.getElementById('sub').textContent = ''; return; }
+  document.getElementById('sub').textContent = project + ' - ' + d.table_count + ' tables found - all values computed from the file (built in ' + d.built_in_s + ' s)';
+  let html = '';
+  if (d.kpis.length) html += '<div class="kpis">' + d.kpis.map((k, i) => `<div class="kpi" style="--c:${colors[i % colors.length]};animation-delay:${i * 70}ms"><div class="l">${esc(k.label)}</div><div class="v" data-v="${k.value}">0</div><div class="c">${k.count > 1 ? "Total of " + k.count + " rows" : esc(k.context)}</div></div>`).join('') + '</div>';
+  if (d.charts.length) html += '<h2>Charts</h2><div class="grid" id="charts"></div>';
+  if (d.tables.length) html += '<h2>Data</h2>' + d.tables.map(t => `<div class="tbl"><div class="t">${esc(t.title.replace('Sheet: ',''))} <span style="color:var(--faint);font-weight:400">- showing ${t.rows.length} of ${t.total_rows} rows</span></div><table><thead><tr>${t.columns.map(c => '<th>' + esc(c) + '</th>').join('')}</tr></thead><tbody>${t.rows.map(r => '<tr>' + t.columns.map((_, j) => `<td class="${isNum(r[j] || '') ? 'n' : ''}">${esc(r[j] || '')}</td>`).join('') + '</tr>').join('')}</tbody></table></div>`).join('');
+  if (!html) html = '<div class="empty">No numeric tables were found in this file.</div>';
+  main.innerHTML = html;
+  const counters = () => document.querySelectorAll('.kpi .v').forEach(el => window.ExpoMotion.countUp(el, +el.dataset.v, 1400));
+  counters();
+  const grid = document.getElementById('charts'); const wraps = [];
+  (d.charts || []).forEach((spec, i) => {
+    const cell = document.createElement('div'); cell.className = 'cell'; cell.style.animationDelay = (200 + i * 120) + 'ms';
+    grid.appendChild(cell);
+    const w = window.ExpoChartRenderer.render(spec, cell);
+    if (w) { w.style.margin = '0'; wraps.push(w); window.ExpoMotion.attach(w, { delay: 250 + i * 160 }); }
+  });
+  document.getElementById('replay').onclick = () => { counters(); document.querySelectorAll('[data-motion="Replay"]').forEach((b, i) => setTimeout(() => b.click(), i * 160)); };
+})();
+</script>
+</body>
+</html>

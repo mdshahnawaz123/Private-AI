@@ -1,0 +1,152 @@
+{
+  "_meta": {
+    "id": "sketch_to_render",
+    "name": "Sketch to Render",
+    "version": "1.0.0",
+    "category": "sketch",
+    "description": "Generates visual architectural concepts conditioned on an uploaded sketch, hand drawing, or massing study.",
+    "license_notes": "Outputs are AI-generated conceptual visualizations; does not promise structural geometry preservation.",
+    "parameters": [
+      {
+        "name": "prompt",
+        "type": "string",
+        "label": "Design Vision",
+        "description": "Materials, lighting, environment, and architectural style to apply to the sketch",
+        "required": true
+      },
+      {
+        "name": "input_image_path",
+        "type": "image",
+        "label": "Input Sketch / Massing",
+        "description": "Uploaded drawing or massing reference",
+        "required": true
+      },
+      {
+        "name": "denoise",
+        "type": "float",
+        "label": "Transformation Strength",
+        "description": "How strongly the AI alters the sketch (0.35 = close to lines, 0.75 = major reinterpretation)",
+        "default": 0.65,
+        "min_value": 0.2,
+        "max_value": 0.95
+      },
+      {
+        "name": "steps",
+        "type": "integer",
+        "label": "Steps",
+        "default": 25,
+        "min_value": 15,
+        "max_value": 50
+      },
+      {
+        "name": "cfg",
+        "type": "float",
+        "label": "CFG Scale",
+        "default": 7.0,
+        "min_value": 1.0,
+        "max_value": 15.0
+      },
+      {
+        "name": "seed",
+        "type": "integer",
+        "label": "Seed",
+        "default": null
+      }
+    ]
+  },
+  "1": {
+    "class_type": "CheckpointLoaderSimple",
+    "inputs": {
+      "ckpt_name": "architectural_concept_v1.safetensors"
+    }
+  },
+  "2": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "sketch_input.png"
+    }
+  },
+  "3": {
+    "class_type": "VAEEncode",
+    "inputs": {
+      "pixels": [
+        "2",
+        0
+      ],
+      "vae": [
+        "1",
+        2
+      ]
+    }
+  },
+  "4": {
+    "class_type": "CLIPTextEncode",
+    "inputs": {
+      "clip": [
+        "1",
+        1
+      ],
+      "text": "Photorealistic architectural render based on hand sketch, natural sunlight, glass and steel facade"
+    }
+  },
+  "5": {
+    "class_type": "CLIPTextEncode",
+    "inputs": {
+      "clip": [
+        "1",
+        1
+      ],
+      "text": "low quality, distorted lines, artifacts, text, annotations, messy background"
+    }
+  },
+  "6": {
+    "class_type": "KSampler",
+    "inputs": {
+      "cfg": 7.0,
+      "denoise": 0.65,
+      "latent_image": [
+        "3",
+        0
+      ],
+      "model": [
+        "1",
+        0
+      ],
+      "negative": [
+        "5",
+        0
+      ],
+      "positive": [
+        "4",
+        0
+      ],
+      "sampler_name": "euler_ancestral",
+      "scheduler": "karras",
+      "seed": 42,
+      "steps": 25
+    }
+  },
+  "7": {
+    "class_type": "VAEDecode",
+    "inputs": {
+      "samples": [
+        "6",
+        0
+      ],
+      "vae": [
+        "1",
+        2
+      ]
+    }
+  },
+  "8": {
+    "class_type": "SaveImage",
+    "inputs": {
+      "filename_prefix": "ExpoSketchRender",
+      "images": [
+        "7",
+        0
+      ]
+    }
+  }
+}

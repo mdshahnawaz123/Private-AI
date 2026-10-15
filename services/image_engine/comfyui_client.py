@@ -80,7 +80,9 @@ class ComfyUIClient:
         clean = url.rstrip("/")
         parsed = urlparse(clean)
         hostname = (parsed.hostname or "").lower()
-        if hostname not in ("127.0.0.1", "localhost", "::1"):
+        if (hostname not in ("127.0.0.1", "localhost", "::1")
+                or parsed.scheme != "http" or parsed.username or parsed.password
+                or parsed.path not in ("", "/") or parsed.query or parsed.fragment):
             raise ValueError(
                 f"Security violation: ComfyUI must be bound to localhost (got {hostname!r})"
             )
@@ -100,7 +102,7 @@ class ComfyUIClient:
         """
         try:
             fast_timeout = httpx.Timeout(2.0, connect=0.5)
-            async with httpx.AsyncClient(timeout=fast_timeout) as client:
+            async with httpx.AsyncClient(trust_env=False, timeout=fast_timeout) as client:
                 resp = await client.get(f"{self.base_url}/system_stats")
                 if resp.status_code != 200:
                     return EngineStatus(
@@ -147,7 +149,7 @@ class ComfyUIClient:
             return self._cached_object_info
 
         try:
-            async with httpx.AsyncClient(timeout=10.0) as client:
+            async with httpx.AsyncClient(trust_env=False, timeout=10.0) as client:
                 resp = await client.get(f"{self.base_url}/object_info")
                 if resp.status_code != 200:
                     raise ComfyUIConnectionError(
@@ -167,7 +169,7 @@ class ComfyUIClient:
         payload = {"prompt": workflow, "client_id": cid}
 
         try:
-            async with httpx.AsyncClient(timeout=15.0) as client:
+            async with httpx.AsyncClient(trust_env=False, timeout=15.0) as client:
                 resp = await client.post(f"{self.base_url}/prompt", json=payload)
                 if resp.status_code == 400:
                     err_body = resp.text
@@ -193,7 +195,7 @@ class ComfyUIClient:
     async def get_history(self, prompt_id: str) -> Optional[Dict[str, Any]]:
         """Fetch execution history and generated image references for a prompt ID."""
         try:
-            async with httpx.AsyncClient(timeout=10.0) as client:
+            async with httpx.AsyncClient(trust_env=False, timeout=10.0) as client:
                 resp = await client.get(f"{self.base_url}/history/{prompt_id}")
                 if resp.status_code != 200:
                     return None
@@ -210,7 +212,7 @@ class ComfyUIClient:
         """
         params = {"filename": filename, "subfolder": subfolder, "type": folder_type}
         try:
-            async with httpx.AsyncClient(timeout=30.0) as client:
+            async with httpx.AsyncClient(trust_env=False, timeout=30.0) as client:
                 resp = await client.get(f"{self.base_url}/view", params=params)
                 if resp.status_code != 200:
                     raise ComfyUIError(f"Failed to retrieve image {filename!r}: HTTP {resp.status_code}")
@@ -237,7 +239,7 @@ class ComfyUIClient:
         data = {"overwrite": "true" if overwrite else "false"}
 
         try:
-            async with httpx.AsyncClient(timeout=30.0) as client:
+            async with httpx.AsyncClient(trust_env=False, timeout=30.0) as client:
                 resp = await client.post(f"{self.base_url}/upload/image", files=files, data=data)
                 if resp.status_code != 200:
                     raise ComfyUIError(f"Failed to upload image to ComfyUI: HTTP {resp.status_code} {resp.text}")
@@ -248,7 +250,7 @@ class ComfyUIClient:
     async def interrupt(self) -> bool:
         """Send interrupt signal to cancel active prompt execution."""
         try:
-            async with httpx.AsyncClient(timeout=5.0) as client:
+            async with httpx.AsyncClient(trust_env=False, timeout=5.0) as client:
                 resp = await client.post(f"{self.base_url}/interrupt")
                 return resp.status_code == 200
         except Exception:
@@ -292,7 +294,7 @@ class ComfyUIClient:
         progress_cb: Optional[Callable[[int, int], None]],
     ) -> Dict[str, Any]:
         """Internal WebSocket event listener loop."""
-        async with websockets.connect(ws_endpoint) as ws:
+        async with websockets.connect(ws_endpoint, proxy=None) as ws:
             while True:
                 msg_raw = await ws.recv()
                 if isinstance(msg_raw, bytes):

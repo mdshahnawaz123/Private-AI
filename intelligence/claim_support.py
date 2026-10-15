@@ -439,6 +439,18 @@ def claim_support_issues(answer: str, evidence: str, sources, question: str = ""
             r"design|specification|construction|pressure|flow|load|capacity|voltage|power|level|spacing|area)\b",
             segment, re.I)
         if domain_words and not structured:
+            # A sentence whose content words are (almost) all present in the
+            # cited page is a close restatement of the source, not new
+            # engineering prose -- e.g. "Based on the current design, the
+            # Acoustic Performance credit would most practically be achieved
+            # through ..." (2026-10-14 pipeline audit: correct, cited answers
+            # were withheld by this rule alone). Numbers/units/polarity are
+            # still checked by the rules above.
+            _seg_words = {w.casefold() for w in re.findall(r"[A-Za-z]{3,}", segment)} - _STOP_WORDS
+            _src_words = {w.casefold() for _, body in bodies for w in re.findall(r"[A-Za-z]{3,}", body)}
+            if len(_seg_words) >= 4 and len(_seg_words & _src_words) / len(_seg_words) >= 0.8:
+                structured = True
+        if domain_words and not structured:
             issues.append("Unparsed material engineering claim requires review")
 
     # De-duplicate to keep repair prompts and logs concise/deterministic.

@@ -202,8 +202,19 @@ def extract_pdf(path, vision_fn=None, render_dir=None, deep=True, smart=True,
         # most ~1 table per page; this page alone carried 14. Vision reads the
         # rendered pixels, so it isn't fooled by text-stream ordering.
         is_dense_table_page = table_count >= 5
+        # Text-first, like a careful human reader (2026-10-14 pipeline audit):
+        #  * usable native text  -> use it, no vision;
+        #  * DAMAGED native text (broken font encoding: text is there but
+        #    unreadable) -> NO tile vision here; services.page_ocr full-page OCR
+        #    reads it faster and more faithfully (33 garbled pages: OCR 10 min
+        #    vs 27 min of 6-tile vision that also hallucinated);
+        #  * no text layer at all (scan / drawing) or a dense multi-table page
+        #    -> vision tiles, as before.
+        # Embedded photos/figures are described once each by the image pipeline
+        # (services.pipeline), so a large image no longer forces tile vision of
+        # the whole page as well.
         want_vision = bool(deep and vision_fn and render_dir) and (
-            not smart or len(text) < min_chars or has_large_image or is_dense_table_page)
+            not smart or (len(text) < min_chars and not damaged_native) or is_dense_table_page)
 
         if want_vision:
             try:
@@ -265,6 +276,10 @@ def extract_pdf(path, vision_fn=None, render_dir=None, deep=True, smart=True,
     return "\n\n".join(parts), meta
 
 def extract_excel(path):
+    from services.office_extract import extract_excel as _x
+    return _x(path)
+
+def _extract_excel_legacy(path):
     import openpyxl
     wb = openpyxl.load_workbook(path, data_only=True, read_only=True)
     sheets, parts = [], []
@@ -283,6 +298,10 @@ def extract_excel(path):
     return "\n\n".join(parts), {"type": "excel", "sheets": sheets}
 
 def extract_docx(path):
+    from services.office_extract import extract_docx as _x
+    return _x(path)
+
+def _extract_docx_legacy(path):
     import docx
     d = docx.Document(path)
     paras = [p.text for p in d.paragraphs if p.text and p.text.strip()]

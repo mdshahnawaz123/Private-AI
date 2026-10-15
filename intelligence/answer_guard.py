@@ -8,7 +8,7 @@ import re
 from decimal import Decimal, InvalidOperation
 
 
-MARKER=re.compile(r'\[SOURCE:\s*(.*?)\s*\|\s*PAGE\s+(\d+|UNPAGINATED)\s*\]',re.I)
+MARKER=re.compile(r'\[SOURCE:\s*(.*?)\s*\\?\|\s*PAGE\s+(\d+|UNPAGINATED|[^\]|\n]{1,80}?)\s*\]',re.I)
 NUMBER=re.compile(r'(?<![\w])[-+]?\d[\d,]*(?:\.\d+)?(?![\w])')
 
 
@@ -154,7 +154,7 @@ def auto_cite(answer,evidence,sources):
     for source in sources:
         if not isinstance(source,dict): continue
         key=(str(source.get('source') or source.get('filename') or ''),
-             str(source.get('page') if source.get('page') is not None else 'UNPAGINATED'))
+             str(source.get('page') if source.get('page') is not None else 'UNPAGINATED').upper())
         if key in seen: continue
         seen.add(key)
         body=excerpts.get(key,'')
@@ -170,7 +170,7 @@ def auto_cite(answer,evidence,sources):
 
 def publication_issues(answer,evidence,sources,question=""):
     excerpts=_excerpts_by_page(evidence)
-    allowed={(str(s.get('source') or s.get('filename') or ''),str(s.get('page') if s.get('page') is not None else 'UNPAGINATED')) for s in sources if isinstance(s,dict)}
+    allowed={(str(s.get('source') or s.get('filename') or ''),str(s.get('page') if s.get('page') is not None else 'UNPAGINATED').upper()) for s in sources if isinstance(s,dict)}
     citations={(m.group(1).strip(),m.group(2).upper()) for m in MARKER.finditer(answer)}
     issues=[]
     if citations-allowed:issues.append('Citation outside retrieved sources')
@@ -219,6 +219,11 @@ def publication_issues(answer,evidence,sources,question=""):
     answer_pairs=quantity_pairs(numeric_text)
     cited_pairs=quantity_pairs(cited_text)
     conflicting_pairs=answer_pairs-cited_pairs
+    # A value the excerpt states with NO unit next to it (spreadsheet cell
+    # under a "Square Meter" column, unit only in a header) is not a conflict;
+    # numbers() above already proved the bare value is on the cited page.
+    _cited_unit_values={pair[0] for pair in cited_pairs}
+    conflicting_pairs={pair for pair in conflicting_pairs if pair[0] in _cited_unit_values}
     if conflicting_pairs:
         issues.append('Value/unit pair absent from cited page excerpts')
     # Native prose can explicitly associate a property/value with one entity.
@@ -258,8 +263,20 @@ def publication_issues(answer,evidence,sources,question=""):
     return issues
 
 
+_ABSTAIN=re.compile(r"^\W*(?:I (?:could|can)\s*not find|I did not find|(?:The|These) (?:uploaded |provided |available )?(?:documents?|context|evidence|report) do(?:es)?\s*n[o']t (?:contain|specify|mention|include|state)|(?:This|That) information is not (?:in|available|provided))",re.I)
+
+
 def guarded_answer(answer,evidence,sources,question=""):
     issues=publication_issues(answer,evidence,sources,question=question)
+    if issues and _ABSTAIN.match(answer or ''):
+        # The model correctly said the answer is not in the documents, but then
+        # mentioned nearby numbers/terms, which tripped the citation checks and
+        # turned an honest "not found" into "could not verify". Publish only the
+        # abstention itself (no unsupported values).
+        first=re.split(r'(?<=[.!?])\s+',answer.strip(),maxsplit=1)[0]
+        if numbers(_numeric_text(first,sources)) or len(first)>300:
+            first='I could not find this in the uploaded documents.'
+        return first,[]
     if issues:
         if any(issue.startswith('AMBIGUOUS:') for issue in issues):
             return ('The cited evidence is ambiguous or conflicting; a unique engineering answer cannot be established. '
@@ -293,4 +310,9 @@ def guarded_answer_with_repair(answer,evidence,sources,repair,question=""):
         published2,issues2=guarded_answer(cited,evidence,sources,question=question)
         if not issues2:
             return published2,[]
+    try:  # keep the rejected draft in the log so withheld answers can be diagnosed
+        from loguru import logger as _log
+        _log.info('Withheld candidate (issues={}): {}', issues, (candidate or '')[:900].replace('\n',' | '))
+    except Exception:
+        pass
     return published,issues

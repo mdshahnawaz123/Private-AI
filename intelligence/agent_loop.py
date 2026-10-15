@@ -21,6 +21,8 @@ import sys
 import tempfile
 import time
 
+from loguru import logger
+
 MAX_STEPS = int(os.getenv("EXPO_AGENT_MAX_STEPS", "7"))
 MAX_REPAIRS = 2
 TOOL_TEXT_LIMIT = 7000
@@ -31,13 +33,14 @@ Work like this, every time:
 2. search_documents finds text, pages and table rows. For spreadsheets or big tables use list_tables then read_table.
 3. For totals, averages, counts, max/min over a sheet use the aggregate tool (whole sheet, filtered by a column value).
    For other calculations (differences, ratios, percentages of rows) use run_python - never do arithmetic yourself.
+   In run_python, filter on the column that holds the row names (often 'Description', not the ITEM number column); an empty result means you used the wrong column - check the column list. For areas, report SQ.M. first and SQ.FT. after it when both exist.
    If the document already states the value (e.g. "SITEWIDE FAR", "TOTAL GFA", a Total row), quote it - do not recompute it.
    Never add up ratios, percentages or FAR values across rows.
 4. For "chart / graph / plot / pie / dashboard" requests call make_chart (it draws from the file's cells).
 5. For figures, maps, drawings or colours use look_at_page.
 6. Then write the final answer: short, direct, values with units exactly as in the tool results, and a citation
    after each fact in the form [SOURCE: <file> | PAGE <page or sheet>] copied from the tool results.
-8. For CAD drawings, floor plans, dimensions or requests to draft or inspect in CADCraft, use cad_inspect or cad_draft.
+8. For CAD drawings (.dxf/.dwg), floor plans, layers, dimensions or requests to draft or inspect in CADCraft, use cad_inspect or cad_draft. For a built-in CADCraft sample call cad_inspect with drawing_name 'sample apartment' / 'sample core' / 'sample bracket'. Never describe a drawing you have not inspected.
 Do not call the same tool with the same arguments twice. Use at most 5 tool calls.
 You only answer from this project's documents: for jokes, general knowledge or other projects, say briefly that you can only answer from the uploaded project documents.
 If asked to answer with only a number, reply with just the number and its citation.
@@ -111,6 +114,29 @@ def _supported(v, evidence_nums):
             return True
     return False
 
+
+
+def _text_tool_calls(text):
+    """Parse '<tool_call><function=name><parameter=k>v</parameter></function></tool_call>'
+    or '<tool_call>{"name":..,"arguments":{..}}</tool_call>' blocks into Ollama tool_calls."""
+    out = []
+    for blk in re.findall(r"(?s)<tool_call>(.*?)(?:</tool_call>|$)", text or ""):
+        m = re.search(r"<function=([\w\-]+)>", blk)
+        if m:
+            args = {}
+            for k, v in re.findall(r"(?s)<parameter=([\w\-]+)>\s*(.*?)\s*</parameter>", blk):
+                v = v.strip()
+                if re.fullmatch(r"-?\d+", v):
+                    v = int(v)
+                args[k] = v
+            out.append({"function": {"name": m.group(1), "arguments": args}})
+            continue
+        try:
+            j = json.loads(blk.strip())
+            out.append({"function": {"name": j.get("name"), "arguments": j.get("arguments") or j.get("parameters") or {}}})
+        except Exception:
+            pass
+    return [c for c in out if c["function"].get("name")]
 
 class Agent:
     def __init__(self, project, user, question, docs, retrieve_fn, chat_url, model, history=None):
@@ -407,35 +433,31 @@ class Agent:
 
     def t_cad_inspect(self, drawing_name=""):
         from services.cad_service import CadService
-        from config import get_settings
-        settings = get_settings()
         target_name = (drawing_name or "").strip()
+        low = target_name.lower()
 
-        sample_map = {
-            "apartment": "sample_apartment_plan",
-            "floor plan": "sample_apartment_plan",
-            "core": "sample_structural_core",
-            "grid": "sample_structural_core",
-            "bracket": "sample_mechanical_bracket"
-        }
+        # Built-in CADCraft samples only when the user explicitly asks for a sample -
+        # never as a stand-in for a project drawing.
         sample_id = None
-        for k, v in sample_map.items():
-            if k in target_name.lower():
-                sample_id = v
-                break
-
-        if sample_id or target_name.startswith("sample_"):
-            sid = sample_id or target_name
-            data = CadService.load_sample_drawing(sid)
-            layers_summary = ", ".join(f"{l['name']} ({l.get('color', '#fff')})" for l in data.get("layers", []))
+        if low.startswith("sample") or "sample" in low.split() or "sample" in self.q.lower():
+            for k, v in (("apartment", "sample_apartment_plan"), ("core", "sample_structural_core"),
+                         ("grid", "sample_structural_core"), ("bracket", "sample_mechanical_bracket")):
+                if k in low:
+                    sample_id = v
+                    break
+            if low.startswith("sample_") and low in ("sample_apartment_plan", "sample_structural_core", "sample_mechanical_bracket"):
+                sample_id = low
+        if sample_id:
+            data = CadService.load_sample_drawing(sample_id)
+            layers_summary = ", ".join(l["name"] for l in data.get("layers", []))
             ext = data.get("extents", {})
             dim_texts = [e.get("text", "") for e in data.get("entities", []) if e.get("type") == "DIMENSION"]
             room_names = [e.get("text", "") for e in data.get("entities", []) if e.get("type") == "TEXT"]
-
             res = (
-                f"[SOURCE: CADCraft/{data.get('title')} | CAD Model Space]\n"
+                f"[SOURCE: CADCraft sample {data.get('title')} | CAD Model Space]\n"
+                f"NOTE: this is a built-in CADCraft SAMPLE drawing, not a project document.\n"
                 f"Drawing Title: {data.get('title')}\n"
-                f"Extents: {ext.get('width', 0)} x {ext.get('height', 0)} mm ({ext.get('width', 0)/1000:.1f} x {ext.get('height', 0)/1000:.1f} m)\n"
+                f"Extents: {ext.get('width', 0)} x {ext.get('height', 0)} mm\n"
                 f"Total Entities: {data.get('entity_count')}\n"
                 f"Layers: {layers_summary}\n"
             )
@@ -443,51 +465,60 @@ class Agent:
                 res += f"Spaces / Labels: {', '.join(room_names)}\n"
             if dim_texts:
                 res += f"Key Dimensions: {', '.join(dim_texts[:8])}\n"
-            res += f"\n[Open in CADCraft Studio](cadcraft:{sid})"
-            self.sources.append({"source": f"CADCraft: {data.get('title')}", "filename": f"{sid}.dxf", "page": 1})
+            res += f"\n[Open in CADCraft Studio](cadcraft:{sample_id})"
             return res
 
-        doc_dir = os.path.join(settings.data_dir, "docs", self.project)
-        target_file = None
-        if os.path.exists(doc_dir):
-            for root, _, files in os.walk(doc_dir):
-                for f in files:
-                    if f.lower().endswith((".dxf", ".dwg")):
-                        if not target_name or target_name.lower() in f.lower():
-                            target_file = os.path.join(root, f)
-                            break
-                if target_file:
-                    break
-
-        if target_file and target_file.lower().endswith(".dxf"):
+        # Only drawings this user may see (self.docs is already permission-filtered).
+        cands = [d for d in self.docs if str(d.get("path", "")).lower().endswith((".dxf", ".dwg"))
+                 and os.path.isfile(d.get("path", ""))]
+        if target_name:
+            cands = [d for d in cands if low in d.get("filename", "").lower()] or \
+                    [d for d in cands if any(w in d.get("filename", "").lower() for w in re.findall(r"[a-z0-9]{3,}", low))]
+        if not cands:
+            return (f"No CAD drawing matching '{drawing_name}' was found among the drawings you can access in project "
+                    f"'{self.project}'. (Built-in samples: apartment, core, bracket - ask for a 'sample' to see one.)")
+        d = cands[0]
+        fname = d.get("filename") or os.path.basename(d["path"])
+        if fname.lower().endswith(".dwg"):
             try:
-                data = CadService.parse_dxf_stream(target_file)
-                fname = os.path.basename(target_file)
-                layers_summary = ", ".join(f"{l['name']}" for l in data.get("layers", []))
-                ext = data.get("extents", {})
-                room_names = [e.get("text", "") for e in data.get("entities", []) if e.get("type") == "TEXT"]
-                res = (
-                    f"[SOURCE: {fname} | CAD Model Space]\n"
-                    f"File: {fname}\n"
-                    f"Dimensions: {ext.get('width', 0):.0f} x {ext.get('height', 0):.0f} mm\n"
-                    f"Entities: {data.get('entity_count')} ({', '.join(f'{k}:{v}' for k, v in data.get('entity_types', {}).items())})\n"
-                    f"Layers: {layers_summary}\n"
-                )
-                if room_names:
-                    res += f"Labels: {', '.join(room_names[:10])}\n"
-                res += f"\n[Open in CADCraft Studio](cadcraft:{fname})"
-                self.sources.append({"source": fname, "filename": fname, "page": 1})
-                return res
+                from services.cad_api import _load_or_convert_dwg
+                from engines.cad_engine import CadIntelligenceEngine
+                data = _load_or_convert_dwg(CadIntelligenceEngine(), d["path"], fname)
             except Exception as e:
-                return f"Error reading CAD drawing {target_name}: {e}"
-
-        return f"No CAD drawing matching '{drawing_name}' found in project '{self.project}'. Available samples: apartment plan, structural core grid, mechanical bracket."
+                return f"Could not read DWG {fname}: {e}"
+            if data.get("dwg_fallback"):
+                return f"{fname} is a DWG that could not be converted (ODA File Converter unavailable). Save it as DXF to inspect it."
+        else:
+            try:
+                data = CadService.parse_dxf_stream(d["path"])
+            except Exception as e:
+                return f"Error reading CAD drawing {fname}: {e}"
+        ext = data.get("extents", {}) or {}
+        room_names = [e.get("text", "") for e in data.get("entities", []) if e.get("type") == "TEXT" and e.get("text")]
+        dims = [e.get("text", "") for e in data.get("entities", []) if e.get("type") == "DIMENSION" and e.get("text")]
+        res = (
+            f"[SOURCE: {fname} | CAD Model Space]\n"
+            f"File: {fname}\n"
+            f"Extents: {float(ext.get('width', 0) or 0):.0f} x {float(ext.get('height', 0) or 0):.0f} drawing units\n"
+            f"Entities: {data.get('entity_count')} ({', '.join(f'{k}:{v}' for k, v in (data.get('entity_types') or {}).items())})\n"
+            f"Layers: {', '.join(l['name'] for l in data.get('layers', []))}\n"
+        )
+        if room_names:
+            res += f"Labels: {', '.join(room_names[:40])}\n"
+        if dims:
+            res += f"Dimensions: {', '.join(dims[:20])}\n"
+        res += f"\n[Open in CADCraft Studio](cadcraft:{fname})"
+        self.sources.append({"source": fname, "filename": fname, "page": 1})
+        return res
 
     def t_cad_draft(self, plan_type="apartment", filename="", title=""):
         from services.cad_service import CadService
         import db
         from config import get_settings
         settings = get_settings()
+        role = (self.user or {}).get("role") if isinstance(self.user, dict) else getattr(self.user, "role", None)
+        if role not in ("admin", "lead", "user"):
+            return "You do not have permission to save drawings in this project."
 
         sample_id = "sample_apartment_plan"
         pt = (plan_type or "").lower()
@@ -495,45 +526,40 @@ class Agent:
             sample_id = "sample_structural_core"
         elif "bracket" in pt or "mech" in pt:
             sample_id = "sample_mechanical_bracket"
-
         data = CadService.load_sample_drawing(sample_id)
-        out_filename = filename.strip() or f"{sample_id}.dxf"
-        if not out_filename.lower().endswith(".dxf"):
-            out_filename += ".dxf"
 
-        draw_title = title.strip() or data.get("title", "CADCraft Design")
-        dxf_content = CadService.generate_dxf(data["entities"], data["layers"], title=draw_title)
-
-        docs_dir = os.path.join(settings.data_dir, "docs")
-        target_dir = os.path.join(docs_dir, self.project, "Drawings")
+        base = os.path.basename((filename or "").replace("\\", "/"))
+        base = re.sub(r"[^A-Za-z0-9._-]+", "_", base).strip("._") or sample_id
+        if not base.lower().endswith(".dxf"):
+            base += ".dxf"
+        target_dir = os.path.join(settings.data_dir, "docs", self.project, "Drawings")
         os.makedirs(target_dir, exist_ok=True)
+        stem, n, out_filename = base[:-4], 2, base
+        while os.path.exists(os.path.join(target_dir, out_filename)):   # never overwrite an existing drawing
+            out_filename, n = "%s_%d.dxf" % (stem, n), n + 1
         file_path = os.path.join(target_dir, out_filename)
+        if os.path.dirname(os.path.realpath(file_path)) != os.path.realpath(target_dir):
+            return "Invalid drawing filename."
 
+        draw_title = (title or "").strip() or data.get("title", "CADCraft Design")
         with open(file_path, "w", encoding="utf-8") as f:
-            f.write(dxf_content)
-
+            f.write(CadService.generate_dxf(data["entities"], data["layers"], title=draw_title))
         try:
-            with db.SessionLocal() as s:
-                proj = s.query(db.Project).filter_by(name=self.project).first()
-                if proj:
-                    f_res = db.create_folder(self.project, "Drawings")
-                    fid = f_res["id"] if isinstance(f_res, dict) else int(f_res)
-                    db.record_document(
-                        project=self.project,
-                        filename=out_filename,
-                        folder_id=fid,
-                        chunks=0,
-                        file_type="drawing",
-                    )
-        except Exception:
-            pass
+            folders = db.list_folders(self.project)
+            fo = next((x for x in folders if str(x.get("name", "")).lower() == "drawings"), None)
+            fid = fo["id"] if fo else (lambda r: r["id"] if isinstance(r, dict) else int(r))(db.create_folder(self.project, "Drawings"))
+            db.record_document(project=self.project, filename=out_filename, path=file_path, chunks=0,
+                               discipline="Architectural", status="ready", folder_id=fid, user=self.user)
+        except Exception as e:
+            logger.warning("cad_draft: saved {} but could not register it: {}", out_filename, e)
 
         self.sources.append({"source": f"Drawings/{out_filename}", "filename": out_filename, "page": 1})
         return (
-            f"Successfully drafted and saved architectural CAD model '{out_filename}' into project Drawings folder.\n"
+            f"Saved a CADCraft TEMPLATE drawing (built from the '{sample_id}' sample, not a custom design) as "
+            f"Drawings/{out_filename}. Tell the user it is a starting template they can edit.\n"
             f"[SOURCE: Drawings/{out_filename} | CAD Model Space]\n"
-            f"Drawing: {draw_title} ({data.get('entity_count')} vector entities across {len(data.get('layers', []))} AutoCAD layers).\n"
-            f"Click to open and redesign:\n[Open in CADCraft Studio](cadcraft:{out_filename})"
+            f"Drawing: {draw_title} ({data.get('entity_count')} entities, {len(data.get('layers', []))} layers).\n"
+            f"[Open in CADCraft Studio](cadcraft:{out_filename})"
         )
 
     # ------------------------------------------------------------ model
@@ -555,7 +581,7 @@ class Agent:
             used = {t.get("tool") for t in self.trace if t.get("tool")}
             try:
                 FIGURE_Q = _FIG
-                if FIGURE_Q.search(self.q) and "look_at_page" not in used:
+                if FIGURE_Q.search(self.q) and not ({"look_at_page", "cad_inspect", "cad_draft"} & used):
                     return ["before saying not found, call look_at_page - figures are often only visible in the page image"]
             except Exception:
                 pass
@@ -578,7 +604,7 @@ class Agent:
         used = {t.get("tool") for t in self.trace if t.get("tool")}
         try:
             FIGURE_Q = _FIG
-            if FIGURE_Q.search(self.q) and "look_at_page" not in used:
+            if FIGURE_Q.search(self.q) and not ({"look_at_page", "cad_inspect", "cad_draft"} & used):
                 issues.append("the question is about a figure/drawing/colour - call look_at_page on the page that has it, then answer from what it sees")
         except Exception:
             pass
@@ -654,6 +680,10 @@ class Agent:
             force_answer = steps > MAX_STEPS
             msg = self._chat(msgs, tools=not force_answer)
             calls = msg.get("tool_calls") or []
+            if not calls and "<tool_call>" in (msg.get("content") or ""):
+                # Some models (e.g. TwIL/Granite GGUFs) print tool calls as text; parse them.
+                calls = _text_tool_calls(msg.get("content") or "")
+                msg["content"] = re.sub(r"(?s)<tool_call>.*?(</tool_call>|$)", "", msg.get("content") or "").strip()
             if calls and not force_answer:
                 msgs.append({"role": "assistant", "content": msg.get("content") or "", "tool_calls": calls})
                 for c in calls[:3]:

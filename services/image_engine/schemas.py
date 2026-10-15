@@ -5,7 +5,7 @@ Defines API data models for ComfyUI status, workflow definitions,
 job submission, generation progress, and retrieved outputs.
 """
 
-from typing import List, Optional, Dict, Any, Literal
+from typing import List, Optional, Dict, Any, Literal, Annotated
 from pydantic import BaseModel, Field, field_validator
 
 
@@ -83,6 +83,7 @@ class JobSubmissionRequest(BaseModel):
     input_image_path: Optional[str] = Field(
         default=None, description="Server-relative path to uploaded reference sketch/render"
     )
+    edit_mask_path: Optional[str] = Field(default=None, description="Optional project-owned binary PNG: white edits, black protects")
     enhance_prompt: bool = Field(
         default=False, description="Whether to use reasoning AI (qwen3.5:9b) to enrich the architectural brief"
     )
@@ -145,6 +146,11 @@ class DesignOption(BaseModel):
     style: Optional[str] = Field(default=None, description="Architectural style name")
     prompt: str = Field(..., description="Full diffusion prompt for this option")
     rationale: Optional[str] = Field(default=None, description="Architectural design intent and rationale")
+    materials: str = ""
+    shading_strategy: str = ""
+    changes: str = ""
+    protected_elements: List[str] = Field(default_factory=list)
+
 
 
 class PromptEnhanceRequest(BaseModel):
@@ -152,6 +158,12 @@ class PromptEnhanceRequest(BaseModel):
     prompt: str = Field(..., min_length=1, max_length=4000, description="User architectural brief")
     building_type: Optional[str] = Field(default=None, description="Building typology")
     architectural_style: Optional[str] = Field(default=None, description="Architectural style")
+
+
+    mode: Literal["concept", "materials", "enhancement", "creative_facade"] = "concept"
+    protected_elements: List[Annotated[str, Field(min_length=1, max_length=150)]] = Field(default_factory=list, max_length=20)
+    materials: str = Field(default="", max_length=600)
+    lighting: str = Field(default="", max_length=300)
 
 
 class PromptEnhanceResponse(BaseModel):

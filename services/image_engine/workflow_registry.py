@@ -326,6 +326,27 @@ class WorkflowRegistry:
             elif c_type == "LoadImage":
                 load_image_nodes.append((node_id, node))
 
+        def conditioning_text_node(link):
+            seen = set()
+            while isinstance(link, list) and link and link[0] in graph and link[0] not in seen:
+                node_id = link[0]
+                seen.add(node_id)
+                node = graph[node_id]
+                if node.get("class_type") == "CLIPTextEncode":
+                    return (node_id, node)
+                if node.get("class_type") == "ConditioningZeroOut":
+                    return None
+                link = node["inputs"].get("conditioning")
+            return None
+
+        for node in graph.values():
+            if node.get("class_type") in ("CFGGuider", "KSampler", "KSamplerAdvanced"):
+                positive = conditioning_text_node(node["inputs"].get("positive"))
+                negative = conditioning_text_node(node["inputs"].get("negative"))
+                if positive:
+                    clip_text_nodes = [positive] + ([negative] if negative else [])
+                    break
+
         # 1. Bind prompt and negative prompt
         # Convention: The first CLIPTextEncode is positive prompt; the second (or one linked as negative) is negative prompt.
         if clip_text_nodes:
@@ -336,15 +357,20 @@ class WorkflowRegistry:
                 style_part = f" in {request.architectural_style} style" if request.architectural_style else ""
                 arch_prefix = f"Architectural render{btype_part}{style_part}. "
             full_prompt = f"{arch_prefix}{request.prompt}, highly detailed, professional architectural visualization"
+            if load_image_nodes:
+                baseline = clip_text_nodes[0][1]["inputs"].get("text", "")
+                full_prompt = baseline + "\nRequested edit: " + request.prompt
             clip_text_nodes[0][1]["inputs"]["text"] = full_prompt
 
             if len(clip_text_nodes) > 1 and request.negative_prompt:
-                clip_text_nodes[1][1]["inputs"]["text"] = request.negative_prompt
+                baseline = clip_text_nodes[1][1]["inputs"].get("text", "") if load_image_nodes else ""
+                clip_text_nodes[1][1]["inputs"]["text"] = (baseline + "; " + request.negative_prompt).strip("; ")
 
         # 2. Bind dimensions to EmptyLatentImage
         for _, l_node in empty_latent_nodes:
-            l_node["inputs"]["width"] = request.width
-            l_node["inputs"]["height"] = request.height
+            for dimension in ("width", "height"):
+                if not isinstance(l_node["inputs"].get(dimension), list):
+                    l_node["inputs"][dimension] = getattr(request, dimension)
 
         # 3. Bind sampling parameters to KSampler
         for _, k_node in ksampler_nodes:
@@ -363,22 +389,25 @@ class WorkflowRegistry:
             filename = os.path.basename(request.input_image_path)
             load_image_nodes[0][1]["inputs"]["image"] = filename
 
-        # Distilled FLUX uses its own scheduler and a fixed guidance value.
+        # Bind FLUX.2 Klein scheduler, guidance and seed without replacing linked
+        # width/height inputs that are derived from the uploaded source image.
         if any(n.get("class_type") == "Flux2Scheduler" for n in graph.values()):
             for node in graph.values():
                 inputs = node["inputs"]
                 if node.get("class_type") == "Flux2Scheduler":
-                    inputs.update(steps=4, width=request.width, height=request.height)
+                    for dimension in ("width", "height"):
+                        if not isinstance(inputs.get(dimension), list):
+                            inputs[dimension] = getattr(request, dimension)
+                    if request.steps is not None:
+                        inputs["steps"] = request.steps
                 elif node.get("class_type") == "CFGGuider":
-                    inputs["cfg"] = 1.0
+                    if request.cfg is not None:
+                        inputs["cfg"] = request.cfg
                 elif node.get("class_type") == "RandomNoise" and request.seed is not None:
                     inputs["noise_seed"] = request.seed
 
-        # 5. Apply any explicit extra parameters defined by the caller
         if request.extra_params:
-            for node_id, overrides in request.extra_params.items():
-                if node_id in graph and isinstance(overrides, dict):
-                    graph[node_id]["inputs"].update(overrides)
+            raise ValueError("Advanced node overrides are disabled; use the workflow's supported controls")
 
         return graph
 

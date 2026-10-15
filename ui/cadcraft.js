@@ -1,11 +1,21 @@
+// HTML-escape anything that came from a drawing or a filename (layer names, TEXT, metadata).
+function _cadEsc(v) {
+  return String(v == null ? '' : v).replace(/[&<>"'`]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;','`':'&#96;'}[c]));
+}
+function _cadColor(v) {
+  const c = String(v || '');
+  return /^#[0-9a-fA-F]{3,8}$|^rgba?\([\d\s.,%]+\)$|^[a-zA-Z]{3,20}$/.test(c) ? c : '#ffffff';
+}
 /* ==========================================================================
    CADCraft Studio - Computer-Aided Design & Drafting for Expo Design AI
    Clean-room AutoCAD-style 2D drafting engine inspired by storytold/cadcraft
    (pure Rust AutoCAD reimplementation).
    ========================================================================== */
+(function(window, document) {
+'use strict';
 
-// Safe accessors for global environment
-var $ = (typeof window !== 'undefined' && typeof window.$ === 'function') ? window.$ : (id => document.getElementById(id));
+// Safe accessors for environment
+var $ = (typeof window !== 'undefined' && typeof window.$ === 'function') ? window.$ : (id => document ? document.getElementById(id) : null);
 var API = (typeof window !== 'undefined' && window.API) ? window.API : (typeof location !== 'undefined' ? location.origin : '');
 var toast = (msg) => (typeof window !== 'undefined' && typeof window.toast === 'function' ? window.toast(msg) : console.log('[Toast]', msg));
 
@@ -1215,21 +1225,21 @@ function _refreshCadLayersUI() {
   listEl.innerHTML = cadLayers.map(l => `
     <tr class="${l.name === activeLayer ? 'active-row' : ''}">
       <td>
-        <span class="cad-eye-btn ${l.visible ? 'on' : ''}" data-layer="${l.name}" title="Toggle Visibility">👁️</span>
+        <span class="cad-eye-btn ${l.visible ? 'on' : ''}" data-layer="${_cadEsc(l.name)}" title="Toggle Visibility">👁️</span>
       </td>
       <td>
-        <span class="cad-layer-color-pill" style="background:${l.color}"></span>
+        <span class="cad-layer-color-pill" style="background:${_cadColor(l.color)}"></span>
       </td>
-      <td class="cad-layer-name-cell" data-layer="${l.name}">${l.name}</td>
+      <td class="cad-layer-name-cell" data-layer="${_cadEsc(l.name)}">${_cadEsc(l.name)}</td>
       <td>
-        <span class="cad-lock-btn ${l.locked ? 'on' : ''}" data-layer="${l.name}" title="Lock Layer">${l.locked ? '🔒' : '🔓'}</span>
+        <span class="cad-lock-btn ${l.locked ? 'on' : ''}" data-layer="${_cadEsc(l.name)}" title="Lock Layer">${l.locked ? '🔒' : '🔓'}</span>
       </td>
     </tr>
   `).join('');
 
   if (selEl) {
     selEl.innerHTML = cadLayers.map(l => `
-      <option value="${l.name}" ${l.name === activeLayer ? 'selected' : ''}>${l.name}</option>
+      <option value="${_cadEsc(l.name)}" ${l.name === activeLayer ? 'selected' : ''}>${_cadEsc(l.name)}</option>
     `).join('');
     selEl.onchange = () => { activeLayer = selEl.value; _refreshCadLayersUI(); };
   }
@@ -1292,21 +1302,21 @@ function _renderPropertiesPanel() {
     `;
   } else if (ent.type === 'TEXT') {
     detailsHTML = `
-      <div class="cad-prop-row"><span>Contents:</span><b>${ent.text}</b></div>
-      <div class="cad-prop-row"><span>Height:</span><b>${ent.height} mm</b></div>
+      <div class="cad-prop-row"><span>Contents:</span><b>${_cadEsc(ent.text)}</b></div>
+      <div class="cad-prop-row"><span>Height:</span><b>${_cadEsc(ent.height)} mm</b></div>
     `;
   }
 
   propBox.innerHTML = `
     <div class="cad-prop-group">
       <div class="cad-prop-title">ENTITY DATA</div>
-      <div class="cad-prop-row"><span>Type:</span><b>${ent.type}</b></div>
+      <div class="cad-prop-row"><span>Type:</span><b>${_cadEsc(ent.type)}</b></div>
       <div class="cad-prop-row"><span>Layer:</span>
         <select id="cadChangeLayerSel" style="background:var(--bg3);color:var(--text);border:1px solid var(--border);border-radius:4px;padding:2px 6px">
-          ${cadLayers.map(l => `<option value="${l.name}" ${l.name === ent.layer ? 'selected' : ''}>${l.name}</option>`).join('')}
+          ${cadLayers.map(l => `<option value="${_cadEsc(l.name)}" ${l.name === ent.layer ? 'selected' : ''}>${_cadEsc(l.name)}</option>`).join('')}
         </select>
       </div>
-      <div class="cad-prop-row"><span>Color:</span><span style="display:inline-block;width:14px;height:14px;background:${ent.color||'#fff'};border-radius:2px"></span></div>
+      <div class="cad-prop-row"><span>Color:</span><span style="display:inline-block;width:14px;height:14px;background:${_cadColor(ent.color)};border-radius:2px"></span></div>
       ${detailsHTML}
       <button class="cad-btn" style="margin-top:8px;width:100%" onclick="eraseSelectedEntities()">Erase Entity</button>
     </div>
@@ -1435,6 +1445,7 @@ function _showDwgFallbackModal(filename, meta) {
   const ov = document.createElement('div');
   ov.id = 'cadDwgModal';
   ov.className = 'cad-modal-overlay';
+  meta = meta || {};
   const fileSizeMb = meta && meta.file_size ? (meta.file_size / (1024 * 1024)).toFixed(2) + ' MB' : 'N/A';
   ov.innerHTML = `
     <div class="cad-modal-box" style="width:560px">
@@ -1446,10 +1457,10 @@ function _showDwgFallbackModal(filename, meta) {
         <button class="cad-modal-close" onclick="$('cadDwgModal').remove()">&times;</button>
       </div>
       <div class="cad-modal-body">
-        <p style="margin-top:0">The drawing <b>${filename}</b> is an AutoCAD proprietary binary DWG file.</p>
+        <p style="margin-top:0">The drawing <b>${_cadEsc(filename)}</b> is an AutoCAD proprietary binary DWG file.</p>
         <div style="background:#16233b;padding:12px 14px;border-radius:8px;border:1px solid var(--border);margin:12px 0;font-size:12px;line-height:1.7">
-          <div><span style="color:var(--muted)">AutoCAD Version:</span> <b>${meta.dwg_version || 'AutoCAD 2018/2021/2024 (AC1032)'}</b></div>
-          <div><span style="color:var(--muted)">Drawing Sheet No:</span> <b>${meta.drawing_number || 'Detected in titleblock'}</b></div>
+          <div><span style="color:var(--muted)">AutoCAD Version:</span> <b>${_cadEsc(meta.dwg_version || 'AutoCAD 2018/2021/2024 (AC1032)')}</b></div>
+          <div><span style="color:var(--muted)">Drawing Sheet No:</span> <b>${_cadEsc(meta.drawing_number || 'Detected in titleblock')}</b></div>
           <div><span style="color:var(--muted)">Binary File Size:</span> <b>${fileSizeMb}</b></div>
         </div>
         <p style="color:var(--muted);font-size:12px;line-height:1.55">
@@ -1726,6 +1737,8 @@ function _showCadCraftInfoModal() {
 // Global exports for workspace integration
 window.renderCadCraftWorkspace = renderCadCraftWorkspace;
 window.openCadProjectDrawing = openCadProjectDrawing;
+window.eraseSelectedEntities = eraseSelectedEntities;
+window._loadCadSample = _loadCadSample;
 
 // If user is currently on the cadcraft tab, render immediately upon script load
 try {
@@ -1736,4 +1749,5 @@ try {
 } catch (e) {
   console.warn('[CADCraft] Auto-mount check:', e);
 }
+})(typeof window !== 'undefined' ? window : this, typeof document !== 'undefined' ? document : null);
 

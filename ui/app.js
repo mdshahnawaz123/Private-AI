@@ -293,6 +293,15 @@ function navigate(dest){
   } else {
     design.style.display='none';
     $('genericWrap').style.display='block';
+    if(dest==='mpd' || dest==='cadcraft'){
+      $('genericWrap').style.position='absolute';
+      $('genericWrap').style.inset='0';
+      $('genericWrap').style.overflow='hidden';
+    } else {
+      $('genericWrap').style.position='';
+      $('genericWrap').style.inset='';
+      $('genericWrap').style.overflow='';
+    }
     const meta=DESTS.find(d=>d[0]===dest);
     $('wsTitle').innerHTML=`${meta?esc(meta[1]):esc(dest)} ${currentRevision?`<span class="sub">· Rev ${esc(currentRevision)}</span>`:''}`;
     $('wsTools').innerHTML='';

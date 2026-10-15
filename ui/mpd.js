@@ -466,6 +466,7 @@ function _initCanvas() {
 
   function resize() {
     const rect = container.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) return;
     const dpr = window.devicePixelRatio || 1;
     _mpdCanvas.width = rect.width * dpr;
     _mpdCanvas.height = rect.height * dpr;
@@ -473,8 +474,12 @@ function _initCanvas() {
     _mpdCanvas.style.height = `${rect.height}px`;
     _drawCanvas();
   }
+  if (window.ResizeObserver) {
+    const ro = new ResizeObserver(() => { resize(); });
+    ro.observe(container);
+  }
   window.addEventListener('resize', resize);
-  setTimeout(resize, 60);
+  setTimeout(() => { resize(); _fitCanvasToPlots(); }, 80);
 
   // Pan & Zoom controls
   let isDragging = false;
@@ -622,7 +627,7 @@ function _fitCanvasToPlots() {
   const ph = maxY - minY + 100;
 
   const scale = Math.min(cw / pw, ch / ph) * 0.85;
-  _mpdTransform.zoom = Math.max(0.4, Math.min(2.5, scale));
+  _mpdTransform.zoom = Math.max(0.15, Math.min(2.5, scale));
   _mpdTransform.panX = (cw - (minX + maxX) * _mpdTransform.zoom) / 2;
   _mpdTransform.panY = (ch - (minY + maxY) * _mpdTransform.zoom) / 2;
   _drawCanvas();
@@ -726,23 +731,40 @@ function _drawPlot(ctx, plot) {
   }
 
   // Centroid Text Annotation
-  const cx = plot.geometry.centroid ? plot.geometry.centroid[0] : coords[0][0] + 20;
-  const cy = plot.geometry.centroid ? plot.geometry.centroid[1] : coords[0][1] + 20;
+  const bbox = plot.geometry.bbox || [coords[0][0], coords[0][1], coords[1][0], coords[1][1]];
+  const plotW = Math.max(20, bbox[2] - bbox[0]);
+  const plotH = Math.max(20, bbox[3] - bbox[1]);
+  const cx = plot.geometry.centroid ? plot.geometry.centroid[0] : (bbox[0] + bbox[2]) / 2;
+  const cy = plot.geometry.centroid ? plot.geometry.centroid[1] : (bbox[1] + bbox[3]) / 2;
 
+  // Bounded Plot ID (never exceeds plot width)
+  const maxTitleFont = Math.min(plotW * 0.18, 14 / _mpdTransform.zoom);
+  const titleFont = Math.max(7, maxTitleFont);
   ctx.fillStyle = isSel ? '#ffffff' : color.text;
-  ctx.font = `bold ${Math.max(9, Math.min(15, 13 / _mpdTransform.zoom))}px Inter, sans-serif`;
+  ctx.font = `bold ${titleFont}px Inter, sans-serif`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText(plot.plot_id, cx, cy - 8);
+  ctx.fillText(plot.plot_id, cx, cy - titleFont * 0.55);
 
-  ctx.font = `${Math.max(7, Math.min(11, 10 / _mpdTransform.zoom))}px Inter, sans-serif`;
+  // Bounded FAR text
+  const maxSubFont = Math.min(plotW * 0.12, 11 / _mpdTransform.zoom);
+  const subFont = Math.max(6, maxSubFont);
+  ctx.font = `${subFont}px Inter, sans-serif`;
   ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
-  ctx.fillText(`FAR ${plot.far.toFixed(2)}`, cx, cy + 8);
+  ctx.fillText(`FAR ${plot.far.toFixed(2)}`, cx, cy + subFont * 0.75);
 
+  // Elegant top-right alert badge for violations (instead of stamping giant text)
   if (plot.status === 'violation') {
+    const badgeR = Math.min(9, Math.max(5, plotW * 0.05));
+    const bx = bbox[2] - badgeR - 4;
+    const by = bbox[1] + badgeR + 4;
     ctx.fillStyle = '#f2585f';
-    ctx.font = `bold ${Math.max(9, 12 / _mpdTransform.zoom)}px Inter, sans-serif`;
-    ctx.fillText('⚠ VIOLATION', cx, cy + 22);
+    ctx.beginPath();
+    ctx.arc(bx, by, badgeR, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#ffffff';
+    ctx.font = `bold ${badgeR * 1.3}px Inter, sans-serif`;
+    ctx.fillText('!', bx, by);
   }
 
   ctx.restore();

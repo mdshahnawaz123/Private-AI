@@ -386,6 +386,12 @@ def seed_default_masterplan(project_id: str = "C3085 - 3EH -Expo Hills"):
     realistic street grid, park corridors, zoning standards, and sample audit flags.
     """
     init_db()
+    conn = get_connection()
+    try:
+        with conn:
+            conn.execute("DELETE FROM mp_plots WHERE project_id = ?", (project_id,))
+    finally:
+        conn.close()
     plots_data = []
 
     # Masterplan Grid Layout Definition (Centroid coords: X: 100 to 900, Y: 100 to 600)

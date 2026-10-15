@@ -86,7 +86,7 @@ class MasterplanDxfParser:
                     if any(k in lyr for k in boundary_keywords):
                         prop_lines.append(([float(e.dxf.start.x), float(e.dxf.start.y)], [float(e.dxf.end.x), float(e.dxf.end.y)], e.dxf.layer or ""))
 
-        if prop_lines and len(raw_polygons) < 10:
+        if prop_lines:
             def dist(p1, p2):
                 return math.hypot(p1[0]-p2[0], p1[1]-p2[1])
 

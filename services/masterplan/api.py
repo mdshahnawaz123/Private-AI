@@ -183,6 +183,15 @@ async def list_masterplan_files(project_id: str):
     }
 
 
+@mpd_router.delete("/projects/{project_id}/files/{file_id}")
+async def delete_masterplan_file(project_id: str, file_id: str):
+    """Deletes an uploaded masterplan source file."""
+    deleted = db.delete_file_record(project_id, file_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="File not found")
+    return {"status": "success", "message": "File deleted successfully"}
+
+
 @mpd_router.post("/projects/{project_id}/reconcile")
 async def reconcile_files(project_id: str):
     """

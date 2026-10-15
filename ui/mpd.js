@@ -830,11 +830,12 @@ async function _openFilesModal(proj) {
               <th style="padding:10px 12px;font-weight:600">Plots</th>
               <th style="padding:10px 12px;font-weight:600">Uploaded</th>
               <th style="padding:10px 12px;font-weight:600">Status</th>
+              <th style="padding:10px 12px;font-weight:600;text-align:right">Action</th>
             </tr>
           </thead>
           <tbody id="mpdFilesTableBody">
             <tr>
-              <td colspan="6" style="text-align:center;padding:24px;color:var(--muted)">Loading uploaded files...</td>
+              <td colspan="7" style="text-align:center;padding:24px;color:var(--muted)">Loading uploaded files...</td>
             </tr>
           </tbody>
         </table>
@@ -917,7 +918,7 @@ async function _openFilesModal(proj) {
                 ${canReconcile ? '⚡ Ready for Cross-Reconciliation' : '⚠️ Pending Cross-Source Uploads'}
               </div>
               <div style="font-size:11.5px;color:var(--text)">
-                ${canReconcile ? 'Both CAD drawing and Excel register detected. Click Reconcile & Link to establish ground truth.' : 'Upload both a CAD drawing (.dxf/.dwg) and an Excel schedule (.xlsx) to correlate geometry with zoning.'}
+                ${canReconcile ? 'Both CAD drawing and Excel register detected. Click Reconcile & Link to establish ground truth.' : (cadFiles.length === 0 ? 'Upload this project\'s CAD vector drawing (.dxf/.dwg) to correlate physical parcels with zoning registers.' : 'Upload this project\'s Excel register (.xlsx) to correlate parcel geometry with zoning.')}
               </div>
             </div>
             ${canReconcile ? `<span class="mpd-badge" style="font-size:10.5px;padding:3px 8px;background:rgba(47,107,255,.2);color:var(--accent2)">Ready to Link</span>` : `<span class="mpd-badge warn" style="font-size:10.5px;padding:3px 8px">Incomplete</span>`}
@@ -927,7 +928,7 @@ async function _openFilesModal(proj) {
 
       const tbody = modal.querySelector('#mpdFilesTableBody');
       if (!files.length) {
-        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:30px;color:var(--muted)">No masterplan files uploaded yet for this project.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:30px;color:var(--muted)">No masterplan files uploaded yet for this project.</td></tr>`;
         return;
       }
       tbody.innerHTML = files.map(f => {
@@ -941,7 +942,7 @@ async function _openFilesModal(proj) {
         const dateStr = f.uploaded_at ? new Date(f.uploaded_at).toLocaleString() : '—';
         const statusBadge = f.status === 'linked'
           ? `<span class="mpd-badge green" style="font-size:10px">Linked</span>`
-          : `<span class="mpd-badge" style="font-size:10px">${_mpdEsc(f.status || 'Indexed')}</span>`;
+          : `<span class="mpd-badge" style="font-size:10px">${_mpdEsc(f.status || 'Uploaded')}</span>`;
 
         return `
           <tr style="border-bottom:1px solid rgba(255,255,255,.05)">
@@ -954,6 +955,11 @@ async function _openFilesModal(proj) {
             <td style="padding:9px 12px;font-weight:700">${f.plots_count || 0}</td>
             <td style="padding:9px 12px;color:var(--muted);font-size:11px">${dateStr}</td>
             <td style="padding:9px 12px">${statusBadge}</td>
+            <td style="padding:9px 12px;text-align:right">
+              <button class="cad-btn" style="padding:3px 7px;font-size:10.5px;color:var(--red);border-color:rgba(242,88,95,.3)" onclick="window._deleteMpdFile('${_mpdEsc(activeProj)}', '${_mpdEsc(f.id)}', '${_mpdEsc(f.filename)}')">
+                ✕ Delete
+              </button>
+            </td>
           </tr>
         `;
       }).join('');
@@ -962,6 +968,25 @@ async function _openFilesModal(proj) {
     console.error('Failed to load files:', err);
   }
 }
+
+window._deleteMpdFile = async function(proj, fileId, filename) {
+  if (!confirm(`Delete file "${filename}" from this project?`)) return;
+  try {
+    const res = await fetch(`${API}/api/v1/masterplan/projects/${encodeURIComponent(proj)}/files/${encodeURIComponent(fileId)}`, {
+      method: 'DELETE'
+    });
+    if (res.ok) {
+      toast(`🗑️ Deleted ${filename}`);
+      _openFilesModal(proj);
+      _loadFilesCount(proj);
+      _loadMasterplanData(proj);
+    } else {
+      toast('Failed to delete file');
+    }
+  } catch (e) {
+    toast(`Error: ${e.message}`);
+  }
+};
 
 async function _triggerReconciliation(proj) {
   const activeProj = _getMpdProject(proj);

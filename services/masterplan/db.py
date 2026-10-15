@@ -524,16 +524,27 @@ def save_file_record(
     status: str = "uploaded"
 ) -> Dict[str, Any]:
     init_db()
-    file_id = str(uuid.uuid4())
     now = datetime.now(timezone.utc).isoformat()
     meta_json = json.dumps(meta or {})
     conn = get_connection()
     try:
         with conn:
-            conn.execute("""
-                INSERT INTO mp_files (id, project_id, filename, file_type, file_size, file_path, status, plots_count, meta_json, uploaded_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (file_id, project_id, filename, file_type, file_size, file_path, status, plots_count, meta_json, now))
+            cur = conn.cursor()
+            cur.execute("SELECT id FROM mp_files WHERE project_id = ? AND filename = ?", (project_id, filename))
+            existing = cur.fetchone()
+            if existing:
+                file_id = existing["id"]
+                conn.execute("""
+                    UPDATE mp_files
+                    SET file_type = ?, file_size = ?, file_path = ?, status = ?, plots_count = ?, meta_json = ?, uploaded_at = ?
+                    WHERE id = ?
+                """, (file_type, file_size, file_path, status, plots_count, meta_json, now, file_id))
+            else:
+                file_id = str(uuid.uuid4())
+                conn.execute("""
+                    INSERT INTO mp_files (id, project_id, filename, file_type, file_size, file_path, status, plots_count, meta_json, uploaded_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (file_id, project_id, filename, file_type, file_size, file_path, status, plots_count, meta_json, now))
     finally:
         conn.close()
     return {
@@ -548,6 +559,30 @@ def save_file_record(
         "meta": meta or {},
         "uploaded_at": now
     }
+
+
+def delete_file_record(project_id: str, file_id_or_name: str) -> bool:
+    init_db()
+    conn = get_connection()
+    try:
+        with conn:
+            cur = conn.cursor()
+            cur.execute("SELECT file_path, filename FROM mp_files WHERE project_id = ? AND (id = ? OR filename = ?)", (project_id, file_id_or_name, file_id_or_name))
+            row = cur.fetchone()
+            if row:
+                f_path = row["file_path"]
+                f_name = row["filename"]
+                conn.execute("DELETE FROM mp_files WHERE project_id = ? AND (id = ? OR filename = ?)", (project_id, file_id_or_name, file_id_or_name))
+                conn.execute("DELETE FROM mp_file_relations WHERE project_id = ? AND (cad_file = ? OR excel_file = ?)", (project_id, f_name, f_name))
+                if f_path and os.path.exists(f_path):
+                    try:
+                        os.remove(f_path)
+                    except Exception:
+                        pass
+                return True
+            return False
+    finally:
+        conn.close()
 
 
 def get_file_records(project_id: str) -> List[Dict[str, Any]]:

@@ -2,7 +2,10 @@
    CADCraft Studio - Computer-Aided Design & Drafting for Expo Design AI
    Clean-room AutoCAD-style 2D drafting engine inspired by storytold/cadcraft
    (pure Rust AutoCAD reimplementation).
-   ========================================================================== */
+// Safe accessors for global environment
+var $ = (typeof window !== 'undefined' && typeof window.$ === 'function') ? window.$ : (id => document.getElementById(id));
+var API = (typeof window !== 'undefined' && window.API) ? window.API : (typeof location !== 'undefined' ? location.origin : '');
+var toast = (msg) => (typeof window !== 'undefined' && typeof window.toast === 'function' ? window.toast(msg) : console.log('[Toast]', msg));
 
 let cadEntities = [];
 let cadLayers = [
@@ -1282,7 +1285,8 @@ function _renderPropertiesPanel() {
     changeLayerSel.onchange = () => {
       _saveHistory();
       ent.layer = changeLayerSel.value;
-      ent.color = [l.color for l in cadLayers if l.name === ent.layer][0] || '#ffffff';
+      const matchedLayer = cadLayers.find(l => l.name === ent.layer);
+      ent.color = matchedLayer ? matchedLayer.color : '#ffffff';
       _drawCadCanvas();
       _renderPropertiesPanel();
     };

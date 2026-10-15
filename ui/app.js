@@ -13,6 +13,7 @@
    ============================================================ */
 
 const API = window.location.origin;
+window.API = API;
 
 /* ---- UI feature flags (mirror server config; conservative defaults) ---- */
 const UI_FLAGS = {
@@ -39,10 +40,12 @@ window.fetch=function(u,o){ o=o||{}; try{ const s=(typeof u==='string')?u:(u&&u.
 
 /* ---- tiny helpers ---- */
 const $=id=>document.getElementById(id);
+window.$ = $;
 const el=(t,c,h)=>{const d=document.createElement(t); if(c)d.className=c; if(h!=null)d.innerHTML=h; return d;};
 const esc=s=>(s==null?'':String(s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const svg=(p,w)=>`<svg class="ico" viewBox="0 0 24 24" ${w?`style="width:${w}px;height:${w}px"`:''}>${p}</svg>`;
 function toast(t){ const e=$('toast'); e.textContent=t; e.classList.add('show'); clearTimeout(e._t); e._t=setTimeout(()=>e.classList.remove('show'),2200); }
+window.toast = toast;
 function mdLite(s){
   // Escape before formatting: source text and model output are never HTML.
   const inline=t=>esc(t).replace(/`([^`]+)`/g,'<code>$1</code>').replace(/\*\*([^*]+)\*\*/g,'<strong>$1</strong>')
@@ -295,10 +298,19 @@ function navigate(dest){
   updateCtxActions(); updateAiCtx();
   if(document.body.clientWidth<=1200) document.body.classList.remove('show-sb');
 }
+function renderCadCraft(c){
+  if (typeof renderCadCraftWorkspace === 'function') {
+    renderCadCraftWorkspace(c);
+  } else if (typeof window !== 'undefined' && typeof window.renderCadCraftWorkspace === 'function') {
+    window.renderCadCraftWorkspace(c);
+  } else {
+    c.innerHTML = '<div class="ws-scroll" style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;text-align:center"><div class="state" style="padding:40px"><div style="font-size:14px;font-weight:600;margin-bottom:8px">Loading CADCraft Studio...</div><p style="color:var(--muted);font-size:12px;margin-bottom:16px">The AutoCAD clean-room drafting workspace is initializing.</p><button class="primary" onclick="location.reload()">Reload Page</button></div></div>';
+  }
+}
 function renderGeneric(dest){
   const b=$('genericWrap');
   const R={ overview:renderOverview, studio:renderStudio, models:renderModels, drawings:renderDrawings,
-    cadcraft:(typeof renderCadCraftWorkspace === 'function' ? renderCadCraftWorkspace : (c)=>{ c.innerHTML='<div class="ws-scroll">CADCraft engine loading...</div>'; }),
+    cadcraft:renderCadCraft,
     documents:renderDocuments, schedules:renderSchedules, specifications:renderSpecifications,
     codes:renderCodes, qa:renderQA, reports:renderReports, settings:renderSettings };
   (R[dest]||(()=>{ b.innerHTML=`<div class="ws-scroll">${state('Nothing here yet.')}</div>`; }))(b);

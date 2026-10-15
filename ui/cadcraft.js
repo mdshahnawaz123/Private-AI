@@ -2,13 +2,15 @@
    CADCraft Studio - Computer-Aided Design & Drafting for Expo Design AI
    Clean-room AutoCAD-style 2D drafting engine inspired by storytold/cadcraft
    (pure Rust AutoCAD reimplementation).
+   ========================================================================== */
+
 // Safe accessors for global environment
 var $ = (typeof window !== 'undefined' && typeof window.$ === 'function') ? window.$ : (id => document.getElementById(id));
 var API = (typeof window !== 'undefined' && window.API) ? window.API : (typeof location !== 'undefined' ? location.origin : '');
 var toast = (msg) => (typeof window !== 'undefined' && typeof window.toast === 'function' ? window.toast(msg) : console.log('[Toast]', msg));
 
-let cadEntities = [];
-let cadLayers = [
+var cadEntities = [];
+var cadLayers = [
   { name: '0', color: '#808080', visible: true, locked: false, linetype: 'CONTINUOUS' },
   { name: 'WALLS', color: '#e2e8f0', visible: true, locked: false, linetype: 'CONTINUOUS' },
   { name: 'DOORS', color: '#2ecc71', visible: true, locked: false, linetype: 'CONTINUOUS' },
@@ -17,34 +19,34 @@ let cadLayers = [
   { name: 'ROOM_NAMES', color: '#e67e22', visible: true, locked: false, linetype: 'CONTINUOUS' },
   { name: 'DIMS', color: '#00e5ff', visible: true, locked: false, linetype: 'CONTINUOUS' }
 ];
-let activeLayer = 'WALLS';
-let cadUndoStack = [];
-let cadRedoStack = [];
-let selectedEntityIds = new Set();
+var activeLayer = 'WALLS';
+var cadUndoStack = [];
+var cadRedoStack = [];
+var selectedEntityIds = new Set();
 
 // Viewport transform
-let panX = 0, panY = 0;
-let zoom = 0.05; // world units to screen pixels
-let isPanning = false;
-let panStartX = 0, panStartY = 0;
+var panX = 0, panY = 0;
+var zoom = 0.05; // world units to screen pixels
+var isPanning = false;
+var panStartX = 0, panStartY = 0;
 
 // Drafting modes: 'select', 'line', 'polyline', 'circle', 'arc', 'rectangle', 'text', 'dimension', 'erase', 'move', 'copy', 'offset'
-let activeTool = 'select';
-let draftPoints = [];
-let mouseWorld = { x: 0, y: 0 };
-let snappedPoint = null;
-let snapType = null;
+var activeTool = 'select';
+var draftPoints = [];
+var mouseWorld = { x: 0, y: 0 };
+var snappedPoint = null;
+var snapType = null;
 
 // Settings & toggles
-let snapEnabled = true;
-let gridEnabled = true;
-let orthoEnabled = false;
-let polarEnabled = false;
+var snapEnabled = true;
+var gridEnabled = true;
+var orthoEnabled = false;
+var polarEnabled = false;
 
 // Selection box
-let isSelectingBox = false;
-let selectBoxStart = { x: 0, y: 0 };
-let currentDrawingTitle = 'Untitled Drawing';
+var isSelectingBox = false;
+var selectBoxStart = { x: 0, y: 0 };
+var currentDrawingTitle = 'Untitled Drawing';
 
 // Command Line
 const CAD_COMMANDS = {
@@ -1136,34 +1138,49 @@ function cadRedo() {
    ZOOM EXTENTS
    ========================================================================== */
 function zoomExtents() {
+  const wrap = $('cadCanvasWrap');
+  const w = wrap ? wrap.clientWidth : 800;
+  const h = wrap ? wrap.clientHeight : 600;
+
   if (cadEntities.length === 0) {
-    panX = $('cadCanvasWrap').clientWidth / 2;
-    panY = $('cadCanvasWrap').clientHeight / 2;
+    panX = w / 2;
+    panY = h / 2;
     zoom = 0.05;
     _drawCadCanvas();
     return;
   }
 
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-  cadEntities.forEach(ent => {
-    if (ent.x1 != null) { minX = Math.min(minX, ent.x1, ent.x2); maxX = Math.max(maxX, ent.x1, ent.x2); }
-    if (ent.y1 != null) { minY = Math.min(minY, ent.y1, ent.y2); maxY = Math.max(maxY, ent.y1, ent.y2); }
-    if (ent.cx != null && ent.radius != null) {
-      minX = Math.min(minX, ent.cx - ent.radius); maxX = Math.max(maxX, ent.cx + ent.radius);
-      minY = Math.min(minY, ent.cy - ent.radius); maxY = Math.max(maxY, ent.cy + ent.radius);
+  const updateBBox = (x, y) => {
+    if (typeof x === 'number' && isFinite(x) && typeof y === 'number' && isFinite(y)) {
+      minX = Math.min(minX, x); maxX = Math.max(maxX, x);
+      minY = Math.min(minY, y); maxY = Math.max(maxY, y);
     }
-    if (ent.points) {
-      ent.points.forEach(p => { minX = Math.min(minX, p[0]); maxX = Math.max(maxX, p[0]); minY = Math.min(minY, p[1]); maxY = Math.max(maxY, p[1]); });
+  };
+
+  cadEntities.forEach(ent => {
+    if (ent.x1 != null && ent.y1 != null) { updateBBox(ent.x1, ent.y1); }
+    if (ent.x2 != null && ent.y2 != null) { updateBBox(ent.x2, ent.y2); }
+    if (ent.x != null && ent.y != null) { updateBBox(ent.x, ent.y); }
+    if (ent.cx != null && ent.cy != null && ent.radius != null) {
+      updateBBox(ent.cx - ent.radius, ent.cy - ent.radius);
+      updateBBox(ent.cx + ent.radius, ent.cy + ent.radius);
+    }
+    if (ent.points && Array.isArray(ent.points)) {
+      ent.points.forEach(p => { if (Array.isArray(p) && p.length >= 2) updateBBox(p[0], p[1]); });
     }
   });
 
-  const wrap = $('cadCanvasWrap');
-  const w = wrap.clientWidth;
-  const h = wrap.clientHeight;
+  if (!isFinite(minX) || !isFinite(maxX) || !isFinite(minY) || !isFinite(maxY)) {
+    minX = 0; maxX = 1000; minY = 0; maxY = 1000;
+  }
+
   const dx = Math.max(maxX - minX, 10);
   const dy = Math.max(maxY - minY, 10);
 
   zoom = Math.min((w * 0.85) / dx, (h * 0.85) / dy);
+  if (!isFinite(zoom) || isNaN(zoom) || zoom <= 0) zoom = 0.05;
+
   const midX = (minX + maxX) / 2;
   const midY = (minY + maxY) / 2;
 

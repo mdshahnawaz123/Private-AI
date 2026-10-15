@@ -7,8 +7,6 @@
 const _mpdEl = (t, c, h) => { const d = document.createElement(t); if (c) d.className = c; if (h != null) d.innerHTML = h; return d; };
 const _mpdEsc = s => (s == null ? '' : String(s)).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const _mpd$ = id => (typeof $ === 'function' ? $(id) : document.getElementById(id));
-const el = (typeof window !== 'undefined' && typeof window.el === 'function') ? window.el : _mpdEl;
-const esc = (typeof window !== 'undefined' && typeof window.esc === 'function') ? window.esc : _mpdEsc;
 
 let _mpdPlots = [];
 let _mpdSummary = null;
@@ -206,9 +204,9 @@ function _renderPlotTable(plots) {
         : '<span class="mpd-badge red" style="padding:1px 6px;font-size:9.5px">Violation</span>');
 
     return `
-      <tr class="${isSel ? 'selected' : ''}" onclick="_selectPlot('${esc(p.plot_id)}')">
-        <td><b>${esc(p.plot_id)}</b></td>
-        <td>${esc(p.land_use)}</td>
+      <tr class="${isSel ? 'selected' : ''}" onclick="_selectPlot('${_mpdEsc(p.plot_id)}')">
+        <td><b>${_mpdEsc(p.plot_id)}</b></td>
+        <td>${_mpdEsc(p.land_use)}</td>
         <td>${Math.round(p.area_sqm).toLocaleString()}</td>
         <td>${Math.round(p.achieved_gfa).toLocaleString()}</td>
         <td>${p.far.toFixed(2)}</td>
@@ -233,7 +231,7 @@ function _selectPlot(plotId, zoomTo = false) {
   const selInfo = $('mpdSelectedInfo');
   if (selInfo) {
     const statusTag = plot.status === 'violation' ? ' <span style="color:var(--red);font-weight:700">⚠️ Violation</span>' : (plot.status === 'warning' ? ' <span style="color:var(--amber);font-weight:700">⚠️ Warning</span>' : ' <span style="color:var(--green)">✓ Compliant</span>');
-    selInfo.innerHTML = `Selected: <b>${esc(plot.plot_id)}</b> (${esc(plot.land_use)} · Area: ${Math.round(plot.area_sqm).toLocaleString()} m² · FAR: ${plot.far.toFixed(2)} / Max: ${plot.max_far.toFixed(2)})${statusTag}`;
+    selInfo.innerHTML = `Selected: <b>${_mpdEsc(plot.plot_id)}</b> (${_mpdEsc(plot.land_use)} · Area: ${Math.round(plot.area_sqm).toLocaleString()} m² · FAR: ${plot.far.toFixed(2)} / Max: ${plot.max_far.toFixed(2)})${statusTag}`;
   }
 
   // Update Inspector Card if present in DOM
@@ -253,7 +251,7 @@ function _selectPlot(plotId, zoomTo = false) {
   if (violBox) {
     if (plot.violations && plot.violations.length > 0) {
       violBox.style.display = 'block';
-      violBox.innerHTML = `⚠️ <b>Regulatory Issues</b>:<br>` + plot.violations.map(v => `• ${esc(v)}`).join('<br>');
+      violBox.innerHTML = `⚠️ <b>Regulatory Issues</b>:<br>` + plot.violations.map(v => `• ${_mpdEsc(v)}`).join('<br>');
     } else {
       violBox.style.display = 'none';
     }
@@ -374,7 +372,7 @@ function _initCanvas() {
       tooltip.style.left = `${mouseX + 14}px`;
       tooltip.style.top = `${mouseY + 14}px`;
       tooltip.innerHTML = `
-        <div style="font-weight:700;color:var(--text);font-size:12px">${esc(hit.plot_id)} · ${esc(hit.land_use)}</div>
+        <div style="font-weight:700;color:var(--text);font-size:12px">${_mpdEsc(hit.plot_id)} · ${_mpdEsc(hit.land_use)}</div>
         <div style="font-size:10.5px;color:var(--muted)">Area: ${Math.round(hit.area_sqm).toLocaleString()} m² | FAR: ${hit.far.toFixed(2)}</div>
         <div style="font-size:10.5px;color:${hit.status==='violation'?'var(--red)':'var(--green)'}">Status: ${hit.status.toUpperCase()}</div>
       `;
@@ -678,12 +676,12 @@ async function _handleMpdChatSubmit() {
 
     let toolBadges = '';
     if (data.tools_called && data.tools_called.length) {
-      toolBadges = data.tools_called.map(t => `<span class="mpd-badge" style="font-size:9.5px;padding:2px 6px">Tool: ${esc(t)}</span>`).join(' ');
+      toolBadges = data.tools_called.map(t => `<span class="mpd-badge" style="font-size:9.5px;padding:2px 6px">Tool: ${_mpdEsc(t)}</span>`).join(' ');
     }
 
     agentMsg.innerHTML = `
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
-        <div style="font-weight:700;color:var(--accent2);font-size:11.5px">Qwen 3.5 9B Copilot · Intent: ${esc(data.intent || 'QUERY')}</div>
+        <div style="font-weight:700;color:var(--accent2);font-size:11.5px">Qwen 3.5 9B Copilot · Intent: ${_mpdEsc(data.intent || 'QUERY')}</div>
         <div>${toolBadges}</div>
       </div>
       <div style="line-height:1.5;font-size:12px">${mdLite(data.answer)}</div>
@@ -694,7 +692,7 @@ async function _handleMpdChatSubmit() {
       _selectPlot(_mpdHighlightPlots[0], true);
     }
   } catch (err) {
-    agentMsg.innerHTML = `<span style="color:var(--red)">Failed to reach reasoning model: ${esc(err.message)}</span>`;
+    agentMsg.innerHTML = `<span style="color:var(--red)">Failed to reach reasoning model: ${_mpdEsc(err.message)}</span>`;
   }
   hist.scrollTop = hist.scrollHeight;
 }
@@ -1295,8 +1293,8 @@ async function _openAuditLogModal(proj) {
         listEl.innerHTML = logs.map(l => `
           <div style="padding:10px;border-bottom:1px solid rgba(255,255,255,.05);display:flex;justify-content:space-between;align-items:flex-start;gap:12px">
             <div>
-              <div style="font-weight:700;font-size:12px;color:var(--text);margin-bottom:3px">${esc(l.description)}</div>
-              <div style="font-size:10.5px;color:var(--muted)">Action: <b style="color:var(--accent2)">${esc(l.action_type)}</b> · Author: <b>${esc(l.author)}</b></div>
+              <div style="font-weight:700;font-size:12px;color:var(--text);margin-bottom:3px">${_mpdEsc(l.description)}</div>
+              <div style="font-size:10.5px;color:var(--muted)">Action: <b style="color:var(--accent2)">${_mpdEsc(l.action_type)}</b> · Author: <b>${_mpdEsc(l.author)}</b></div>
             </div>
             <div style="font-size:10px;color:var(--faint);white-space:nowrap">${new Date(l.timestamp).toLocaleTimeString()}</div>
           </div>

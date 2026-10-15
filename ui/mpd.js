@@ -81,9 +81,7 @@ async function renderMPDWorkspace(container) {
             <svg class="ico" style="width:13px;height:13px" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 14 14"/></svg>
             Audit Log &amp; Undo
           </button>
-          <button class="cad-btn" id="mpdResetBtn" title="Reset sample masterplan">
-            <svg class="ico" style="width:13px;height:13px" viewBox="0 0 24 24"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
-          </button>
+
 
           <div style="width:1px;height:18px;background:var(--border);margin:0 4px"></div>
 
@@ -516,9 +514,22 @@ function _drawCanvas() {
   _drawGrid(ctx);
 
   // Draw Plots
-  for (const plot of _mpdPlots) {
-    if (_mpdShowViolationsOnly && plot.status !== 'violation') continue;
-    _drawPlot(ctx, plot);
+  if (!_mpdPlots || !_mpdPlots.length) {
+    ctx.save();
+    ctx.font = `600 ${Math.max(12, 16 / _mpdTransform.zoom)}px Inter, -apple-system, sans-serif`;
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.45)';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('No CAD drawing loaded. Click "Import File" above to upload your CAD file (.dxf / .dwg).', 500, 260);
+    ctx.font = `${Math.max(10, 12 / _mpdTransform.zoom)}px Inter, sans-serif`;
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.25)';
+    ctx.fillText('Once uploaded, your CAD vector drawing and parcels will be rendered here.', 500, 290);
+    ctx.restore();
+  } else {
+    for (const plot of _mpdPlots) {
+      if (_mpdShowViolationsOnly && plot.status !== 'violation') continue;
+      _drawPlot(ctx, plot);
+    }
   }
 
   ctx.restore();
@@ -543,10 +554,12 @@ function _drawGrid(ctx) {
     ctx.stroke();
   }
 
-  // Masterplan Boundary outline
-  ctx.strokeStyle = 'rgba(47, 107, 255, 0.2)';
-  ctx.lineWidth = 2 / _mpdTransform.zoom;
-  ctx.strokeRect(50, -50, 1000, 650);
+  // Masterplan Boundary outline (only when plots are loaded)
+  if (_mpdPlots && _mpdPlots.length > 0) {
+    ctx.strokeStyle = 'rgba(47, 107, 255, 0.2)';
+    ctx.lineWidth = 2 / _mpdTransform.zoom;
+    ctx.strokeRect(50, -50, 1000, 650);
+  }
 
   ctx.restore();
 }
@@ -759,17 +772,7 @@ function _wireMpdEvents(proj) {
   const logBtn = _mpd$('mpdAuditLogBtn');
   if (logBtn) logBtn.onclick = () => _openAuditLogModal(activeProj);
 
-  // Reset Sample
-  const rstBtn = _mpd$('mpdResetBtn');
-  if (rstBtn) rstBtn.onclick = async () => {
-    if (!confirm('Reset masterplan back to standard Expo Hills sample layout?')) return;
-    try {
-      await fetch(`${API}/api/v1/masterplan/projects/${encodeURIComponent(activeProj)}/reset-sample`, { method: 'POST' });
-      toast('Masterplan reset successfully!');
-      await _loadMasterplanData(activeProj);
-      await _loadFilesCount(activeProj);
-    } catch (e) {}
-  };
+
 
   // Confirm Selection Action
   const confBtn = _mpd$('mpdConfirmBtn');

@@ -340,7 +340,11 @@ async def undo_action(project_id: str):
 
 @mpd_router.post("/projects/{project_id}/reset-sample")
 async def reset_sample(project_id: str):
-    """Resets the project back to the reference Expo Hills masterplan."""
-    db.seed_default_masterplan(project_id)
-    spatial_engine.run_project_audit(project_id)
-    return {"status": "success", "message": f"Reset {project_id} to reference masterplan"}
+    """Clears all masterplan plots for this project."""
+    conn = db.get_connection()
+    try:
+        with conn:
+            conn.execute("DELETE FROM mp_plots WHERE project_id = ?", (project_id,))
+    finally:
+        conn.close()
+    return {"status": "success", "message": f"Cleared plots for {project_id}"}

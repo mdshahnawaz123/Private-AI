@@ -3315,7 +3315,11 @@ async function sendAi(standards){ const t=$('aiIn'); const q=t.value.trim();
       if(data.tools_called && data.tools_called.length){
         toolBadges = '<div style="margin-top:8px;display:flex;gap:4px;flex-wrap:wrap">' + data.tools_called.map(t => `<span class="mpd-badge" style="font-size:9.5px;padding:2px 6px">Tool: ${esc(t)}</span>`).join('') + '</div>';
       }
-      bub.innerHTML = `<div>${mdLite(data.answer)}</div>${toolBadges}`;
+      if (data.html) {
+        bub.innerHTML = `<div>${data.html}</div>${toolBadges}`;
+      } else {
+        bub.innerHTML = `<div>${mdLite(data.answer)}</div>${toolBadges}`;
+      }
       aiHist.push({role:'user',content:q});
       aiHist.push({role:'assistant',content:data.answer});
 

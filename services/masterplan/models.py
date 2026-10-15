@@ -77,3 +77,5 @@ class MasterplanAIQueryResponse(BaseModel):
     kpis: Optional[Dict[str, Any]] = None
     confidence: float = 1.0
     action_performed: Optional[str] = None
+    html: Optional[str] = None
+    reconciliation: Optional[Dict[str, Any]] = None

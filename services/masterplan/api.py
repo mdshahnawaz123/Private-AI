@@ -152,22 +152,6 @@ async def import_file(project_id: str, file: UploadFile = File(...)):
         cad_files = [f for f in all_files if f["file_type"] == "cad"]
         excel_files = [f for f in all_files if f["file_type"] == "excel"]
 
-        reconciliation_data = None
-        if cad_files and excel_files:
-            latest_cad = cad_files[0]
-            latest_excel = excel_files[0]
-            try:
-                c_plots = dxf_parser.parse_dxf(latest_cad["file_path"], project_id)
-                e_plots = excel_parser.parse_excel(latest_excel["file_path"], project_id)
-                reconciliation_data = reconciliation_engine.analyze_correlation(
-                    cad_plots=c_plots,
-                    excel_plots=e_plots,
-                    cad_filename=latest_cad["filename"],
-                    excel_filename=latest_excel["filename"]
-                )
-            except Exception as e:
-                logger.error(f"Error during automatic cross-reconciliation: {e}")
-
         # If it's a CAD geometry file, populate geometry or update DB
         if ext in (".dxf", ".dwg") or not excel_files:
             db.save_plots_bulk(project_id, parsed_plots, author=f"Import ({parser_type})")
@@ -175,12 +159,12 @@ async def import_file(project_id: str, file: UploadFile = File(...)):
 
         return {
             "status": "success",
-            "message": f"Successfully imported {len(parsed_plots)} plots via {parser_type} from {file.filename}",
+            "message": f"Successfully imported {file.filename} ({len(parsed_plots)} plots). File registered under MPD.",
             "count": len(parsed_plots),
             "filename": file.filename,
             "file_type": file_type,
             "has_cad_and_excel": bool(cad_files and excel_files),
-            "reconciliation": reconciliation_data
+            "reconciliation": None
         }
     except Exception as exc:
         logger.error(f"Failed to process masterplan file {file.filename}: {exc}")

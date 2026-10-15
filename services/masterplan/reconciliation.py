@@ -16,12 +16,16 @@ spatial_engine = SpatialReasoningEngine()
 
 
 def normalize_plot_id(raw_id: str) -> str:
-    """Normalizes various plot string formats ('p-101', 'PLOT 101', 'P101') -> 'P-101'."""
+    """Normalizes various plot string formats ('p-101', 'PLOT 101', 'P101', '5211024') -> 'P-101'."""
     s = (raw_id or "").strip().upper()
-    m = re.search(r"(\d+)", s)
+    m = re.match(r"^P?[-_ ]*0*(\d+)$", s)
     if m:
         num = int(m.group(1))
-        return f"P-{num:03d}"
+        if num < 1000:
+            return f"P-{num:03d}"
+        return f"P-{num}"
+    if not s.startswith("P-"):
+        return f"P-{s}"
     return s
 
 
@@ -107,8 +111,9 @@ class MasterplanReconciliationEngine:
                         "recommended": "retain_violation"
                     })
 
-        # 3. Missing in CAD check
-        for pid in excel_only_ids:
+        # 3. Missing in CAD check (capped at 3 items to avoid overwhelming chat)
+        max_missing_to_show = 3 if len(excel_only_ids) > 5 else len(excel_only_ids)
+        for pid in excel_only_ids[:max_missing_to_show]:
             exc_p = excel_map[pid]
             discrepancies.append({
                 "plot_id": pid,
@@ -116,7 +121,7 @@ class MasterplanReconciliationEngine:
                 "field": "geometry",
                 "title": f"Plot {pid} Missing in CAD Drawing",
                 "cad_val": "Not Drawn",
-                "excel_val": f"{exc_p.land_use} ({round(exc_p.area_sqm):,} m²)",
+                "excel_val": f"{round(exc_p.area_sqm):,} m²",
                 "question": f"Plot **{pid}** is recorded in the Excel schedule with GFA {round(exc_p.achieved_gfa):,} m², but no closed boundary polygon was found in the CAD drawing.",
                 "options": [
                     {"label": "Flag Missing Boundary for CAD Drafter", "value": "flag_missing"},

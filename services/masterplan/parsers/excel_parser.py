@@ -38,68 +38,100 @@ class MasterplanExcelParser:
         wb = openpyxl.load_workbook(file_path, data_only=True)
         plots: List[MasterplanPlot] = []
 
-        # Find best sheet
-        sheet = wb.active
-        for name in wb.sheetnames:
-            nu = name.upper()
-            if any(k in nu for k in ("PLOT", "SCHEDULE", "REGISTER", "MASTERPLAN", "DATA", "ZONING")):
-                sheet = wb[name]
-                break
+        # Score all sheets to automatically find the one containing actual plot schedule data
+        best_sheet = wb.active
+        best_score = -1
+        best_header_idx = -1
+        best_col_map: Dict[str, int] = {}
 
+        for name in wb.sheetnames:
+            sh = wb[name]
+            sh_rows = list(sh.iter_rows(values_only=True))
+            if not sh_rows:
+                continue
+
+            h_idx = -1
+            c_map: Dict[str, int] = {}
+            for r_i, row in enumerate(sh_rows[:25]):
+                row_strs = [str(c or "").strip().upper() for c in row]
+                has_plot = any(k in c for c in row_strs for k in ("PLOT NO", "PLOT_ID", "PLOT ID", "PLOT #", "PARCEL", "PLOT"))
+                has_area = any(k in c for c in row_strs for k in ("AREA", "GFA", "FAR", "BUA"))
+                if has_plot and has_area:
+                    h_idx = r_i
+                    for c_i, c_val in enumerate(row_strs):
+                        if not c_val:
+                            continue
+                        if any(k in c_val for k in ("PLOT NO", "PLOT_ID", "PLOT ID", "PLOT #", "PARCEL")):
+                            c_map["plot_id"] = c_i
+                        elif any(k in c_val for k in ("ZONE", "SECTOR", "DISTRICT", "PHASE")):
+                            c_map["sector"] = c_i
+                        elif any(k in c_val for k in ("LAND USE", "ZONING", "LANDUSE", "USE")):
+                            c_map["land_use"] = c_i
+                        elif any(k in c_val for k in ("LAND AREA", "PLOT AREA", "SITE AREA", "AREA (SQM)", "AREA SQM", "AREA")):
+                            if "area" not in c_map:
+                                c_map["area"] = c_i
+                        elif "TOTAL GFA" in c_val:
+                            c_map["perm_gfa"] = c_i
+                            c_map["ach_gfa"] = c_i
+                        elif any(k in c_val for k in ("PERMITTED GFA", "MAX GFA", "ALLOWABLE GFA", "PERMITTED BUA")):
+                            c_map["perm_gfa"] = c_i
+                        elif any(k in c_val for k in ("ACHIEVED GFA", "PROPOSED GFA", "GFA", "BUA")):
+                            if "ach_gfa" not in c_map:
+                                c_map["ach_gfa"] = c_i
+                            if "perm_gfa" not in c_map:
+                                c_map["perm_gfa"] = c_i
+                        elif any(k in c_val for k in ("MAX FAR", "PERMITTED FAR", "MAXIMUM FAR")):
+                            c_map["max_far"] = c_i
+                        elif "FAR" in c_val:
+                            c_map["far"] = c_i
+                        elif any(k in c_val for k in ("HEIGHT", "FLOORS", "STORIES")):
+                            c_map["height"] = c_i
+                        elif "FRONT SETBACK" in c_val:
+                            c_map["front_sb"] = c_i
+                        elif "REAR SETBACK" in c_val:
+                            c_map["rear_sb"] = c_i
+                        elif "SIDE SETBACK" in c_val:
+                            c_map["side_sb"] = c_i
+                        elif "PARKING" in c_val:
+                            c_map["parking"] = c_i
+                    break
+
+            if h_idx != -1 and "plot_id" in c_map:
+                valid_count = 0
+                for r in sh_rows[h_idx + 1:]:
+                    if not r:
+                        continue
+                    pid_val = r[c_map["plot_id"]] if c_map["plot_id"] < len(r) else None
+                    if not pid_val:
+                        continue
+                    s_pid = str(pid_val).strip().upper()
+                    if any(ign in s_pid for ign in ("TOTAL", "SUBTOTAL", "AVERAGE", "SITEWIDE", "SUMMARY", "OVERALL", "RESIDENTIAL", "COMMERCIAL", "HOSPITALITY", "INDUSTRIAL", "RECREATIONAL", "UTILITIES")):
+                        continue
+                    valid_count += 1
+
+                nu = name.upper()
+                name_bonus = 100 if any(k in nu for k in ("AFTER", "PROPOSED", "SCHEDULE", "REGISTER", "PLOT")) else 0
+                score = valid_count + name_bonus
+                if score > best_score:
+                    best_score = score
+                    best_sheet = sh
+                    best_header_idx = h_idx
+                    best_col_map = c_map
+
+        sheet = best_sheet
+        header_idx = best_header_idx
+        col_map = best_col_map
         rows = list(sheet.iter_rows(values_only=True))
+
         if not rows:
             return plots
 
-        # Locate header row
-        header_idx = -1
-        col_map: Dict[str, int] = {}
-
-        for r_i, row in enumerate(rows[:25]):
-            row_strs = [str(c or "").strip().upper() for c in row]
-            has_plot = any("PLOT" in c or "PARCEL" in c for c in row_strs)
-            has_area = any("AREA" in c or "GFA" in c or "FAR" in c for c in row_strs)
-            if has_plot and has_area:
-                header_idx = r_i
-                for c_i, c_val in enumerate(row_strs):
-                    if not c_val:
-                        continue
-                    if any(k in c_val for k in ("PLOT NO", "PLOT_ID", "PLOT ID", "PLOT #", "PARCEL")):
-                        col_map["plot_id"] = c_i
-                    elif any(k in c_val for k in ("SECTOR", "ZONE", "DISTRICT", "PHASE")):
-                        col_map["sector"] = c_i
-                    elif any(k in c_val for k in ("LAND USE", "ZONING", "LANDUSE", "USE")):
-                        col_map["land_use"] = c_i
-                    elif any(k in c_val for k in ("PLOT AREA", "SITE AREA", "AREA (SQM)", "AREA SQM", "LAND AREA")):
-                        col_map["area"] = c_i
-                    elif any(k in c_val for k in ("PERMITTED GFA", "MAX GFA", "ALLOWABLE GFA", "PERMITTED BUA")):
-                        col_map["perm_gfa"] = c_i
-                    elif any(k in c_val for k in ("ACHIEVED GFA", "PROPOSED GFA", "GFA", "BUA")):
-                        if "perm_gfa" not in col_map:
-                            col_map["perm_gfa"] = c_i
-                        col_map["ach_gfa"] = c_i
-                    elif any(k in c_val for k in ("MAX FAR", "PERMITTED FAR", "MAXIMUM FAR")):
-                        col_map["max_far"] = c_i
-                    elif "FAR" in c_val:
-                        col_map["far"] = c_i
-                    elif any(k in c_val for k in ("HEIGHT", "FLOORS", "STORIES")):
-                        col_map["height"] = c_i
-                    elif "FRONT SETBACK" in c_val:
-                        col_map["front_sb"] = c_i
-                    elif "REAR SETBACK" in c_val:
-                        col_map["rear_sb"] = c_i
-                    elif "SIDE SETBACK" in c_val:
-                        col_map["side_sb"] = c_i
-                    elif "PARKING" in c_val:
-                        col_map["parking"] = c_i
-                break
-
-        if header_idx == -1:
-            # Fallback column order if no clear header
-            logger.warning("Header row not identified with high confidence; parsing with fallback heuristic.")
+        if header_idx == -1 or "plot_id" not in col_map:
+            logger.warning(f"Header row not identified with high confidence in {sheet.title}; using fallback heuristic.")
             header_idx = 0
             col_map = {"plot_id": 0, "land_use": 1, "area": 2, "ach_gfa": 3, "far": 4}
 
-        logger.info(f"Identified Excel schedule columns: {col_map} at row {header_idx}")
+        logger.info(f"Using sheet '{sheet.title}' for schedule data. Columns: {col_map} at header row {header_idx}")
 
         row_count = 0
         for row in rows[header_idx + 1:]:
@@ -107,10 +139,25 @@ class MasterplanExcelParser:
                 continue
 
             raw_id = row[col_map["plot_id"]] if "plot_id" in col_map and col_map["plot_id"] < len(row) else None
-            if not raw_id or str(raw_id).strip().upper() in ("TOTAL", "SUBTOTAL", "AVERAGE"):
+            if not raw_id:
                 continue
 
-            plot_id_str = str(raw_id).strip()
+            raw_id_str = str(raw_id).strip()
+            raw_id_upper = raw_id_str.upper()
+
+            # Ignore non-plot summary and category rows
+            if any(k in raw_id_upper for k in (
+                "TOTAL", "SUBTOTAL", "AVERAGE", "SITEWIDE", "SUMMARY", "OVERALL",
+                "NOTE", "REMARK", "LEGEND", "RESIDENTIAL", "COMMERCIAL", "HOSPITALITY",
+                "INDUSTRIAL", "RECREATIONAL", "UTILITIES", "MAXIMUM", "MINIMUM"
+            )):
+                continue
+
+            # Must have at least one alphanumeric character
+            if not any(c.isalnum() for c in raw_id_str):
+                continue
+
+            plot_id_str = raw_id_str
             if not plot_id_str.upper().startswith("P-"):
                 plot_id_str = f"P-{plot_id_str}"
 

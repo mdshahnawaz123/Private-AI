@@ -7,6 +7,14 @@
 const _mpdEl = (t, c, h) => { const d = document.createElement(t); if (c) d.className = c; if (h != null) d.innerHTML = h; return d; };
 const _mpdEsc = s => (s == null ? '' : String(s)).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const _mpd$ = id => (typeof $ === 'function' ? $(id) : document.getElementById(id));
+function _getMpdProject(proj) {
+  if (proj) return proj;
+  if (typeof currentProject !== 'undefined' && currentProject) return currentProject;
+  if (typeof window !== 'undefined' && window.currentProject) return window.currentProject;
+  const pSel = document.getElementById('projSel');
+  if (pSel && pSel.value) return pSel.value;
+  return 'C3085 - 3EH -Expo Hills';
+}
 
 let _mpdPlots = [];
 let _mpdSummary = null;
@@ -43,21 +51,21 @@ function getPlotColor(plot) {
 }
 
 async function renderMPDWorkspace(container) {
-  const proj = currentProject || 'C3085 - 3EH -Expo Hills';
+  const proj = _getMpdProject();
   container.innerHTML = `
     <div class="mpd-root" id="mpdRoot">
       <!-- Unified Masterplan CAD Toolbar -->
       <div class="mpd-canvas-toolbar">
         <div class="mpd-canvas-toolbar-group">
-          <button class="cad-btn" id="mpdImportBtn" title="Import DXF, DWG, Excel or PDF">
+          <button class="cad-btn" id="mpdImportBtn" onclick="window._openImportModal && window._openImportModal()" title="Import DXF, DWG, Excel or PDF">
             <svg class="ico" style="width:13px;height:13px" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
             Import File
           </button>
-          <button class="cad-btn" id="mpdFilesBtn" title="View masterplan source files and cross-reconciliation status">
+          <button class="cad-btn" id="mpdFilesBtn" onclick="window._openFilesModal && window._openFilesModal()" title="View masterplan source files and cross-reconciliation status">
             <svg class="ico" style="width:13px;height:13px" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
             Files (<span id="mpdFileCount">0</span>)
           </button>
-          <button class="cad-btn" id="mpdReconcileBtn" title="Reconcile and stabilize CAD vs Excel relation">
+          <button class="cad-btn" id="mpdReconcileBtn" onclick="window._triggerReconciliation && window._triggerReconciliation()" title="Reconcile and stabilize CAD vs Excel relation">
             <svg class="ico" style="width:13px;height:13px;color:var(--accent2)" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
             Reconcile &amp; Link
           </button>
@@ -115,13 +123,14 @@ async function renderMPDWorkspace(container) {
     </div>
   `;
 
+  // Wire global event handlers immediately so buttons are responsive without waiting for network
+  _wireMpdEvents(proj);
+
   // Initialize Canvas
   _initCanvas();
   // Fetch data
   await _loadMasterplanData(proj);
   await _loadFilesCount(proj);
-  // Wire global event handlers
-  _wireMpdEvents(proj);
 }
 
 function _switchMpdTab(tab) {
@@ -702,28 +711,30 @@ async function _handleMpdChatSubmit() {
    ============================================================ */
 
 function _wireMpdEvents(proj) {
+  const activeProj = _getMpdProject(proj);
+
   // Import Dialog
-  const impBtn = $('mpdImportBtn');
-  if (impBtn) impBtn.onclick = () => _openImportModal(proj);
+  const impBtn = _mpd$('mpdImportBtn');
+  if (impBtn) impBtn.onclick = () => _openImportModal(activeProj);
 
   // Files List & Status Dialog
-  const filesBtn = $('mpdFilesBtn');
-  if (filesBtn) filesBtn.onclick = () => _openFilesModal(proj);
+  const filesBtn = _mpd$('mpdFilesBtn');
+  if (filesBtn) filesBtn.onclick = () => _openFilesModal(activeProj);
 
   // Reconcile & Link Action
-  const recBtn = $('mpdReconcileBtn');
-  if (recBtn) recBtn.onclick = () => _triggerReconciliation(proj);
+  const recBtn = _mpd$('mpdReconcileBtn');
+  if (recBtn) recBtn.onclick = () => _triggerReconciliation(activeProj);
 
   // Spatial Audit Action
-  const auditBtn = $('mpdAuditBtn');
+  const auditBtn = _mpd$('mpdAuditBtn');
   if (auditBtn) auditBtn.onclick = async () => {
     toast('Running end-to-end spatial and zoning audit...');
     try {
-      const r = await fetch(`${API}/api/v1/masterplan/projects/${encodeURIComponent(proj)}/audit`, { method: 'POST' });
+      const r = await fetch(`${API}/api/v1/masterplan/projects/${encodeURIComponent(activeProj)}/audit`, { method: 'POST' });
       if (r.ok) {
         const res = await r.json();
         toast(`✅ Spatial audit complete: ${res.violations} violations, ${res.warnings} warnings detected.`);
-        await _loadMasterplanData(proj);
+        await _loadMasterplanData(activeProj);
       }
     } catch (e) {
       toast('Spatial audit failed');
@@ -731,32 +742,32 @@ function _wireMpdEvents(proj) {
   };
 
   // Export CAD (.dxf)
-  const expBtn = $('mpdExportCadBtn');
+  const expBtn = _mpd$('mpdExportCadBtn');
   if (expBtn) expBtn.onclick = () => {
     const highlights = _mpdHighlightPlots.join(',');
-    const url = `${API}/api/v1/masterplan/projects/${encodeURIComponent(proj)}/export-cad${highlights ? `?highlights=${encodeURIComponent(highlights)}` : ''}`;
+    const url = `${API}/api/v1/masterplan/projects/${encodeURIComponent(activeProj)}/export-cad${highlights ? `?highlights=${encodeURIComponent(highlights)}` : ''}`;
     window.open(url, '_blank');
     toast('📥 Downloading highlighted CAD copy (DXF)...');
   };
 
   // Audit Log & Undo Dialog
-  const logBtn = $('mpdAuditLogBtn');
-  if (logBtn) logBtn.onclick = () => _openAuditLogModal(proj);
+  const logBtn = _mpd$('mpdAuditLogBtn');
+  if (logBtn) logBtn.onclick = () => _openAuditLogModal(activeProj);
 
   // Reset Sample
-  const rstBtn = $('mpdResetBtn');
+  const rstBtn = _mpd$('mpdResetBtn');
   if (rstBtn) rstBtn.onclick = async () => {
     if (!confirm('Reset masterplan back to standard Expo Hills sample layout?')) return;
     try {
-      await fetch(`${API}/api/v1/masterplan/projects/${encodeURIComponent(proj)}/reset-sample`, { method: 'POST' });
+      await fetch(`${API}/api/v1/masterplan/projects/${encodeURIComponent(activeProj)}/reset-sample`, { method: 'POST' });
       toast('Masterplan reset successfully!');
-      await _loadMasterplanData(proj);
-      await _loadFilesCount(proj);
+      await _loadMasterplanData(activeProj);
+      await _loadFilesCount(activeProj);
     } catch (e) {}
   };
 
   // Confirm Selection Action
-  const confBtn = $('mpdConfirmBtn');
+  const confBtn = _mpd$('mpdConfirmBtn');
   if (confBtn) confBtn.onclick = async () => {
     if (!_mpdSelectedPlotId) {
       toast('Please select a plot first.');
@@ -767,11 +778,12 @@ function _wireMpdEvents(proj) {
 }
 
 async function _loadFilesCount(proj) {
+  const activeProj = _getMpdProject(proj);
   try {
-    const r = await fetch(`${API}/api/v1/masterplan/projects/${encodeURIComponent(proj)}/files`);
+    const r = await fetch(`${API}/api/v1/masterplan/projects/${encodeURIComponent(activeProj)}/files`);
     if (r.ok) {
       const data = await r.json();
-      const countEl = $('mpdFileCount');
+      const countEl = _mpd$('mpdFileCount');
       if (countEl) {
         countEl.textContent = String(data.total_files || (data.files ? data.files.length : 0));
       }
@@ -782,18 +794,21 @@ async function _loadFilesCount(proj) {
 }
 
 async function _openFilesModal(proj) {
-  const modal = _mpdEl('div', 'modal-overlay', `
-    <div class="modal" style="width:780px;max-height:85vh;background:#0d1424;border:1px solid var(--border);border-radius:var(--r-lg);padding:24px;box-shadow:var(--shadow-2);display:flex;flex-direction:column;gap:14px">
+  const activeProj = _getMpdProject(proj);
+  document.querySelectorAll('.mpd-modal-wrapper').forEach(m => m.remove());
+
+  const modal = _mpdEl('div', 'mpd-modal-wrapper modal-overlay cad-modal-overlay', `
+    <div class="modal" style="width:780px;max-width:94vw;max-height:85vh;background:#0d1424;border:1px solid var(--border);border-radius:var(--r-lg);padding:24px;box-shadow:0 14px 40px rgba(0,0,0,.7);display:flex;flex-direction:column;gap:14px">
       <div style="display:flex;justify-content:space-between;align-items:center">
         <div style="font-size:16px;font-weight:800;color:var(--text);display:flex;align-items:center;gap:8px">
           <svg class="ico" style="width:20px;height:20px;color:var(--accent2)" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
           Masterplan Source Files &amp; AI Model Ground Truth
         </div>
-        <button id="closeFilesModal" style="background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer">&times;</button>
+        <button id="closeFilesModal" style="background:none;border:none;color:var(--muted);font-size:22px;cursor:pointer;line-height:1">&times;</button>
       </div>
 
       <div style="font-size:12px;color:var(--muted);line-height:1.5">
-        Multi-source files uploaded for <b>${_mpdEsc(proj)}</b>. Link CAD vector geometry (.dxf/.dwg) with Excel development registers (.xlsx) to form certified ground truth for Agentic AI spatial reasoning.
+        Multi-source files uploaded for <b>${_mpdEsc(activeProj)}</b>. Link CAD vector geometry (.dxf/.dwg) with Excel development registers (.xlsx) to form certified ground truth for Agentic AI spatial reasoning.
       </div>
 
       <!-- Relation Link Status Banner -->
@@ -841,30 +856,37 @@ async function _openFilesModal(proj) {
       </div>
     </div>
   `);
+  modal.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,.78);z-index:99999;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(5px)";
   document.body.appendChild(modal);
 
-  $('closeFilesModal').onclick = () => modal.remove();
-  $('closeFilesBtn').onclick = () => modal.remove();
-  $('uploadMoreFromFilesBtn').onclick = () => {
+  const closeBtn = modal.querySelector('#closeFilesModal');
+  const closeBtn2 = modal.querySelector('#closeFilesBtn');
+  const uploadMoreBtn = modal.querySelector('#uploadMoreFromFilesBtn');
+  const reconcileBtn = modal.querySelector('#reconcileFromFilesBtn');
+
+  if (closeBtn) closeBtn.onclick = () => modal.remove();
+  if (closeBtn2) closeBtn2.onclick = () => modal.remove();
+  if (uploadMoreBtn) uploadMoreBtn.onclick = () => {
     modal.remove();
-    _openImportModal(proj);
+    _openImportModal(activeProj);
   };
-  $('reconcileFromFilesBtn').onclick = () => {
+  if (reconcileBtn) reconcileBtn.onclick = () => {
     modal.remove();
-    _triggerReconciliation(proj);
+    _triggerReconciliation(activeProj);
   };
+  modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
 
   try {
-    const res = await fetch(`${API}/api/v1/masterplan/projects/${encodeURIComponent(proj)}/files`);
+    const res = await fetch(`${API}/api/v1/masterplan/projects/${encodeURIComponent(activeProj)}/files`);
     if (res.ok) {
       const data = await res.json();
       const files = data.files || [];
       const rel = data.relation;
 
-      const countEl = $('mpdFileCount');
+      const countEl = _mpd$('mpdFileCount');
       if (countEl) countEl.textContent = String(files.length);
 
-      const relCard = $('mpdRelationStatusCard');
+      const relCard = modal.querySelector('#mpdRelationStatusCard');
       if (rel && rel.status === 'stabilized_linked') {
         relCard.style.borderColor = 'rgba(53,208,127,.4)';
         relCard.style.background = 'rgba(53,208,127,.07)';
@@ -903,7 +925,7 @@ async function _openFilesModal(proj) {
         `;
       }
 
-      const tbody = $('mpdFilesTableBody');
+      const tbody = modal.querySelector('#mpdFilesTableBody');
       if (!files.length) {
         tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:30px;color:var(--muted)">No masterplan files uploaded yet for this project.</td></tr>`;
         return;
@@ -942,9 +964,10 @@ async function _openFilesModal(proj) {
 }
 
 async function _triggerReconciliation(proj) {
+  const activeProj = _getMpdProject(proj);
   toast('🔄 Correlating CAD drawings with Excel development schedule...');
   try {
-    const res = await fetch(`${API}/api/v1/masterplan/projects/${encodeURIComponent(proj)}/reconcile`, {
+    const res = await fetch(`${API}/api/v1/masterplan/projects/${encodeURIComponent(activeProj)}/reconcile`, {
       method: 'POST'
     });
     const data = await res.json();
@@ -968,7 +991,7 @@ async function _triggerReconciliation(proj) {
       `);
       return;
     }
-    _handleReconciliationResult(proj, data);
+    _handleReconciliationResult(activeProj, data);
   } catch (err) {
     toast(`Reconciliation failed: ${err.message}`);
   }
@@ -1154,18 +1177,21 @@ window._confirmMpdFullLink = async function(proj) {
 };
 
 function _openImportModal(proj) {
-  const modal = _mpdEl('div', 'modal-overlay', `
-    <div class="modal" style="width:540px;background:#0d1424;border:1px solid var(--border);border-radius:var(--r-lg);padding:24px;box-shadow:var(--shadow-2);display:flex;flex-direction:column;gap:16px">
+  const activeProj = _getMpdProject(proj);
+  document.querySelectorAll('.mpd-modal-wrapper').forEach(m => m.remove());
+
+  const modal = _mpdEl('div', 'mpd-modal-wrapper modal-overlay cad-modal-overlay', `
+    <div class="modal" style="width:540px;max-width:94vw;background:#0d1424;border:1px solid var(--border);border-radius:var(--r-lg);padding:24px;box-shadow:0 14px 40px rgba(0,0,0,.7);display:flex;flex-direction:column;gap:16px">
       <div style="display:flex;justify-content:space-between;align-items:center">
         <div style="font-size:16px;font-weight:800;color:var(--text);display:flex;align-items:center;gap:8px">
-          <svg class="ico" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+          <svg class="ico" style="width:20px;height:20px;color:var(--accent2)" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
           Import Masterplan File
         </div>
-        <button id="closeImpModal" style="background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer">&times;</button>
+        <button id="closeImpModal" style="background:none;border:none;color:var(--muted);font-size:22px;cursor:pointer;line-height:1">&times;</button>
       </div>
 
       <div style="font-size:12px;color:var(--muted);line-height:1.5">
-        Upload masterplan documents or drawings. The system automatically routes the file to the corresponding engine parser:
+        Upload masterplan documents or drawings for <b>${_mpdEsc(activeProj)}</b>. The system automatically routes the file to the corresponding engine parser:
       </div>
 
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;font-size:11px">
@@ -1180,7 +1206,7 @@ function _openImportModal(proj) {
         </div>
       </div>
 
-      <div style="border:2px dashed var(--border);border-radius:var(--r-md);padding:28px;text-align:center;background:#080e1b;cursor:pointer" id="mpdDropZone">
+      <div style="border:2px dashed var(--border);border-radius:var(--r-md);padding:28px;text-align:center;background:#080e1b;cursor:pointer;transition:all .2s ease" id="mpdDropZone">
         <input type="file" id="mpdFileInput" accept=".dxf,.dwg,.xlsx,.xls,.pdf" style="display:none">
         <svg class="ico" style="width:36px;height:36px;color:var(--muted);margin-bottom:10px" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
         <div style="font-weight:700;font-size:13px;margin-bottom:4px">Click or Drag &amp; Drop Masterplan File</div>
@@ -1190,74 +1216,110 @@ function _openImportModal(proj) {
 
       <div style="display:flex;justify-content:flex-end;gap:10px">
         <button class="cad-btn" id="cancelImpBtn">Cancel</button>
-        <button class="primary" id="startImpBtn" disabled style="padding:7px 18px">Process &amp; Ingest</button>
+        <button class="primary" id="startImpBtn" disabled style="padding:7px 18px;background:var(--accent2);border-color:var(--accent2)">Process &amp; Ingest</button>
       </div>
     </div>
   `);
+  modal.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,.78);z-index:99999;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(5px)";
   document.body.appendChild(modal);
 
   let selectedFile = null;
-  const fileInput = $('mpdFileInput');
-  const dropZone = $('mpdDropZone');
-  const startBtn = $('startImpBtn');
+  const fileInput = modal.querySelector('#mpdFileInput');
+  const dropZone = modal.querySelector('#mpdDropZone');
+  const startBtn = modal.querySelector('#startImpBtn');
+  const selectedNameEl = modal.querySelector('#mpdSelectedFileName');
+  const closeBtn = modal.querySelector('#closeImpModal');
+  const cancelBtn = modal.querySelector('#cancelImpBtn');
 
-  dropZone.onclick = () => fileInput.click();
-  fileInput.onchange = () => {
-    if (fileInput.files.length) {
-      selectedFile = fileInput.files[0];
-      $('mpdSelectedFileName').textContent = `Selected: ${selectedFile.name} (${(selectedFile.size/1024).toFixed(0)} KB)`;
-      startBtn.disabled = false;
-    }
-  };
+  if (closeBtn) closeBtn.onclick = () => modal.remove();
+  if (cancelBtn) cancelBtn.onclick = () => modal.remove();
+  modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
 
-  $('closeImpModal').onclick = () => modal.remove();
-  $('cancelImpBtn').onclick = () => modal.remove();
+  if (dropZone && fileInput) {
+    dropZone.onclick = () => fileInput.click();
+    dropZone.ondragover = (e) => {
+      e.preventDefault();
+      dropZone.style.borderColor = 'var(--accent2)';
+      dropZone.style.background = '#0d1933';
+    };
+    dropZone.ondragleave = (e) => {
+      e.preventDefault();
+      dropZone.style.borderColor = 'var(--border)';
+      dropZone.style.background = '#080e1b';
+    };
+    dropZone.ondrop = (e) => {
+      e.preventDefault();
+      dropZone.style.borderColor = 'var(--border)';
+      dropZone.style.background = '#080e1b';
+      if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length) {
+        selectedFile = e.dataTransfer.files[0];
+        selectedNameEl.textContent = `Selected: ${selectedFile.name} (${(selectedFile.size/1024).toFixed(0)} KB)`;
+        startBtn.disabled = false;
+      }
+    };
+    fileInput.onchange = () => {
+      if (fileInput.files && fileInput.files.length) {
+        selectedFile = fileInput.files[0];
+        selectedNameEl.textContent = `Selected: ${selectedFile.name} (${(selectedFile.size/1024).toFixed(0)} KB)`;
+        startBtn.disabled = false;
+      }
+    };
+  }
 
-  startBtn.onclick = async () => {
-    if (!selectedFile) return;
-    startBtn.disabled = true;
-    startBtn.textContent = 'Ingesting & Auditing...';
+  if (startBtn) {
+    startBtn.onclick = async () => {
+      if (!selectedFile) return;
+      startBtn.disabled = true;
+      startBtn.textContent = 'Ingesting & Registering...';
 
-    const form = new FormData();
-    form.append('file', selectedFile);
+      const form = new FormData();
+      form.append('file', selectedFile);
 
-    try {
-      const res = await fetch(`${API}/api/v1/masterplan/projects/${encodeURIComponent(proj)}/import-file`, {
-        method: 'POST',
-        body: form
-      });
-      const data = await res.json();
-      if (res.ok) {
-        toast(`✅ ${data.message}`);
-        modal.remove();
-        await _loadMasterplanData(proj);
-        await _loadFilesCount(proj);
-        if (data.reconciliation) {
-          _handleReconciliationResult(proj, data.reconciliation);
-        } else if (data.has_cad_and_excel) {
-          _triggerReconciliation(proj);
+      try {
+        const res = await fetch(`${API}/api/v1/masterplan/projects/${encodeURIComponent(activeProj)}/import-file`, {
+          method: 'POST',
+          body: form
+        });
+        const data = await res.json();
+        if (res.ok) {
+          toast(`✅ ${data.message}`);
+          modal.remove();
+          await _loadMasterplanData(activeProj);
+          await _loadFilesCount(activeProj);
+          _mpdAddChatMsg('a', `
+            <div style="border-left:3px solid var(--accent2);padding-left:10px">
+              <div style="font-weight:700;color:var(--accent2);font-size:12.5px;margin-bottom:3px">📁 Masterplan File Registered: ${_mpdEsc(data.filename)}</div>
+              <div style="font-size:12px;color:var(--text);line-height:1.5">
+                Successfully processed and recorded <b>${data.count}</b> plots under MPD. When ready, mention in this AI chat to <b>check file and stabilize the relation</b>, or click <b>Reconcile &amp; Link</b> in the toolbar.
+              </div>
+            </div>
+          `);
+        } else {
+          toast(`Upload failed: ${data.detail || 'Error'}`);
+          startBtn.disabled = false;
+          startBtn.textContent = 'Process & Ingest';
         }
-      } else {
-        toast(`Upload failed: ${data.detail || 'Error'}`);
+      } catch (err) {
+        toast(`Error uploading: ${err.message}`);
         startBtn.disabled = false;
         startBtn.textContent = 'Process & Ingest';
       }
-    } catch (err) {
-      toast(`Error uploading: ${err.message}`);
-      startBtn.disabled = false;
-    }
-  };
+    };
+  }
 }
 
 async function _openAuditLogModal(proj) {
-  const modal = _mpdEl('div', 'modal-overlay', `
-    <div class="modal" style="width:680px;max-height:85vh;background:#0d1424;border:1px solid var(--border);border-radius:var(--r-lg);padding:24px;box-shadow:var(--shadow-2);display:flex;flex-direction:column;gap:14px">
+  const activeProj = _getMpdProject(proj);
+  document.querySelectorAll('.mpd-modal-wrapper').forEach(m => m.remove());
+
+  const modal = _mpdEl('div', 'mpd-modal-wrapper modal-overlay cad-modal-overlay', `
+    <div class="modal" style="width:680px;max-width:94vw;max-height:85vh;background:#0d1424;border:1px solid var(--border);border-radius:var(--r-lg);padding:24px;box-shadow:0 14px 40px rgba(0,0,0,.7);display:flex;flex-direction:column;gap:14px">
       <div style="display:flex;justify-content:space-between;align-items:center">
         <div style="font-size:16px;font-weight:800;color:var(--text);display:flex;align-items:center;gap:8px">
           <svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 14 14"/></svg>
           Design Review Audit Log &amp; Undo
         </div>
-        <button id="closeAuditModal" style="background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer">&times;</button>
+        <button id="closeAuditModal" style="background:none;border:none;color:var(--muted);font-size:22px;cursor:pointer;line-height:1">&times;</button>
       </div>
 
       <div style="font-size:12px;color:var(--muted)">
@@ -1276,16 +1338,21 @@ async function _openAuditLogModal(proj) {
       </div>
     </div>
   `);
+  modal.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,.78);z-index:99999;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(5px)";
   document.body.appendChild(modal);
 
-  $('closeAuditModal').onclick = () => modal.remove();
+  const closeBtn = modal.querySelector('#closeAuditModal');
+  const undoBtn = modal.querySelector('#undoActionBtn');
+  const listEl = modal.querySelector('#auditList');
+
+  if (closeBtn) closeBtn.onclick = () => modal.remove();
+  modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
 
   async function loadLogs() {
     try {
-      const r = await fetch(`${API}/api/v1/masterplan/projects/${encodeURIComponent(proj)}/audit-log`);
+      const r = await fetch(`${API}/api/v1/masterplan/projects/${encodeURIComponent(activeProj)}/audit-log`);
       if (r.ok) {
         const logs = await r.json();
-        const listEl = $('auditList');
         if (!logs.length) {
           listEl.innerHTML = '<div style="text-align:center;padding:30px;color:var(--muted)">No audit actions recorded yet.</div>';
           return;
@@ -1303,21 +1370,23 @@ async function _openAuditLogModal(proj) {
     } catch (e) {}
   }
 
-  $('undoActionBtn').onclick = async () => {
-    try {
-      const r = await fetch(`${API}/api/v1/masterplan/projects/${encodeURIComponent(proj)}/undo`, { method: 'POST' });
-      if (r.ok) {
-        const data = await r.json();
-        toast(`↩ ${data.message}`);
-        await loadLogs();
-        await _loadMasterplanData(proj);
-      } else {
-        toast('No actions left to undo.');
+  if (undoBtn) {
+    undoBtn.onclick = async () => {
+      try {
+        const r = await fetch(`${API}/api/v1/masterplan/projects/${encodeURIComponent(activeProj)}/undo`, { method: 'POST' });
+        if (r.ok) {
+          const data = await r.json();
+          toast(`↩ ${data.message}`);
+          await loadLogs();
+          await _loadMasterplanData(activeProj);
+        } else {
+          toast('No actions left to undo.');
+        }
+      } catch (e) {
+        toast('Undo failed');
       }
-    } catch (e) {
-      toast('Undo failed');
-    }
-  };
+    };
+  }
 
   await loadLogs();
 }
@@ -1339,3 +1408,10 @@ window._highlightMpdPlots = (plots) => {
 };
 window._getMpdSelectedPlotId = () => _mpdSelectedPlotId;
 window._getMpdPlots = () => _mpdPlots;
+window._openImportModal = _openImportModal;
+window._openFilesModal = _openFilesModal;
+window._triggerReconciliation = _triggerReconciliation;
+window._openAuditLogModal = _openAuditLogModal;
+window._resolveMpdRelation = _resolveMpdRelation;
+window._confirmMpdFullLink = _confirmMpdFullLink;
+window._getMpdProject = _getMpdProject;

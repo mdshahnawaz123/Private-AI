@@ -13,6 +13,9 @@ from config import get_settings
 from services.masterplan.models import MasterplanAIQueryRequest, MasterplanAIQueryResponse, MasterplanPlot
 from services.masterplan import db
 from services.masterplan.spatial_engine import SpatialReasoningEngine
+from services.masterplan.reconciliation import MasterplanReconciliationEngine
+from services.masterplan.parsers.dxf_parser import MasterplanDxfParser
+from services.masterplan.parsers.excel_parser import MasterplanExcelParser
 
 OLLAMA_HOST = getattr(get_settings(), "ollama_host", "http://127.0.0.1:11434")
 REASONING_MODEL = "qwen3.5:9b"
@@ -25,6 +28,9 @@ class MasterplanAIAgent:
 
     def __init__(self):
         self.spatial_engine = SpatialReasoningEngine()
+        self.reconciliation_engine = MasterplanReconciliationEngine()
+        self.dxf_parser = MasterplanDxfParser()
+        self.excel_parser = MasterplanExcelParser()
 
     def _execute_tool(self, tool_name: str, args: Dict[str, Any], project_id: str) -> Dict[str, Any]:
         """Approved Tool Registry execution."""
@@ -107,11 +113,124 @@ class MasterplanAIAgent:
                 action_performed="UNDO"
             )
 
-        # Check for Reconcile / Relation / Ground Truth / Files queries
-        if any(k in q for k in ("reconcil", "relation", "stabiliz", "link", "ground truth", "cad vs excel", "cross reference", "source file", "uploaded file", "show files", "list files")):
+        # Check for Reconcile / Check Files / Stabilize Relation instruction or query
+        is_reconcile_action = any(k in q for k in (
+            "check file", "check files", "stabiliz", "stabliz", "reconcil", "link cad",
+            "link excel", "link file", "correlat", "cross reference", "ground truth"
+        ))
+        is_status_query = any(k in q for k in ("show file", "show files", "list file", "list files", "what is the relation"))
+
+        if is_reconcile_action or is_status_query:
             files = db.get_file_records(project_id)
             rel = db.get_latest_file_relation(project_id)
+            cad_f = [f for f in files if f['file_type'] == 'cad']
+            exc_f = [f for f in files if f['file_type'] == 'excel']
 
+            # If user explicitly asked to check files / reconcile / stabilize relation
+            if is_reconcile_action and cad_f and exc_f:
+                try:
+                    c_plots = self.dxf_parser.parse_dxf(cad_f[0]['file_path'], project_id)
+                    e_plots = self.excel_parser.parse_excel(exc_f[0]['file_path'], project_id)
+                    rec = self.reconciliation_engine.analyze_correlation(
+                        c_plots, e_plots, cad_f[0]['filename'], exc_f[0]['filename']
+                    )
+
+                    if rec.get("discrepancies"):
+                        cards_html = []
+                        disc_list = rec["discrepancies"]
+                        for d in disc_list:
+                            pid = d["plot_id"]
+                            cad_v = d.get("cad_val", "")
+                            exc_v = d.get("excel_val", "")
+                            m_cad = re.search(r"[-+]?\d*\.?\d+", str(cad_v))
+                            m_exc = re.search(r"[-+]?\d*\.?\d+", str(exc_v))
+                            cad_num = float(m_cad.group(0)) if m_cad else 0.0
+                            exc_num = float(m_exc.group(0)) if m_exc else 0.0
+                            diff_badge = f"<span class='mpd-badge warn' style='font-size:10px'>Δ {d['diff_pct']}%</span>" if d.get('diff_pct') else ''
+
+                            cards_html.append(f"""
+                            <div id="reconcileCard_{pid}" style="background:#090f1d;border:1px solid rgba(245,183,61,.35);border-radius:8px;padding:12px;margin:8px 0">
+                              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+                                <div style="font-weight:700;color:var(--amber);font-size:12.5px">{d.get('title', 'Plot ' + pid)}</div>
+                                {diff_badge}
+                              </div>
+                              <div style="font-size:12px;color:var(--text);line-height:1.5;margin-bottom:10px">{d.get('question')}</div>
+                              <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
+                                <div style="background:rgba(47,107,255,.1);border:1px solid rgba(47,107,255,.3);border-radius:6px;padding:6px 10px">
+                                  <span style="font-size:10px;color:var(--muted);display:block">CAD DRAWING</span>
+                                  <b style="color:var(--accent2);font-size:12px">{cad_v}</b>
+                                </div>
+                                <div style="background:rgba(53,208,127,.1);border:1px solid rgba(53,208,127,.3);border-radius:6px;padding:6px 10px">
+                                  <span style="font-size:10px;color:var(--muted);display:block">EXCEL REGISTER</span>
+                                  <b style="color:var(--green);font-size:12px">{exc_v}</b>
+                                </div>
+                              </div>
+                              <div style="display:flex;gap:8px;flex-wrap:wrap">
+                                <button class="primary" style="padding:6px 12px;font-size:11px" onclick="window._resolveMpdRelation('{project_id}', '{pid}', 'cad', {cad_num}, {exc_num})">
+                                  Adopt CAD Geometry ({cad_v})
+                                </button>
+                                <button class="cad-btn" style="padding:6px 12px;font-size:11px;color:var(--green);border-color:rgba(53,208,127,.4)" onclick="window._resolveMpdRelation('{project_id}', '{pid}', 'excel', {cad_num}, {exc_num})">
+                                  Adopt Excel Schedule ({exc_v})
+                                </button>
+                              </div>
+                            </div>
+                            """)
+
+                        full_html = f"""
+                        <div style="border-left:3px solid var(--amber);padding-left:10px">
+                          <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+                            <span class="mpd-badge warn" style="font-size:10.5px;font-weight:700">⚠️ Masterplan Multi-Source Discrepancy</span>
+                            <span style="font-size:11px;color:var(--muted)">{cad_f[0]['filename']} ⟷ {exc_f[0]['filename']}</span>
+                          </div>
+                          <div style="font-size:12.5px;color:var(--text);line-height:1.5;margin-bottom:8px">
+                            Cross-correlation checked <b>{rec.get('matched_plots', len(c_plots))}</b> matched parcels. Found <b>{len(disc_list)}</b> parameter conflict between CAD parcel geometry and Excel register. Please confirm which source to stabilize:
+                          </div>
+                          {''.join(cards_html)}
+                        </div>
+                        """
+                        plain_text = f"⚠️ Found {len(disc_list)} parameter conflicts between CAD ({cad_f[0]['filename']}) and Excel ({exc_f[0]['filename']}). Please review and confirm which source to stabilize."
+                        return MasterplanAIQueryResponse(
+                            answer=plain_text,
+                            html=full_html,
+                            intent="RECONCILE_DISCREPANCIES",
+                            tools_called=["analyze_correlation"],
+                            highlight_plots=[d["plot_id"] for d in disc_list],
+                            reconciliation=rec
+                        )
+                    else:
+                        # 100% parity: automatically stabilize and save relationship
+                        db.save_file_relation(
+                            project_id=project_id,
+                            cad_file=cad_f[0]['filename'],
+                            excel_file=exc_f[0]['filename'],
+                            status="stabilized_linked",
+                            matched_plots=rec.get("matched_plots", len(c_plots)),
+                            resolutions={}
+                        )
+                        full_html = f"""
+                        <div style="border-left:3px solid var(--green);padding-left:10px">
+                          <div style="font-weight:700;color:var(--green);font-size:13px;margin-bottom:4px">🎉 Masterplan Sources Linked &amp; Ground Truth Stabilized</div>
+                          <div style="font-size:12px;color:var(--text);line-height:1.5">
+                            All parcels matched identically between CAD drawing <code>{cad_f[0]['filename']}</code> and Excel register <code>{exc_f[0]['filename']}</code>. The verified relationship has been stabilized and permanently saved into the Agentic AI model.
+                          </div>
+                        </div>
+                        """
+                        return MasterplanAIQueryResponse(
+                            answer=f"🎉 100% parity verified between CAD ({cad_f[0]['filename']}) and Excel ({exc_f[0]['filename']}). Certified Ground Truth relation has been saved.",
+                            html=full_html,
+                            intent="STABILIZE_RELATION",
+                            tools_called=["reconcile_and_stabilize"],
+                            highlight_plots=[]
+                        )
+                except Exception as err:
+                    logger.error(f"Error executing cross-reconciliation: {err}")
+                    return MasterplanAIQueryResponse(
+                        answer=f"⚠️ Failed to analyze files: {err}",
+                        intent="RECONCILE_ERROR",
+                        tools_called=["analyze_correlation"]
+                    )
+
+            # Informational status report if only one or no files exist, or if user just asked for status
             lines = [
                 f"### 🔗 Masterplan Multi-Source Linkage & Ground Truth Status",
                 f"- **Project**: `{project_id}`",
@@ -136,13 +255,14 @@ class MasterplanAIAgent:
                     for p_id, res_val in rel["resolutions"].items():
                         lines.append(f"  • Plot **{p_id}**: Adopted **{str(res_val).upper()}** value")
                 lines.append("\nThe Agentic AI spatial model is actively evaluating FAR density, setbacks, and land use using this verified ground truth.")
+            elif cad_f and exc_f:
+                lines.append("⚡ **Ready to Stabilize**: Both CAD drawing and Excel register are uploaded. Ask me to **check file and stabilize the relation**, or click **Reconcile & Link** in the toolbar.")
+            elif cad_f:
+                lines.append(f"⚠️ **Pending Excel Schedule**: CAD drawing `{cad_f[0]['filename']}` is registered. To establish the relationship, upload the Excel register (.xlsx) using the **Import File** button.")
+            elif exc_f:
+                lines.append(f"⚠️ **Pending CAD Geometry**: Excel register `{exc_f[0]['filename']}` is registered. To establish the relationship, upload the CAD drawing (.dxf/.dwg) using the **Import File** button.")
             else:
-                cad_f = [f for f in files if f['file_type'] == 'cad']
-                exc_f = [f for f in files if f['file_type'] == 'excel']
-                if cad_f and exc_f:
-                    lines.append("⚡ **Ready for Cross-Reconciliation**: Both CAD drawing and Excel register are uploaded. Click **Reconcile & Link** in the toolbar to stabilize the relation.")
-                else:
-                    lines.append("⚠️ **Incomplete Sources**: Upload both a CAD drawing (.dxf/.dwg) and an Excel register (.xlsx) under MPD to establish an automated cross-file relationship.")
+                lines.append("⚠️ **No Files Uploaded**: Upload both a CAD drawing (.dxf/.dwg) and an Excel schedule (.xlsx) using the **Import File** button to link sources into the AI model.")
 
             return MasterplanAIQueryResponse(
                 answer="\n".join(lines),
@@ -151,13 +271,13 @@ class MasterplanAIAgent:
                 highlight_plots=[]
             )
 
-        # Check for direct Adopt / Stabilize instruction in chat (e.g., 'adopt cad for P-105')
-        adopt_m = re.search(r"(?:adopt|stabilize|use|choose)\s*(cad|excel)\s*(?:for|on)?\s*(?:plot\s*|p[-_ ]*)?(\d+)", q)
+        # Check for direct Adopt / Stabilize instruction in chat (e.g., 'adopt cad for P-405')
+        adopt_m = re.search(r"(?:adopt|stabilize|stablize|use|choose)\s*(cad|excel)\s*(?:for|on)?\s*(?:plot\s*|p[-_ ]*)?([a-zA-Z0-9_.-]+)", q)
         if adopt_m:
             choice = adopt_m.group(1).lower()
-            plot_num = int(adopt_m.group(2))
-            plot_id = f"P-{plot_num:03d}"
-            plot = db.get_plot(project_id, plot_id) or db.get_plot(project_id, f"P-{plot_num}")
+            plot_token = adopt_m.group(2).strip()
+            norm_plot_id = f"P-{plot_token}" if not plot_token.upper().startswith("P-") else plot_token
+            plot = db.get_plot(project_id, norm_plot_id) or db.get_plot(project_id, plot_token)
             if plot:
                 rel = db.get_latest_file_relation(project_id) or {}
                 resolutions = rel.get("resolutions", {})
@@ -172,7 +292,7 @@ class MasterplanAIAgent:
                 )
                 self.spatial_engine.run_project_audit(project_id)
                 return MasterplanAIQueryResponse(
-                    answer=f"✅ **Stabilized Ground Truth for Plot {plot.plot_id}**: Confirmed adoption of **{choice.upper()}** as the certified ground truth. Spatial calculations and compliance audits have been synchronized.",
+                    answer=f"✅ **Stabilized Ground Truth for Plot {plot.plot_id}**: Confirmed adoption of **{choice.upper()}** as the certified ground truth. Spatial calculations and future queries are now linked to this verified value.",
                     intent="STABILIZE_RELATION",
                     tools_called=["stabilize_relation"],
                     highlight_plots=[plot.plot_id],

@@ -1,0 +1,1051 @@
+/**
+ * MPD — Masterplan AI Interface (Masterplan Processing Division)
+ * Integrates offline agentic Qwen 3.5 9B reasoning, spatial reasoning engine,
+ * CAD/PDF vector graphics engine, plot registers, and review meeting audit logs.
+ */
+
+let _mpdPlots = [];
+let _mpdSummary = null;
+let _mpdSelectedPlotId = null;
+let _mpdHighlightPlots = [];
+let _mpdActiveTab = 'chat'; // 'chat' | 'register'
+let _mpdFilterSector = 'All';
+let _mpdFilterLandUse = 'All';
+let _mpdFilterStatus = 'All';
+let _mpdSearchQuery = '';
+let _mpdShowSetbacks = true;
+let _mpdShowViolationsOnly = false;
+let _mpdTransform = { panX: 0, panY: 0, zoom: 1.0 };
+let _mpdCanvas = null;
+let _mpdCtx = null;
+let _mpdHoverPlot = null;
+let _mpdChatHist = [];
+
+const LAND_USE_COLORS = {
+  'Residential': { fill: 'rgba(245, 183, 61, 0.35)', stroke: '#f5b73d', text: '#ffe699' },
+  'Commercial': { fill: 'rgba(47, 107, 255, 0.35)', stroke: '#2f6bff', text: '#b3cbff' },
+  'Mixed Use': { fill: 'rgba(168, 85, 247, 0.35)', stroke: '#a855f7', text: '#e9d5ff' },
+  'Open Space / Park': { fill: 'rgba(53, 208, 127, 0.35)', stroke: '#35d07f', text: '#bbf7d0' },
+  'Civic': { fill: 'rgba(49, 208, 197, 0.35)', stroke: '#31d0c5', text: '#99f6e4' },
+  'Utilities': { fill: 'rgba(100, 116, 139, 0.35)', stroke: '#64748b', text: '#cbd5e1' },
+  'Default': { fill: 'rgba(148, 163, 184, 0.3)', stroke: '#94a3b8', text: '#f1f5f9' }
+};
+
+function getPlotColor(plot) {
+  if (plot.status === 'violation') {
+    return { fill: 'rgba(242, 88, 95, 0.45)', stroke: '#f2585f', text: '#fca5a5' };
+  }
+  return LAND_USE_COLORS[plot.land_use] || LAND_USE_COLORS['Default'];
+}
+
+async function renderMPDWorkspace(container) {
+  const proj = currentProject || 'C3085 - 3EH -Expo Hills';
+  container.innerHTML = `
+    <div class="mpd-root" id="mpdRoot">
+      <!-- MPD Top Navigation & Stats Banner -->
+      <div class="mpd-header">
+        <div class="mpd-header-left">
+          <div style="display:flex;align-items:center;gap:8px">
+            <svg class="ico" viewBox="0 0 24 24" style="width:22px;height:22px;color:var(--accent2);stroke-width:2.2">
+              <polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/>
+              <line x1="8" y1="2" x2="8" y2="18"/>
+              <line x1="16" y1="6" x2="16" y2="22"/>
+            </svg>
+            <div>
+              <div style="font-size:14px;font-weight:800;letter-spacing:.3px;display:flex;align-items:center;gap:7px">
+                Masterplan AI Interface (MPD)
+                <span class="mpd-badge">Qwen 3.5 9B Engine</span>
+              </div>
+              <div style="font-size:10.5px;color:var(--muted)">Offline Autonomous Spatial Reasoning · Design Review Division</div>
+            </div>
+          </div>
+        </div>
+
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <button class="cad-btn" id="mpdImportBtn">
+            <svg class="ico" style="width:13px;height:13px" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+            Import File
+          </button>
+          <button class="cad-btn" id="mpdAuditBtn">
+            <svg class="ico" style="width:13px;height:13px" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            Run Spatial Audit
+          </button>
+          <button class="cad-btn" id="mpdExportCadBtn">
+            <svg class="ico" style="width:13px;height:13px" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+            Export CAD (.dxf)
+          </button>
+          <button class="cad-btn" id="mpdAuditLogBtn">
+            <svg class="ico" style="width:13px;height:13px" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 14 14"/></svg>
+            Audit Log &amp; Undo
+          </button>
+          <button class="cad-btn" id="mpdResetBtn" title="Reset sample masterplan">
+            <svg class="ico" style="width:13px;height:13px" viewBox="0 0 24 24"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- KPI Summary Tiles -->
+      <div class="mpd-kpi-bar" id="mpdKpiBar">
+        <div class="mpd-kpi-card">
+          <span class="mpd-kpi-label">Masterplan Area</span>
+          <span class="mpd-kpi-val" id="kpiArea">-- <span class="mpd-kpi-sub">m²</span></span>
+        </div>
+        <div class="mpd-kpi-card">
+          <span class="mpd-kpi-label">Total Parcels</span>
+          <span class="mpd-kpi-val" id="kpiPlots">-- <span class="mpd-kpi-sub">plots</span></span>
+        </div>
+        <div class="mpd-kpi-card">
+          <span class="mpd-kpi-label">Total Permitted GFA</span>
+          <span class="mpd-kpi-val" id="kpiGfa">-- <span class="mpd-kpi-sub">m²</span></span>
+        </div>
+        <div class="mpd-kpi-card">
+          <span class="mpd-kpi-label">Effective FAR</span>
+          <span class="mpd-kpi-val" id="kpiFar">--</span>
+        </div>
+        <div class="mpd-kpi-card">
+          <span class="mpd-kpi-label">Spatial Compliance</span>
+          <span class="mpd-kpi-val" id="kpiCompliance">--</span>
+        </div>
+      </div>
+
+      <!-- Main Split Workspace -->
+      <div class="mpd-body">
+        <!-- Left: CAD / PDF Graphics Engine (Canvas) -->
+        <div class="mpd-canvas-wrap">
+          <div class="mpd-canvas-toolbar">
+            <div class="mpd-canvas-toolbar-group">
+              <span style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">Vector Graphics Engine</span>
+              <button class="mpd-canvas-ctrl active" id="btnToggleSetbacks" title="Toggle Setback Envelopes">
+                <svg class="ico" style="width:12px;height:12px" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><rect x="7" y="7" width="10" height="10" stroke-dasharray="2 2"/></svg>
+                Setbacks
+              </button>
+              <button class="mpd-canvas-ctrl" id="btnToggleViolations" title="Show Violations Only">
+                <svg class="ico" style="width:12px;height:12px;color:var(--red)" viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                Violations Only
+              </button>
+            </div>
+
+            <div class="mpd-canvas-toolbar-group">
+              <button class="mpd-canvas-ctrl" id="btnZoomIn" title="Zoom In">+</button>
+              <button class="mpd-canvas-ctrl" id="btnZoomOut" title="Zoom Out">-</button>
+              <button class="mpd-canvas-ctrl" id="btnZoomFit" title="Fit Entire Masterplan">Fit</button>
+            </div>
+          </div>
+
+          <div class="mpd-canvas-container" id="mpdCanvasContainer">
+            <canvas id="mpdCanvas"></canvas>
+            <div class="mpd-canvas-tooltip" id="mpdTooltip"></div>
+          </div>
+
+          <div class="mpd-canvas-footer">
+            <div id="mpdStatusCoords">Cursor: (0.0, 0.0) m · Scale: 100%</div>
+            <div style="display:flex;align-items:center;gap:12px">
+              <div id="mpdSelectedInfo">No Plot Selected</div>
+              <button class="cad-btn" id="mpdConfirmBtn" style="padding:3px 10px;font-size:11px;background:rgba(53,208,127,.15);border-color:rgba(53,208,127,.4);color:var(--green)">
+                Confirm Selection
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right: AI Review Copilot & Plot Register Tabs -->
+        <div class="mpd-side-wrap">
+          <div class="mpd-tabs">
+            <div class="mpd-tab active" id="tabChat" onclick="_switchMpdTab('chat')">
+              🤖 AI Design Review Copilot
+            </div>
+            <div class="mpd-tab" id="tabRegister" onclick="_switchMpdTab('register')">
+              📋 Plot Register &amp; Inspector
+            </div>
+          </div>
+
+          <!-- Tab Pane 1: AI Copilot -->
+          <div class="mpd-tab-pane" id="paneChat">
+            <div class="mpd-chat-history" id="mpdChatHistory">
+              <div class="mpd-msg agent">
+                <div style="font-weight:700;display:flex;align-items:center;gap:6px;color:var(--accent2)">
+                  <svg class="ico" style="width:14px;height:14px" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                  Local Agentic AI Copilot (Qwen 3.5 9B)
+                </div>
+                <div>Welcome to the <b>Masterplan AI Interface</b> review session for <b>${esc(proj)}</b>. The spatial reasoning engine is ready to assist with FAR limits, setback encroachment audits, land-use zoning compliance, and parcel allocations.</div>
+              </div>
+            </div>
+
+            <div class="mpd-chip-bar">
+              <span class="mpd-chip" onclick="_sendMpdChip(this)">Check FAR Violations</span>
+              <span class="mpd-chip" onclick="_sendMpdChip(this)">Audit Setback Encroachments</span>
+              <span class="mpd-chip" onclick="_sendMpdChip(this)">Summarize Residential vs Commercial GFA</span>
+              <span class="mpd-chip" onclick="_sendMpdChip(this)">High Density Plots (FAR ≥ 2.8)</span>
+              <span class="mpd-chip" onclick="_sendMpdChip(this)">Inspect Plot P-105</span>
+              <span class="mpd-chip" onclick="_sendMpdChip(this)">Parking Deficit Check</span>
+            </div>
+
+            <div class="mpd-chat-input-bar">
+              <input type="text" class="mpd-chat-input" id="mpdChatInput" placeholder="Ask Qwen 3.5 about setbacks, FAR, zoning, or parcels..." onkeydown="if(event.key==='Enter') _handleMpdChatSubmit()">
+              <button class="primary" style="padding:8px 14px;border-radius:var(--r-sm)" onclick="_handleMpdChatSubmit()">
+                Send
+              </button>
+            </div>
+          </div>
+
+          <!-- Tab Pane 2: Plot Register & Spatial Inspector -->
+          <div class="mpd-tab-pane" id="paneRegister" style="display:none">
+            <div style="padding:8px 12px;background:#0d1424;border-bottom:1px solid var(--border);display:grid;grid-template-columns:1fr 1fr;gap:6px">
+              <input type="text" class="mpd-input" id="tblSearch" placeholder="Search Plot ID, Sector..." oninput="_filterPlots()">
+              <select class="mpd-input" id="tblLandUse" onchange="_filterPlots()">
+                <option value="All">All Land Uses</option>
+                <option value="Residential">Residential</option>
+                <option value="Commercial">Commercial</option>
+                <option value="Mixed Use">Mixed Use</option>
+                <option value="Open Space / Park">Open Space / Park</option>
+                <option value="Civic">Civic</option>
+                <option value="Utilities">Utilities</option>
+              </select>
+            </div>
+
+            <div class="mpd-table-wrap">
+              <table class="mpd-table" id="mpdPlotTable">
+                <thead>
+                  <tr>
+                    <th>Plot ID</th>
+                    <th>Land Use</th>
+                    <th>Area (m²)</th>
+                    <th>Ach. GFA</th>
+                    <th>FAR</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody id="mpdPlotTableBody"></tbody>
+              </table>
+            </div>
+
+            <!-- Plot Parameter Inspector Card -->
+            <div class="mpd-inspector" id="mpdInspector">
+              <div style="display:flex;justify-content:space-between;align-items:center">
+                <span style="font-weight:700;font-size:12px;color:var(--text)" id="inspPlotTitle">Plot Details Inspector</span>
+                <span id="inspStatusBadge" class="mpd-badge">Select a Plot</span>
+              </div>
+
+              <div class="mpd-form-row">
+                <div class="mpd-form-group">
+                  <span class="mpd-form-label">Sector</span>
+                  <input type="text" class="mpd-input" id="inspSector" readonly>
+                </div>
+                <div class="mpd-form-group">
+                  <span class="mpd-form-label">Land Use</span>
+                  <select class="mpd-input" id="inspLandUse">
+                    <option value="Residential">Residential</option>
+                    <option value="Commercial">Commercial</option>
+                    <option value="Mixed Use">Mixed Use</option>
+                    <option value="Open Space / Park">Open Space / Park</option>
+                    <option value="Civic">Civic</option>
+                    <option value="Utilities">Utilities</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="mpd-form-row">
+                <div class="mpd-form-group">
+                  <span class="mpd-form-label">Footprint Area (m²)</span>
+                  <input type="number" class="mpd-input" id="inspArea" readonly>
+                </div>
+                <div class="mpd-form-group">
+                  <span class="mpd-form-label">Achieved GFA (m²)</span>
+                  <input type="number" class="mpd-input" id="inspAchGfa" oninput="_calcInspFar()">
+                </div>
+              </div>
+
+              <div class="mpd-form-row">
+                <div class="mpd-form-group">
+                  <span class="mpd-form-label">Calculated FAR (Max allowed)</span>
+                  <input type="text" class="mpd-input" id="inspFar" readonly>
+                </div>
+                <div class="mpd-form-group">
+                  <span class="mpd-form-label">Front Setback (m)</span>
+                  <input type="number" step="0.5" class="mpd-input" id="inspFrontSb">
+                </div>
+              </div>
+
+              <div id="inspViolationsBox" style="font-size:11px;color:var(--red);background:rgba(242,88,95,.1);border:1px solid rgba(242,88,95,.25);padding:6px 10px;border-radius:6px;display:none"></div>
+
+              <div style="display:flex;justify-content:flex-end;gap:8px">
+                <button class="cad-btn" id="inspSaveBtn" onclick="_savePlotInspection()">
+                  Save &amp; Re-Audit
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  // Initialize Canvas
+  _initCanvas();
+  // Fetch data
+  await _loadMasterplanData(proj);
+  // Wire global event handlers
+  _wireMpdEvents(proj);
+}
+
+function _switchMpdTab(tab) {
+  _mpdActiveTab = tab;
+  $('tabChat').classList.toggle('active', tab === 'chat');
+  $('tabRegister').classList.toggle('active', tab === 'register');
+  $('paneChat').style.display = tab === 'chat' ? 'flex' : 'none';
+  $('paneRegister').style.display = tab === 'register' ? 'flex' : 'none';
+}
+
+async function _loadMasterplanData(proj) {
+  try {
+    const [summaryRes, plotsRes] = await Promise.all([
+      fetch(`${API}/api/v1/masterplan/projects/${encodeURIComponent(proj)}`),
+      fetch(`${API}/api/v1/masterplan/projects/${encodeURIComponent(proj)}/plots`)
+    ]);
+
+    if (summaryRes.ok) {
+      _mpdSummary = await summaryRes.json();
+      _renderMpdSummary(_mpdSummary);
+    }
+    if (plotsRes.ok) {
+      _mpdPlots = await plotsRes.json();
+      _renderPlotTable(_mpdPlots);
+      _drawCanvas();
+      _fitCanvasToPlots();
+    }
+  } catch (err) {
+    console.error('Error loading masterplan data:', err);
+    toast('Error loading masterplan data');
+  }
+}
+
+function _renderMpdSummary(s) {
+  if (!s) return;
+  $('kpiArea').innerHTML = `${(s.total_area_sqm || 0).toLocaleString()} <span class="mpd-kpi-sub">m² (${((s.total_area_sqm || 0)/10000).toFixed(1)} Ha)</span>`;
+  $('kpiPlots').innerHTML = `${s.total_plots || 0} <span class="mpd-kpi-sub">plots</span>`;
+  $('kpiGfa').innerHTML = `${(s.total_gfa_sqm || 0).toLocaleString()} <span class="mpd-kpi-sub">m²</span>`;
+  $('kpiFar').innerHTML = `${s.average_far ? s.average_far.toFixed(2) : '0.00'}`;
+
+  const c = s.compliant_plots || 0;
+  const w = s.warning_plots || 0;
+  const v = s.violation_plots || 0;
+
+  $('kpiCompliance').innerHTML = `
+    <span class="mpd-badge green" style="padding:2px 7px;font-size:11px">${c} OK</span>
+    ${w ? `<span class="mpd-badge warn" style="padding:2px 7px;font-size:11px">${w} Warn</span>` : ''}
+    ${v ? `<span class="mpd-badge red" style="padding:2px 7px;font-size:11px">${v} Clashes</span>` : ''}
+  `;
+}
+
+function _renderPlotTable(plots) {
+  const tbody = $('mpdPlotTableBody');
+  if (!tbody) return;
+
+  const filtered = plots.filter(p => {
+    if (_mpdFilterLandUse !== 'All' && p.land_use !== _mpdFilterLandUse) return false;
+    if (_mpdFilterSector !== 'All' && p.sector !== _mpdFilterSector) return false;
+    if (_mpdFilterStatus !== 'All' && p.status !== _mpdFilterStatus) return false;
+    if (_mpdSearchQuery) {
+      const q = _mpdSearchQuery.toLowerCase();
+      return p.plot_id.toLowerCase().includes(q) || p.sector.toLowerCase().includes(q) || p.land_use.toLowerCase().includes(q);
+    }
+    return true;
+  });
+
+  tbody.innerHTML = filtered.map(p => {
+    const isSel = p.plot_id === _mpdSelectedPlotId;
+    const badge = p.status === 'compliant'
+      ? '<span class="mpd-badge green" style="padding:1px 6px;font-size:9.5px">Compliant</span>'
+      : (p.status === 'warning'
+        ? '<span class="mpd-badge warn" style="padding:1px 6px;font-size:9.5px">Warning</span>'
+        : '<span class="mpd-badge red" style="padding:1px 6px;font-size:9.5px">Violation</span>');
+
+    return `
+      <tr class="${isSel ? 'selected' : ''}" onclick="_selectPlot('${esc(p.plot_id)}')">
+        <td><b>${esc(p.plot_id)}</b></td>
+        <td>${esc(p.land_use)}</td>
+        <td>${Math.round(p.area_sqm).toLocaleString()}</td>
+        <td>${Math.round(p.achieved_gfa).toLocaleString()}</td>
+        <td>${p.far.toFixed(2)}</td>
+        <td>${badge}</td>
+      </tr>
+    `;
+  }).join('');
+}
+
+function _filterPlots() {
+  _mpdSearchQuery = $('tblSearch').value.trim();
+  _mpdFilterLandUse = $('tblLandUse').value;
+  _renderPlotTable(_mpdPlots);
+}
+
+function _selectPlot(plotId, zoomTo = false) {
+  _mpdSelectedPlotId = plotId;
+  const plot = _mpdPlots.find(p => p.plot_id === plotId);
+  if (!plot) return;
+
+  // Update selection banner
+  $('mpdSelectedInfo').innerHTML = `Selected: <b>${esc(plot.plot_id)}</b> (${esc(plot.land_use)}, FAR: ${plot.far.toFixed(2)})`;
+
+  // Update Inspector Card
+  $('inspPlotTitle').textContent = `Plot ${plot.plot_id} Inspector`;
+  $('inspStatusBadge').className = `mpd-badge ${plot.status === 'compliant' ? 'green' : (plot.status === 'warning' ? 'warn' : 'red')}`;
+  $('inspStatusBadge').textContent = plot.status.toUpperCase();
+  $('inspSector').value = plot.sector;
+  $('inspLandUse').value = plot.land_use;
+  $('inspArea').value = Math.round(plot.area_sqm);
+  $('inspAchGfa').value = Math.round(plot.achieved_gfa);
+  $('inspFar').value = `${plot.far.toFixed(2)} / Max: ${plot.max_far.toFixed(2)}`;
+  $('inspFrontSb').value = plot.front_setback_m;
+
+  const violBox = $('inspViolationsBox');
+  if (plot.violations && plot.violations.length > 0) {
+    violBox.style.display = 'block';
+    violBox.innerHTML = `⚠️ <b>Regulatory Issues</b>:<br>` + plot.violations.map(v => `• ${esc(v)}`).join('<br>');
+  } else {
+    violBox.style.display = 'none';
+  }
+
+  // Highlight row in table
+  document.querySelectorAll('#mpdPlotTableBody tr').forEach(tr => tr.classList.remove('selected'));
+  _renderPlotTable(_mpdPlots);
+
+  if (zoomTo && plot.geometry && plot.geometry.centroid) {
+    _centerPlotOnCanvas(plot);
+  }
+
+  _drawCanvas();
+}
+
+function _calcInspFar() {
+  const area = parseFloat($('inspArea').value) || 1;
+  const ach = parseFloat($('inspAchGfa').value) || 0;
+  const far = ach / area;
+  const plot = _mpdPlots.find(p => p.plot_id === _mpdSelectedPlotId);
+  const maxFar = plot ? plot.max_far : 2.5;
+  $('inspFar').value = `${far.toFixed(2)} / Max: ${maxFar.toFixed(2)}`;
+}
+
+async function _savePlotInspection() {
+  if (!_mpdSelectedPlotId) return;
+  const proj = currentProject || 'C3085 - 3EH -Expo Hills';
+  const plot = _mpdPlots.find(p => p.plot_id === _mpdSelectedPlotId);
+  if (!plot) return;
+
+  plot.land_use = $('inspLandUse').value;
+  plot.achieved_gfa = parseFloat($('inspAchGfa').value) || plot.achieved_gfa;
+  plot.front_setback_m = parseFloat($('inspFrontSb').value) || plot.front_setback_m;
+  plot.far = Math.round((plot.achieved_gfa / plot.area_sqm) * 100) / 100;
+
+  try {
+    const r = await fetch(`${API}/api/v1/masterplan/projects/${encodeURIComponent(proj)}/plots/${encodeURIComponent(plot.plot_id)}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(plot)
+    });
+    if (r.ok) {
+      const updated = await r.json();
+      toast(`✅ Plot ${plot.plot_id} updated and re-audited!`);
+      await _loadMasterplanData(proj);
+      _selectPlot(updated.plot_id);
+    }
+  } catch (e) {
+    toast(`Failed to update plot: ${e.message}`);
+  }
+}
+
+/* ============================================================
+   CANVAS GRAPHICS ENGINE IMPLEMENTATION
+   ============================================================ */
+
+function _initCanvas() {
+  const container = $('mpdCanvasContainer');
+  _mpdCanvas = $('mpdCanvas');
+  if (!_mpdCanvas || !container) return;
+  _mpdCtx = _mpdCanvas.getContext('2d');
+
+  function resize() {
+    const rect = container.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    _mpdCanvas.width = rect.width * dpr;
+    _mpdCanvas.height = rect.height * dpr;
+    _mpdCanvas.style.width = `${rect.width}px`;
+    _mpdCanvas.style.height = `${rect.height}px`;
+    _drawCanvas();
+  }
+  window.addEventListener('resize', resize);
+  setTimeout(resize, 60);
+
+  // Pan & Zoom controls
+  let isDragging = false;
+  let startX = 0, startY = 0;
+
+  container.addEventListener('mousedown', e => {
+    isDragging = true;
+    startX = e.clientX - _mpdTransform.panX;
+    startY = e.clientY - _mpdTransform.panY;
+  });
+
+  window.addEventListener('mouseup', () => { isDragging = false; });
+
+  container.addEventListener('mousemove', e => {
+    const rect = container.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
+
+    if (isDragging) {
+      _mpdTransform.panX = e.clientX - startX;
+      _mpdTransform.panY = e.clientY - startY;
+      _drawCanvas();
+      return;
+    }
+
+    // Hit testing
+    const worldX = (mouseX - _mpdTransform.panX) / _mpdTransform.zoom;
+    const worldY = (mouseY - _mpdTransform.panY) / _mpdTransform.zoom;
+
+    $('mpdStatusCoords').textContent = `Cursor: (${Math.round(worldX)}, ${Math.round(worldY)}) m · Scale: ${Math.round(_mpdTransform.zoom * 100)}%`;
+
+    const hit = _hitTestPlots(worldX, worldY);
+    const tooltip = $('mpdTooltip');
+
+    if (hit) {
+      _mpdHoverPlot = hit;
+      tooltip.style.display = 'block';
+      tooltip.style.left = `${mouseX + 14}px`;
+      tooltip.style.top = `${mouseY + 14}px`;
+      tooltip.innerHTML = `
+        <div style="font-weight:700;color:var(--text);font-size:12px">${esc(hit.plot_id)} · ${esc(hit.land_use)}</div>
+        <div style="font-size:10.5px;color:var(--muted)">Area: ${Math.round(hit.area_sqm).toLocaleString()} m² | FAR: ${hit.far.toFixed(2)}</div>
+        <div style="font-size:10.5px;color:${hit.status==='violation'?'var(--red)':'var(--green)'}">Status: ${hit.status.toUpperCase()}</div>
+      `;
+    } else {
+      _mpdHoverPlot = null;
+      tooltip.style.display = 'none';
+    }
+    _drawCanvas();
+  });
+
+  container.addEventListener('wheel', e => {
+    e.preventDefault();
+    const rect = container.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
+
+    const zoomFactor = e.deltaY < 0 ? 1.15 : 0.85;
+    const newZoom = Math.max(0.2, Math.min(6.0, _mpdTransform.zoom * zoomFactor));
+
+    _mpdTransform.panX = mouseX - (mouseX - _mpdTransform.panX) * (newZoom / _mpdTransform.zoom);
+    _mpdTransform.panY = mouseY - (mouseY - _mpdTransform.panY) * (newZoom / _mpdTransform.zoom);
+    _mpdTransform.zoom = newZoom;
+    _drawCanvas();
+  });
+
+  container.addEventListener('click', e => {
+    const rect = container.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
+    const worldX = (mouseX - _mpdTransform.panX) / _mpdTransform.zoom;
+    const worldY = (mouseY - _mpdTransform.panY) / _mpdTransform.zoom;
+
+    const hit = _hitTestPlots(worldX, worldY);
+    if (hit) {
+      _selectPlot(hit.plot_id);
+      _switchMpdTab('register');
+    }
+  });
+
+  // Toolbar buttons
+  $('btnToggleSetbacks').onclick = function() {
+    _mpdShowSetbacks = !_mpdShowSetbacks;
+    this.classList.toggle('active', _mpdShowSetbacks);
+    _drawCanvas();
+  };
+
+  $('btnToggleViolations').onclick = function() {
+    _mpdShowViolationsOnly = !_mpdShowViolationsOnly;
+    this.classList.toggle('active', _mpdShowViolationsOnly);
+    _drawCanvas();
+  };
+
+  $('btnZoomIn').onclick = () => { _mpdTransform.zoom = Math.min(6.0, _mpdTransform.zoom * 1.25); _drawCanvas(); };
+  $('btnZoomOut').onclick = () => { _mpdTransform.zoom = Math.max(0.2, _mpdTransform.zoom * 0.8); _drawCanvas(); };
+  $('btnZoomFit').onclick = () => { _fitCanvasToPlots(); };
+}
+
+function _hitTestPlots(wx, wy) {
+  for (const plot of _mpdPlots) {
+    if (_mpdShowViolationsOnly && plot.status !== 'violation') continue;
+    if (plot.geometry && plot.geometry.bbox) {
+      const [minX, minY, maxX, maxY] = plot.geometry.bbox;
+      // Invert Y coordinate since Canvas 0,0 is top-left
+      if (wx >= minX && wx <= maxX && wy >= minY && wy <= maxY) {
+        return plot;
+      }
+    }
+  }
+  return null;
+}
+
+function _centerPlotOnCanvas(plot) {
+  if (!_mpdCanvas || !plot.geometry || !plot.geometry.centroid) return;
+  const dpr = window.devicePixelRatio || 1;
+  const w = _mpdCanvas.width / dpr;
+  const h = _mpdCanvas.height / dpr;
+  const cx = plot.geometry.centroid[0];
+  const cy = plot.geometry.centroid[1];
+
+  _mpdTransform.zoom = 1.6;
+  _mpdTransform.panX = w / 2 - cx * _mpdTransform.zoom;
+  _mpdTransform.panY = h / 2 - cy * _mpdTransform.zoom;
+}
+
+function _fitCanvasToPlots() {
+  if (!_mpdCanvas || !_mpdPlots.length) return;
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+
+  for (const p of _mpdPlots) {
+    if (p.geometry && p.geometry.bbox) {
+      minX = Math.min(minX, p.geometry.bbox[0]);
+      minY = Math.min(minY, p.geometry.bbox[1]);
+      maxX = Math.max(maxX, p.geometry.bbox[2]);
+      maxY = Math.max(maxY, p.geometry.bbox[3]);
+    }
+  }
+
+  if (minX === Infinity) return;
+
+  const dpr = window.devicePixelRatio || 1;
+  const cw = _mpdCanvas.width / dpr;
+  const ch = _mpdCanvas.height / dpr;
+  const pw = maxX - minX + 100;
+  const ph = maxY - minY + 100;
+
+  const scale = Math.min(cw / pw, ch / ph) * 0.85;
+  _mpdTransform.zoom = Math.max(0.4, Math.min(2.5, scale));
+  _mpdTransform.panX = (cw - (minX + maxX) * _mpdTransform.zoom) / 2;
+  _mpdTransform.panY = (ch - (minY + maxY) * _mpdTransform.zoom) / 2;
+  _drawCanvas();
+}
+
+function _drawCanvas() {
+  if (!_mpdCtx || !_mpdCanvas) return;
+  const dpr = window.devicePixelRatio || 1;
+  const ctx = _mpdCtx;
+
+  ctx.save();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.clearRect(0, 0, _mpdCanvas.width, _mpdCanvas.height);
+
+  // Apply camera transform
+  ctx.scale(dpr, dpr);
+  ctx.translate(_mpdTransform.panX, _mpdTransform.panY);
+  ctx.scale(_mpdTransform.zoom, _mpdTransform.zoom);
+
+  // Draw CAD Coordinate Grid
+  _drawGrid(ctx);
+
+  // Draw Plots
+  for (const plot of _mpdPlots) {
+    if (_mpdShowViolationsOnly && plot.status !== 'violation') continue;
+    _drawPlot(ctx, plot);
+  }
+
+  ctx.restore();
+}
+
+function _drawGrid(ctx) {
+  ctx.save();
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.04)';
+  ctx.lineWidth = 1 / _mpdTransform.zoom;
+
+  const step = 100;
+  for (let x = -200; x <= 1400; x += step) {
+    ctx.beginPath();
+    ctx.moveTo(x, -200);
+    ctx.lineTo(x, 1000);
+    ctx.stroke();
+  }
+  for (let y = -200; y <= 1000; y += step) {
+    ctx.beginPath();
+    ctx.moveTo(-200, y);
+    ctx.lineTo(1400, y);
+    ctx.stroke();
+  }
+
+  // Masterplan Boundary outline
+  ctx.strokeStyle = 'rgba(47, 107, 255, 0.2)';
+  ctx.lineWidth = 2 / _mpdTransform.zoom;
+  ctx.strokeRect(50, -50, 1000, 650);
+
+  ctx.restore();
+}
+
+function _drawPlot(ctx, plot) {
+  if (!plot.geometry || !plot.geometry.coordinates || plot.geometry.coordinates.length < 3) return;
+
+  const isSel = plot.plot_id === _mpdSelectedPlotId;
+  const isHl = _mpdHighlightPlots.includes(plot.plot_id);
+  const isHov = _mpdHoverPlot && _mpdHoverPlot.plot_id === plot.plot_id;
+  const color = getPlotColor(plot);
+
+  ctx.save();
+
+  // Draw Parcel Boundary Polygon
+  ctx.beginPath();
+  const coords = plot.geometry.coordinates;
+  ctx.moveTo(coords[0][0], coords[0][1]);
+  for (let i = 1; i < coords.length; i++) {
+    ctx.lineTo(coords[i][0], coords[i][1]);
+  }
+  ctx.closePath();
+
+  // Fill
+  ctx.fillStyle = isSel ? 'rgba(47, 107, 255, 0.55)' : (isHl ? 'rgba(245, 183, 61, 0.55)' : (isHov ? 'rgba(255, 255, 255, 0.2)' : color.fill));
+  ctx.fill();
+
+  // Stroke
+  ctx.lineWidth = (isSel ? 4 : (isHl || isHov ? 3 : 1.5)) / _mpdTransform.zoom;
+  ctx.strokeStyle = isSel ? '#00f2fe' : (isHl ? '#f5b73d' : (plot.status === 'violation' ? '#f2585f' : color.stroke));
+  ctx.stroke();
+
+  // Draw Setback Envelope if active
+  if (_mpdShowSetbacks && plot.geometry.setback_envelope && plot.geometry.setback_envelope.length >= 3) {
+    ctx.beginPath();
+    const sb = plot.geometry.setback_envelope;
+    ctx.moveTo(sb[0][0], sb[0][1]);
+    for (let i = 1; i < sb.length; i++) {
+      ctx.lineTo(sb[i][0], sb[i][1]);
+    }
+    ctx.closePath();
+    ctx.setLineDash([4 / _mpdTransform.zoom, 4 / _mpdTransform.zoom]);
+    ctx.lineWidth = 1 / _mpdTransform.zoom;
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  // Centroid Text Annotation
+  const cx = plot.geometry.centroid ? plot.geometry.centroid[0] : coords[0][0] + 20;
+  const cy = plot.geometry.centroid ? plot.geometry.centroid[1] : coords[0][1] + 20;
+
+  ctx.fillStyle = isSel ? '#ffffff' : color.text;
+  ctx.font = `bold ${Math.max(9, Math.min(15, 13 / _mpdTransform.zoom))}px Inter, sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(plot.plot_id, cx, cy - 8);
+
+  ctx.font = `${Math.max(7, Math.min(11, 10 / _mpdTransform.zoom))}px Inter, sans-serif`;
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+  ctx.fillText(`FAR ${plot.far.toFixed(2)}`, cx, cy + 8);
+
+  if (plot.status === 'violation') {
+    ctx.fillStyle = '#f2585f';
+    ctx.font = `bold ${Math.max(9, 12 / _mpdTransform.zoom)}px Inter, sans-serif`;
+    ctx.fillText('⚠ VIOLATION', cx, cy + 22);
+  }
+
+  ctx.restore();
+}
+
+/* ============================================================
+   AI COPILOT & TOOL RUNNER (Qwen 3.5 9B)
+   ============================================================ */
+
+function _sendMpdChip(chipEl) {
+  $('mpdChatInput').value = chipEl.textContent.trim();
+  _handleMpdChatSubmit();
+}
+
+async function _handleMpdChatSubmit() {
+  const input = $('mpdChatInput');
+  const query = input.value.trim();
+  if (!query) return;
+  input.value = '';
+
+  const hist = $('mpdChatHistory');
+  const userMsg = document.createElement('div');
+  userMsg.className = 'mpd-msg user';
+  userMsg.textContent = query;
+  hist.appendChild(userMsg);
+  hist.scrollTop = hist.scrollHeight;
+
+  // Add Thinking Placeholder
+  const agentMsg = document.createElement('div');
+  agentMsg.className = 'mpd-msg agent';
+  agentMsg.innerHTML = `
+    <div style="font-weight:700;display:flex;align-items:center;gap:6px;color:var(--accent2)">
+      <svg class="ico" style="width:14px;height:14px;animation:spin 1s linear infinite" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 2a10 10 0 0 1 10 10"/></svg>
+      Qwen 3.5 9B Reasoning &amp; Spatial Planning...
+    </div>
+  `;
+  hist.appendChild(agentMsg);
+  hist.scrollTop = hist.scrollHeight;
+
+  const proj = currentProject || 'C3085 - 3EH -Expo Hills';
+
+  try {
+    const res = await fetch(`${API}/api/v1/masterplan/projects/${encodeURIComponent(proj)}/ai-query`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query: query,
+        project_id: proj,
+        selected_plot_id: _mpdSelectedPlotId
+      })
+    });
+
+    if (!res.ok) throw new Error('AI query service error');
+    const data = await res.json();
+
+    _mpdHighlightPlots = data.highlight_plots || [];
+    _drawCanvas();
+
+    let toolBadges = '';
+    if (data.tools_called && data.tools_called.length) {
+      toolBadges = data.tools_called.map(t => `<span class="mpd-badge" style="font-size:9.5px;padding:2px 6px">Tool: ${esc(t)}</span>`).join(' ');
+    }
+
+    agentMsg.innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+        <div style="font-weight:700;color:var(--accent2);font-size:11.5px">Qwen 3.5 9B Copilot · Intent: ${esc(data.intent || 'QUERY')}</div>
+        <div>${toolBadges}</div>
+      </div>
+      <div style="line-height:1.5;font-size:12px">${mdLite(data.answer)}</div>
+    `;
+
+    // If highlights exist, select first one
+    if (_mpdHighlightPlots.length > 0) {
+      _selectPlot(_mpdHighlightPlots[0], true);
+    }
+  } catch (err) {
+    agentMsg.innerHTML = `<span style="color:var(--red)">Failed to reach reasoning model: ${esc(err.message)}</span>`;
+  }
+  hist.scrollTop = hist.scrollHeight;
+}
+
+/* ============================================================
+   GLOBAL MODALS & ACTIONS
+   ============================================================ */
+
+function _wireMpdEvents(proj) {
+  // Import Dialog
+  $('mpdImportBtn').onclick = () => _openImportModal(proj);
+
+  // Spatial Audit Action
+  $('mpdAuditBtn').onclick = async () => {
+    toast('Running end-to-end spatial and zoning audit...');
+    try {
+      const r = await fetch(`${API}/api/v1/masterplan/projects/${encodeURIComponent(proj)}/audit`, { method: 'POST' });
+      if (r.ok) {
+        const res = await r.json();
+        toast(`✅ Spatial audit complete: ${res.violations} violations, ${res.warnings} warnings detected.`);
+        await _loadMasterplanData(proj);
+      }
+    } catch (e) {
+      toast('Spatial audit failed');
+    }
+  };
+
+  // Export CAD (.dxf)
+  $('mpdExportCadBtn').onclick = () => {
+    const highlights = _mpdHighlightPlots.join(',');
+    const url = `${API}/api/v1/masterplan/projects/${encodeURIComponent(proj)}/export-cad${highlights ? `?highlights=${encodeURIComponent(highlights)}` : ''}`;
+    window.open(url, '_blank');
+    toast('📥 Downloading highlighted CAD copy (DXF)...');
+  };
+
+  // Audit Log & Undo Dialog
+  $('mpdAuditLogBtn').onclick = () => _openAuditLogModal(proj);
+
+  // Reset Sample
+  $('mpdResetBtn').onclick = async () => {
+    if (!confirm('Reset masterplan back to standard Expo Hills sample layout?')) return;
+    try {
+      await fetch(`${API}/api/v1/masterplan/projects/${encodeURIComponent(proj)}/reset-sample`, { method: 'POST' });
+      toast('Masterplan reset successfully!');
+      await _loadMasterplanData(proj);
+    } catch (e) {}
+  };
+
+  // Confirm Selection Action
+  $('mpdConfirmBtn').onclick = async () => {
+    if (!_mpdSelectedPlotId) {
+      toast('Please select a plot first.');
+      return;
+    }
+    toast(`✅ Confirmed review action for Plot ${_mpdSelectedPlotId}`);
+  };
+}
+
+function _openImportModal(proj) {
+  const modal = el('div', 'modal-overlay', `
+    <div class="modal" style="width:540px;background:#0d1424;border:1px solid var(--border);border-radius:var(--r-lg);padding:24px;box-shadow:var(--shadow-2);display:flex;flex-direction:column;gap:16px">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div style="font-size:16px;font-weight:800;color:var(--text);display:flex;align-items:center;gap:8px">
+          <svg class="ico" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+          Import Masterplan File
+        </div>
+        <button id="closeImpModal" style="background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer">&times;</button>
+      </div>
+
+      <div style="font-size:12px;color:var(--muted);line-height:1.5">
+        Upload masterplan documents or drawings. The system automatically routes the file to the corresponding engine parser:
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;font-size:11px">
+        <div style="background:var(--surface2);padding:10px;border-radius:6px;border:1px solid var(--border);text-align:center">
+          <b style="color:var(--accent2)">DWG / DXF Parser</b><br><span style="color:var(--muted)">Vector parcels, setbacks &amp; layers</span>
+        </div>
+        <div style="background:var(--surface2);padding:10px;border-radius:6px;border:1px solid var(--border);text-align:center">
+          <b style="color:var(--green)">Excel Parser</b><br><span style="color:var(--muted)">Plot registers, BUA, FAR &amp; setbacks</span>
+        </div>
+        <div style="background:var(--surface2);padding:10px;border-radius:6px;border:1px solid var(--border);text-align:center">
+          <b style="color:var(--amber)">PDF Parser</b><br><span style="color:var(--muted)">Zoning datasheets &amp; FAR schedules</span>
+        </div>
+      </div>
+
+      <div style="border:2px dashed var(--border);border-radius:var(--r-md);padding:28px;text-align:center;background:#080e1b;cursor:pointer" id="mpdDropZone">
+        <input type="file" id="mpdFileInput" accept=".dxf,.dwg,.xlsx,.xls,.pdf" style="display:none">
+        <svg class="ico" style="width:36px;height:36px;color:var(--muted);margin-bottom:10px" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+        <div style="font-weight:700;font-size:13px;margin-bottom:4px">Click or Drag &amp; Drop Masterplan File</div>
+        <div style="font-size:11px;color:var(--muted)">Supports .dxf, .dwg, .xlsx, .pdf (up to 200MB)</div>
+        <div id="mpdSelectedFileName" style="margin-top:10px;font-weight:700;color:var(--accent2)"></div>
+      </div>
+
+      <div style="display:flex;justify-content:flex-end;gap:10px">
+        <button class="cad-btn" id="cancelImpBtn">Cancel</button>
+        <button class="primary" id="startImpBtn" disabled style="padding:7px 18px">Process &amp; Ingest</button>
+      </div>
+    </div>
+  `);
+  document.body.appendChild(modal);
+
+  let selectedFile = null;
+  const fileInput = $('mpdFileInput');
+  const dropZone = $('mpdDropZone');
+  const startBtn = $('startImpBtn');
+
+  dropZone.onclick = () => fileInput.click();
+  fileInput.onchange = () => {
+    if (fileInput.files.length) {
+      selectedFile = fileInput.files[0];
+      $('mpdSelectedFileName').textContent = `Selected: ${selectedFile.name} (${(selectedFile.size/1024).toFixed(0)} KB)`;
+      startBtn.disabled = false;
+    }
+  };
+
+  $('closeImpModal').onclick = () => modal.remove();
+  $('cancelImpBtn').onclick = () => modal.remove();
+
+  startBtn.onclick = async () => {
+    if (!selectedFile) return;
+    startBtn.disabled = true;
+    startBtn.textContent = 'Ingesting & Auditing...';
+
+    const form = new FormData();
+    form.append('file', selectedFile);
+
+    try {
+      const res = await fetch(`${API}/api/v1/masterplan/projects/${encodeURIComponent(proj)}/import-file`, {
+        method: 'POST',
+        body: form
+      });
+      const data = await res.json();
+      if (res.ok) {
+        toast(`✅ ${data.message}`);
+        modal.remove();
+        await _loadMasterplanData(proj);
+      } else {
+        toast(`Upload failed: ${data.detail || 'Error'}`);
+        startBtn.disabled = false;
+        startBtn.textContent = 'Process & Ingest';
+      }
+    } catch (err) {
+      toast(`Error uploading: ${err.message}`);
+      startBtn.disabled = false;
+    }
+  };
+}
+
+async function _openAuditLogModal(proj) {
+  const modal = el('div', 'modal-overlay', `
+    <div class="modal" style="width:680px;max-height:85vh;background:#0d1424;border:1px solid var(--border);border-radius:var(--r-lg);padding:24px;box-shadow:var(--shadow-2);display:flex;flex-direction:column;gap:14px">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div style="font-size:16px;font-weight:800;color:var(--text);display:flex;align-items:center;gap:8px">
+          <svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 14 14"/></svg>
+          Design Review Audit Log &amp; Undo
+        </div>
+        <button id="closeAuditModal" style="background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer">&times;</button>
+      </div>
+
+      <div style="font-size:12px;color:var(--muted)">
+        Chronological audit trail of all parameters adjusted, rules validated, and actions taken during masterplan review meetings:
+      </div>
+
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <span style="font-size:11px;color:var(--faint)">Logged actions with reversible states</span>
+        <button class="primary" id="undoActionBtn" style="padding:6px 14px;background:#f5b73d;border-color:#f5b73d;color:#000;font-weight:700">
+          ↩ Undo Last Action
+        </button>
+      </div>
+
+      <div style="flex:1;overflow-y:auto;max-height:450px;border:1px solid var(--border);border-radius:var(--r-sm);background:#070b15;padding:8px" id="auditList">
+        <div style="text-align:center;padding:20px;color:var(--muted)">Loading audit records...</div>
+      </div>
+    </div>
+  `);
+  document.body.appendChild(modal);
+
+  $('closeAuditModal').onclick = () => modal.remove();
+
+  async function loadLogs() {
+    try {
+      const r = await fetch(`${API}/api/v1/masterplan/projects/${encodeURIComponent(proj)}/audit-log`);
+      if (r.ok) {
+        const logs = await r.json();
+        const listEl = $('auditList');
+        if (!logs.length) {
+          listEl.innerHTML = '<div style="text-align:center;padding:30px;color:var(--muted)">No audit actions recorded yet.</div>';
+          return;
+        }
+        listEl.innerHTML = logs.map(l => `
+          <div style="padding:10px;border-bottom:1px solid rgba(255,255,255,.05);display:flex;justify-content:space-between;align-items:flex-start;gap:12px">
+            <div>
+              <div style="font-weight:700;font-size:12px;color:var(--text);margin-bottom:3px">${esc(l.description)}</div>
+              <div style="font-size:10.5px;color:var(--muted)">Action: <b style="color:var(--accent2)">${esc(l.action_type)}</b> · Author: <b>${esc(l.author)}</b></div>
+            </div>
+            <div style="font-size:10px;color:var(--faint);white-space:nowrap">${new Date(l.timestamp).toLocaleTimeString()}</div>
+          </div>
+        `).join('');
+      }
+    } catch (e) {}
+  }
+
+  $('undoActionBtn').onclick = async () => {
+    try {
+      const r = await fetch(`${API}/api/v1/masterplan/projects/${encodeURIComponent(proj)}/undo`, { method: 'POST' });
+      if (r.ok) {
+        const data = await r.json();
+        toast(`↩ ${data.message}`);
+        await loadLogs();
+        await _loadMasterplanData(proj);
+      } else {
+        toast('No actions left to undo.');
+      }
+    } catch (e) {
+      toast('Undo failed');
+    }
+  };
+
+  await loadLogs();
+}
+
+window.renderMPDWorkspace = renderMPDWorkspace;
+window._switchMpdTab = _switchMpdTab;
+window._filterPlots = _filterPlots;
+window._selectPlot = _selectPlot;
+window._calcInspFar = _calcInspFar;
+window._savePlotInspection = _savePlotInspection;
+window._sendMpdChip = _sendMpdChip;
+window._handleMpdChatSubmit = _handleMpdChatSubmit;

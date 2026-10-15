@@ -259,6 +259,7 @@ const DESTS=[
   ['qa','QA & Issues','<path d="M10.3 3.9l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.7-3l-8-14a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/>'],
   ['reports','Reports','<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 17V9M12 17v-5M15 17v-3"/>'],
   ['video','AI Video Studio','<polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>'],
+  ['mpd','MPD','<polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/>'],
 ];
 function buildNav(){
   $('navMain').innerHTML=DESTS.map(([k,l,p])=>`<a data-dest="${k}">${svg(p)}<span>${l}</span><span class="badge" data-badge="${k}" hidden></span></a>`).join('');
@@ -319,9 +320,14 @@ function renderCadCraft(c){
     }, 50);
   }
 }
+function renderMPD(c){
+  const fn = (typeof renderMPDWorkspace === 'function') ? renderMPDWorkspace : (typeof window !== 'undefined' ? window.renderMPDWorkspace : null);
+  if(fn) fn(c);
+  else c.innerHTML = '<div class="ws-scroll" style="display:flex;align-items:center;justify-content:center;height:100%"><div class="state">Loading MPD Workspace...</div></div>';
+}
 function renderGeneric(dest){
   const b=$('genericWrap');
-  const R={ overview:renderOverview, studio:renderStudio, video:renderVideoStudio, models:renderModels, drawings:renderDrawings,
+  const R={ overview:renderOverview, studio:renderStudio, video:renderVideoStudio, mpd:renderMPD, models:renderModels, drawings:renderDrawings,
     cadcraft:renderCadCraft,
     documents:renderDocuments, schedules:renderSchedules, specifications:renderSpecifications,
     codes:renderCodes, qa:renderQA, reports:renderReports, settings:renderSettings };

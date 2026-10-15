@@ -1634,6 +1634,8 @@ from expo_blender.api import router as blender_router
 app.include_router(blender_router)
 from services.cad_api import cad_router
 app.include_router(cad_router)
+from services.masterplan.api import mpd_router
+app.include_router(mpd_router)
 
 vectorstores = {}
 _index_mutation_lock = threading.RLock()

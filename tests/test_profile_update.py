@@ -83,6 +83,22 @@ class TestProfileAndCredentialsAPI(unittest.TestCase):
             final_login = self.client.post("/auth/login", json={"username": forced_uname, "password": final_pw})
             self.assertEqual(final_login.status_code, 200)
 
+            # 10. Test forced password change WITHOUT Authorization header (first login scenario)
+            no_header_uname = f"noauth_{secrets.token_hex(4)}"
+            no_header_pw = "NoAuthPass999!"
+            no_header_resp = self.client.post(
+                "/auth/change-password",
+                json={
+                    "username": forced_uname,
+                    "old_password": final_pw,
+                    "new_password": no_header_pw,
+                    "new_username": no_header_uname
+                }
+            )
+            self.assertEqual(no_header_resp.status_code, 200)
+            self.assertEqual(no_header_resp.json()["user"]["username"], no_header_uname)
+            self.assertIsNotNone(no_header_resp.json()["token"])
+
         finally:
             with db.SessionLocal() as s:
                 row = s.get(db.User, uid)

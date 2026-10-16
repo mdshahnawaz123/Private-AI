@@ -63,6 +63,7 @@ async def _auth_mw(request, call_next):
     # makes reconnaissance trivial for anyone with network access to this
     # machine, with no benefit for a private internal tool.
     public = (path == "/" or path.startswith("/ui") or path.startswith("/auth/login")
+              or path == "/auth/change-password"
               or path.startswith("/health") or path.startswith("/favicon")
               or path == "/favicon.ico" or path.startswith("/api/ai/render"))
     if request.method == "OPTIONS" or public:
@@ -1831,6 +1832,7 @@ class ChangePwReq(BaseModel):
     old_password: str
     new_password: str
     new_username: Optional[str] = None
+    username: Optional[str] = None
 
 class UpdateProfileReq(BaseModel):
     old_password: str
@@ -1838,6 +1840,7 @@ class UpdateProfileReq(BaseModel):
     new_password: Optional[str] = None
     full_name: Optional[str] = None
     email: Optional[str] = None
+    username: Optional[str] = None
 
 class CreateProjectReq(BaseModel):
     name: str
@@ -5704,10 +5707,20 @@ async def me(request: Request):
 
 @app.post("/auth/change-password")
 async def change_password(body: ChangePwReq, request: Request):
-    u = auth.require_user(request)
-    full = db.get_user_by_username(u["username"])
-    if not full or not auth.verify_password(body.old_password, full.get("password_hash")):
-        raise HTTPException(400, "Current password is incorrect")
+    u = auth.user_from_request(request)
+    target_un = body.username or (u["username"] if u else "admin")
+    if not u:
+        u = auth.authenticate(target_un, body.old_password)
+        if not u:
+            target_user = db.get_user_by_username(target_un)
+            if not target_user:
+                raise HTTPException(400, f"User '{target_un}' not found")
+            raise HTTPException(400, "Current password is incorrect")
+    else:
+        full = db.get_user_by_username(u["username"])
+        if not full or not auth.verify_password(body.old_password, full.get("password_hash")):
+            raise HTTPException(400, "Current password is incorrect")
+
     if len(body.new_password) < 8:
         raise HTTPException(400, "New password must be at least 8 characters")
     if body.new_password == body.old_password and not body.new_username:
@@ -5726,10 +5739,16 @@ async def change_password(body: ChangePwReq, request: Request):
 
 @app.post("/auth/update-profile")
 async def update_profile(body: UpdateProfileReq, request: Request):
-    u = auth.require_user(request)
-    full = db.get_user_by_username(u["username"])
-    if not full or not auth.verify_password(body.old_password, full.get("password_hash")):
-        raise HTTPException(400, "Current password is incorrect")
+    u = auth.user_from_request(request)
+    target_un = body.username or (u["username"] if u else "admin")
+    if not u:
+        u = auth.authenticate(target_un, body.old_password)
+        if not u:
+            raise HTTPException(401, "Login required or current password incorrect")
+    else:
+        full = db.get_user_by_username(u["username"])
+        if not full or not auth.verify_password(body.old_password, full.get("password_hash")):
+            raise HTTPException(400, "Current password is incorrect")
     
     new_pw_hash = None
     if body.new_password:

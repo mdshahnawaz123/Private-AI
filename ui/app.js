@@ -136,11 +136,23 @@ async function doForcedPwChange(){
   if(!oldPw||!newPw){ err.textContent='Enter your current and new password.'; return; }
   if(newPw.length<8){ err.textContent='New password must be at least 8 characters.'; return; }
   if(newPw!==confirmPw){ err.textContent='New passwords do not match.'; return; }
-  if(newPw===oldPw && !newUsername){ err.textContent='New password must be different from the current one.'; return; }
+  if(newPw===oldPw && (!newUsername || newUsername===(currentUser&&currentUser.username))){ err.textContent='New password must be different from the current one.'; return; }
+
+  const currentUn = (currentUser && currentUser.username) || ($('luser') && $('luser').value.trim()) || 'admin';
+  const payload = {
+    username: currentUn,
+    old_password: oldPw,
+    new_password: newPw
+  };
+  if(newUsername && newUsername !== currentUn){
+    payload.new_username = newUsername;
+  }
+
+  const headers = { 'Content-Type': 'application/json' };
+  if(authToken) headers['Authorization'] = 'Bearer ' + authToken;
+
   try{
-    const payload={old_password:oldPw, new_password:newPw};
-    if(newUsername) payload.new_username=newUsername;
-    const r=await _fetch(`${API}/auth/change-password`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+    const r=await fetch(`${API}/auth/change-password`,{method:'POST',headers:headers,body:JSON.stringify(payload)});
     const d=await r.json();
     if(!r.ok){ err.textContent=d.detail||'Password change failed.'; return; }
     if(d.token){ authToken=d.token; try{localStorage.setItem('expo_token',d.token);}catch(e){} }
@@ -177,8 +189,8 @@ async function saveAccountCredentials(){
 
   if(!oldPw){ if(err) err.textContent='Current password is required to save changes.'; return; }
 
-  const payload = { old_password: oldPw };
-  const currentUn = (currentUser && currentUser.username) || '';
+  const currentUn = (currentUser && currentUser.username) || 'admin';
+  const payload = { username: currentUn, old_password: oldPw };
   if(newUsername && newUsername !== currentUn){
     payload.new_username = newUsername;
   }
@@ -194,12 +206,15 @@ async function saveAccountCredentials(){
     return;
   }
 
+  const headers = { 'Content-Type': 'application/json' };
+  if(authToken) headers['Authorization'] = 'Bearer ' + authToken;
+
   const btn=$('accSaveBtn');
   if(btn){ btn.disabled = true; btn.textContent = 'Saving…'; }
   try{
-    const r=await _fetch(`${API}/auth/update-profile`,{
+    const r=await fetch(`${API}/auth/update-profile`,{
       method:'POST',
-      headers:{'Content-Type':'application/json'},
+      headers:headers,
       body:JSON.stringify(payload)
     });
     const d=await r.json();

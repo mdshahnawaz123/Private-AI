@@ -433,6 +433,19 @@ def _render_for_ai(payload, entities):
             sr = int(r * scale)
             draw.ellipse([scx - sr, scy - sr, scx + sr, scy + sr], outline=col, width=lw)
 
+        elif etype == "HATCH":
+            paths = ent.get("paths", [])
+            for path in paths:
+                if len(path) >= 3:
+                    scr_pts = [to_screen(p[0], p[1]) for p in path]
+                    draw.polygon(scr_pts, outline=col, fill=None)
+
+        elif etype == "LEADER":
+            pts = ent.get("points", [])
+            if len(pts) >= 2:
+                scr_pts = [to_screen(p[0], p[1]) for p in pts]
+                draw.line(scr_pts, fill=col, width=lw)
+
     # Save rendered image in image storage
     import base64
     import uuid

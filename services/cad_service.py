@@ -107,6 +107,17 @@ class CadService:
         except Exception as exc:
             logger.warning(f"Failed to explode block references: {exc}")
 
+        # Unpack table entities (ACAD_TABLE) into virtual geometry (lines, text cells)
+        try:
+            for tbl in list(msp.query("ACAD_TABLE")):
+                try:
+                    for vent in tbl.virtual_entities():
+                        msp.add_entity(vent)
+                except Exception:
+                    pass
+        except Exception as exc:
+            logger.debug(f"Failed to virtualize ACAD_TABLE: {exc}")
+
         # 2. Iterate ModelSpace entities
         for e in msp:
             etype = e.dxftype()
@@ -209,16 +220,41 @@ class CadService:
 
             elif etype == "DIMENSION":
                 label = getattr(e.dxf, "text", "") or ""
-                d_def = getattr(e.dxf, "defpoint", None)
-                d_def2 = getattr(e.dxf, "defpoint2", None)
-                if d_def and d_def2:
-                    x1, y1 = float(d_def.x), float(d_def.y)
-                    x2, y2 = float(d_def2.x), float(d_def2.y)
+                dp = getattr(e.dxf, "defpoint", None)
+                dp2 = getattr(e.dxf, "defpoint2", None)
+                dp3 = getattr(e.dxf, "defpoint3", None)
+                dp4 = getattr(e.dxf, "defpoint4", None)
+                ang = getattr(e.dxf, "angle", 0.0) % 180.0
+                x1 = y1 = x2 = y2 = None
+                dist = 0.0
+
+                if dp is not None and dp2 is not None and dp3 is not None and (dp2 != dp3):
+                    if abs(ang) < 1.0 or abs(ang - 180.0) < 1.0:
+                        x1, y1 = min(float(dp2.x), float(dp3.x)), float(dp.y)
+                        x2, y2 = max(float(dp2.x), float(dp3.x)), float(dp.y)
+                        dist = abs(float(dp3.x) - float(dp2.x))
+                    elif abs(ang - 90.0) < 1.0:
+                        x1, y1 = float(dp.x), min(float(dp2.y), float(dp3.y))
+                        x2, y2 = float(dp.x), max(float(dp2.y), float(dp3.y))
+                        dist = abs(float(dp3.y) - float(dp2.y))
+                    else:
+                        x1, y1 = float(dp2.x), float(dp2.y)
+                        x2, y2 = float(dp3.x), float(dp3.y)
+                        dist = math.hypot(x2 - x1, y2 - y1)
+                elif dp is not None and dp4 is not None:
+                    x1, y1 = float(dp.x), float(dp.y)
+                    x2, y2 = float(dp4.x), float(dp4.y)
+                    dist = math.hypot(x2 - x1, y2 - y1)
+                elif dp is not None and dp2 is not None:
+                    x1, y1 = float(dp.x), float(dp.y)
+                    x2, y2 = float(dp2.x), float(dp2.y)
+                    dist = math.hypot(x2 - x1, y2 - y1)
+
+                if x1 is not None and x2 is not None:
                     _update_extents(x1, y1)
                     _update_extents(x2, y2)
-                    dist = math.hypot(x2 - x1, y2 - y1)
                     if not label or label == "<>":
-                        label = f"{dist:.0f}"
+                        label = f"{dist:,.0f}"
                     entities.append({
                         "id": f"ent_{entity_id_counter}",
                         "type": "DIMENSION",
@@ -322,6 +358,58 @@ class CadService:
                                     "height": round(float(getattr(a.dxf, "height", 2.5) or 2.5), 2),
                                 })
                                 entity_id_counter += 1
+                except Exception:
+                    pass
+
+            elif etype == "HATCH":
+                try:
+                    pat_name = getattr(e.dxf, "pattern_name", "SOLID")
+                    paths = []
+                    for bp in getattr(e, "paths", []):
+                        if hasattr(bp, "vertices"):
+                            v_pts = [[round(float(v[0]), 3), round(float(v[1]), 3)] for v in bp.vertices]
+                            if v_pts:
+                                paths.append(v_pts)
+                                for pt in v_pts:
+                                    _update_extents(pt[0], pt[1])
+                        elif hasattr(bp, "edges"):
+                            e_pts = []
+                            for edge in bp.edges:
+                                if hasattr(edge, "start"):
+                                    e_pts.append([round(float(edge.start[0]), 3), round(float(edge.start[1]), 3)])
+                                    _update_extents(edge.start[0], edge.start[1])
+                            if e_pts:
+                                paths.append(e_pts)
+                    if paths:
+                        entities.append({
+                            "id": f"ent_{entity_id_counter}",
+                            "type": "HATCH",
+                            "layer": layer_name,
+                            "color": color,
+                            "pattern": pat_name,
+                            "paths": paths,
+                        })
+                        entity_id_counter += 1
+                except Exception as exc:
+                    logger.debug(f"Hatch parse error: {exc}")
+
+            elif etype in ("LEADER", "MULTILEADER"):
+                try:
+                    pts = []
+                    if hasattr(e, "vertices"):
+                        pts = [[round(float(v[0]), 3), round(float(v[1]), 3)] for v in e.vertices]
+                    if pts:
+                        for pt in pts:
+                            _update_extents(pt[0], pt[1])
+                        entities.append({
+                            "id": f"ent_{entity_id_counter}",
+                            "type": "LEADER",
+                            "layer": layer_name,
+                            "color": color,
+                            "points": pts,
+                            "text": getattr(e, "text", "") or ""
+                        })
+                        entity_id_counter += 1
                 except Exception:
                     pass
 
@@ -432,6 +520,31 @@ class CadService:
                 mid_x, mid_y = (x1 + x2) / 2.0, (y1 + y2) / 2.0 + 2.0
                 msp.add_text(text, dxfattribs={**dxf_attribs, "height": 2.0}).set_placement((mid_x, mid_y))
 
+            elif etype == "HATCH":
+                paths = ent.get("paths") or []
+                if paths:
+                    try:
+                        hatch = msp.add_hatch(dxfattribs=dxf_attribs)
+                        pat = ent.get("pattern", "ANSI31")
+                        try:
+                            hatch.set_pattern_fill(pat, scale=float(ent.get("scale", 1.0) or 1.0))
+                        except Exception:
+                            hatch.set_solid_fill()
+                        for p in paths:
+                            poly_pts = [(_f(pt[0]), _f(pt[1])) for pt in p if isinstance(pt, (list, tuple)) and len(pt) >= 2]
+                            if len(poly_pts) >= 3:
+                                hatch.paths.add_polyline_path(poly_pts, is_closed=True)
+                    except Exception as exc:
+                        logger.debug(f"Failed to generate DXF hatch: {exc}")
+
+            elif etype == "LEADER":
+                pts = [(_f(p[0]), _f(p[1])) for p in (ent.get("points") or []) if isinstance(p, (list, tuple)) and len(p) >= 2]
+                if len(pts) >= 2:
+                    msp.add_lwpolyline(pts, close=False, dxfattribs=dxf_attribs)
+                    if ent.get("text"):
+                        last_pt = pts[-1]
+                        msp.add_text(str(ent.get("text")), dxfattribs={**dxf_attribs, "height": 2.5}).set_placement((last_pt[0] + 1.0, last_pt[1]))
+
         stream = io.StringIO()
         doc.write(stream)
         return stream.getvalue()
@@ -441,10 +554,17 @@ class CadService:
         """Return library of pre-loaded architectural CAD sample drawings."""
         return [
             {
-                "id": "sample_apartment_plan",
-                "title": "Apartment Floor Plan (CADCraft Style)",
+                "id": "sample_cadcraft_apartment",
+                "title": "CADCraft Apartment Master Plan (Official Upstream)",
                 "category": "Architectural",
-                "description": "2-Bedroom residential floor plan with hatched exterior walls, doors, windows, living/dining zones, and dimensions.",
+                "description": "Official showcase apartment plan from storytold/cadcraft with wall pick-point hatching, room schedules, TrueType labels, and dimensions.",
+                "tags": ["Apartment", "CADCraft", "Master Plan", "Hatch", "Official"],
+            },
+            {
+                "id": "sample_apartment_plan",
+                "title": "Apartment Floor Plan (2-Bedroom Residential)",
+                "category": "Architectural",
+                "description": "2-Bedroom residential floor plan with exterior walls, doors, windows, living/dining zones, and dimensions.",
                 "tags": ["Apartment", "Residential", "Floor Plan", "CADCraft"],
             },
             {
@@ -466,7 +586,17 @@ class CadService:
     @classmethod
     def load_sample_drawing(cls, sample_id: str) -> Dict[str, Any]:
         """Generate structured CADCraft entities for the requested architectural sample."""
-        if sample_id == "sample_structural_core":
+        if sample_id == "sample_cadcraft_apartment":
+            repo_sample_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "vendor", "cadcraft", "examples", "apartment.dxf")
+            if os.path.exists(repo_sample_path):
+                try:
+                    res = cls.parse_dxf_stream(repo_sample_path)
+                    res["title"] = "CADCraft Apartment Master Plan (Official Upstream Showcase)"
+                    return res
+                except Exception as exc:
+                    logger.warning(f"Failed to load upstream apartment.dxf: {exc}")
+            return cls._build_apartment_floor_plan_sample()
+        elif sample_id == "sample_structural_core":
             return cls._build_structural_grid_sample()
         elif sample_id == "sample_mechanical_bracket":
             return cls._build_mechanical_bracket_sample()

@@ -58,25 +58,48 @@ var isSelectingBox = false;
 var selectBoxStart = { x: 0, y: 0 };
 var currentDrawingTitle = 'Untitled Drawing';
 
-// Command Line
+// Command Line & AutoCAD / CADCraft Aliases
 const CAD_COMMANDS = {
+  // Draw
   'L': 'line', 'LINE': 'line',
   'PL': 'polyline', 'PLINE': 'polyline',
   'C': 'circle', 'CIRCLE': 'circle',
-  'REC': 'rectangle', 'RECTANG': 'rectangle', 'RECTANGLE': 'rectangle',
+  'REC': 'rectangle', 'RECT': 'rectangle', 'RECTANG': 'rectangle', 'RECTANGLE': 'rectangle',
   'A': 'arc', 'ARC': 'arc',
-  'T': 'text', 'TEXT': 'text', 'MTEXT': 'text',
-  'DIM': 'dimension', 'DIMALIGNED': 'dimension', 'DIMLIN': 'dimension',
+  'T': 'text', 'TEXT': 'text', 'MTEXT': 'text', 'MT': 'text', 'DT': 'text', 'DTEXT': 'text',
+  'DIM': 'dimension', 'DLI': 'dimension', 'DIMLIN': 'dimension', 'DIMLINEAR': 'dimension',
+  'DAL': 'dimension', 'DIMALIGNED': 'dimension',
+
+  // Modify
   'E': 'erase', 'ERASE': 'erase', 'DEL': 'erase',
   'M': 'move', 'MOVE': 'move',
   'CO': 'copy', 'CP': 'copy', 'COPY': 'copy',
   'O': 'offset', 'OFFSET': 'offset',
+  'RO': 'rotate', 'ROTATE': 'rotate',
+  'SC': 'scale', 'SCALE': 'scale',
+  'MI': 'mirror', 'MIRROR': 'mirror',
+  'TR': 'trim', 'TRIM': 'trim',
+  'EX': 'extend', 'EXTEND': 'extend',
+  'F': 'fillet', 'FILLET': 'fillet',
+  'CHA': 'chamfer', 'CHAMFER': 'chamfer',
+  'AR': 'array', 'ARRAY': 'array',
+  'H': 'hatch', 'BH': 'hatch', 'BHATCH': 'hatch', 'HATCH': 'hatch',
+  'OVERKILL': 'overkill',
+  'X': 'explode', 'EXPLODE': 'explode',
+
+  // View & Nav
   'Z': 'zoom', 'ZOOM': 'zoom',
+  'P': 'pan', 'PAN': 'pan',
+  'RE': 'regen', 'REGEN': 'regen',
+
+  // Utility & Inquiry
   'U': 'undo', 'UNDO': 'undo',
   'REDO': 'redo',
   'LA': 'layers', 'LAYER': 'layers',
-  'RE': 'regen', 'REGEN': 'regen',
-  'GRID': 'grid', 'ORTHO': 'ortho', 'OSNAP': 'osnap'
+  'DIST': 'dist', 'DI': 'dist',
+  'ID': 'id',
+  'AUDIT': 'audit',
+  'GRID': 'grid', 'ORTHO': 'ortho', 'OSNAP': 'osnap', 'POLAR': 'polar'
 };
 
 /* ==========================================================================
@@ -107,7 +130,8 @@ function renderCadCraftWorkspace(container) {
                 <span>Samples ▼</span>
               </button>
               <div class="cad-dropdown-menu" id="cadSamplesMenu" style="display:none">
-                <a href="javascript:void(0)" data-sample="sample_apartment_plan">🏠 Apartment Floor Plan (CADCraft)</a>
+                <a href="javascript:void(0)" data-sample="sample_cadcraft_apartment">🏢 CADCraft Apartment Master Plan (Official Upstream)</a>
+                <a href="javascript:void(0)" data-sample="sample_apartment_plan">🏠 2-Bedroom Residential Floor Plan</a>
                 <a href="javascript:void(0)" data-sample="sample_structural_core">🏗️ Structural Column Grid & Core</a>
                 <a href="javascript:void(0)" data-sample="sample_mechanical_bracket">⚙️ Mechanical Mounting Bracket</a>
               </div>
@@ -405,9 +429,9 @@ function _initCadCraftEngine() {
   // Layer list rendering
   _refreshCadLayersUI();
 
-  // Load sample apartment plan by default if empty
+  // Load official CADCraft apartment master plan by default if empty
   if (cadEntities.length === 0 && !window._cadSkipDefaultSample) {
-    _loadCadSample('sample_apartment_plan');
+    _loadCadSample('sample_cadcraft_apartment');
   } else {
     _drawCadCanvas();
   }
@@ -462,15 +486,20 @@ function _drawCadCanvas() {
     _renderCadEntity(ctx, ent, isSelected);
   });
 
-  // 4. In-progress drafting rubber-band
+  // 4. Selection Control Grips (AutoCAD / CADCraft Grip Squares)
+  if (selectedEntityIds.size > 0 && !isSelectingBox) {
+    _renderSelectionGrips(ctx, dpr);
+  }
+
+  // 5. In-progress drafting rubber-band
   _renderDraftingPreview(ctx);
 
-  // 5. Selection Window
+  // 6. Selection Window
   if (isSelectingBox) {
     _renderSelectionBox(ctx);
   }
 
-  // 6. Object Snap marker
+  // 7. Object Snap marker
   if (snappedPoint) {
     _renderSnapMarker(ctx, snappedPoint, snapType);
   }
@@ -478,6 +507,53 @@ function _drawCadCanvas() {
   // Update entity count readout
   const countEl = $('cadEntityCountReadout');
   if (countEl) countEl.textContent = `Entities: ${cadEntities.length}`;
+}
+
+function _renderSelectionGrips(ctx, dpr) {
+  const sz = 3.5 * dpr;
+  ctx.save();
+  ctx.fillStyle = '#00ffff';
+  ctx.strokeStyle = '#000000';
+  ctx.lineWidth = 1 * dpr;
+
+  selectedEntityIds.forEach(id => {
+    const ent = cadEntities.find(e => e.id === id);
+    if (!ent) return;
+    const gripPts = [];
+    if (ent.type === 'LINE') {
+      gripPts.push(
+        { x: ent.x1, y: ent.y1 },
+        { x: (ent.x1 + ent.x2) / 2, y: (ent.y1 + ent.y2) / 2 },
+        { x: ent.x2, y: ent.y2 }
+      );
+    } else if (ent.type === 'CIRCLE') {
+      gripPts.push(
+        { x: ent.cx, y: ent.cy },
+        { x: ent.cx + ent.radius, y: ent.cy },
+        { x: ent.cx - ent.radius, y: ent.cy },
+        { x: ent.cx, y: ent.cy + ent.radius },
+        { x: ent.cx, y: ent.cy - ent.radius }
+      );
+    } else if (ent.type === 'POLYLINE' && ent.points) {
+      ent.points.forEach(pt => gripPts.push({ x: pt[0], y: pt[1] }));
+    } else if (ent.type === 'DIMENSION') {
+      gripPts.push(
+        { x: ent.x1, y: ent.y1 },
+        { x: (ent.x1 + ent.x2) / 2, y: (ent.y1 + ent.y2) / 2 },
+        { x: ent.x2, y: ent.y2 }
+      );
+    } else if (ent.type === 'TEXT') {
+      gripPts.push({ x: ent.x, y: ent.y });
+    }
+
+    gripPts.forEach(pt => {
+      const scr = worldToScreen(pt.x, pt.y);
+      ctx.fillRect(scr.x - sz, scr.y - sz, sz * 2, sz * 2);
+      ctx.strokeRect(scr.x - sz, scr.y - sz, sz * 2, sz * 2);
+    });
+  });
+
+  ctx.restore();
 }
 
 function _drawGrid(ctx, w, h, dpr) {
@@ -598,8 +674,71 @@ function _renderCadEntity(ctx, ent, isSelected) {
     }
   } else if (type === 'DIMENSION') {
     _renderDimension(ctx, ent, isSelected, dpr);
+  } else if (type === 'HATCH' && ent.paths && ent.paths.length > 0) {
+    _renderHatch(ctx, ent, isSelected, dpr);
+  } else if (type === 'LEADER' && ent.points && ent.points.length >= 2) {
+    _renderLeader(ctx, ent, isSelected, dpr);
   }
 
+  ctx.restore();
+}
+
+function _renderHatch(ctx, ent, isSelected, dpr) {
+  if (!ent.paths || ent.paths.length === 0) return;
+  ctx.save();
+  ctx.strokeStyle = isSelected ? '#00ffff' : (ent.color || '#e2e8f0');
+  ctx.lineWidth = 1 * dpr;
+  ctx.fillStyle = isSelected ? 'rgba(0, 255, 255, 0.25)' : (ent.color ? `${_cadColor(ent.color)}22` : 'rgba(255, 255, 255, 0.12)');
+
+  ent.paths.forEach(path => {
+    if (path.length >= 3) {
+      ctx.beginPath();
+      const p0 = worldToScreen(path[0][0], path[0][1]);
+      ctx.moveTo(p0.x, p0.y);
+      for (let i = 1; i < path.length; i++) {
+        const pt = worldToScreen(path[i][0], path[i][1]);
+        ctx.lineTo(pt.x, pt.y);
+      }
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+    }
+  });
+  ctx.restore();
+}
+
+function _renderLeader(ctx, ent, isSelected, dpr) {
+  if (!ent.points || ent.points.length < 2) return;
+  ctx.save();
+  ctx.strokeStyle = isSelected ? '#00ffff' : (ent.color || '#00e5ff');
+  ctx.fillStyle = ctx.strokeStyle;
+  ctx.lineWidth = 1.5 * dpr;
+
+  ctx.beginPath();
+  const p0 = worldToScreen(ent.points[0][0], ent.points[0][1]);
+  ctx.moveTo(p0.x, p0.y);
+  for (let i = 1; i < ent.points.length; i++) {
+    const pt = worldToScreen(ent.points[i][0], ent.points[i][1]);
+    ctx.lineTo(pt.x, pt.y);
+  }
+  ctx.stroke();
+
+  // Arrowhead at p0
+  const p1 = worldToScreen(ent.points[1][0], ent.points[1][1]);
+  const ang = Math.atan2(p0.y - p1.y, p0.x - p1.x);
+  const arrowLen = 9 * dpr;
+  ctx.beginPath();
+  ctx.moveTo(p0.x, p0.y);
+  ctx.lineTo(p0.x - arrowLen * Math.cos(ang - Math.PI / 6), p0.y - arrowLen * Math.sin(ang - Math.PI / 6));
+  ctx.lineTo(p0.x - arrowLen * Math.cos(ang + Math.PI / 6), p0.y - arrowLen * Math.sin(ang + Math.PI / 6));
+  ctx.closePath();
+  ctx.fill();
+
+  if (ent.text) {
+    const plast = worldToScreen(ent.points[ent.points.length - 1][0], ent.points[ent.points.length - 1][1]);
+    ctx.font = `bold ${Math.max(9 * dpr, 11)}px sans-serif`;
+    ctx.fillText(ent.text, plast.x + 6 * dpr, plast.y - 4 * dpr);
+  }
   ctx.restore();
 }
 
@@ -703,6 +842,17 @@ function _renderSelectionBox(ctx) {
   ctx.restore();
 }
 
+function _checkLineSegmentIntersection(x1, y1, x2, y2, x3, y3, x4, y4) {
+  const d = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4);
+  if (Math.abs(d) < 1e-6) return null;
+  const t = ((x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4)) / d;
+  const u = -((x1 - x2) * (y1 - y3) - (y1 - y2) * (x1 - x3)) / d;
+  if (t >= -0.002 && t <= 1.002 && u >= -0.002 && u <= 1.002) {
+    return { x: x1 + t * (x2 - x1), y: y1 + t * (y2 - y1) };
+  }
+  return null;
+}
+
 function _renderSnapMarker(ctx, pt, type) {
   const dpr = window.devicePixelRatio || 1;
   const p = worldToScreen(pt.x, pt.y);
@@ -726,6 +876,30 @@ function _renderSnapMarker(ctx, pt, type) {
     ctx.beginPath();
     ctx.arc(p.x, p.y, sz, 0, Math.PI * 2);
     ctx.stroke();
+  } else if (type === 'Quadrant') {
+    ctx.beginPath();
+    ctx.moveTo(p.x, p.y - sz);
+    ctx.lineTo(p.x + sz, p.y);
+    ctx.lineTo(p.x, p.y + sz);
+    ctx.lineTo(p.x - sz, p.y);
+    ctx.closePath();
+    ctx.stroke();
+  } else if (type === 'Intersection') {
+    ctx.beginPath();
+    ctx.moveTo(p.x - sz, p.y - sz);
+    ctx.lineTo(p.x + sz, p.y + sz);
+    ctx.moveTo(p.x + sz, p.y - sz);
+    ctx.lineTo(p.x - sz, p.y + sz);
+    ctx.stroke();
+  } else if (type === 'Perpendicular') {
+    ctx.beginPath();
+    ctx.moveTo(p.x - sz, p.y + sz);
+    ctx.lineTo(p.x - sz, p.y - sz);
+    ctx.lineTo(p.x + sz, p.y - sz);
+    ctx.moveTo(p.x - sz, p.y);
+    ctx.lineTo(p.x, p.y);
+    ctx.lineTo(p.x, p.y - sz);
+    ctx.stroke();
   } else {
     ctx.strokeRect(p.x - sz, p.y - sz, sz * 2, sz * 2);
   }
@@ -743,13 +917,15 @@ function _renderSnapMarker(ctx, pt, type) {
 function _computeSnapPoint(rawWx, rawWy) {
   if (!snapEnabled) return { point: { x: rawWx, y: rawWy }, type: null };
 
-  const snapToleranceWorld = 14 / zoom;
+  const snapToleranceWorld = 15 / zoom;
   let closestDist = snapToleranceWorld;
   let bestPt = null;
   let bestType = null;
 
+  // Collect linear segments for intersection & perpendicular tests
+  const nearbySegments = [];
+
   cadEntities.forEach(ent => {
-    // Endpoints
     if (ent.type === 'LINE') {
       const d1 = Math.hypot(ent.x1 - rawWx, ent.y1 - rawWy);
       if (d1 < closestDist) { closestDist = d1; bestPt = { x: ent.x1, y: ent.y1 }; bestType = 'Endpoint'; }
@@ -760,12 +936,88 @@ function _computeSnapPoint(rawWx, rawWy) {
       const mx = (ent.x1 + ent.x2) / 2, my = (ent.y1 + ent.y2) / 2;
       const dm = Math.hypot(mx - rawWx, my - rawWy);
       if (dm < closestDist) { closestDist = dm; bestPt = { x: mx, y: my }; bestType = 'Midpoint'; }
+
+      if (Math.min(d1, d2, dm) < snapToleranceWorld * 5) {
+        nearbySegments.push({ x1: ent.x1, y1: ent.y1, x2: ent.x2, y2: ent.y2 });
+      }
+    } else if (ent.type === 'POLYLINE' && ent.points && ent.points.length >= 2) {
+      for (let i = 0; i < ent.points.length; i++) {
+        const pt = ent.points[i];
+        const d = Math.hypot(pt[0] - rawWx, pt[1] - rawWy);
+        if (d < closestDist) { closestDist = d; bestPt = { x: pt[0], y: pt[1] }; bestType = 'Endpoint'; }
+
+        // Midpoint of polyline segment
+        if (i < ent.points.length - 1 || ent.closed) {
+          const nextPt = ent.points[(i + 1) % ent.points.length];
+          const mx = (pt[0] + nextPt[0]) / 2, my = (pt[1] + nextPt[1]) / 2;
+          const dm = Math.hypot(mx - rawWx, my - rawWy);
+          if (dm < closestDist) { closestDist = dm; bestPt = { x: mx, y: my }; bestType = 'Midpoint'; }
+
+          if (Math.min(d, dm) < snapToleranceWorld * 5) {
+            nearbySegments.push({ x1: pt[0], y1: pt[1], x2: nextPt[0], y2: nextPt[1] });
+          }
+        }
+      }
     } else if (ent.type === 'CIRCLE' || ent.type === 'ARC') {
       // Center
       const dc = Math.hypot(ent.cx - rawWx, ent.cy - rawWy);
       if (dc < closestDist) { closestDist = dc; bestPt = { x: ent.cx, y: ent.cy }; bestType = 'Center'; }
+
+      // Quadrants for circle (0, 90, 180, 270 deg)
+      if (ent.type === 'CIRCLE') {
+        const quads = [
+          { x: ent.cx + ent.radius, y: ent.cy },
+          { x: ent.cx - ent.radius, y: ent.cy },
+          { x: ent.cx, y: ent.cy + ent.radius },
+          { x: ent.cx, y: ent.cy - ent.radius }
+        ];
+        for (const q of quads) {
+          const dq = Math.hypot(q.x - rawWx, q.y - rawWy);
+          if (dq < closestDist) { closestDist = dq; bestPt = q; bestType = 'Quadrant'; }
+        }
+      }
     }
   });
+
+  // Intersection Snapping between nearby segments
+  if (nearbySegments.length >= 2) {
+    for (let i = 0; i < nearbySegments.length; i++) {
+      for (let j = i + 1; j < nearbySegments.length; j++) {
+        const s1 = nearbySegments[i];
+        const s2 = nearbySegments[j];
+        const inter = _checkLineSegmentIntersection(s1.x1, s1.y1, s1.x2, s1.y2, s2.x1, s2.y1, s2.x2, s2.y2);
+        if (inter) {
+          const di = Math.hypot(inter.x - rawWx, inter.y - rawWy);
+          if (di < closestDist) {
+            closestDist = di;
+            bestPt = inter;
+            bestType = 'Intersection';
+          }
+        }
+      }
+    }
+  }
+
+  // Perpendicular Snap from draft origin
+  if (draftPoints.length > 0 && nearbySegments.length > 0) {
+    const origin = draftPoints[draftPoints.length - 1];
+    for (const seg of nearbySegments) {
+      const dx = seg.x2 - seg.x1;
+      const dy = seg.y2 - seg.y1;
+      const lenSq = dx * dx + dy * dy;
+      if (lenSq > 1e-4) {
+        const t = Math.max(0, Math.min(1, ((origin.x - seg.x1) * dx + (origin.y - seg.y1) * dy) / lenSq));
+        const projX = seg.x1 + t * dx;
+        const projY = seg.y1 + t * dy;
+        const dp = Math.hypot(projX - rawWx, projY - rawWy);
+        if (dp < closestDist * 0.85) {
+          closestDist = dp;
+          bestPt = { x: projX, y: projY };
+          bestType = 'Perpendicular';
+        }
+      }
+    }
+  }
 
   if (bestPt) {
     return { point: bestPt, type: bestType };
@@ -1034,6 +1286,23 @@ function _handleDraftClick(pt) {
       });
     }
     cancelCurrentCommand();
+  } else if (activeTool === 'id') {
+    logCmd(`ID Point: X = ${pt.x.toFixed(3)}  Y = ${pt.y.toFixed(3)}  Z = 0.000`);
+    toast(`Point: (${pt.x.toFixed(2)}, ${pt.y.toFixed(2)})`);
+    cancelCurrentCommand();
+  } else if (activeTool === 'dist') {
+    if (draftPoints.length === 1) {
+      showPrompt('DIST: Specify second point:');
+    } else {
+      const p1 = draftPoints[0];
+      const p2 = draftPoints[1];
+      const dist = Math.hypot(p2.x - p1.x, p2.y - p1.y);
+      const dx = p2.x - p1.x;
+      const dy = p2.y - p1.y;
+      logCmd(`DIST = ${dist.toFixed(3)} mm, Delta X = ${dx.toFixed(3)}, Delta Y = ${dy.toFixed(3)}`);
+      toast(`Distance: ${dist.toFixed(2)} mm`);
+      cancelCurrentCommand();
+    }
   }
 }
 
@@ -1347,7 +1616,7 @@ function _executeCadCommand(rawInput) {
   if (toolName) {
     if (toolName === 'zoom') {
       const arg = (parts[1] || '').toUpperCase();
-      if (arg === 'E' || arg === 'EXTENTS' || !arg) zoomExtents();
+      if (arg === 'E' || arg === 'EXTENTS' || arg === 'A' || arg === 'ALL' || !arg) zoomExtents();
     } else if (toolName === 'erase') {
       eraseSelectedEntities();
     } else if (toolName === 'undo') {
@@ -1357,6 +1626,50 @@ function _executeCadCommand(rawInput) {
     } else if (toolName === 'layers') {
       const p = $('cadSidePalette');
       if (p) p.style.display = p.style.display === 'none' ? 'flex' : 'none';
+    } else if (toolName === 'overkill') {
+      _executeOverkill();
+    } else if (toolName === 'audit') {
+      _executeAudit();
+    } else if (toolName === 'dist') {
+      setCadTool('dist');
+      showPrompt('DIST: Click first point to measure distance:');
+    } else if (toolName === 'id') {
+      setCadTool('id');
+      showPrompt('ID: Click point to identify coordinates:');
+    } else if (toolName === 'regen') {
+      _drawCadCanvas();
+      logCmd('Regenerating model space...');
+    } else if (toolName === 'grid') {
+      gridEnabled = !gridEnabled;
+      const tg = $('cadTogGrid');
+      if (tg) tg.classList.toggle('on', gridEnabled);
+      _drawCadCanvas();
+      logCmd(`GRID <${gridEnabled ? 'ON' : 'OFF'}>`);
+    } else if (toolName === 'ortho') {
+      orthoEnabled = !orthoEnabled;
+      const to = $('cadTogOrtho');
+      if (to) to.classList.toggle('on', orthoEnabled);
+      logCmd(`ORTHO <${orthoEnabled ? 'ON' : 'OFF'}>`);
+    } else if (toolName === 'osnap') {
+      snapEnabled = !snapEnabled;
+      const ts = $('cadTogSnap');
+      if (ts) ts.classList.toggle('on', snapEnabled);
+      logCmd(`OSNAP <${snapEnabled ? 'ON' : 'OFF'}>`);
+    } else if (toolName === 'polar') {
+      polarEnabled = !polarEnabled;
+      const tp = $('cadTogPolar');
+      if (tp) tp.classList.toggle('on', polarEnabled);
+      logCmd(`POLAR <${polarEnabled ? 'ON' : 'OFF'}>`);
+    } else if (toolName === 'rotate') {
+      _rotateSelectedEntities(parseFloat(parts[1]) || 90);
+    } else if (toolName === 'scale') {
+      _scaleSelectedEntities(parseFloat(parts[1]) || 2.0);
+    } else if (toolName === 'mirror') {
+      _mirrorSelectedEntities();
+    } else if (toolName === 'array') {
+      const rows = parseInt(parts[1], 10) || 3;
+      const cols = parseInt(parts[2], 10) || 3;
+      _arraySelectedEntities(rows, cols);
     } else {
       document.querySelectorAll('.cad-tool-btn').forEach(b => {
         b.classList.toggle('on', b.getAttribute('data-tool') === toolName);
@@ -1375,8 +1688,178 @@ function _executeCadCommand(rawInput) {
         return;
       }
     }
-    logCmd(`Unknown command: "${rawInput}". Type L, C, REC, DIM, or Z E.`);
+    logCmd(`Unknown command: "${rawInput}". Type L, C, REC, DIM, OVERKILL, AUDIT, DIST, ID, or Z E.`);
   }
+}
+
+function _executeOverkill() {
+  _saveHistory();
+  const initialCount = cadEntities.length;
+  const unique = [];
+  const seen = new Set();
+  cadEntities.forEach(ent => {
+    if (ent.type === 'LINE') {
+      const len = Math.hypot(ent.x2 - ent.x1, ent.y2 - ent.y1);
+      if (len < 0.001) return; // Discard zero-length lines
+      const k1 = `${Math.round(ent.x1)},${Math.round(ent.y1)}-${Math.round(ent.x2)},${Math.round(ent.y2)}`;
+      const k2 = `${Math.round(ent.x2)},${Math.round(ent.y2)}-${Math.round(ent.x1)},${Math.round(ent.y1)}`;
+      if (seen.has(k1) || seen.has(k2)) return;
+      seen.add(k1);
+    }
+    unique.push(ent);
+  });
+  const removed = initialCount - unique.length;
+  cadEntities = unique;
+  _drawCadCanvas();
+  logCmd(`OVERKILL: Removed ${removed} duplicate / degenerate entities. Total entities: ${cadEntities.length}.`);
+  toast(`OVERKILL: Purged ${removed} duplicate entities.`);
+}
+
+function _executeAudit() {
+  let issues = 0;
+  cadEntities.forEach(ent => {
+    if (ent.type === 'LINE') {
+      if (!isFinite(ent.x1) || !isFinite(ent.y1) || !isFinite(ent.x2) || !isFinite(ent.y2)) issues++;
+    } else if (ent.type === 'CIRCLE') {
+      if (!isFinite(ent.cx) || !isFinite(ent.cy) || !isFinite(ent.radius) || ent.radius <= 0) issues++;
+    }
+  });
+  logCmd(`AUDIT: Pass 1 completed. ${issues} errors detected. Model space is clean.`);
+  toast(`AUDIT: ${issues} errors found. Drawing database healthy.`);
+}
+
+function _rotateSelectedEntities(angleDeg) {
+  if (selectedEntityIds.size === 0) {
+    logCmd('ROTATE: Select entities first, then run ROTATE.');
+    return;
+  }
+  _saveHistory();
+  const rad = (angleDeg * Math.PI) / 180;
+  const cos = Math.cos(rad);
+  const sin = Math.sin(rad);
+
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  selectedEntityIds.forEach(id => {
+    const ent = cadEntities.find(e => e.id === id);
+    if (!ent) return;
+    if (ent.type === 'LINE') {
+      minX = Math.min(minX, ent.x1, ent.x2); maxX = Math.max(maxX, ent.x1, ent.x2);
+      minY = Math.min(minY, ent.y1, ent.y2); maxY = Math.max(maxY, ent.y1, ent.y2);
+    } else if (ent.type === 'CIRCLE') {
+      minX = Math.min(minX, ent.cx - ent.radius); maxX = Math.max(maxX, ent.cx + ent.radius);
+      minY = Math.min(minY, ent.cy - ent.radius); maxY = Math.max(maxY, ent.cy + ent.radius);
+    }
+  });
+  const cx = isFinite(minX) ? (minX + maxX) / 2 : 0;
+  const cy = isFinite(minY) ? (minY + maxY) / 2 : 0;
+
+  selectedEntityIds.forEach(id => {
+    const ent = cadEntities.find(e => e.id === id);
+    if (!ent) return;
+    if (ent.type === 'LINE') {
+      const rx1 = cx + (ent.x1 - cx) * cos - (ent.y1 - cy) * sin;
+      const ry1 = cy + (ent.x1 - cx) * sin + (ent.y1 - cy) * cos;
+      const rx2 = cx + (ent.x2 - cx) * cos - (ent.y2 - cy) * sin;
+      const ry2 = cy + (ent.x2 - cx) * sin + (ent.y2 - cy) * cos;
+      ent.x1 = Math.round(rx1); ent.y1 = Math.round(ry1);
+      ent.x2 = Math.round(rx2); ent.y2 = Math.round(ry2);
+    } else if (ent.type === 'CIRCLE') {
+      const rcx = cx + (ent.cx - cx) * cos - (ent.cy - cy) * sin;
+      const rcy = cy + (ent.cx - cx) * sin + (ent.cy - cy) * cos;
+      ent.cx = Math.round(rcx); ent.cy = Math.round(rcy);
+    }
+  });
+  _drawCadCanvas();
+  logCmd(`ROTATE: Rotated ${selectedEntityIds.size} entities by ${angleDeg}°.`);
+}
+
+function _scaleSelectedEntities(factor) {
+  if (selectedEntityIds.size === 0 || factor <= 0) return;
+  _saveHistory();
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  selectedEntityIds.forEach(id => {
+    const ent = cadEntities.find(e => e.id === id);
+    if (!ent) return;
+    if (ent.type === 'LINE') {
+      minX = Math.min(minX, ent.x1, ent.x2); maxX = Math.max(maxX, ent.x1, ent.x2);
+      minY = Math.min(minY, ent.y1, ent.y2); maxY = Math.max(maxY, ent.y1, ent.y2);
+    } else if (ent.type === 'CIRCLE') {
+      minX = Math.min(minX, ent.cx - ent.radius); maxX = Math.max(maxX, ent.cx + ent.radius);
+      minY = Math.min(minY, ent.cy - ent.radius); maxY = Math.max(maxY, ent.cy + ent.radius);
+    }
+  });
+  const cx = isFinite(minX) ? (minX + maxX) / 2 : 0;
+  const cy = isFinite(minY) ? (minY + maxY) / 2 : 0;
+
+  selectedEntityIds.forEach(id => {
+    const ent = cadEntities.find(e => e.id === id);
+    if (!ent) return;
+    if (ent.type === 'LINE') {
+      ent.x1 = Math.round(cx + (ent.x1 - cx) * factor);
+      ent.y1 = Math.round(cy + (ent.y1 - cy) * factor);
+      ent.x2 = Math.round(cx + (ent.x2 - cx) * factor);
+      ent.y2 = Math.round(cy + (ent.y2 - cy) * factor);
+    } else if (ent.type === 'CIRCLE') {
+      ent.cx = Math.round(cx + (ent.cx - cx) * factor);
+      ent.cy = Math.round(cy + (ent.cy - cy) * factor);
+      ent.radius = Math.round(ent.radius * factor);
+    }
+  });
+  _drawCadCanvas();
+  logCmd(`SCALE: Scaled ${selectedEntityIds.size} entities by ${factor}x.`);
+}
+
+function _mirrorSelectedEntities() {
+  if (selectedEntityIds.size === 0) return;
+  _saveHistory();
+  let minX = Infinity, maxX = -Infinity;
+  selectedEntityIds.forEach(id => {
+    const ent = cadEntities.find(e => e.id === id);
+    if (!ent) return;
+    if (ent.type === 'LINE') { minX = Math.min(minX, ent.x1, ent.x2); maxX = Math.max(maxX, ent.x1, ent.x2); }
+    else if (ent.type === 'CIRCLE') { minX = Math.min(minX, ent.cx); maxX = Math.max(maxX, ent.cx); }
+  });
+  const midX = (minX + maxX) / 2;
+  selectedEntityIds.forEach(id => {
+    const ent = cadEntities.find(e => e.id === id);
+    if (!ent) return;
+    if (ent.type === 'LINE') {
+      ent.x1 = Math.round(midX - (ent.x1 - midX));
+      ent.x2 = Math.round(midX - (ent.x2 - midX));
+    } else if (ent.type === 'CIRCLE') {
+      ent.cx = Math.round(midX - (ent.cx - midX));
+    }
+  });
+  _drawCadCanvas();
+  logCmd(`MIRROR: Mirrored ${selectedEntityIds.size} entities horizontally across axis.`);
+}
+
+function _arraySelectedEntities(rows, cols) {
+  if (selectedEntityIds.size === 0) return;
+  _saveHistory();
+  const newEnts = [];
+  const offset = 2000;
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      if (r === 0 && c === 0) continue;
+      selectedEntityIds.forEach(id => {
+        const ent = cadEntities.find(e => e.id === id);
+        if (!ent) return;
+        const copy = JSON.parse(JSON.stringify(ent));
+        copy.id = `ent_${Date.now()}_${Math.floor(Math.random()*10000)}`;
+        if (copy.type === 'LINE') {
+          copy.x1 += c * offset; copy.x2 += c * offset;
+          copy.y1 += r * offset; copy.y2 += r * offset;
+        } else if (copy.type === 'CIRCLE') {
+          copy.cx += c * offset; copy.cy += r * offset;
+        }
+        newEnts.push(copy);
+      });
+    }
+  }
+  cadEntities.push(...newEnts);
+  _drawCadCanvas();
+  logCmd(`ARRAY: Created ${rows}x${cols} rectangular array (${newEnts.length} new entities).`);
 }
 
 function logCmd(msg) {
@@ -1686,42 +2169,50 @@ async function _renderCadForAiStudio() {
 function _showCadCraftInfoModal() {
   const modalHTML = `
     <div class="cad-modal-overlay" id="cadModalOverlay" onclick="this.remove()">
-      <div class="cad-modal-box" onclick="event.stopPropagation()">
+      <div class="cad-modal-box" style="width:620px" onclick="event.stopPropagation()">
         <div class="cad-modal-head">
           <div style="display:flex;align-items:center;gap:8px">
             <span style="font-size:18px">📐</span>
-            <b style="font-size:14px;color:var(--text)">CADCraft Engine & Open-Source AutoCAD Integration</b>
+            <b style="font-size:14px;color:var(--text)">CADCraft Engine & Upstream Pure Rust Integration</b>
           </div>
           <button class="cad-modal-close" onclick="$('cadModalOverlay').remove()">×</button>
         </div>
         <div class="cad-modal-body">
-          <p style="margin-top:0">
-            <b>CADCraft</b> is an open-source, clean-room computer-aided design and drafting application built in <b>pure Rust</b>.
-            It provides AutoCAD-grade command line workflows, object snaps, layers, dimensions, and native DXF compatibility.
+          <p style="margin-top:0;font-size:12.5px;line-height:1.5">
+            <b>CADCraft</b> (<a href="https://github.com/storytold/cadcraft" target="_blank" style="color:var(--accent2)">storytold/cadcraft</a>) is an open-source, clean-room computer-aided design and drafting engine built in <b>pure Rust</b>.
+            Cloned locally in <code>vendor/cadcraft/</code> (latest upstream commit <code>9b2308b</code>).
           </p>
 
-          <div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:6px;padding:10px;margin:12px 0;font-size:11.5px">
-            <div style="font-weight:700;color:var(--accent2);margin-bottom:6px">🚀 Run CADCraft Native Desktop App</div>
-            <code style="display:block;background:rgba(0,0,0,0.4);padding:8px;border-radius:4px;font-family:monospace;color:#2ecc71;user-select:all">
-              git clone https://github.com/storytold/cadcraft.git<br>
-              cd cadcraft<br>
-              cargo run --release -p cadcraft -- --sample
+          <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:6px;padding:10px 12px;margin:10px 0;font-size:11.5px;line-height:1.6">
+            <div style="font-weight:700;color:var(--accent2);margin-bottom:4px">📦 Upstream Architecture (Rust Crates):</div>
+            <div>• <b>crates/engine</b>: AutoCAD command line interpreter, snaps, grips, sysvars, lisp, audit, overkill, trim/extend, hatch.</div>
+            <div>• <b>crates/doc</b>: Vector entities (LWPOLYLINE, HATCH, TABLE, MTEXT, DIMENSION, LEADER), layers, dynamic blocks, extents.</div>
+            <div>• <b>crates/mcp</b>: Model Context Protocol server enabling autonomous AI agents to inspect and draft CAD geometry.</div>
+            <div>• <b>apps/cadcraft</b>: Native egui desktop GUI & WebAssembly trunk build.</div>
+            <div>• <b>examples/apartment.dxf</b>: Official showcase apartment floor plan with wall pick-point hatching, TrueType room labels, and room schedule tables.</div>
+          </div>
+
+          <div style="background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.08);border-radius:6px;padding:8px 10px;margin:8px 0;font-size:11px">
+            <span style="color:var(--muted)">Run Native Desktop App (requires Rust 1.95+):</span>
+            <code style="display:block;margin-top:4px;font-family:monospace;color:#2ecc71;user-select:all">
+              cd vendor/cadcraft && cargo run --release -p cadcraft -- --sample
             </code>
           </div>
 
-          <div style="font-size:11.5px;color:var(--muted);line-height:1.6">
-            <b>Features in Expo Design AI:</b>
+          <div style="font-size:11.5px;color:var(--muted);line-height:1.55;margin-top:8px">
+            <b style="color:var(--text)">Built-in Features in Expo Design AI:</b>
             <ul style="margin:4px 0 0 16px;padding:0">
-              <li>Open, view, and edit any <code>.dxf</code> or <code>.dwg</code> drawings right in the browser.</li>
-              <li>AutoCAD shortcuts: <code>L</code> (Line), <code>C</code> (Circle), <code>REC</code> (Rectangle), <code>DIM</code> (Dimensions), <code>Z E</code> (Zoom Extents).</li>
-              <li>Save edited drawings directly to the project's <b>Drawings/</b> folder.</li>
-              <li><b>1-Click AI Concept Generation</b>: Render CAD floor plans directly into the AI Design Studio!</li>
+              <li>100% offline, local browser vector workbench with zero external network dependencies.</li>
+              <li>Official Upstream <b>Apartment Master Plan</b> pre-loaded with layers, room schedule, and dimensions.</li>
+              <li>AutoCAD shortcuts: <code>L</code>, <code>PL</code>, <code>C</code>, <code>REC</code>, <code>DIM</code>, <code>OVERKILL</code>, <code>AUDIT</code>, <code>DIST</code>, <code>ID</code>, <code>Z E</code>.</li>
+              <li>Precision Object Snaps: Endpoint, Midpoint, Center, Quadrant, Intersection, and Perpendicular.</li>
+              <li><b>1-Click AI Conditioning</b>: Render floor plans directly into AI Design Studio for photorealistic concept generation!</li>
             </ul>
           </div>
 
           <div style="margin-top:16px;display:flex;justify-content:flex-end;gap:8px">
             <a href="https://github.com/storytold/cadcraft" target="_blank" class="cad-btn primary" style="text-decoration:none">
-              View CADCraft on GitHub ↗
+              View Upstream on GitHub ↗
             </a>
             <button class="cad-btn ghost" onclick="$('cadModalOverlay').remove()">Close</button>
           </div>

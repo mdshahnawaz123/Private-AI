@@ -10,6 +10,7 @@ Provides:
 - DWG extraction and integration.
 """
 import io
+import json
 import math
 import os
 import re
@@ -581,11 +582,50 @@ class CadService:
                 "description": "Precision engineering bracket with bolt circle array, centerlines, fillet radii, and dimension callouts.",
                 "tags": ["Mechanical", "Part", "Dimensions"],
             },
+            {
+                "id": "sample_expo_masterplan",
+                "title": "25-6963_Expo City-REV.02 Masterplan ECD Layout_WIP.dwg",
+                "category": "Masterplan",
+                "description": "Full urban masterplan layout with residential, commercial, park, and road networks from Expo City project.",
+                "tags": ["Masterplan", "Urban", "Expo City", "AutoCAD 2026"],
+            },
         ]
 
     @classmethod
     def load_sample_drawing(cls, sample_id: str) -> Dict[str, Any]:
         """Generate structured CADCraft entities for the requested architectural sample."""
+        if sample_id in ("sample_expo_masterplan", "sample_masterplan", "expo_masterplan"):
+            cache_json = os.path.join(
+                os.path.dirname(os.path.dirname(__file__)),
+                "data", "cad_cache",
+                "25-6963_Expo_City-REV.02_Masterplan_ECD_Layout_WIP.dwg_ad3d97d0f78f_9072557.json"
+            )
+            if os.path.exists(cache_json):
+                try:
+                    with open(cache_json, "r", encoding="utf-8") as f:
+                        res = json.load(f)
+                    res["title"] = "25-6963_Expo City-REV.02 Masterplan ECD Layout_WIP.dwg"
+                    layer_color_map = {
+                        "park": "#4ade80", "green": "#22c55e", "promenade": "#10b981",
+                        "residential": "#f97316", "mixed": "#f59e0b", "commercial": "#ea580c",
+                        "public": "#a855f7", "facility": "#c084fc", "hospitality": "#ec4899",
+                        "water": "#38bdf8", "lake": "#0284c7", "road": "#ffffff",
+                        "boundary": "#ef4444"
+                    }
+                    for layer in res.get("layers", []):
+                        lname = layer.get("name", "").lower()
+                        for key, col in layer_color_map.items():
+                            if key in lname:
+                                layer["color"] = col
+                                break
+                    layer_map = {l["name"]: l["color"] for l in res.get("layers", [])}
+                    for ent in res.get("entities", []):
+                        if ent.get("layer") in layer_map:
+                            ent["color"] = layer_map[ent["layer"]]
+                    return res
+                except Exception as exc:
+                    logger.warning(f"Failed to load masterplan cache: {exc}")
+
         if sample_id == "sample_cadcraft_apartment":
             repo_sample_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "vendor", "cadcraft", "examples", "apartment.dxf")
             if os.path.exists(repo_sample_path):

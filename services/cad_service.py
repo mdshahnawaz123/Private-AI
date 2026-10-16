@@ -97,6 +97,16 @@ class CadService:
 
         entity_id_counter = 1
 
+        # Explode block references (INSERT) to unpack nested walls, columns, stairs, parking, and building geometry
+        try:
+            for ins in list(msp.query("INSERT")):
+                try:
+                    ins.explode()
+                except Exception:
+                    pass
+        except Exception as exc:
+            logger.warning(f"Failed to explode block references: {exc}")
+
         # 2. Iterate ModelSpace entities
         for e in msp:
             etype = e.dxftype()

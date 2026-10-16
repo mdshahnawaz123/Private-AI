@@ -20,6 +20,7 @@ let _mpdPlots = [];
 let _mpdSummary = null;
 let _mpdCadDrawing = null;
 let _mpdShowCadLinework = true;
+let _mpdShowPlots = true;
 let _mpdSelectedPlotId = null;
 let _mpdHighlightPlots = [];
 let _mpdActiveTab = 'chat'; // 'chat' | 'register'
@@ -36,13 +37,13 @@ let _mpdHoverPlot = null;
 let _mpdChatHist = [];
 
 const LAND_USE_COLORS = {
-  'Residential': { fill: 'rgba(245, 183, 61, 0.35)', stroke: '#f5b73d', text: '#ffe699' },
-  'Commercial': { fill: 'rgba(47, 107, 255, 0.35)', stroke: '#2f6bff', text: '#b3cbff' },
-  'Mixed Use': { fill: 'rgba(168, 85, 247, 0.35)', stroke: '#a855f7', text: '#e9d5ff' },
-  'Open Space / Park': { fill: 'rgba(53, 208, 127, 0.35)', stroke: '#35d07f', text: '#bbf7d0' },
-  'Civic': { fill: 'rgba(49, 208, 197, 0.35)', stroke: '#31d0c5', text: '#99f6e4' },
-  'Utilities': { fill: 'rgba(100, 116, 139, 0.35)', stroke: '#64748b', text: '#cbd5e1' },
-  'Default': { fill: 'rgba(148, 163, 184, 0.3)', stroke: '#94a3b8', text: '#f1f5f9' }
+  'Residential': { fill: 'rgba(245, 183, 61, 0.10)', stroke: '#f5b73d', text: '#ffe699' },
+  'Commercial': { fill: 'rgba(47, 107, 255, 0.10)', stroke: '#2f6bff', text: '#b3cbff' },
+  'Mixed Use': { fill: 'rgba(168, 85, 247, 0.10)', stroke: '#a855f7', text: '#e9d5ff' },
+  'Open Space / Park': { fill: 'rgba(53, 208, 127, 0.10)', stroke: '#35d07f', text: '#bbf7d0' },
+  'Civic': { fill: 'rgba(49, 208, 197, 0.10)', stroke: '#31d0c5', text: '#99f6e4' },
+  'Utilities': { fill: 'rgba(100, 116, 139, 0.10)', stroke: '#64748b', text: '#cbd5e1' },
+  'Default': { fill: 'rgba(148, 163, 184, 0.08)', stroke: '#94a3b8', text: '#f1f5f9' }
 };
 
 function getPlotColor(plot) {
@@ -93,6 +94,10 @@ async function renderMPDWorkspace(container) {
           <button class="mpd-canvas-ctrl active" id="btnToggleCadDrawing" title="Toggle Full CAD Vector Drawing Linework">
             <svg class="ico" style="width:12px;height:12px" viewBox="0 0 24 24"><path d="M4 4h16v16H4z"/><path d="M4 12h16M12 4v16"/></svg>
             CAD Linework (<span id="mpdCadEntityCount">0</span>)
+          </button>
+          <button class="mpd-canvas-ctrl active" id="btnTogglePlots" title="Toggle Masterplan Parcel Polygons">
+            <svg class="ico" style="width:12px;height:12px" viewBox="0 0 24 24"><polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5 12 2"/></svg>
+            Parcels (<span id="mpdPlotBtnCount">0</span>)
           </button>
           <button class="mpd-canvas-ctrl active" id="btnToggleSetbacks" title="Toggle Setback Envelopes">
             <svg class="ico" style="width:12px;height:12px" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><rect x="7" y="7" width="10" height="10" stroke-dasharray="2 2"/></svg>
@@ -163,6 +168,8 @@ async function _loadMasterplanData(proj) {
     if (plotsRes && plotsRes.ok) {
       _mpdPlots = await plotsRes.json();
       _renderPlotTable(_mpdPlots);
+      const plotBtnCount = $('mpdPlotBtnCount');
+      if (plotBtnCount) plotBtnCount.textContent = _mpdPlots.length;
     }
     if (cadRes && cadRes.ok) {
       _mpdCadDrawing = await cadRes.json();
@@ -560,8 +567,8 @@ function _drawCanvas() {
       _drawCadEntities(ctx, _mpdCadDrawing);
     }
 
-    // 2. Draw Parcel Polygons with semi-transparent zoning fills & setbacks
-    if (hasPlots) {
+    // 2. Draw Parcel Polygons with semi-transparent zoning fills & setbacks (when active)
+    if (hasPlots && _mpdShowPlots) {
       for (const plot of _mpdPlots) {
         if (_mpdShowViolationsOnly && plot.status !== 'violation') continue;
         _drawPlot(ctx, plot);
@@ -581,66 +588,115 @@ function _drawCadEntities(ctx, cad) {
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
 
+  // Group line segments by category for batched 60fps rendering
+  const walls = [];
+  const cols = [];
+  const prkg = [];
+  const floors = [];
+  const thins = [];
+  const dims = [];
+  const others = [];
+  const arcs = [];
+  const polylines = [];
+  const texts = [];
+
   for (let i = 0; i < entities.length; i++) {
     const e = entities[i];
-    const layer = (e.layer || '').toUpperCase();
-
-    // Architectural styling by layer category
-    let strokeColor = '#7dd3fc'; // blueprint cyan
-    let lineWidth = 1.0 / zoom;
-
-    if (layer.includes('WALL') || layer.includes('OTLN') || layer.includes('STR') || layer.includes('MEDM')) {
-      strokeColor = '#38bdf8'; // crisp wall blue
-      lineWidth = 1.4 / zoom;
-    } else if (layer.includes('PRKG') || layer.includes('PARK')) {
-      strokeColor = '#34d399'; // teal for parking bays
-      lineWidth = 1.0 / zoom;
-    } else if (layer.includes('DIM')) {
-      strokeColor = '#fbbf24'; // amber for dimension lines
-      lineWidth = 0.8 / zoom;
-    } else if (layer.includes('THIN') || layer.includes('HATCH')) {
-      strokeColor = 'rgba(148, 163, 184, 0.45)';
-      lineWidth = 0.8 / zoom;
-    } else if (e.color && e.color !== '#ffffff' && e.color !== '#000000') {
-      strokeColor = e.color;
+    const t = e.type;
+    if (t === 'LINE') {
+      const lyr = (e.layer || '').toUpperCase();
+      if (lyr.includes('WALL')) walls.push(e);
+      else if (lyr.includes('COLS')) cols.push(e);
+      else if (lyr.includes('PRKG') || lyr.includes('PARK')) prkg.push(e);
+      else if (lyr.includes('FLOR') || lyr.includes('STRS') || lyr.includes('FNDN')) floors.push(e);
+      else if (lyr.includes('DIM')) dims.push(e);
+      else if (lyr.includes('THIN') || lyr.includes('HATCH') || lyr.includes('GENF')) thins.push(e);
+      else others.push(e);
+    } else if (t === 'ARC' || t === 'CIRCLE') {
+      arcs.push(e);
+    } else if (t === 'POLYLINE') {
+      polylines.push(e);
+    } else if (t === 'TEXT') {
+      texts.push(e);
     }
+  }
 
-    ctx.strokeStyle = strokeColor;
-    ctx.lineWidth = lineWidth;
+  function _drawBatch(list, color, width) {
+    if (!list.length) return;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = width / zoom;
+    ctx.beginPath();
+    for (let i = 0; i < list.length; i++) {
+      const l = list[i];
+      ctx.moveTo(l.x1, l.y1);
+      ctx.lineTo(l.x2, l.y2);
+    }
+    ctx.stroke();
+  }
 
-    if (e.type === 'LINE') {
+  // Draw floors, foundations & stairs
+  _drawBatch(floors, '#38bdf8', 1.2);
+  // Draw thin detailing
+  _drawBatch(thins, 'rgba(148, 163, 184, 0.45)', 0.8);
+  // Draw parking bays
+  _drawBatch(prkg, '#34d399', 1.0);
+  // Draw dimensions
+  _drawBatch(dims, 'rgba(251, 191, 36, 0.75)', 0.8);
+  // Draw other lines
+  _drawBatch(others, '#94a3b8', 0.9);
+  // Draw architectural walls (prominent blueprint blue)
+  _drawBatch(walls, '#60a5fa', 1.6);
+  // Draw structural columns (prominent cyan)
+  _drawBatch(cols, '#00f2fe', 1.8);
+
+  // Draw Polylines
+  if (polylines.length) {
+    ctx.strokeStyle = '#38bdf8';
+    ctx.lineWidth = 1.2 / zoom;
+    for (let i = 0; i < polylines.length; i++) {
+      const p = polylines[i];
+      if (!p.points || p.points.length < 2) continue;
       ctx.beginPath();
-      ctx.moveTo(e.x1, e.y1);
-      ctx.lineTo(e.x2, e.y2);
-      ctx.stroke();
-    } else if (e.type === 'POLYLINE' && e.points && e.points.length >= 2) {
-      ctx.beginPath();
-      ctx.moveTo(e.points[0][0], e.points[0][1]);
-      for (let j = 1; j < e.points.length; j++) {
-        ctx.lineTo(e.points[j][0], e.points[j][1]);
+      ctx.moveTo(p.points[0][0], p.points[0][1]);
+      for (let j = 1; j < p.points.length; j++) {
+        ctx.lineTo(p.points[j][0], p.points[j][1]);
       }
-      if (e.closed) ctx.closePath();
+      if (p.closed) ctx.closePath();
       ctx.stroke();
-    } else if (e.type === 'ARC') {
+    }
+  }
+
+  // Draw Arcs & Circles
+  if (arcs.length) {
+    ctx.strokeStyle = '#38bdf8';
+    ctx.lineWidth = 1.0 / zoom;
+    for (let i = 0; i < arcs.length; i++) {
+      const a = arcs[i];
       ctx.beginPath();
-      const sRad = (e.start_angle * Math.PI) / 180;
-      const eRad = (e.end_angle * Math.PI) / 180;
-      ctx.arc(e.cx, e.cy, Math.max(0.1, e.radius), sRad, eRad);
-      ctx.stroke();
-    } else if (e.type === 'CIRCLE') {
-      ctx.beginPath();
-      ctx.arc(e.cx, e.cy, Math.max(0.1, e.radius), 0, Math.PI * 2);
-      ctx.stroke();
-    } else if (e.type === 'TEXT' && e.text) {
-      const screenH = (e.height || 2.5) * zoom;
-      if (screenH >= 4) { // Only render when legible to maximize performance
-        const fontSize = Math.max(2, Math.min(24 / zoom, e.height || 2.5));
-        ctx.font = `${fontSize}px monospace`;
-        ctx.fillStyle = layer.includes('TEXT') || layer.includes('IDEN') ? '#cbd5e1' : 'rgba(255,255,255,0.7)';
-        ctx.textAlign = 'left';
-        ctx.textBaseline = 'bottom';
-        ctx.fillText(e.text, e.x, e.y);
+      if (a.type === 'CIRCLE') {
+        ctx.arc(a.cx, a.cy, Math.max(0.05, a.radius), 0, Math.PI * 2);
+      } else {
+        const sRad = ((a.start_angle || 0) * Math.PI) / 180;
+        const eRad = ((a.end_angle || 360) * Math.PI) / 180;
+        ctx.arc(a.cx, a.cy, Math.max(0.05, a.radius), sRad, eRad);
       }
+      ctx.stroke();
+    }
+  }
+
+  // Draw Texts (only when zoomed in enough to be readable)
+  for (let i = 0; i < texts.length; i++) {
+    const t = texts[i];
+    if (!t.text) continue;
+    const screenH = (t.height || 2.5) * zoom;
+    if (screenH >= 5) {
+      const fontSize = Math.max(2, Math.min(24 / zoom, t.height || 2.5));
+      ctx.font = `${fontSize}px monospace`;
+      const lyr = (t.layer || '').toUpperCase();
+      ctx.fillStyle = lyr.includes('TEXT') || lyr.includes('IDEN') ? '#e2e8f0' : 'rgba(255,255,255,0.7)';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'bottom';
+      ctx.fillText(t.text, t.x, t.y);
     }
   }
 
@@ -892,6 +948,16 @@ function _wireMpdEvents(proj) {
     toggleCadBtn.onclick = function() {
       _mpdShowCadLinework = !_mpdShowCadLinework;
       this.classList.toggle('active', _mpdShowCadLinework);
+      _drawCanvas();
+    };
+  }
+
+  // Toggle Parcel Overlays
+  const togglePlotsBtn = _mpd$('btnTogglePlots');
+  if (togglePlotsBtn) {
+    togglePlotsBtn.onclick = function() {
+      _mpdShowPlots = !_mpdShowPlots;
+      this.classList.toggle('active', _mpdShowPlots);
       _drawCanvas();
     };
   }

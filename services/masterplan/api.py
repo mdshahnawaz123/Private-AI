@@ -192,6 +192,8 @@ async def delete_masterplan_file(project_id: str, file_id: str):
     return {"status": "success", "message": "File deleted successfully"}
 
 
+_CAD_DRAWING_CACHE = {}
+
 @mpd_router.get("/projects/{project_id}/cad-drawing")
 async def get_project_cad_drawing(project_id: str):
     """
@@ -207,6 +209,21 @@ async def get_project_cad_drawing(project_id: str):
     cad_path = latest.get("file_path")
     if not cad_path or not os.path.exists(cad_path):
         return {"has_cad": False, "entities": [], "layers": [], "extents": None}
+
+    mtime = os.path.getmtime(cad_path)
+    cache_key = (project_id, cad_path, mtime)
+    if cache_key in _CAD_DRAWING_CACHE:
+        return _CAD_DRAWING_CACHE[cache_key]
+
+    cache_path = f"{cad_path}.scaled_cache.json"
+    if os.path.exists(cache_path) and os.path.getsize(cache_path) > 100 and os.path.getmtime(cache_path) >= mtime:
+        try:
+            with open(cache_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                _CAD_DRAWING_CACHE[cache_key] = data
+                return data
+        except Exception:
+            pass
 
     try:
         from services.cad_service import CadService
@@ -315,7 +332,7 @@ async def get_project_cad_drawing(project_id: str):
                 "height": round((extents.get("max_y", 0) - extents.get("min_y", 0)) * scale, 2)
             }
 
-        return {
+        result = {
             "has_cad": True,
             "filename": latest.get("filename"),
             "total_entities": len(scaled_entities),
@@ -323,6 +340,15 @@ async def get_project_cad_drawing(project_id: str):
             "layers": layers,
             "entities": scaled_entities
         }
+        try:
+            tmp_path = f"{cache_path}.tmp"
+            with open(tmp_path, "w", encoding="utf-8") as f:
+                json.dump(result, f)
+            os.replace(tmp_path, cache_path)
+        except Exception:
+            pass
+        _CAD_DRAWING_CACHE[cache_key] = result
+        return result
     except Exception as exc:
         logger.error(f"Failed to extract CAD vector drawing for {project_id}: {exc}")
         return {"has_cad": False, "error": str(exc), "entities": [], "layers": []}

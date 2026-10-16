@@ -405,7 +405,7 @@ function _initCanvas() {
     }
 
     const worldX = (mouseX - _mpdTransform.panX) / _mpdTransform.zoom;
-    const worldY = (mouseY - _mpdTransform.panY) / _mpdTransform.zoom;
+    const worldY = (_mpdTransform.panY - mouseY) / _mpdTransform.zoom;
     const statusCoords = $('mpdStatusCoords');
     if (statusCoords) {
       statusCoords.textContent = `Cursor: (${worldX.toFixed(1)}, ${worldY.toFixed(1)}) m · Scale: ${Math.round(_mpdTransform.zoom * 100)}%`;
@@ -464,7 +464,7 @@ function _initCanvas() {
     const mouseY = e.clientY - rect.top;
 
     const zoomFactor = e.deltaY < 0 ? 1.15 : 0.85;
-    const newZoom = Math.max(0.2, Math.min(6.0, _mpdTransform.zoom * zoomFactor));
+    const newZoom = Math.max(1e-4, Math.min(1e4, _mpdTransform.zoom * zoomFactor));
 
     _mpdTransform.panX = mouseX - (mouseX - _mpdTransform.panX) * (newZoom / _mpdTransform.zoom);
     _mpdTransform.panY = mouseY - (mouseY - _mpdTransform.panY) * (newZoom / _mpdTransform.zoom);
@@ -472,12 +472,16 @@ function _initCanvas() {
     _drawCanvas();
   });
 
+  container.addEventListener('dblclick', () => {
+    _fitCanvasToPlots();
+  });
+
   container.addEventListener('click', e => {
     const rect = container.getBoundingClientRect();
     const mouseX = e.clientX - rect.left;
     const mouseY = e.clientY - rect.top;
     const worldX = (mouseX - _mpdTransform.panX) / _mpdTransform.zoom;
-    const worldY = (mouseY - _mpdTransform.panY) / _mpdTransform.zoom;
+    const worldY = (_mpdTransform.panY - mouseY) / _mpdTransform.zoom;
 
     const hitEnt = _hitTestCadEntity(worldX, worldY, _mpdTransform.zoom);
     if (hitEnt) {
@@ -504,8 +508,26 @@ function _initCanvas() {
     _drawCanvas();
   };
 
-  $('btnZoomIn').onclick = () => { _mpdTransform.zoom = Math.min(6.0, _mpdTransform.zoom * 1.25); _drawCanvas(); };
-  $('btnZoomOut').onclick = () => { _mpdTransform.zoom = Math.max(0.2, _mpdTransform.zoom * 0.8); _drawCanvas(); };
+  $('btnZoomIn').onclick = () => {
+    const dpr = window.devicePixelRatio || 1;
+    const cw = _mpdCanvas.width / dpr;
+    const ch = _mpdCanvas.height / dpr;
+    const newZoom = Math.min(1e4, _mpdTransform.zoom * 1.3);
+    _mpdTransform.panX = (cw / 2) - ((cw / 2) - _mpdTransform.panX) * (newZoom / _mpdTransform.zoom);
+    _mpdTransform.panY = (ch / 2) - ((ch / 2) - _mpdTransform.panY) * (newZoom / _mpdTransform.zoom);
+    _mpdTransform.zoom = newZoom;
+    _drawCanvas();
+  };
+  $('btnZoomOut').onclick = () => {
+    const dpr = window.devicePixelRatio || 1;
+    const cw = _mpdCanvas.width / dpr;
+    const ch = _mpdCanvas.height / dpr;
+    const newZoom = Math.max(1e-4, _mpdTransform.zoom * 0.7);
+    _mpdTransform.panX = (cw / 2) - ((cw / 2) - _mpdTransform.panX) * (newZoom / _mpdTransform.zoom);
+    _mpdTransform.panY = (ch / 2) - ((ch / 2) - _mpdTransform.panY) * (newZoom / _mpdTransform.zoom);
+    _mpdTransform.zoom = newZoom;
+    _drawCanvas();
+  };
   $('btnZoomFit').onclick = () => { _fitCanvasToPlots(); };
 }
 
@@ -560,13 +582,17 @@ function _hitTestCadEntity(wx, wy, zoom) {
     } else if (t === 'TEXT') {
       const h = e.height || 2.5;
       const w = Math.max(2, (e.text ? e.text.length : 1) * h * 0.65);
-      if (wx >= e.x - tol && wx <= e.x + w + tol && wy >= e.y - h - tol && wy <= e.y + tol) {
+      const minY = Math.min(e.y, e.y + h) - tol;
+      const maxY = Math.max(e.y, e.y + h) + tol;
+      if (wx >= e.x - tol && wx <= e.x + w + tol && wy >= minY && wy <= maxY) {
         return e;
       }
     } else if (t === 'POLYLINE' && e.points && e.points.length > 1) {
-      for (let j = 0; j < e.points.length - 1; j++) {
+      const numPts = e.points.length;
+      const count = e.closed ? numPts : numPts - 1;
+      for (let j = 0; j < count; j++) {
         const p1 = e.points[j];
-        const p2 = e.points[j + 1];
+        const p2 = e.points[(j + 1) % numPts];
         if (wx < Math.min(p1[0], p2[0]) - tol || wx > Math.max(p1[0], p2[0]) + tol ||
             wy < Math.min(p1[1], p2[1]) - tol || wy > Math.max(p1[1], p2[1]) + tol) {
           continue;
@@ -631,9 +657,9 @@ function _auditCadEntityLive(e) {
       notes.push('Unit scale 1:1 metric meter (Dubai Grid)');
     } else {
       category = `Linework [${e.layer || 'General'}]`;
-      discipline = 'Architectural Linework';
+      discipline = lyr.startsWith('MP_') ? 'Masterplan Division (MPD)' : 'Architectural Linework';
       notes.push('Vector linework continuous and valid');
-      notes.push('AIA layer syntax verified');
+      notes.push('CAD layer syntax verified');
     }
   } else if (type === 'ARC' || type === 'CIRCLE') {
     const r = (e.radius || 0).toFixed(2);
@@ -646,21 +672,75 @@ function _auditCadEntityLive(e) {
       notes.push('Circular entity geometric consistency verified');
     }
   } else if (type === 'TEXT') {
-    category = 'CAD Annotation / Room Tag';
+    category = 'CAD Annotation / Masterplan Tag';
     discipline = 'Scheduling & Space ID';
     notes.push(`Tag Value: "${e.text}"`);
-    if (/ROOM|TANK|STAIR|RAMP|CORRIDOR|SHAFT|LOBBY|STORE|DEWA|PUMP/i.test(e.text || '')) {
+    if (/RESIDENTIAL|COMMERCIAL|MIXED|HOSPITALITY|PARK|PLAZA|SIKKA|PROMENADE|UTILITY|ROAD|ROW|HIGHWAY|SECTOR|GFA|PLOT|SQM|AREA/i.test(e.text || '')) {
+      notes.push('Masterplan Zoning / Sector / Area Specification');
+      notes.push('Dubai Urban Master Plan 2040 classification');
+    } else if (/ROOM|TANK|STAIR|RAMP|CORRIDOR|SHAFT|LOBBY|STORE|DEWA|PUMP/i.test(e.text || '')) {
       notes.push('Major Architectural Space / Plant Room designation');
     } else if (/^\d+-[a-zA-Z0-9]+$/i.test(e.text || '') || /^T\d+$/i.test(e.text || '')) {
-      notes.push('Basement 2 vehicle stall tag synchronized with registry');
+      notes.push('Parking stall / plot identifier');
     } else {
-      notes.push('Component / equipment tag symbol');
+      notes.push('Component / drawing annotation text');
     }
   } else if (type === 'POLYLINE') {
-    category = `Polyline Boundary [${e.layer || 'Default'}]`;
-    discipline = 'CAD Polygon Geometry';
-    notes.push(`Vertices: ${e.points ? e.points.length : 0} points`);
-    notes.push(e.closed ? 'Closed boundary loop' : 'Open continuous polyline');
+    let peri = 0;
+    if (e.points && e.points.length > 1) {
+      const numPts = e.points.length;
+      const count = e.closed ? numPts : numPts - 1;
+      for (let j = 0; j < count; j++) {
+        const p1 = e.points[j];
+        const p2 = e.points[(j + 1) % numPts];
+        peri += Math.hypot(p2[0] - p1[0], p2[1] - p1[1]);
+      }
+    }
+    length = peri.toFixed(2);
+
+    if (lyr.includes('MP_RESIDENTIAL')) {
+      category = `Masterplan Residential Parcel Boundary [${e.layer}]`;
+      discipline = 'Urban Planning / Masterplan';
+      notes.push('Residential land-use zoning parcel loop');
+      notes.push('Dubai Master Plan 2040 residential density standards');
+    } else if (lyr.includes('MP_COMMERCIAL')) {
+      category = `Masterplan Commercial Parcel Boundary [${e.layer}]`;
+      discipline = 'Urban Planning / Masterplan';
+      notes.push('Commercial / Business zone allocation');
+      notes.push('Retail & office development zoning standards');
+    } else if (lyr.includes('MP_MIXED')) {
+      category = `Masterplan Mixed-Use Parcel Boundary [${e.layer}]`;
+      discipline = 'Urban Planning / Masterplan';
+      notes.push('Integrated Mixed-Use (Commercial + Residential)');
+    } else if (lyr.includes('MP_ROAD')) {
+      category = `Masterplan Road Corridor / Right-of-Way [${e.layer}]`;
+      discipline = 'Civil Infrastructure & Highways';
+      notes.push('Arterial highway / access road right-of-way corridor');
+      notes.push('Dubai RTA Road Network standard alignment');
+    } else if (lyr.includes('MP_PARK') || lyr.includes('MP_PROMENADE')) {
+      category = `Masterplan Public Park / Green Corridor [${e.layer}]`;
+      discipline = 'Landscape Architecture & Urban Greening';
+      notes.push('Public open space network & recreational greenway');
+      notes.push('Dubai Green Spine / Sustainable Urban Master Plan');
+    } else if (lyr.includes('MP_SIKKA')) {
+      category = `Pedestrian Sikka Alleyway [${e.layer}]`;
+      discipline = 'Urban Design / Pedestrian Network';
+      notes.push('Traditional shaded pedestrian sikka connectivity');
+    } else if (lyr.includes('MP_PUBLIC')) {
+      category = `Public Civic Facility Parcel [${e.layer}]`;
+      discipline = 'Civic Infrastructure';
+      notes.push('Community facility / institutional zoning');
+    } else if (lyr.includes('MP_PARK') || lyr.includes('MP_PRKG')) {
+      category = `Masterplan Parking Hub / Facility [${e.layer}]`;
+      discipline = 'Transportation & Parking';
+      notes.push('Public / visitor vehicular parking infrastructure');
+    } else {
+      category = `Polyline Boundary [${e.layer || 'Default'}]`;
+      discipline = lyr.startsWith('MP_') ? 'Masterplan Division (MPD)' : 'CAD Polygon Geometry';
+      notes.push(`Vertices: ${e.points ? e.points.length : 0} points`);
+      notes.push(e.closed ? 'Closed boundary loop' : 'Open continuous polyline');
+    }
+    notes.push(`Perimeter / Boundary Length: ${length} m`);
   }
 
   return {
@@ -708,9 +788,18 @@ function _centerPlotOnCanvas(plot) {
   const cx = plot.geometry.centroid[0];
   const cy = plot.geometry.centroid[1];
 
-  _mpdTransform.zoom = 1.6;
+  let targetZoom = 1.6;
+  if (plot.geometry.bbox) {
+    const pw = Math.max(20, plot.geometry.bbox[2] - plot.geometry.bbox[0]);
+    const ph = Math.max(20, plot.geometry.bbox[3] - plot.geometry.bbox[1]);
+    targetZoom = Math.min((w * 0.6) / pw, (h * 0.6) / ph);
+    targetZoom = Math.max(0.01, Math.min(50.0, targetZoom));
+  }
+
+  _mpdTransform.zoom = targetZoom;
   _mpdTransform.panX = w / 2 - cx * _mpdTransform.zoom;
-  _mpdTransform.panY = h / 2 - cy * _mpdTransform.zoom;
+  _mpdTransform.panY = h / 2 + cy * _mpdTransform.zoom;
+  _drawCanvas();
 }
 
 function _fitCanvasToPlots() {
@@ -741,13 +830,17 @@ function _fitCanvasToPlots() {
   const dpr = window.devicePixelRatio || 1;
   const cw = _mpdCanvas.width / dpr;
   const ch = _mpdCanvas.height / dpr;
-  const pw = Math.max(maxX - minX + 60, 100);
-  const ph = Math.max(maxY - minY + 60, 100);
+  const dx = Math.max(maxX - minX, 1);
+  const dy = Math.max(maxY - minY, 1);
+  const marginX = dx * 0.05;
+  const marginY = dy * 0.05;
+  const pw = dx + marginX * 2;
+  const ph = dy + marginY * 2;
 
-  const scale = Math.min((cw * 0.88) / pw, (ch * 0.88) / ph);
-  _mpdTransform.zoom = Math.max(0.05, Math.min(4.0, scale));
+  const scale = Math.min((cw * 0.92) / pw, (ch * 0.92) / ph);
+  _mpdTransform.zoom = (!isFinite(scale) || scale <= 0) ? 1.0 : scale;
   _mpdTransform.panX = (cw - (minX + maxX) * _mpdTransform.zoom) / 2;
-  _mpdTransform.panY = (ch - (minY + maxY) * _mpdTransform.zoom) / 2;
+  _mpdTransform.panY = (ch + (minY + maxY) * _mpdTransform.zoom) / 2;
   _drawCanvas();
 }
 
@@ -760,82 +853,89 @@ function _drawCanvas() {
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.clearRect(0, 0, _mpdCanvas.width, _mpdCanvas.height);
 
-  // Apply camera transform
-  ctx.scale(dpr, dpr);
-  ctx.translate(_mpdTransform.panX, _mpdTransform.panY);
-  ctx.scale(_mpdTransform.zoom, _mpdTransform.zoom);
-
-  // Draw CAD Coordinate Grid
-  _drawGrid(ctx);
-
   const hasPlots = _mpdPlots && _mpdPlots.length > 0;
   const hasCad = _mpdCadDrawing && _mpdCadDrawing.total_entities > 0;
 
   if (!hasPlots && !hasCad) {
-    ctx.save();
-    ctx.font = `600 ${Math.max(12, 16 / _mpdTransform.zoom)}px Inter, -apple-system, sans-serif`;
+    const cw = _mpdCanvas.width / dpr;
+    const ch = _mpdCanvas.height / dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.font = '600 15px Inter, -apple-system, sans-serif';
     ctx.fillStyle = 'rgba(255, 255, 255, 0.45)';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('No CAD drawing loaded. Click "Import File" above to upload your CAD file (.dxf / .dwg).', 500, 260);
-    ctx.font = `${Math.max(10, 12 / _mpdTransform.zoom)}px Inter, sans-serif`;
+    ctx.fillText('No CAD drawing loaded. Click "Import File" above to upload your CAD file (.dxf / .dwg).', cw / 2, ch / 2 - 12);
+    ctx.font = '12px Inter, sans-serif';
     ctx.fillStyle = 'rgba(255, 255, 255, 0.25)';
-    ctx.fillText('Once uploaded, your CAD vector drawing and parcels will be rendered here.', 500, 290);
+    ctx.fillText('Once uploaded, your CAD vector drawing and parcels will be rendered here.', cw / 2, ch / 2 + 14);
     ctx.restore();
-  } else {
-    // 1. Draw Full CAD Vector Linework Background (walls, columns, parking bays, ramps, dimensions, annotations)
-    if (_mpdShowCadLinework && _mpdCadDrawing && _mpdCadDrawing.entities && _mpdCadDrawing.entities.length > 0) {
-      _drawCadEntities(ctx, _mpdCadDrawing);
-    }
+    return;
+  }
 
-    // 2. Draw Parcel Polygons with semi-transparent zoning fills & setbacks (when active)
-    if (hasPlots && _mpdShowPlots) {
-      for (const plot of _mpdPlots) {
-        if (_mpdShowViolationsOnly && plot.status !== 'violation') continue;
-        _drawPlot(ctx, plot);
+  // Apply camera transform: +Y is North (upwards) in CAD
+  ctx.scale(dpr, dpr);
+  ctx.translate(_mpdTransform.panX, _mpdTransform.panY);
+  ctx.scale(_mpdTransform.zoom, -_mpdTransform.zoom);
+
+  // Draw CAD Coordinate Grid
+  _drawGrid(ctx);
+
+  // 1. Draw Full CAD Vector Linework Background (walls, columns, parking bays, ramps, dimensions, annotations)
+  if (_mpdShowCadLinework && _mpdCadDrawing && _mpdCadDrawing.entities && _mpdCadDrawing.entities.length > 0) {
+    _drawCadEntities(ctx, _mpdCadDrawing);
+  }
+
+  // 2. Draw Parcel Polygons with semi-transparent zoning fills & setbacks (when active)
+  if (hasPlots && _mpdShowPlots) {
+    for (const plot of _mpdPlots) {
+      if (_mpdShowViolationsOnly && plot.status !== 'violation') continue;
+      _drawPlot(ctx, plot);
+    }
+  }
+
+  // 3. Highlight Hovered or Selected CAD Entity (Live Glowing Audit)
+  if (_mpdHoverCadEntity || _mpdSelectedCadEntity) {
+    const ent = _mpdHoverCadEntity || _mpdSelectedCadEntity;
+    const isSel = ent === _mpdSelectedCadEntity;
+    ctx.save();
+    ctx.strokeStyle = isSel ? '#f5b73d' : '#00f2fe';
+    ctx.lineWidth = (isSel ? 4.0 : 3.0) / _mpdTransform.zoom;
+    ctx.shadowColor = isSel ? '#f5b73d' : '#00f2fe';
+    ctx.shadowBlur = 12;
+
+    if (ent.type === 'LINE') {
+      ctx.beginPath();
+      ctx.moveTo(ent.x1, ent.y1);
+      ctx.lineTo(ent.x2, ent.y2);
+      ctx.stroke();
+    } else if (ent.type === 'ARC' || ent.type === 'CIRCLE') {
+      ctx.beginPath();
+      if (ent.type === 'CIRCLE') {
+        ctx.arc(ent.cx, ent.cy, Math.max(0.05, ent.radius), 0, Math.PI * 2);
+      } else {
+        const sRad = ((ent.start_angle || 0) * Math.PI) / 180;
+        const eRad = ((ent.end_angle || 360) * Math.PI) / 180;
+        ctx.arc(ent.cx, ent.cy, Math.max(0.05, ent.radius), sRad, eRad);
       }
-    }
-
-    // 3. Highlight Hovered or Selected CAD Entity (Live Glowing Audit)
-    if (_mpdHoverCadEntity || _mpdSelectedCadEntity) {
-      const ent = _mpdHoverCadEntity || _mpdSelectedCadEntity;
-      const isSel = ent === _mpdSelectedCadEntity;
+      ctx.stroke();
+    } else if (ent.type === 'POLYLINE' && ent.points && ent.points.length > 1) {
+      ctx.beginPath();
+      ctx.moveTo(ent.points[0][0], ent.points[0][1]);
+      for (let j = 1; j < ent.points.length; j++) {
+        ctx.lineTo(ent.points[j][0], ent.points[j][1]);
+      }
+      if (ent.closed) ctx.closePath();
+      ctx.stroke();
+    } else if (ent.type === 'TEXT') {
+      const h = ent.height || 2.5;
+      const w = Math.max(4, (ent.text ? ent.text.length : 1) * h * 0.65);
       ctx.save();
-      ctx.strokeStyle = isSel ? '#f5b73d' : '#00f2fe';
-      ctx.lineWidth = (isSel ? 4.0 : 3.0) / _mpdTransform.zoom;
-      ctx.shadowColor = isSel ? '#f5b73d' : '#00f2fe';
-      ctx.shadowBlur = 12;
-
-      if (ent.type === 'LINE') {
-        ctx.beginPath();
-        ctx.moveTo(ent.x1, ent.y1);
-        ctx.lineTo(ent.x2, ent.y2);
-        ctx.stroke();
-      } else if (ent.type === 'ARC' || ent.type === 'CIRCLE') {
-        ctx.beginPath();
-        if (ent.type === 'CIRCLE') {
-          ctx.arc(ent.cx, ent.cy, Math.max(0.05, ent.radius), 0, Math.PI * 2);
-        } else {
-          const sRad = ((ent.start_angle || 0) * Math.PI) / 180;
-          const eRad = ((ent.end_angle || 360) * Math.PI) / 180;
-          ctx.arc(ent.cx, ent.cy, Math.max(0.05, ent.radius), sRad, eRad);
-        }
-        ctx.stroke();
-      } else if (ent.type === 'POLYLINE' && ent.points && ent.points.length > 1) {
-        ctx.beginPath();
-        ctx.moveTo(ent.points[0][0], ent.points[0][1]);
-        for (let j = 1; j < ent.points.length; j++) {
-          ctx.lineTo(ent.points[j][0], ent.points[j][1]);
-        }
-        if (ent.closed) ctx.closePath();
-        ctx.stroke();
-      } else if (ent.type === 'TEXT') {
-        const h = ent.height || 2.5;
-        const w = Math.max(4, (ent.text ? ent.text.length : 1) * h * 0.65);
-        ctx.strokeRect(ent.x - 2, ent.y - h - 2, w + 4, h + 4);
-      }
+      ctx.translate(ent.x, ent.y);
+      ctx.scale(1, -1);
+      ctx.strokeRect(-2, -2, w + 4, h + 4);
       ctx.restore();
     }
+    ctx.restore();
   }
 
   ctx.restore();
@@ -911,19 +1011,44 @@ function _drawCadEntities(ctx, cad) {
   // Draw structural columns (prominent cyan)
   _drawBatch(cols, '#00f2fe', 1.8);
 
-  // Draw Polylines
+  // Polyline layer styling
+  function _getPolylineColor(lyr) {
+    const l = (lyr || '').toUpperCase();
+    if (l.includes('MP_RESIDENTIAL')) return '#f59e0b';
+    if (l.includes('MP_COMMERCIAL')) return '#f43f5e';
+    if (l.includes('MP_MIXED')) return '#a855f7';
+    if (l.includes('MP_ROAD')) return '#94a3b8';
+    if (l.includes('MP_PARK') || l.includes('MP_PROMENADE')) return '#10b981';
+    if (l.includes('MP_SIKKA')) return '#eab308';
+    if (l.includes('MP_PUBLIC')) return '#3b82f6';
+    if (l.includes('MP_HOSPITALITY')) return '#ec4899';
+    if (l.includes('MP_PARK') || l.includes('MP_PRKG')) return '#06b6d4';
+    if (l.includes('MP_UTILITIES')) return '#fb923c';
+    return '#38bdf8';
+  }
+
+  // Draw Polylines (grouped by layer color for 60fps performance)
   if (polylines.length) {
-    ctx.strokeStyle = '#38bdf8';
-    ctx.lineWidth = 1.2 / zoom;
+    const polyGroups = {};
     for (let i = 0; i < polylines.length; i++) {
       const p = polylines[i];
       if (!p.points || p.points.length < 2) continue;
+      const c = _getPolylineColor(p.layer);
+      if (!polyGroups[c]) polyGroups[c] = [];
+      polyGroups[c].push(p);
+    }
+    for (const [color, plist] of Object.entries(polyGroups)) {
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 1.3 / zoom;
       ctx.beginPath();
-      ctx.moveTo(p.points[0][0], p.points[0][1]);
-      for (let j = 1; j < p.points.length; j++) {
-        ctx.lineTo(p.points[j][0], p.points[j][1]);
+      for (let i = 0; i < plist.length; i++) {
+        const p = plist[i];
+        ctx.moveTo(p.points[0][0], p.points[0][1]);
+        for (let j = 1; j < p.points.length; j++) {
+          ctx.lineTo(p.points[j][0], p.points[j][1]);
+        }
+        if (p.closed) ctx.closePath();
       }
-      if (p.closed) ctx.closePath();
       ctx.stroke();
     }
   }
@@ -946,8 +1071,7 @@ function _drawCadEntities(ctx, cad) {
     }
   }
 
-  // Draw Texts (only when zoomed in enough to be readable)
-  // Draw Texts with semantic filtering & badges
+  // Draw Texts (upright with semantic filtering)
   if (_mpdTextMode !== 'off') {
     for (let i = 0; i < texts.length; i++) {
       const t = texts[i];
@@ -955,14 +1079,13 @@ function _drawCadEntities(ctx, cad) {
       const str = String(t.text).trim();
       if (!str) continue;
 
-      const isMajorRoom = /ROOM|TANK|STAIR|RAMP|CORRIDOR|SHAFT|LOBBY|STORE|WORKSHOP|DEWA|FM|TOWER|CHILLED|PUMP|ELECTRICAL|TELECOM|REFUSE|PARKING/i.test(str);
+      const isMasterplanLabel = /RESIDENTIAL|COMMERCIAL|MIXED|HOSPITALITY|PARK|PLAZA|SIKKA|PROMENADE|UTILITY|ROAD|ROW|HIGHWAY|SECTOR|GFA|PLOT|SQM|AREA/i.test(str);
+      const isMajorRoom = /ROOM|TANK|STAIR|RAMP|CORRIDOR|SHAFT|LOBBY|STORE|WORKSHOP|DEWA|FM|TOWER|CHILLED|PUMP|ELECTRICAL|TELECOM|REFUSE|PARKING/i.test(str) || isMasterplanLabel;
       const isParkingStall = /^\d+-[a-zA-Z0-9]+$/i.test(str) || /^T\d+$/i.test(str);
       const isMinorCode = /^(DR|FHC|SL|PL|MCB|DB|SM|FD)$/i.test(str);
 
       if (_mpdTextMode === 'rooms') {
-        // Rooms Mode: Always show major room names with prominent badges
-        // Suppress tiny stall numbers and component tags unless zoomed in close
-        if (isMajorRoom) {
+        if (isMajorRoom && zoom >= 0.25) {
           const fSize = Math.max(7 / zoom, Math.min(16 / zoom, (t.height || 2.5) * 1.15));
           ctx.font = `600 ${fSize}px Inter, -apple-system, sans-serif`;
           const m = ctx.measureText(str);
@@ -970,55 +1093,65 @@ function _drawCadEntities(ctx, cad) {
           const padY = 2 / zoom;
           const rw = m.width + padX * 2;
           const rh = fSize + padY * 2;
-          const rx = t.x - padX;
-          const ry = t.y - fSize - padY;
 
-          // Badged pill background
+          ctx.save();
+          ctx.translate(t.x, t.y);
+          ctx.scale(1, -1);
+
           ctx.fillStyle = 'rgba(8, 14, 26, 0.88)';
           ctx.beginPath();
           if (ctx.roundRect) {
-            ctx.roundRect(rx, ry, rw, rh, 3 / zoom);
+            ctx.roundRect(-padX, -fSize * 0.85, rw, rh, 3 / zoom);
           } else {
-            ctx.rect(rx, ry, rw, rh);
+            ctx.rect(-padX, -fSize * 0.85, rw, rh);
           }
           ctx.fill();
           ctx.lineWidth = 1 / zoom;
-          ctx.strokeStyle = 'rgba(56, 189, 248, 0.6)';
+          ctx.strokeStyle = isMasterplanLabel ? 'rgba(245, 158, 11, 0.7)' : 'rgba(56, 189, 248, 0.6)';
           ctx.stroke();
 
-          // Room text
-          ctx.fillStyle = '#38bdf8';
+          ctx.fillStyle = isMasterplanLabel ? '#fcd34d' : '#38bdf8';
           ctx.textAlign = 'left';
-          ctx.textBaseline = 'top';
-          ctx.fillText(str, t.x, ry + padY);
+          ctx.textBaseline = 'middle';
+          ctx.fillText(str, 0, -fSize * 0.35);
+          ctx.restore();
         } else if (isParkingStall && zoom >= 1.6) {
-          // Show parking stall numbers when zoomed in
           const fSize = Math.max(1.8, Math.min(10 / zoom, t.height || 2.0));
+          ctx.save();
+          ctx.translate(t.x, t.y);
+          ctx.scale(1, -1);
           ctx.font = `${fSize}px monospace`;
           ctx.fillStyle = 'rgba(52, 211, 153, 0.85)';
           ctx.textAlign = 'left';
-          ctx.textBaseline = 'bottom';
-          ctx.fillText(str, t.x, t.y);
+          ctx.textBaseline = 'top';
+          ctx.fillText(str, 0, 0);
+          ctx.restore();
         } else if (isMinorCode && zoom >= 2.4) {
-          // Show minor component tags only when zoomed very close
           const fSize = Math.max(1.5, Math.min(8 / zoom, t.height || 1.8));
+          ctx.save();
+          ctx.translate(t.x, t.y);
+          ctx.scale(1, -1);
           ctx.font = `${fSize}px monospace`;
           ctx.fillStyle = 'rgba(148, 163, 184, 0.75)';
           ctx.textAlign = 'left';
-          ctx.textBaseline = 'bottom';
-          ctx.fillText(str, t.x, t.y);
+          ctx.textBaseline = 'top';
+          ctx.fillText(str, 0, 0);
+          ctx.restore();
         }
       } else if (_mpdTextMode === 'all') {
-        // All Mode: Show all text if large enough on screen
         const screenH = (t.height || 2.5) * zoom;
         if (screenH >= 4) {
           const fontSize = Math.max(2, Math.min(22 / zoom, t.height || 2.5));
+          ctx.save();
+          ctx.translate(t.x, t.y);
+          ctx.scale(1, -1);
           ctx.font = `${fontSize}px monospace`;
           const lyr = (t.layer || '').toUpperCase();
           ctx.fillStyle = isMajorRoom ? '#38bdf8' : (isParkingStall ? '#34d399' : (lyr.includes('TEXT') ? '#e2e8f0' : 'rgba(255,255,255,0.7)'));
           ctx.textAlign = 'left';
-          ctx.textBaseline = 'bottom';
-          ctx.fillText(str, t.x, t.y);
+          ctx.textBaseline = 'top';
+          ctx.fillText(str, 0, 0);
+          ctx.restore();
         }
       }
     }
@@ -1028,30 +1161,48 @@ function _drawCadEntities(ctx, cad) {
 }
 
 function _drawGrid(ctx) {
+  if (!_mpdCanvas) return;
+  const dpr = window.devicePixelRatio || 1;
+  const cw = _mpdCanvas.width / dpr;
+  const ch = _mpdCanvas.height / dpr;
+  const zoom = _mpdTransform.zoom || 1;
+
+  // Viewport in CAD world coordinates (with Y-inversion)
+  const minWx = -_mpdTransform.panX / zoom;
+  const maxWx = (cw - _mpdTransform.panX) / zoom;
+  const maxWy = _mpdTransform.panY / zoom;
+  const minWy = (_mpdTransform.panY - ch) / zoom;
+
+  // Adaptive grid step: target ~70-120 screen pixels between grid lines
+  const targetUnits = 80 / zoom;
+  const mag = Math.pow(10, Math.floor(Math.log10(Math.max(1e-4, targetUnits))));
+  const ratio = targetUnits / mag;
+  let step = mag;
+  if (ratio >= 5) step = mag * 5;
+  else if (ratio >= 2) step = mag * 2;
+
+  const startX = Math.floor(minWx / step) * step;
+  const endX = Math.ceil(maxWx / step) * step;
+  const startY = Math.floor(minWy / step) * step;
+  const endY = Math.ceil(maxWy / step) * step;
+
   ctx.save();
-  ctx.strokeStyle = 'rgba(255, 255, 255, 0.04)';
-  ctx.lineWidth = 1 / _mpdTransform.zoom;
+  ctx.lineWidth = 1 / zoom;
 
-  let minX = 0, maxX = 1200, minY = 0, maxY = 1000;
-  if (_mpdCadDrawing && _mpdCadDrawing.extents && _mpdCadDrawing.extents.width > 0) {
-    const ext = _mpdCadDrawing.extents;
-    minX = Math.floor((ext.min_x - 100) / 100) * 100;
-    maxX = Math.ceil((ext.max_x + 100) / 100) * 100;
-    minY = Math.floor((ext.min_y - 100) / 100) * 100;
-    maxY = Math.ceil((ext.max_y + 100) / 100) * 100;
-  }
-
-  const step = 100;
-  for (let x = minX; x <= maxX; x += step) {
+  for (let x = startX; x <= endX; x += step) {
+    const isMajor = Math.abs(x % (step * 5)) < 1e-4;
+    ctx.strokeStyle = isMajor ? 'rgba(255, 255, 255, 0.08)' : 'rgba(255, 255, 255, 0.025)';
     ctx.beginPath();
-    ctx.moveTo(x, minY);
-    ctx.lineTo(x, maxY);
+    ctx.moveTo(x, minWy);
+    ctx.lineTo(x, maxWy);
     ctx.stroke();
   }
-  for (let y = minY; y <= maxY; y += step) {
+  for (let y = startY; y <= endY; y += step) {
+    const isMajor = Math.abs(y % (step * 5)) < 1e-4;
+    ctx.strokeStyle = isMajor ? 'rgba(255, 255, 255, 0.08)' : 'rgba(255, 255, 255, 0.025)';
     ctx.beginPath();
-    ctx.moveTo(minX, y);
-    ctx.lineTo(maxX, y);
+    ctx.moveTo(minWx, y);
+    ctx.lineTo(maxWx, y);
     ctx.stroke();
   }
 
@@ -1105,38 +1256,48 @@ function _drawPlot(ctx, plot) {
   // Centroid Text Annotation
   const bbox = plot.geometry.bbox || [coords[0][0], coords[0][1], coords[1][0], coords[1][1]];
   const plotW = Math.max(20, bbox[2] - bbox[0]);
-  const plotH = Math.max(20, bbox[3] - bbox[1]);
   const cx = plot.geometry.centroid ? plot.geometry.centroid[0] : (bbox[0] + bbox[2]) / 2;
   const cy = plot.geometry.centroid ? plot.geometry.centroid[1] : (bbox[1] + bbox[3]) / 2;
 
   // Bounded Plot ID (never exceeds plot width)
   const maxTitleFont = Math.min(plotW * 0.18, 14 / _mpdTransform.zoom);
   const titleFont = Math.max(7, maxTitleFont);
+  const maxSubFont = Math.min(plotW * 0.12, 11 / _mpdTransform.zoom);
+  const subFont = Math.max(6, maxSubFont);
+
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.scale(1, -1);
   ctx.fillStyle = isSel ? '#ffffff' : color.text;
   ctx.font = `bold ${titleFont}px Inter, sans-serif`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText(plot.plot_id, cx, cy - titleFont * 0.55);
+  ctx.fillText(plot.plot_id, 0, -titleFont * 0.55);
 
-  // Bounded FAR text
-  const maxSubFont = Math.min(plotW * 0.12, 11 / _mpdTransform.zoom);
-  const subFont = Math.max(6, maxSubFont);
   ctx.font = `${subFont}px Inter, sans-serif`;
   ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
-  ctx.fillText(`FAR ${plot.far.toFixed(2)}`, cx, cy + subFont * 0.75);
+  ctx.fillText(`FAR ${plot.far.toFixed(2)}`, 0, subFont * 0.75);
+  ctx.restore();
 
-  // Elegant top-right alert badge for violations (instead of stamping giant text)
+  // Alert badge for violations
   if (plot.status === 'violation') {
     const badgeR = Math.min(9, Math.max(5, plotW * 0.05));
     const bx = bbox[2] - badgeR - 4;
-    const by = bbox[1] + badgeR + 4;
+    const by = bbox[3] - badgeR - 4;
     ctx.fillStyle = '#f2585f';
     ctx.beginPath();
     ctx.arc(bx, by, badgeR, 0, Math.PI * 2);
     ctx.fill();
+
+    ctx.save();
+    ctx.translate(bx, by);
+    ctx.scale(1, -1);
     ctx.fillStyle = '#ffffff';
     ctx.font = `bold ${badgeR * 1.3}px Inter, sans-serif`;
-    ctx.fillText('!', bx, by);
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('!', 0, 0);
+    ctx.restore();
   }
 
   ctx.restore();

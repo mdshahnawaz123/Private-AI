@@ -236,8 +236,19 @@ async def get_project_cad_drawing(project_id: str):
         extents = res.get("extents", {})
 
         # Compute coordinate scale: mm vs meters
-        max_c = max(abs(extents.get("max_x", 0)), abs(extents.get("max_y", 0)))
-        scale = 0.001 if max_c > 5000 else 1.0
+        w_raw = extents.get("width") or (extents.get("max_x", 0) - extents.get("min_x", 0))
+        h_raw = extents.get("height") or (extents.get("max_y", 0) - extents.get("min_y", 0))
+        min_x_raw = extents.get("min_x", 0)
+        min_y_raw = extents.get("min_y", 0)
+
+        # Check if coordinates are in GIS / UTM survey units (e.g. Dubai Grid > 10,000m)
+        is_utm = (min_x_raw > 10000 or min_y_raw > 10000) and (w_raw < 100000 and h_raw < 100000)
+        if is_utm:
+            scale = 1.0
+        elif w_raw > 20000 or h_raw > 20000:
+            scale = 0.001
+        else:
+            scale = 1.0
 
         scaled_entities = []
         for e in entities:
@@ -247,13 +258,13 @@ async def get_project_cad_drawing(project_id: str):
                     "type": "LINE",
                     "layer": e.get("layer"),
                     "color": e.get("color", "#ffffff"),
-                    "x1": round(e["x1"] * scale, 2),
-                    "y1": round(e["y1"] * scale, 2),
-                    "x2": round(e["x2"] * scale, 2),
-                    "y2": round(e["y2"] * scale, 2)
+                    "x1": round(e["x1"] * scale, 3),
+                    "y1": round(e["y1"] * scale, 3),
+                    "x2": round(e["x2"] * scale, 3),
+                    "y2": round(e["y2"] * scale, 3)
                 })
             elif t == "POLYLINE":
-                pts = [[round(p[0] * scale, 2), round(p[1] * scale, 2)] for p in e.get("points", [])]
+                pts = [[round(p[0] * scale, 3), round(p[1] * scale, 3)] for p in e.get("points", [])]
                 scaled_entities.append({
                     "type": "POLYLINE",
                     "layer": e.get("layer"),
@@ -266,9 +277,9 @@ async def get_project_cad_drawing(project_id: str):
                     "type": "ARC",
                     "layer": e.get("layer"),
                     "color": e.get("color", "#ffffff"),
-                    "cx": round(e["cx"] * scale, 2),
-                    "cy": round(e["cy"] * scale, 2),
-                    "radius": round(e["radius"] * scale, 2),
+                    "cx": round(e["cx"] * scale, 3),
+                    "cy": round(e["cy"] * scale, 3),
+                    "radius": round(e["radius"] * scale, 3),
                     "start_angle": e.get("start_angle", 0),
                     "end_angle": e.get("end_angle", 360)
                 })
@@ -277,19 +288,20 @@ async def get_project_cad_drawing(project_id: str):
                     "type": "CIRCLE",
                     "layer": e.get("layer"),
                     "color": e.get("color", "#ffffff"),
-                    "cx": round(e["cx"] * scale, 2),
-                    "cy": round(e["cy"] * scale, 2),
-                    "radius": round(e["radius"] * scale, 2)
+                    "cx": round(e["cx"] * scale, 3),
+                    "cy": round(e["cy"] * scale, 3),
+                    "radius": round(e["radius"] * scale, 3)
                 })
             elif t == "TEXT":
+                raw_h = e.get("height") or 2.5
                 scaled_entities.append({
                     "type": "TEXT",
                     "layer": e.get("layer"),
                     "color": e.get("color", "#ffffff"),
-                    "x": round(e["x"] * scale, 2),
-                    "y": round(e["y"] * scale, 2),
+                    "x": round(e["x"] * scale, 3),
+                    "y": round(e["y"] * scale, 3),
                     "text": e.get("text", ""),
-                    "height": round((e.get("height") or 2.5) * scale, 2)
+                    "height": round(raw_h * scale, 2)
                 })
 
         # Calculate tight real bounding box across all scaled entities
@@ -315,21 +327,21 @@ async def get_project_cad_drawing(project_id: str):
             min_x, max_x = min(xs), max(xs)
             min_y, max_y = min(ys), max(ys)
             scaled_extents = {
-                "min_x": round(min_x, 2),
-                "min_y": round(min_y, 2),
-                "max_x": round(max_x, 2),
-                "max_y": round(max_y, 2),
-                "width": round(max_x - min_x, 2),
-                "height": round(max_y - min_y, 2)
+                "min_x": round(min_x, 3),
+                "min_y": round(min_y, 3),
+                "max_x": round(max_x, 3),
+                "max_y": round(max_y, 3),
+                "width": round(max_x - min_x, 3),
+                "height": round(max_y - min_y, 3)
             }
         else:
             scaled_extents = {
-                "min_x": round(extents.get("min_x", 0) * scale, 2),
-                "min_y": round(extents.get("min_y", 0) * scale, 2),
-                "max_x": round(extents.get("max_x", 0) * scale, 2),
-                "max_y": round(extents.get("max_y", 0) * scale, 2),
-                "width": round((extents.get("max_x", 0) - extents.get("min_x", 0)) * scale, 2),
-                "height": round((extents.get("max_y", 0) - extents.get("min_y", 0)) * scale, 2)
+                "min_x": round(extents.get("min_x", 0) * scale, 3),
+                "min_y": round(extents.get("min_y", 0) * scale, 3),
+                "max_x": round(extents.get("max_x", 0) * scale, 3),
+                "max_y": round(extents.get("max_y", 0) * scale, 3),
+                "width": round((extents.get("max_x", 0) - extents.get("min_x", 0)) * scale, 3),
+                "height": round((extents.get("max_y", 0) - extents.get("min_y", 0)) * scale, 3)
             }
 
         result = {

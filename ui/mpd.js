@@ -178,9 +178,6 @@ async function _loadMasterplanData(proj) {
     toast('Error loading masterplan data');
   }
 }
-    toast('Error loading masterplan data');
-  }
-}
 
 function _renderMpdSummary(s) {
   if (!s) return;

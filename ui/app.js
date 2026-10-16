@@ -3148,10 +3148,10 @@ function updateCtxActions(){
   } else if(currentDest==='drawings'){
     A('Ask about this drawing','<circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>',()=>{ setAiTab('chat'); $('aiIn').focus(); });
     A('Find a requirement in drawings','<path d="M9 12l2 2 4-4"/>',()=>{ setAiTab('chat'); askAbout('Find the requirement or note in this drawing about: '); });
-  } else if(currentDest==='documents'||currentDest==='specifications'){
-    A('Summarize this document','<path d="M4 6h16M4 12h16M4 18h10"/>',()=>{ if(ctxDoc) askAbout(`Summarize the document "${ctxDoc.filename}".`); else toast('Open a document first'); });
-    A('Find a requirement','<path d="M9 12l2 2 4-4"/>',()=>{ setAiTab('chat'); askAbout('Find the requirement about: '); });
-    A('Find a reference','<path d="M10 13a5 5 0 0 0 7 0l2-2a5 5 0 0 0-7-7l-1 1"/>',()=>{ setAiTab('chat'); $('aiIn').focus(); });
+  } else if(currentDest==='documents'||currentDest==='specifications'||currentDest==='pdfcraft'){
+    A('Summarize this PDF','<path d="M4 6h16M4 12h16M4 18h10"/>',()=>{ if(ctxDoc) askAbout(`Summarize the document "${ctxDoc.filename}".`); else toast('Open a document first'); });
+    A('Find key numbers & tables','<path d="M9 12l2 2 4-4"/>',()=>{ setAiTab('chat'); askAbout('Extract key dimensions, numbers, and tables from this PDF: '); });
+    A('Find a requirement','<path d="M10 13a5 5 0 0 0 7 0l2-2a5 5 0 0 0-7-7l-1 1"/>',()=>{ setAiTab('chat'); $('aiIn').focus(); });
   } else if(currentDest==='schedules'){
     A('Ask about these quantities','<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 3v18"/>',()=>{ setAiTab('chat'); askAbout('From the project schedules and quantities, '); });
   } else if(currentDest==='codes'){
@@ -3176,7 +3176,7 @@ function updateCtxActions(){
   } else {
     A('Ask Design AI','<circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>',()=>{ setAiTab('chat'); $('aiIn').focus(); });
   }
-  if(canUpload() && ctxDoc && ctxDoc.rel && /\.pdf$/i.test(ctxDoc.filename||'') && (currentDest==='drawings'||currentDest==='documents'||currentDest==='specifications')){
+  if(canUpload() && ctxDoc && ctxDoc.rel && /\.pdf$/i.test(ctxDoc.filename||'') && (currentDest==='drawings'||currentDest==='documents'||currentDest==='specifications'||currentDest==='pdfcraft')){
     A('Re-read with vision (requires review)','<path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/>',()=>reextractDoc());
   }
   wrap.innerHTML=`<div class="h">Suggested actions</div>`+acts.map((a,i)=>`<button class="act" data-i="${i}">${svg(a.icon)}${esc(a.label)}</button>`).join('');
@@ -3498,7 +3498,7 @@ async function sendAi(standards){ const t=$('aiIn'); const q=t.value.trim();
   }
   else { const prefix=(standards||currentDest==='codes')?'Using the codes/standards knowledge base, ':'';
     let scoped=q+revNote;
-    const _focus=(ctxDoc&&!useCowork&&['documents','specifications','drawings','schedules'].includes(currentDest))?(ctxDoc.rel||''):'';
+    const _focus=(ctxDoc&&!useCowork&&['documents','specifications','drawings','schedules','pdfcraft'].includes(currentDest))?(ctxDoc.rel||''):'';
     if(_focus) scoped=`Regarding "${ctxDoc.filename}": `+scoped;
     window.__expoVizQ=false; const _attId=useCowork?null:((currentAttachment&&currentAttachment.id)||null);
     const askBody={project:currentProject,query:prefix+scoped,messages:aiHist.slice(-8),k:8,model:'qwen3.5:9b',focus_doc:_focus,attachment_id:_attId};

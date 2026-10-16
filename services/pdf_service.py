@@ -919,3 +919,178 @@ class PdfService:
         doc.save(target_path, garbage=3, deflate=True)
         doc.close()
         return target_path
+
+    @classmethod
+    def ask_document(
+        cls,
+        file_path_or_bytes: Any,
+        question: str,
+        page_number: Optional[int] = None,
+        model: str = "qwen3.5:9b",
+        vision_mode: bool = False,
+        password: Optional[str] = None,
+        ollama_endpoint: str = "http://127.0.0.1:11434"
+    ) -> Dict[str, Any]:
+        """
+        Answers questions grounded strictly in the active PDF document using local AI (Ollama).
+        Features:
+        - 100% offline, local reasoning (no data sent to external cloud APIs).
+        - Multi-page text and table extraction with page markers.
+        - High-resolution visual page analysis via qwen2.5vl:7b for architectural drawings/plans.
+        - Strict page citations (e.g. [Page 2]) and bounding box highlight discovery.
+        """
+        cls._require_fitz()
+        import base64
+        import urllib.request
+        import json
+
+        doc = None
+        try:
+            if isinstance(file_path_or_bytes, (bytes, bytearray)):
+                doc = fitz.open(stream=file_path_or_bytes, filetype="pdf")
+            else:
+                doc = fitz.open(file_path_or_bytes)
+
+            if doc.is_encrypted:
+                if not password or not doc.authenticate(password):
+                    raise RuntimeError("PDF is encrypted and requires a valid password.")
+
+            total_pages = doc.page_count
+
+            # If vision mode is requested for a specific page
+            if vision_mode:
+                target_p = page_number if (page_number and 1 <= page_number <= total_pages) else 1
+                page = doc.load_page(target_p - 1)
+                # Render high-res image (150 DPI)
+                zoom = 150.0 / 72.0
+                mat = fitz.Matrix(zoom, zoom)
+                pix = page.get_pixmap(matrix=mat, alpha=False)
+                img_bytes = pix.tobytes("png")
+                b64_img = base64.b64encode(img_bytes).decode("ascii")
+
+                prompt = (
+                    f"You are an expert architectural and engineering AI assistant analyzing this document page image.\n"
+                    f"Current Document Page: [Page {target_p} of {total_pages}]\n"
+                    f"User Question: {question}\n\n"
+                    f"Instructions:\n"
+                    f"1. Examine the visual drawing, tables, dimensions, text notes, and symbols on this page.\n"
+                    f"2. Answer the user question accurately based on the visual and textual data present on this page.\n"
+                    f"3. Always reference [Page {target_p}] in your answer.\n"
+                    f"4. If a dimension, material, or regulation is not shown, state clearly that it is not visible on this page."
+                )
+
+                payload = {
+                    "model": "qwen2.5vl:7b",
+                    "prompt": prompt,
+                    "images": [b64_img],
+                    "stream": False,
+                    "options": {"temperature": 0.1}
+                }
+
+                req = urllib.request.Request(
+                    f"{ollama_endpoint}/api/generate",
+                    data=json.dumps(payload).encode("utf-8"),
+                    headers={"Content-Type": "application/json"}
+                )
+                with urllib.request.urlopen(req, timeout=90) as resp:
+                    resp_data = json.loads(resp.read().decode("utf-8"))
+                    raw_text = resp_data.get("response", "")
+
+                clean_answer = re.sub(r"<think>.*?</think>", "", raw_text, flags=re.DOTALL).strip()
+                return {
+                    "answer": clean_answer,
+                    "model_used": "qwen2.5vl:7b (Local Vision)",
+                    "cited_pages": [target_p],
+                    "vision_mode": True,
+                    "highlights": []
+                }
+
+            # Standard Text & Tabular Q&A using local reasoning model
+            pages_to_read = [page_number] if (page_number and 1 <= page_number <= total_pages) else list(range(1, total_pages + 1))
+            
+            doc_context_parts = []
+            page_text_map = {}
+            for p_idx in pages_to_read:
+                p = doc.load_page(p_idx - 1)
+                text = p.get_text("text").strip()
+                page_text_map[p_idx] = text
+                if text:
+                    doc_context_parts.append(f"--- [PAGE {p_idx} of {total_pages}] ---\n{text}\n")
+                else:
+                    doc_context_parts.append(f"--- [PAGE {p_idx} of {total_pages}] ---\n[Empty page or pure raster vector drawing]\n")
+
+            full_context = "\n".join(doc_context_parts)
+            if len(full_context) > 120000:
+                full_context = full_context[:120000] + "\n...[Context truncated for brevity]..."
+
+            sys_instruction = (
+                "You are an expert architectural, structural, and building specification AI analyzer running 100% locally.\n"
+                "You have been provided with the complete extracted text and tables of an official PDF document.\n"
+                "Rules:\n"
+                "1. Answer the question STRICTLY using the facts, numbers, dimensions, regulations, and tables in the document text below.\n"
+                "2. ALWAYS cite the exact page number using the format [Page X] whenever you state any fact, clause, or figure.\n"
+                "3. If multiple pages discuss the topic, compare or combine their details with explicit citations [Page X], [Page Y].\n"
+                "4. If the requested information is NOT in the document text, state clearly: 'This information is not specified in the provided PDF document.' Do NOT invent numbers.\n"
+                "5. Present your answer with clear markdown headings, bullet points, or tables where appropriate."
+            )
+
+            prompt = f"{sys_instruction}\n\n=== DOCUMENT CONTENT ===\n{full_context}\n=== END DOCUMENT CONTENT ===\n\nUser Question: {question}\n\nHelpful Grounded Answer (with [Page X] citations):"
+
+            model_name = model or "qwen3.5:9b"
+            payload = {
+                "model": model_name,
+                "prompt": prompt,
+                "stream": False,
+                "options": {
+                    "temperature": 0.1,
+                    "num_ctx": 32768
+                }
+            }
+
+            req = urllib.request.Request(
+                f"{ollama_endpoint}/api/generate",
+                data=json.dumps(payload).encode("utf-8"),
+                headers={"Content-Type": "application/json"}
+            )
+            with urllib.request.urlopen(req, timeout=90) as resp:
+                resp_data = json.loads(resp.read().decode("utf-8"))
+                raw_text = resp_data.get("response", "")
+
+            clean_answer = re.sub(r"<think>.*?</think>", "", raw_text, flags=re.DOTALL).strip()
+
+            cited_matches = re.findall(r"\[Page\s+(\d+)\]", clean_answer, re.IGNORECASE)
+            cited_pages = sorted(list({int(p) for p in cited_matches if 1 <= int(p) <= total_pages}))
+            if not cited_pages and page_number:
+                cited_pages = [page_number]
+
+            highlights = []
+            for p_num in cited_pages[:4]:
+                p = doc.load_page(p_num - 1)
+                q_words = [w for w in re.findall(r"[A-Za-z0-9\-]{4,}", question) if w.lower() not in {"what", "which", "where", "when", "does", "have", "with", "this", "page", "from", "that"}]
+                for kw in q_words[:3]:
+                    rects = p.search_for(kw)
+                    for r in rects[:2]:
+                        highlights.append({
+                            "page": p_num,
+                            "rect": [round(r.x0, 2), round(r.y0, 2), round(r.x1, 2), round(r.y1, 2)],
+                            "term": kw
+                        })
+
+            return {
+                "answer": clean_answer,
+                "model_used": model_name,
+                "cited_pages": cited_pages,
+                "vision_mode": False,
+                "highlights": highlights
+            }
+
+        except Exception as exc:
+            logger.error(f"Error in ask_document: {exc}")
+            raise
+        finally:
+            if doc:
+                try:
+                    doc.close()
+                except Exception:
+                    pass
+

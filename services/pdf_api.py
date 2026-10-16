@@ -18,6 +18,7 @@ import shutil
 from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, File, Form, HTTPException, Query, Request, Response, UploadFile
 from fastapi.responses import FileResponse, JSONResponse, Response
+from starlette.concurrency import run_in_threadpool
 from pydantic import BaseModel, Field
 from loguru import logger
 
@@ -106,6 +107,15 @@ class RenderForAiRequest(BaseModel):
     project: str = Field(..., description="Project name")
     width: int = Field(default=1024, description="Target width")
     height: int = Field(default=1024, description="Target height")
+
+
+class AskPdfRequest(BaseModel):
+    doc_id: str = Field(..., description="Active PDF session ID")
+    question: str = Field(..., description="User question about the active PDF")
+    page_number: Optional[int] = Field(default=None, description="Optional focus page number (1-based)")
+    model: Optional[str] = Field(default="qwen3.5:9b", description="Local Ollama model name")
+    vision_mode: Optional[bool] = Field(default=False, description="Whether to analyze visually with local vision model")
+    password: Optional[str] = Field(default=None, description="PDF password if encrypted")
 
 
 # --- Endpoints ---
@@ -501,3 +511,27 @@ async def render_for_ai(req: RenderForAiRequest):
         "image_url": rel_url,
         "message": f"Page {req.page_number} rendered for AI Design Studio conditioning."
     }
+
+
+@pdf_router.post("/ask")
+async def ask_pdf(req: AskPdfRequest):
+    """
+    Asks the local AI model (qwen3.5:9b or qwen2.5vl:7b) questions grounded strictly
+    on the content, tables, and geometry of the active PDF document.
+    """
+    path = _get_doc_path(req.doc_id)
+    try:
+        result = await run_in_threadpool(
+            PdfService.ask_document,
+            path,
+            question=req.question,
+            page_number=req.page_number,
+            model=req.model or "qwen3.5:9b",
+            vision_mode=bool(req.vision_mode),
+            password=req.password
+        )
+        return result
+    except Exception as exc:
+        logger.error(f"Failed to answer question on PDF {req.doc_id}: {exc}")
+        raise HTTPException(status_code=500, detail=str(exc))
+

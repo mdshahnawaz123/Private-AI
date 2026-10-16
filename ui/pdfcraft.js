@@ -37,7 +37,10 @@ let _pdfState = {
   startX: 0,
   startY: 0,
   pageRenderCache: new Map(),
-  markups: [] // local session markups [{page, type, rect, content, color}]
+  markups: [], // local session markups [{page, type, rect, content, color}]
+  aiChatHistory: [], // [{role: 'user'|'assistant', text, citedPages, model, isVision}]
+  aiVisionMode: false,
+  aiIsThinking: false
 };
 
 /* ==========================================================================
@@ -162,6 +165,11 @@ function renderPdfCraftWorkspace(container) {
               <span>Protect</span>
             </button>
 
+            <button class="pdf-btn ai" id="pdfAskAiBtn" title="Ask Local AI (qwen3.5:9b) questions grounded in this PDF" style="background:linear-gradient(135deg,rgba(47,107,255,0.22),rgba(139,92,246,0.28));border:1px solid rgba(139,92,246,0.5);font-weight:700">
+              <svg class="ico" viewBox="0 0 24 24"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><circle cx="12" cy="12" r="9"/></svg>
+              <span>✨ Ask Local AI</span>
+            </button>
+
             <button class="pdf-btn ai" id="pdfRenderAiStudioBtn" title="Render page into AI Design Studio for 3D photorealistic concept generation">
               <svg class="ico" viewBox="0 0 24 24"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><circle cx="12" cy="12" r="9"/></svg>
               <span>🎨 Render in AI Studio</span>
@@ -183,6 +191,7 @@ function renderPdfCraftWorkspace(container) {
             <button class="pdf-tab-btn on" data-tab="pages" title="Page Thumbnails">📑 Pages</button>
             <button class="pdf-tab-btn" data-tab="outline" title="Bookmarks Outline">🔖 Outline</button>
             <button class="pdf-tab-btn" data-tab="search" title="Search Text">🔍 Search</button>
+            <button class="pdf-tab-btn" data-tab="ai" title="Ask Local AI (qwen3.5:9b / vision)" style="color:var(--accent2);font-weight:700">✨ Ask AI</button>
             <button class="pdf-tab-btn" data-tab="properties" title="Document Properties">🛡️ Info</button>
           </div>
 
@@ -746,6 +755,10 @@ function _initPdfCraftStyles() {
       flex-direction: column;
       gap: 14px;
     }
+    @keyframes pdfAiPulse {
+      0%, 100% { opacity: 0.3; transform: scale(0.9); }
+      50% { opacity: 1; transform: scale(1.1); }
+    }
   `;
   document.head.appendChild(style);
 }
@@ -913,6 +926,17 @@ function _bindPdfEvents() {
   const splitBtn = document.getElementById('pdfSplitModalBtn');
   if (splitBtn) splitBtn.onclick = _openSplitModal;
 
+  const askAiBtn = document.getElementById('pdfAskAiBtn');
+  if (askAiBtn) {
+    askAiBtn.onclick = () => {
+      _pdfState.leftTab = 'ai';
+      document.querySelectorAll('.pdf-tab-btn').forEach(b => b.classList.toggle('on', b.dataset.tab === 'ai'));
+      _renderSidebarContent();
+      const inp = document.getElementById('pdfAiInput');
+      if (inp) inp.focus();
+    };
+  }
+
   const aiRenderBtn = document.getElementById('pdfRenderAiStudioBtn');
   if (aiRenderBtn) aiRenderBtn.onclick = _renderPageForAiStudio;
 
@@ -997,6 +1021,17 @@ function _applyLoadedDocument(docId, filename, info) {
   _pdfState.totalPages = info.page_count || 1;
   _pdfState.organizerPages = info.pages ? JSON.parse(JSON.stringify(info.pages)) : [];
   _pdfState.pageRenderCache.clear();
+  _pdfState.aiChatHistory = []; // Reset local chat for newly opened document
+
+  // Sync with App Copilot context
+  if (typeof setDocContext === 'function') {
+    setDocContext({
+      filename: filename,
+      rel: filename,
+      folder: 'PdfCraft',
+      _rev: ''
+    });
+  }
 
   // Status bar updates
   const nameEl = document.getElementById('pdfDocNameLabel');
@@ -1110,6 +1145,8 @@ function _renderSidebarContent() {
     if (sInput) {
       sInput.onkeydown = (e) => { if (e.key === 'Enter') _executeSearch(sInput.value); };
     }
+  } else if (tab === 'ai') {
+    _renderAiChatContent(content);
   } else if (tab === 'properties') {
     const meta = (_pdfState.info && _pdfState.info.metadata) || {};
     const perms = (_pdfState.info && _pdfState.info.permissions) || {};
@@ -1135,6 +1172,198 @@ function _renderSidebarContent() {
       </div>
     `;
   }
+}
+
+function _renderAiChatContent(content) {
+  const history = _pdfState.aiChatHistory || [];
+  const isThinking = _pdfState.aiIsThinking || false;
+  const visionMode = _pdfState.aiVisionMode || false;
+
+  content.innerHTML = `
+    <div style="display:flex;flex-direction:column;height:100%;min-height:0;gap:8px">
+      <!-- HEADER / MODEL STATUS -->
+      <div style="background:rgba(47,107,255,0.08);border:1px solid rgba(47,107,255,0.22);border-radius:8px;padding:8px 10px;display:flex;align-items:center;justify-content:space-between">
+        <div>
+          <div style="font-size:11px;font-weight:700;color:var(--text);display:flex;align-items:center;gap:6px">
+            <span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#10b981;box-shadow:0 0 6px #10b981"></span>
+            <span>Local AI Model</span>
+          </div>
+          <div style="font-size:10px;color:var(--muted)">${visionMode ? 'qwen2.5vl:7b (Vision Page Analysis)' : 'qwen3.5:9b (Grounded Text &amp; Tables)'}</div>
+        </div>
+        <label style="display:flex;align-items:center;gap:4px;font-size:10.5px;color:var(--text);cursor:pointer" title="Enable to let local vision model visually read drawings/plans on the current page">
+          <input type="checkbox" id="pdfAiVisionToggle" ${visionMode ? 'checked' : ''} style="cursor:pointer">
+          <span>Vision Mode</span>
+        </label>
+      </div>
+
+      <!-- QUICK PROMPT PILLS -->
+      <div style="display:flex;flex-wrap:wrap;gap:4px">
+        <button class="pdf-btn" style="font-size:10px;padding:3px 7px;background:rgba(255,255,255,0.04)" onclick="_askAiQuick('Summarize this document and its key architectural/engineering requirements.')">📋 Summarize</button>
+        <button class="pdf-btn" style="font-size:10px;padding:3px 7px;background:rgba(255,255,255,0.04)" onclick="_askAiQuick('Explain what is on Page ' + _pdfState.currentPage + ' in detail.')">📄 Page ${_pdfState.currentPage}</button>
+        <button class="pdf-btn" style="font-size:10px;padding:3px 7px;background:rgba(255,255,255,0.04)" onclick="_askAiQuick('Extract all numbers, dimensions, and table specifications.')">📊 Tables</button>
+        <button class="pdf-btn" style="font-size:10px;padding:3px 7px;background:rgba(255,255,255,0.04)" onclick="_askAiQuick('List all compliance rules, fire ratings, or code requirements.')">⚖️ Compliance</button>
+      </div>
+
+      <!-- CHAT MESSAGE THREAD -->
+      <div id="pdfAiMessageThread" style="flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:10px;padding:4px 2px">
+        ${history.length === 0 ? `
+          <div style="color:var(--muted);font-size:11.5px;text-align:center;padding:26px 14px;line-height:1.6">
+            <div style="font-size:24px;margin-bottom:8px">✨</div>
+            <b>Ask Your Local AI Model</b>
+            <p style="margin:4px 0 0 0;font-size:11px">Ask any question about <b>${_esc(_pdfState.filename)}</b>. The local model reads the exact text, tables, and dimensions offline with zero cloud transmission.</p>
+          </div>
+        ` : history.map((msg, i) => `
+          <div style="display:flex;flex-direction:column;gap:3px;align-self:${msg.role === 'user' ? 'flex-end' : 'flex-start'};max-width:92%">
+            <div style="font-size:9.5px;font-weight:700;color:var(--muted);text-transform:uppercase;margin-left:2px">
+              ${msg.role === 'user' ? 'You' : `🤖 ${msg.model || 'Local AI'}`}
+            </div>
+            <div style="background:${msg.role === 'user' ? 'linear-gradient(135deg,#2563eb,#1d4ed8)' : '#070b15'};color:#fff;border:${msg.role === 'user' ? 'none' : '1px solid rgba(255,255,255,0.09)'};border-radius:10px;padding:8px 12px;font-size:12px;line-height:1.55;word-break:break-word">
+              ${_formatAiResponseHtml(msg.text)}
+            </div>
+            ${(msg.citedPages && msg.citedPages.length) ? `
+              <div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:2px">
+                ${msg.citedPages.map(p => `
+                  <span onclick="_goToPage(${p})" style="font-size:10px;background:rgba(47,107,255,0.18);color:var(--accent2);border:1px solid rgba(47,107,255,0.3);border-radius:4px;padding:1px 6px;cursor:pointer;font-weight:600" title="Click to jump to Page ${p}">
+                    📍 Page ${p}
+                  </span>
+                `).join('')}
+              </div>
+            ` : ''}
+          </div>
+        `).join('')}
+
+        ${isThinking ? `
+          <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:#070b15;border:1px solid rgba(255,255,255,0.08);border-radius:10px;max-width:85%">
+            <div style="width:8px;height:8px;border-radius:50%;background:var(--accent);box-shadow:0 0 6px var(--accent);animation:pdfAiPulse 1.2s infinite ease-in-out"></div>
+            <span style="font-size:11.5px;color:var(--muted)">Local AI is analyzing document data...</span>
+          </div>
+        ` : ''}
+      </div>
+
+      <!-- INPUT BOX -->
+      <div style="display:flex;flex-direction:column;gap:6px;border-top:1px solid rgba(255,255,255,0.08);padding-top:8px">
+        <div style="display:flex;gap:6px">
+          <input type="text" id="pdfAiInput" placeholder="Ask question about this PDF..."
+                 style="flex:1;background:#162035;border:1px solid rgba(255,255,255,0.15);border-radius:6px;padding:7px 10px;font-size:12px;color:#fff" ${isThinking ? 'disabled' : ''}>
+          <button class="pdf-btn primary" id="pdfAiSendBtn" style="padding:5px 12px;font-size:12px;font-weight:600" ${isThinking ? 'disabled' : ''}>Ask</button>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <span style="font-size:10px;color:var(--muted)">Press Enter to send · 100% Offline</span>
+          ${history.length > 0 ? `<button class="pdf-btn ghost" style="font-size:10px;padding:2px 6px" onclick="_clearAiChat()">Clear Thread</button>` : ''}
+        </div>
+      </div>
+    </div>
+  `;
+
+  const thread = document.getElementById('pdfAiMessageThread');
+  if (thread) thread.scrollTop = thread.scrollHeight;
+
+  const inputEl = document.getElementById('pdfAiInput');
+  const sendBtn = document.getElementById('pdfAiSendBtn');
+  const visionToggle = document.getElementById('pdfAiVisionToggle');
+
+  if (visionToggle) {
+    visionToggle.onchange = (e) => {
+      _pdfState.aiVisionMode = e.target.checked;
+      _renderSidebarContent();
+    };
+  }
+
+  if (sendBtn && inputEl) {
+    sendBtn.onclick = () => {
+      const q = inputEl.value.trim();
+      if (q) _sendAiQuestion(q);
+    };
+    inputEl.onkeydown = (e) => {
+      if (e.key === 'Enter') {
+        const q = inputEl.value.trim();
+        if (q) _sendAiQuestion(q);
+      }
+    };
+  }
+}
+
+function _formatAiResponseHtml(text) {
+  if (!text) return '';
+  return _esc(text)
+    .replace(/\[Page\s+(\d+)\]/gi, (match, pNum) => `<a href="javascript:void(0)" onclick="_goToPage(${pNum})" style="color:var(--accent2);text-decoration:underline;font-weight:700">${match}</a>`)
+    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+    .replace(/`([^`]+)`/g, '<code style="background:rgba(255,255,255,0.08);padding:2px 5px;border-radius:4px;font-size:11px">$1</code>')
+    .replace(/\n\n/g, '<br><br>')
+    .replace(/\n/g, '<br>');
+}
+
+async function _sendAiQuestion(question) {
+  if (!question || !_pdfState.docId || _pdfState.aiIsThinking) return;
+
+  if (!_pdfState.aiChatHistory) _pdfState.aiChatHistory = [];
+  _pdfState.aiChatHistory.push({
+    role: 'user',
+    text: question
+  });
+  _pdfState.aiIsThinking = true;
+  _renderSidebarContent();
+
+  try {
+    const res = await fetch(`${API}/api/v1/pdf/ask`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        doc_id: _pdfState.docId,
+        question: question,
+        page_number: _pdfState.currentPage,
+        model: _pdfState.aiVisionMode ? 'qwen2.5vl:7b' : 'qwen3.5:9b',
+        vision_mode: !!_pdfState.aiVisionMode
+      })
+    });
+
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.detail || 'Local AI reasoning failed');
+    }
+
+    const data = await res.json();
+    _pdfState.aiChatHistory.push({
+      role: 'assistant',
+      text: data.answer,
+      citedPages: data.cited_pages || [],
+      model: data.model_used || (_pdfState.aiVisionMode ? 'qwen2.5vl:7b' : 'qwen3.5:9b'),
+      isVision: !!data.vision_mode
+    });
+
+    if (data.highlights && data.highlights.length) {
+      data.highlights.forEach(h => {
+        _pdfState.markups.push({
+          page: h.page,
+          type: 'highlight',
+          rect: h.rect,
+          content: h.term || 'AI Reference',
+          color: 'rgba(47, 107, 255, 0.35)'
+        });
+      });
+      _renderCurrentPage();
+    }
+
+  } catch (err) {
+    _pdfState.aiChatHistory.push({
+      role: 'assistant',
+      text: `⚠️ **Local AI Error:** ${err.message}. Please verify local Ollama is running with qwen3.5:9b.`,
+      citedPages: [],
+      model: 'Error'
+    });
+  } finally {
+    _pdfState.aiIsThinking = false;
+    _renderSidebarContent();
+  }
+}
+
+function _askAiQuick(q) {
+  _sendAiQuestion(q);
+}
+
+function _clearAiChat() {
+  _pdfState.aiChatHistory = [];
+  _renderSidebarContent();
 }
 
 function _renderSearchResultsHtml() {
@@ -1771,3 +2000,7 @@ window._deleteOrgCard = _deleteOrgCard;
 window._moveOrgCard = _moveOrgCard;
 window._jumpToSearchResult = _jumpToSearchResult;
 window._removeExistingModal = _removeExistingModal;
+window._askAiQuick = _askAiQuick;
+window._clearAiChat = _clearAiChat;
+window._sendAiQuestion = _sendAiQuestion;
+

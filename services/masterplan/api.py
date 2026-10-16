@@ -192,6 +192,142 @@ async def delete_masterplan_file(project_id: str, file_id: str):
     return {"status": "success", "message": "File deleted successfully"}
 
 
+@mpd_router.get("/projects/{project_id}/cad-drawing")
+async def get_project_cad_drawing(project_id: str):
+    """
+    Returns full CAD vector drawing linework (lines, polylines, arcs, circles, texts, layers)
+    for rendering the full architectural CAD background in the MPD canvas.
+    """
+    all_files = db.get_file_records(project_id)
+    cad_files = [f for f in all_files if f.get("file_type") == "cad"]
+    if not cad_files:
+        return {"has_cad": False, "entities": [], "layers": [], "extents": None}
+
+    latest = cad_files[0]
+    cad_path = latest.get("file_path")
+    if not cad_path or not os.path.exists(cad_path):
+        return {"has_cad": False, "entities": [], "layers": [], "extents": None}
+
+    try:
+        from services.cad_service import CadService
+        import cad
+        doc = cad.load_doc(cad_path)
+        res = CadService.parse_dxf_stream(doc)
+
+        entities = res.get("entities", [])
+        layers = res.get("layers", [])
+        extents = res.get("extents", {})
+
+        # Compute coordinate scale: mm vs meters
+        max_c = max(abs(extents.get("max_x", 0)), abs(extents.get("max_y", 0)))
+        scale = 0.001 if max_c > 5000 else 1.0
+
+        scaled_entities = []
+        for e in entities:
+            t = e.get("type")
+            if t == "LINE":
+                scaled_entities.append({
+                    "type": "LINE",
+                    "layer": e.get("layer"),
+                    "color": e.get("color", "#ffffff"),
+                    "x1": round(e["x1"] * scale, 2),
+                    "y1": round(e["y1"] * scale, 2),
+                    "x2": round(e["x2"] * scale, 2),
+                    "y2": round(e["y2"] * scale, 2)
+                })
+            elif t == "POLYLINE":
+                pts = [[round(p[0] * scale, 2), round(p[1] * scale, 2)] for p in e.get("points", [])]
+                scaled_entities.append({
+                    "type": "POLYLINE",
+                    "layer": e.get("layer"),
+                    "color": e.get("color", "#ffffff"),
+                    "points": pts,
+                    "closed": e.get("closed", False)
+                })
+            elif t == "ARC":
+                scaled_entities.append({
+                    "type": "ARC",
+                    "layer": e.get("layer"),
+                    "color": e.get("color", "#ffffff"),
+                    "cx": round(e["cx"] * scale, 2),
+                    "cy": round(e["cy"] * scale, 2),
+                    "radius": round(e["radius"] * scale, 2),
+                    "start_angle": e.get("start_angle", 0),
+                    "end_angle": e.get("end_angle", 360)
+                })
+            elif t == "CIRCLE":
+                scaled_entities.append({
+                    "type": "CIRCLE",
+                    "layer": e.get("layer"),
+                    "color": e.get("color", "#ffffff"),
+                    "cx": round(e["cx"] * scale, 2),
+                    "cy": round(e["cy"] * scale, 2),
+                    "radius": round(e["radius"] * scale, 2)
+                })
+            elif t == "TEXT":
+                scaled_entities.append({
+                    "type": "TEXT",
+                    "layer": e.get("layer"),
+                    "color": e.get("color", "#ffffff"),
+                    "x": round(e["x"] * scale, 2),
+                    "y": round(e["y"] * scale, 2),
+                    "text": e.get("text", ""),
+                    "height": round((e.get("height") or 2.5) * scale, 2)
+                })
+
+        # Calculate tight real bounding box across all scaled entities
+        xs, ys = [], []
+        for e in scaled_entities:
+            t = e.get("type")
+            if t == "LINE":
+                xs.extend([e["x1"], e["x2"]])
+                ys.extend([e["y1"], e["y2"]])
+            elif t == "POLYLINE":
+                for p in e.get("points", []):
+                    xs.append(p[0])
+                    ys.append(p[1])
+            elif t in ("ARC", "CIRCLE"):
+                r = e.get("radius", 0)
+                xs.extend([e["cx"] - r, e["cx"] + r])
+                ys.extend([e["cy"] - r, e["cy"] + r])
+            elif t == "TEXT":
+                xs.append(e["x"])
+                ys.append(e["y"])
+
+        if xs and ys:
+            min_x, max_x = min(xs), max(xs)
+            min_y, max_y = min(ys), max(ys)
+            scaled_extents = {
+                "min_x": round(min_x, 2),
+                "min_y": round(min_y, 2),
+                "max_x": round(max_x, 2),
+                "max_y": round(max_y, 2),
+                "width": round(max_x - min_x, 2),
+                "height": round(max_y - min_y, 2)
+            }
+        else:
+            scaled_extents = {
+                "min_x": round(extents.get("min_x", 0) * scale, 2),
+                "min_y": round(extents.get("min_y", 0) * scale, 2),
+                "max_x": round(extents.get("max_x", 0) * scale, 2),
+                "max_y": round(extents.get("max_y", 0) * scale, 2),
+                "width": round((extents.get("max_x", 0) - extents.get("min_x", 0)) * scale, 2),
+                "height": round((extents.get("max_y", 0) - extents.get("min_y", 0)) * scale, 2)
+            }
+
+        return {
+            "has_cad": True,
+            "filename": latest.get("filename"),
+            "total_entities": len(scaled_entities),
+            "extents": scaled_extents,
+            "layers": layers,
+            "entities": scaled_entities
+        }
+    except Exception as exc:
+        logger.error(f"Failed to extract CAD vector drawing for {project_id}: {exc}")
+        return {"has_cad": False, "error": str(exc), "entities": [], "layers": []}
+
+
 @mpd_router.post("/projects/{project_id}/reconcile")
 async def reconcile_files(project_id: str):
     """

@@ -200,15 +200,21 @@ async def parse_cad_file(
         else:
             raise HTTPException(400, "Only .dxf and .dwg files are supported")
 
-    # 2. From project document path
+    # 2. From project document or masterplan path
     if project and filename:
-        docs_dir = os.path.join(settings.data_dir, "docs")
-        doc_dir = os.path.join(docs_dir, project)
-        # Search for file in project folders
+        search_dirs = [
+            os.path.join(settings.data_dir, "projects", project, "masterplan"),
+            os.path.join(settings.data_dir, "docs", project),
+            os.path.join(settings.data_dir, "projects", project),
+        ]
         target_path = None
-        for root, _, files in os.walk(doc_dir):
-            if filename in files:
-                target_path = os.path.join(root, filename)
+        for s_dir in search_dirs:
+            if os.path.exists(s_dir):
+                for root, _, files in os.walk(s_dir):
+                    if filename in files:
+                        target_path = os.path.join(root, filename)
+                        break
+            if target_path:
                 break
 
         if not target_path or not os.path.exists(target_path):

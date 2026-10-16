@@ -18,6 +18,8 @@ function _getMpdProject(proj) {
 
 let _mpdPlots = [];
 let _mpdSummary = null;
+let _mpdCadDrawing = null;
+let _mpdShowCadLinework = true;
 let _mpdSelectedPlotId = null;
 let _mpdHighlightPlots = [];
 let _mpdActiveTab = 'chat'; // 'chat' | 'register'
@@ -69,6 +71,10 @@ async function renderMPDWorkspace(container) {
             <svg class="ico" style="width:13px;height:13px;color:var(--accent2)" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
             Reconcile &amp; Link
           </button>
+          <button class="cad-btn" id="mpdOpenCadCraftBtn" title="Open full vector drawing in CADCraft Studio with layer manager & CAD tools" style="background:rgba(47,107,255,0.15);border-color:rgba(47,107,255,0.4);color:var(--accent2)">
+            <svg class="ico" style="width:13px;height:13px" viewBox="0 0 24 24"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
+            📐 Open in CADCraft
+          </button>
           <button class="cad-btn" id="mpdAuditBtn" title="Run spatial rule and zoning audit">
             <svg class="ico" style="width:13px;height:13px" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
             Run Spatial Audit
@@ -82,9 +88,12 @@ async function renderMPDWorkspace(container) {
             Audit Log &amp; Undo
           </button>
 
-
           <div style="width:1px;height:18px;background:var(--border);margin:0 4px"></div>
 
+          <button class="mpd-canvas-ctrl active" id="btnToggleCadDrawing" title="Toggle Full CAD Vector Drawing Linework">
+            <svg class="ico" style="width:12px;height:12px" viewBox="0 0 24 24"><path d="M4 4h16v16H4z"/><path d="M4 12h16M12 4v16"/></svg>
+            CAD Linework (<span id="mpdCadEntityCount">0</span>)
+          </button>
           <button class="mpd-canvas-ctrl active" id="btnToggleSetbacks" title="Toggle Setback Envelopes">
             <svg class="ico" style="width:12px;height:12px" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><rect x="7" y="7" width="10" height="10" stroke-dasharray="2 2"/></svg>
             Setbacks
@@ -141,23 +150,34 @@ function _switchMpdTab(tab) {
 
 async function _loadMasterplanData(proj) {
   try {
-    const [summaryRes, plotsRes] = await Promise.all([
+    const [summaryRes, plotsRes, cadRes] = await Promise.all([
       fetch(`${API}/api/v1/masterplan/projects/${encodeURIComponent(proj)}`),
-      fetch(`${API}/api/v1/masterplan/projects/${encodeURIComponent(proj)}/plots`)
+      fetch(`${API}/api/v1/masterplan/projects/${encodeURIComponent(proj)}/plots`),
+      fetch(`${API}/api/v1/masterplan/projects/${encodeURIComponent(proj)}/cad-drawing`).catch(() => null)
     ]);
 
-    if (summaryRes.ok) {
+    if (summaryRes && summaryRes.ok) {
       _mpdSummary = await summaryRes.json();
       _renderMpdSummary(_mpdSummary);
     }
-    if (plotsRes.ok) {
+    if (plotsRes && plotsRes.ok) {
       _mpdPlots = await plotsRes.json();
       _renderPlotTable(_mpdPlots);
-      _drawCanvas();
-      _fitCanvasToPlots();
     }
+    if (cadRes && cadRes.ok) {
+      _mpdCadDrawing = await cadRes.json();
+      const countEl = $('mpdCadEntityCount');
+      if (countEl && _mpdCadDrawing.total_entities != null) {
+        countEl.textContent = _mpdCadDrawing.total_entities;
+      }
+    }
+    _drawCanvas();
+    _fitCanvasToPlots();
   } catch (err) {
     console.error('Error loading masterplan data:', err);
+    toast('Error loading masterplan data');
+  }
+}
     toast('Error loading masterplan data');
   }
 }
@@ -469,28 +489,38 @@ function _centerPlotOnCanvas(plot) {
 }
 
 function _fitCanvasToPlots() {
-  if (!_mpdCanvas || !_mpdPlots.length) return;
+  if (!_mpdCanvas) return;
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
 
-  for (const p of _mpdPlots) {
-    if (p.geometry && p.geometry.bbox) {
-      minX = Math.min(minX, p.geometry.bbox[0]);
-      minY = Math.min(minY, p.geometry.bbox[1]);
-      maxX = Math.max(maxX, p.geometry.bbox[2]);
-      maxY = Math.max(maxY, p.geometry.bbox[3]);
+  if (_mpdPlots && _mpdPlots.length) {
+    for (const p of _mpdPlots) {
+      if (p.geometry && p.geometry.bbox) {
+        minX = Math.min(minX, p.geometry.bbox[0]);
+        minY = Math.min(minY, p.geometry.bbox[1]);
+        maxX = Math.max(maxX, p.geometry.bbox[2]);
+        maxY = Math.max(maxY, p.geometry.bbox[3]);
+      }
     }
   }
 
-  if (minX === Infinity) return;
+  if (_mpdCadDrawing && _mpdCadDrawing.extents && _mpdCadDrawing.extents.width > 0) {
+    const ext = _mpdCadDrawing.extents;
+    minX = Math.min(minX, ext.min_x);
+    minY = Math.min(minY, ext.min_y);
+    maxX = Math.max(maxX, ext.max_x);
+    maxY = Math.max(maxY, ext.max_y);
+  }
+
+  if (!isFinite(minX) || !isFinite(maxX) || !isFinite(minY) || !isFinite(maxY)) return;
 
   const dpr = window.devicePixelRatio || 1;
   const cw = _mpdCanvas.width / dpr;
   const ch = _mpdCanvas.height / dpr;
-  const pw = maxX - minX + 100;
-  const ph = maxY - minY + 100;
+  const pw = Math.max(maxX - minX + 60, 100);
+  const ph = Math.max(maxY - minY + 60, 100);
 
-  const scale = Math.min(cw / pw, ch / ph) * 0.85;
-  _mpdTransform.zoom = Math.max(0.15, Math.min(2.5, scale));
+  const scale = Math.min((cw * 0.88) / pw, (ch * 0.88) / ph);
+  _mpdTransform.zoom = Math.max(0.05, Math.min(4.0, scale));
   _mpdTransform.panX = (cw - (minX + maxX) * _mpdTransform.zoom) / 2;
   _mpdTransform.panY = (ch - (minY + maxY) * _mpdTransform.zoom) / 2;
   _drawCanvas();
@@ -513,8 +543,10 @@ function _drawCanvas() {
   // Draw CAD Coordinate Grid
   _drawGrid(ctx);
 
-  // Draw Plots
-  if (!_mpdPlots || !_mpdPlots.length) {
+  const hasPlots = _mpdPlots && _mpdPlots.length > 0;
+  const hasCad = _mpdCadDrawing && _mpdCadDrawing.total_entities > 0;
+
+  if (!hasPlots && !hasCad) {
     ctx.save();
     ctx.font = `600 ${Math.max(12, 16 / _mpdTransform.zoom)}px Inter, -apple-system, sans-serif`;
     ctx.fillStyle = 'rgba(255, 255, 255, 0.45)';
@@ -526,9 +558,92 @@ function _drawCanvas() {
     ctx.fillText('Once uploaded, your CAD vector drawing and parcels will be rendered here.', 500, 290);
     ctx.restore();
   } else {
-    for (const plot of _mpdPlots) {
-      if (_mpdShowViolationsOnly && plot.status !== 'violation') continue;
-      _drawPlot(ctx, plot);
+    // 1. Draw Full CAD Vector Linework Background (walls, columns, parking bays, ramps, dimensions, annotations)
+    if (_mpdShowCadLinework && _mpdCadDrawing && _mpdCadDrawing.entities && _mpdCadDrawing.entities.length > 0) {
+      _drawCadEntities(ctx, _mpdCadDrawing);
+    }
+
+    // 2. Draw Parcel Polygons with semi-transparent zoning fills & setbacks
+    if (hasPlots) {
+      for (const plot of _mpdPlots) {
+        if (_mpdShowViolationsOnly && plot.status !== 'violation') continue;
+        _drawPlot(ctx, plot);
+      }
+    }
+  }
+
+  ctx.restore();
+}
+
+function _drawCadEntities(ctx, cad) {
+  if (!cad || !cad.entities || !cad.entities.length) return;
+  const zoom = _mpdTransform.zoom || 1;
+  const entities = cad.entities;
+
+  ctx.save();
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+
+  for (let i = 0; i < entities.length; i++) {
+    const e = entities[i];
+    const layer = (e.layer || '').toUpperCase();
+
+    // Architectural styling by layer category
+    let strokeColor = '#7dd3fc'; // blueprint cyan
+    let lineWidth = 1.0 / zoom;
+
+    if (layer.includes('WALL') || layer.includes('OTLN') || layer.includes('STR') || layer.includes('MEDM')) {
+      strokeColor = '#38bdf8'; // crisp wall blue
+      lineWidth = 1.4 / zoom;
+    } else if (layer.includes('PRKG') || layer.includes('PARK')) {
+      strokeColor = '#34d399'; // teal for parking bays
+      lineWidth = 1.0 / zoom;
+    } else if (layer.includes('DIM')) {
+      strokeColor = '#fbbf24'; // amber for dimension lines
+      lineWidth = 0.8 / zoom;
+    } else if (layer.includes('THIN') || layer.includes('HATCH')) {
+      strokeColor = 'rgba(148, 163, 184, 0.45)';
+      lineWidth = 0.8 / zoom;
+    } else if (e.color && e.color !== '#ffffff' && e.color !== '#000000') {
+      strokeColor = e.color;
+    }
+
+    ctx.strokeStyle = strokeColor;
+    ctx.lineWidth = lineWidth;
+
+    if (e.type === 'LINE') {
+      ctx.beginPath();
+      ctx.moveTo(e.x1, e.y1);
+      ctx.lineTo(e.x2, e.y2);
+      ctx.stroke();
+    } else if (e.type === 'POLYLINE' && e.points && e.points.length >= 2) {
+      ctx.beginPath();
+      ctx.moveTo(e.points[0][0], e.points[0][1]);
+      for (let j = 1; j < e.points.length; j++) {
+        ctx.lineTo(e.points[j][0], e.points[j][1]);
+      }
+      if (e.closed) ctx.closePath();
+      ctx.stroke();
+    } else if (e.type === 'ARC') {
+      ctx.beginPath();
+      const sRad = (e.start_angle * Math.PI) / 180;
+      const eRad = (e.end_angle * Math.PI) / 180;
+      ctx.arc(e.cx, e.cy, Math.max(0.1, e.radius), sRad, eRad);
+      ctx.stroke();
+    } else if (e.type === 'CIRCLE') {
+      ctx.beginPath();
+      ctx.arc(e.cx, e.cy, Math.max(0.1, e.radius), 0, Math.PI * 2);
+      ctx.stroke();
+    } else if (e.type === 'TEXT' && e.text) {
+      const screenH = (e.height || 2.5) * zoom;
+      if (screenH >= 4) { // Only render when legible to maximize performance
+        const fontSize = Math.max(2, Math.min(24 / zoom, e.height || 2.5));
+        ctx.font = `${fontSize}px monospace`;
+        ctx.fillStyle = layer.includes('TEXT') || layer.includes('IDEN') ? '#cbd5e1' : 'rgba(255,255,255,0.7)';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'bottom';
+        ctx.fillText(e.text, e.x, e.y);
+      }
     }
   }
 
@@ -540,25 +655,27 @@ function _drawGrid(ctx) {
   ctx.strokeStyle = 'rgba(255, 255, 255, 0.04)';
   ctx.lineWidth = 1 / _mpdTransform.zoom;
 
-  const step = 100;
-  for (let x = -200; x <= 1400; x += step) {
-    ctx.beginPath();
-    ctx.moveTo(x, -200);
-    ctx.lineTo(x, 1000);
-    ctx.stroke();
-  }
-  for (let y = -200; y <= 1000; y += step) {
-    ctx.beginPath();
-    ctx.moveTo(-200, y);
-    ctx.lineTo(1400, y);
-    ctx.stroke();
+  let minX = 0, maxX = 1200, minY = 0, maxY = 1000;
+  if (_mpdCadDrawing && _mpdCadDrawing.extents && _mpdCadDrawing.extents.width > 0) {
+    const ext = _mpdCadDrawing.extents;
+    minX = Math.floor((ext.min_x - 100) / 100) * 100;
+    maxX = Math.ceil((ext.max_x + 100) / 100) * 100;
+    minY = Math.floor((ext.min_y - 100) / 100) * 100;
+    maxY = Math.ceil((ext.max_y + 100) / 100) * 100;
   }
 
-  // Masterplan Boundary outline (only when plots are loaded)
-  if (_mpdPlots && _mpdPlots.length > 0) {
-    ctx.strokeStyle = 'rgba(47, 107, 255, 0.2)';
-    ctx.lineWidth = 2 / _mpdTransform.zoom;
-    ctx.strokeRect(50, -50, 1000, 650);
+  const step = 100;
+  for (let x = minX; x <= maxX; x += step) {
+    ctx.beginPath();
+    ctx.moveTo(x, minY);
+    ctx.lineTo(x, maxY);
+    ctx.stroke();
+  }
+  for (let y = minY; y <= maxY; y += step) {
+    ctx.beginPath();
+    ctx.moveTo(minX, y);
+    ctx.lineTo(maxX, y);
+    ctx.stroke();
   }
 
   ctx.restore();
@@ -771,6 +888,29 @@ function _wireMpdEvents(proj) {
   // Audit Log & Undo Dialog
   const logBtn = _mpd$('mpdAuditLogBtn');
   if (logBtn) logBtn.onclick = () => _openAuditLogModal(activeProj);
+
+  // Toggle CAD Linework
+  const toggleCadBtn = _mpd$('btnToggleCadDrawing');
+  if (toggleCadBtn) {
+    toggleCadBtn.onclick = function() {
+      _mpdShowCadLinework = !_mpdShowCadLinework;
+      this.classList.toggle('active', _mpdShowCadLinework);
+      _drawCanvas();
+    };
+  }
+
+  // Open Full Drawing in CADCraft Studio
+  const openCadBtn = _mpd$('mpdOpenCadCraftBtn');
+  if (openCadBtn) {
+    openCadBtn.onclick = () => {
+      const cadFilename = (_mpdCadDrawing && _mpdCadDrawing.filename) || 'C3085-DWG-3EH6110-AR-2B10101(5) (1).dwg';
+      if (typeof window.openCadDrawingFromProject === 'function') {
+        window.openCadDrawingFromProject(cadFilename);
+      } else if (typeof navigate === 'function') {
+        navigate('cadcraft');
+      }
+    };
+  }
 
 
 

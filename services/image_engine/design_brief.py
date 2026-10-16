@@ -28,8 +28,8 @@ def compile_option(brief, option, index):
     if brief.mode != "concept":
         sections.append("Final edit boundary (takes precedence over suggestions): " + SCOPES[brief.mode])
     prompt = "\n".join(sections)
-    if len(prompt) > 4000:
-        raise ValueError("The complete design brief exceeds 4000 characters. Shorten the brief or additional constraints.")
+    if len(prompt) > 32000:
+        raise ValueError("The complete design brief exceeds 32000 characters. Shorten the brief or additional constraints.")
     return {"id": "option_" + str(index+1), "title": option["title"], "style": brief.architectural_style,
             "prompt": prompt, "rationale": option["rationale"], "materials": materials,
             "shading_strategy": option["shading_strategy"], "changes": option["changes"], "protected_elements": protected}

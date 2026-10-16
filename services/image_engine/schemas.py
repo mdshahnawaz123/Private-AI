@@ -64,8 +64,8 @@ class JobSubmissionRequest(BaseModel):
     """Request payload to submit a new image generation job."""
     project: str = Field(..., min_length=1, max_length=200, description="Target authorized project name")
     workflow_id: str = Field(..., min_length=1, description="Registered workflow identifier")
-    prompt: str = Field(..., min_length=1, max_length=4000, description="Positive prompt text")
-    negative_prompt: Optional[str] = Field(default=None, max_length=2000, description="Optional negative prompt")
+    prompt: str = Field(..., min_length=1, max_length=32000, description="Positive prompt text")
+    negative_prompt: Optional[str] = Field(default=None, max_length=10000, description="Optional negative prompt")
     architectural_style: Optional[str] = Field(
         default="Contemporary", description="Architectural style descriptor"
     )
@@ -159,7 +159,7 @@ class DesignOption(BaseModel):
 
 class PromptEnhanceRequest(BaseModel):
     """Request payload to enhance an architectural prompt using reasoning AI."""
-    prompt: str = Field(..., min_length=1, max_length=4000, description="User architectural brief")
+    prompt: str = Field(..., min_length=1, max_length=32000, description="User architectural brief")
     building_type: Optional[str] = Field(default=None, description="Building typology")
     architectural_style: Optional[str] = Field(default=None, description="Architectural style")
 

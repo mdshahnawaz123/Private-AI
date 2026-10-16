@@ -50,8 +50,8 @@ class DesignBriefTests(unittest.IsolatedAsyncioTestCase):
             transport.assert_not_called()
 
     def test_long_compiled_brief_rejected_without_truncation(self):
-        brief = PromptEnhanceRequest(prompt='a'*4000, mode='materials')
-        with self.assertRaisesRegex(ValueError, 'exceeds 4000'):
+        brief = PromptEnhanceRequest(prompt='a'*32000, mode='materials')
+        with self.assertRaisesRegex(ValueError, 'exceeds 32000'):
             compile_option(brief, fallback_options(brief)[0], 0)
 
     def test_constraint_input_bounded_and_default_backward_compatible(self):

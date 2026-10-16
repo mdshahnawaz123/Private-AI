@@ -269,10 +269,37 @@ function _filterPlots() {
   _renderPlotTable(_mpdPlots);
 }
 
+function _findPlot(plotId) {
+  if (!plotId || !_mpdPlots || !_mpdPlots.length) return null;
+  const idStr = String(plotId).trim().toUpperCase();
+  const rawId = idStr.replace(/^PLOT-/, '').replace(/^P-/, '');
+  return _mpdPlots.find(p => {
+    const pid = (p.plot_id || '').toUpperCase();
+    const pRaw = pid.replace(/^PLOT-/, '').replace(/^P-/, '');
+    return pid === idStr || pRaw === rawId || pid === `P-${rawId}` || pid === `PLOT-${rawId}`;
+  });
+}
+
 function _selectPlot(plotId, zoomTo = false) {
-  _mpdSelectedPlotId = plotId;
-  const plot = _mpdPlots.find(p => p.plot_id === plotId);
-  if (!plot) return;
+  const plot = _findPlot(plotId);
+  if (!plot) {
+    // If not in _mpdPlots list, check if matching text exists in CAD drawing entities to focus camera
+    if (zoomTo && _mpdCadDrawing && _mpdCadDrawing.entities) {
+      const raw = String(plotId).trim().replace(/^PLOT-/, '').replace(/^P-/, '');
+      const ent = _mpdCadDrawing.entities.find(e => e.type === 'TEXT' && (e.text === raw || e.text === plotId));
+      if (ent) {
+        const dpr = window.devicePixelRatio || 1;
+        const w = _mpdCanvas.width / dpr;
+        const h = _mpdCanvas.height / dpr;
+        _mpdTransform.zoom = 1.6;
+        _mpdTransform.panX = w / 2 - ent.x * _mpdTransform.zoom;
+        _mpdTransform.panY = h / 2 + ent.y * _mpdTransform.zoom;
+        _drawCanvas();
+      }
+    }
+    return;
+  }
+  _mpdSelectedPlotId = plot.plot_id;
 
   // Update selection banner
   const selInfo = $('mpdSelectedInfo');
@@ -308,7 +335,7 @@ function _selectPlot(plotId, zoomTo = false) {
   document.querySelectorAll('#mpdPlotTableBody tr').forEach(tr => tr.classList.remove('selected'));
   _renderPlotTable(_mpdPlots);
 
-  if (zoomTo && plot.geometry && plot.geometry.centroid) {
+  if (zoomTo) {
     _centerPlotOnCanvas(plot);
   }
 
@@ -781,15 +808,28 @@ function _hitTestPlots(wx, wy) {
 }
 
 function _centerPlotOnCanvas(plot) {
-  if (!_mpdCanvas || !plot.geometry || !plot.geometry.centroid) return;
+  if (!_mpdCanvas) return;
   const dpr = window.devicePixelRatio || 1;
   const w = _mpdCanvas.width / dpr;
   const h = _mpdCanvas.height / dpr;
-  const cx = plot.geometry.centroid[0];
-  const cy = plot.geometry.centroid[1];
+
+  let cx = plot.geometry && plot.geometry.centroid ? plot.geometry.centroid[0] : null;
+  let cy = plot.geometry && plot.geometry.centroid ? plot.geometry.centroid[1] : null;
+
+  // Fallback: search for CAD text entity if polygon geometry centroid is missing
+  if ((cx === null || cy === null) && _mpdCadDrawing && _mpdCadDrawing.entities) {
+    const raw = (plot.plot_id || '').replace(/^PLOT-/, '').replace(/^P-/, '');
+    const ent = _mpdCadDrawing.entities.find(e => e.type === 'TEXT' && (e.text === raw || e.text === plot.plot_id));
+    if (ent) {
+      cx = ent.x;
+      cy = ent.y;
+    }
+  }
+
+  if (cx === null || cy === null) return;
 
   let targetZoom = 1.6;
-  if (plot.geometry.bbox) {
+  if (plot.geometry && plot.geometry.bbox) {
     const pw = Math.max(20, plot.geometry.bbox[2] - plot.geometry.bbox[0]);
     const ph = Math.max(20, plot.geometry.bbox[3] - plot.geometry.bbox[1]);
     targetZoom = Math.min((w * 0.6) / pw, (h * 0.6) / ph);

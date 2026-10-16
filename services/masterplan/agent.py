@@ -420,26 +420,45 @@ class MasterplanAIAgent:
                     highlight_plots=tool_res["plot_ids"]
                 )
 
-        # Check for specific Plot ID query (e.g. PLOT-L, Plot L-2, PLOT-TOR, P-101, Plot 101)
+        # Check for specific Plot ID query (e.g. PLOT-L, Plot L-2, PLOT-TOR, P-101, Plot 101, Plot no 5215039, 5215039)
         all_plots = db.get_plots(project_id)
         matched_plot = None
+
+        # Clean query by removing filler words like "no", "number", "num", "#"
+        clean_q = re.sub(r"\b(?:plot|p)\.?\s*(?:no|number|num)?\.?\s*#?\s*", "plot ", q, flags=re.IGNORECASE)
+
         for p in all_plots:
             pid = p.plot_id.lower()
-            short_id = pid.replace("plot-", "").replace("p-", "")
-            if pid in q or f"plot {short_id}" in q or f"plot-{short_id}" in q:
+            short_id = pid.replace("plot-", "").replace("p-", "").strip()
+            if pid in q or pid in clean_q or f"plot {short_id}" in clean_q or f"plot-{short_id}" in clean_q or f"p-{short_id}" in clean_q:
+                matched_plot = p
+                break
+            if len(short_id) >= 4 and re.search(r"\b" + re.escape(short_id) + r"\b", q):
                 matched_plot = p
                 break
 
         if not matched_plot:
-            id_m = re.search(r"\b(?:plot|p)[-_ ]*([a-zA-Z0-9]+(?:-[a-zA-Z0-9]+)*)\b", q, re.IGNORECASE)
+            id_m = re.search(r"\b(?:plot|p)\s*(?:no|number|num)?\.?\s*#?\s*([a-zA-Z0-9]+(?:-[a-zA-Z0-9]+)*)\b", q, re.IGNORECASE)
             if id_m:
                 tok = id_m.group(1).upper()
+                if tok not in ("NO", "NUMBER", "NUM", "THE", "ALL", "THIS", "THAT"):
+                    matched_plot = (
+                        db.get_plot(project_id, tok) or
+                        db.get_plot(project_id, f"PLOT-{tok}") or
+                        db.get_plot(project_id, f"P-{tok}") or
+                        (db.get_plot(project_id, f"P-{int(tok):03d}") if tok.isdigit() and len(tok) < 4 else None)
+                    )
+
+        if not matched_plot:
+            num_tokens = re.findall(r"\b\d{4,8}\b", q)
+            for tok in num_tokens:
                 matched_plot = (
                     db.get_plot(project_id, tok) or
                     db.get_plot(project_id, f"PLOT-{tok}") or
-                    db.get_plot(project_id, f"P-{tok}") or
-                    (db.get_plot(project_id, f"P-{int(tok):03d}") if tok.isdigit() else None)
+                    db.get_plot(project_id, f"P-{tok}")
                 )
+                if matched_plot:
+                    break
 
         if matched_plot:
             plot = matched_plot
@@ -500,7 +519,12 @@ class MasterplanAIAgent:
         """
         Coordinates the Local Agentic AI Qwen 3.5 9B with Intent Parsing and Tool Execution.
         """
-        # Try Ollama Qwen 3.5 9B with reasoning
+        # Check deterministic plan first for high-precision specific queries (Plot Inspection, Linework Audit, Direct Filters)
+        det_res = self._fallback_deterministic_plan(req.query, req.project_id)
+        if det_res.intent in ("INSPECT_PLOT", "AUDIT_LINEWORK", "QUERY_VIOLATIONS"):
+            return det_res
+
+        # Try Ollama Qwen 3.5 9B with reasoning for open-ended or general questions
         try:
             summary = db.get_project_summary(req.project_id)
             system_prompt = (
@@ -509,7 +533,7 @@ class MasterplanAIAgent:
                 f"Total Plots: {summary.total_plots}, Total GFA: {summary.total_gfa_sqm} m2, Average FAR: {summary.average_far}.\n"
                 f"You analyze FAR, setbacks, zoning compliance, land use distribution, and parking ratios.\n"
                 f"Answer clearly and concisely in GitHub Markdown with bullet points or tables.\n"
-                f"If you identify specific plot IDs relevant to the question, list them at the end inside [HIGHLIGHT: P-101, P-102]."
+                f"If you identify specific plot IDs relevant to the question, list them at the end inside [HIGHLIGHT: P-101, P-5215039]."
             )
 
             async with httpx.AsyncClient(timeout=8.0) as client:
@@ -537,9 +561,9 @@ class MasterplanAIAgent:
                             highlights = [p.strip().upper() for p in hl_match.group(1).split(",") if p.strip()]
                             ans_text = re.sub(r"\[HIGHLIGHT:\s*[^\]]+\]", "", ans_text).strip()
 
-                        # If no explicit highlight tag, search for plot IDs like P-101 in text
+                        # If no explicit highlight tag, search for plot IDs like P-101 or P-5215039 in text
                         if not highlights:
-                            p_matches = re.findall(r"\b(P-\d{3})\b", ans_text, re.IGNORECASE)
+                            p_matches = re.findall(r"\b(P-[A-Za-z0-9]+)\b", ans_text, re.IGNORECASE)
                             highlights = list(set(p.upper() for p in p_matches))
 
                         return MasterplanAIQueryResponse(
@@ -552,4 +576,4 @@ class MasterplanAIAgent:
             logger.debug(f"Ollama Qwen 3.5 9B direct query bypassed to deterministic plan: {exc}")
 
         # Deterministic Planner fallback
-        return self._fallback_deterministic_plan(req.query, req.project_id)
+        return det_res

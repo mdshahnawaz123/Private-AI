@@ -145,12 +145,13 @@ class MasterplanExcelParser:
             raw_id_str = str(raw_id).strip()
             raw_id_upper = raw_id_str.upper()
 
-            # Ignore non-plot summary and category rows
+            # Ignore non-plot summary, category rows, and repeated table headers
             if any(k in raw_id_upper for k in (
                 "TOTAL", "SUBTOTAL", "AVERAGE", "SITEWIDE", "SUMMARY", "OVERALL",
                 "NOTE", "REMARK", "LEGEND", "RESIDENTIAL", "COMMERCIAL", "HOSPITALITY",
-                "INDUSTRIAL", "RECREATIONAL", "UTILITIES", "MAXIMUM", "MINIMUM"
-            )):
+                "INDUSTRIAL", "RECREATIONAL", "UTILITIES", "MAXIMUM", "MINIMUM",
+                "PLOT NO", "PLOT NUMBER", "PLOT ID"
+            )) or raw_id_upper in ("PLOT NO.", "PLOT NO", "PLOT NUMBER", "PLOT #", "PLOT ID"):
                 continue
 
             # Must have at least one alphanumeric character

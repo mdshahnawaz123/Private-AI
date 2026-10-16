@@ -22,10 +22,15 @@ let _mpdCadDrawing = null;
 let _mpdShowCadLinework = true;
 let _mpdShowPlots = true;
 let _mpdTextMode = 'rooms'; // 'rooms' | 'all' | 'off'
+let _mpdTextScale = 1;
 let _mpdHoverCadEntity = null;
 let _mpdSelectedCadEntity = null;
 let _mpdSelectedPlotId = null;
 let _mpdHighlightPlots = [];
+let _mpdHighlightColor = '#ffff00';
+let _mpdSelectedSource = '';
+let _mpdWorkingRevision = null;
+let _mpdEditBusy = false;
 let _mpdActiveTab = 'chat'; // 'chat' | 'register'
 let _mpdFilterSector = 'All';
 let _mpdFilterLandUse = 'All';
@@ -71,6 +76,10 @@ async function renderMPDWorkspace(container) {
             <svg class="ico" style="width:13px;height:13px" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
             Files (<span id="mpdFileCount">0</span>)
           </button>
+          <select class="cad-btn" id="mpdSourceSelect" aria-label="Drawing shown in workspace"><option value="">Latest CAD drawing</option></select>
+          <button class="cad-btn" onclick="window._saveMpdWorkingCopy()">Save working copy</button>
+          <button class="cad-btn" onclick="window._returnMpdOriginal()">Return to original</button>
+          <button class="cad-btn" onclick="window._openMpdRevisions()">Revisions / originals</button>
           <button class="cad-btn" id="mpdReconcileBtn" onclick="window._triggerReconciliation && window._triggerReconciliation()" title="Reconcile and stabilize CAD vs Excel relation">
             <svg class="ico" style="width:13px;height:13px;color:var(--accent2)" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
             Reconcile &amp; Link
@@ -166,10 +175,21 @@ function _switchMpdTab(tab) {
 
 async function _loadMasterplanData(proj) {
   try {
+    _mpdCadDrawing = null;
+    const filesResponse = await fetch(`${API}/api/v1/masterplan/projects/${encodeURIComponent(proj)}/files`);
+    const filesData = filesResponse.ok ? await filesResponse.json() : {files:[]};
+    const cadFiles = (filesData.files || []).filter(f => f.file_type === 'cad');
+    if(_mpdSelectedSource !== 'register' && !cadFiles.some(f => f.id === _mpdSelectedSource)) _mpdSelectedSource = '';
+    const sourceSelect = $('mpdSourceSelect');
+    if(sourceSelect){
+      sourceSelect.innerHTML = '<option value="">Latest CAD drawing</option><option value="register">Plot register only (hide CAD)</option>' + cadFiles.map(f=>`<option value="${_mpdEsc(f.id)}">${_mpdEsc(f.filename)}</option>`).join('');
+      sourceSelect.value = _mpdSelectedSource;
+      sourceSelect.onchange = () => { _mpdWorkingRevision=null; _mpdSelectedSource = sourceSelect.value; _loadMasterplanData(proj); };
+    }
     const [summaryRes, plotsRes, cadRes] = await Promise.all([
       fetch(`${API}/api/v1/masterplan/projects/${encodeURIComponent(proj)}`),
       fetch(`${API}/api/v1/masterplan/projects/${encodeURIComponent(proj)}/plots`),
-      fetch(`${API}/api/v1/masterplan/projects/${encodeURIComponent(proj)}/cad-drawing`).catch(() => null)
+      _mpdSelectedSource === 'register' ? Promise.resolve(null) : fetch(`${API}/api/v1/masterplan/projects/${encodeURIComponent(proj)}/cad-drawing${_mpdSelectedSource ? '?file_id='+encodeURIComponent(_mpdSelectedSource) : ''}`).catch(() => null)
     ]);
 
     if (summaryRes && summaryRes.ok) {
@@ -178,6 +198,9 @@ async function _loadMasterplanData(proj) {
     }
     if (plotsRes && plotsRes.ok) {
       _mpdPlots = await plotsRes.json();
+      // Do not overlay untraceable old geometry onto a different uploaded CAD.
+      const activeCad = cadFiles.find(f=>f.id === _mpdSelectedSource) || cadFiles[0];
+      if(!activeCad || !activeCad.plots_count) _mpdPlots.forEach(p=>p.geometry=null);
       _renderPlotTable(_mpdPlots);
       const plotBtnCount = $('mpdPlotBtnCount');
       if (plotBtnCount) plotBtnCount.textContent = _mpdPlots.length;
@@ -1127,7 +1150,7 @@ function _drawCadEntities(ctx, cad) {
       if (_mpdTextMode === 'rooms') {
         if (isMajorRoom && zoom >= 0.25) {
           const fSize = Math.max(7 / zoom, Math.min(16 / zoom, (t.height || 2.5) * 1.15));
-          ctx.font = `600 ${fSize}px Inter, -apple-system, sans-serif`;
+          ctx.font = `600 ${fSize * _mpdTextScale}px Inter, -apple-system, sans-serif`;
           const m = ctx.measureText(str);
           const padX = 4 / zoom;
           const padY = 2 / zoom;
@@ -1160,7 +1183,7 @@ function _drawCadEntities(ctx, cad) {
           ctx.save();
           ctx.translate(t.x, t.y);
           ctx.scale(1, -1);
-          ctx.font = `${fSize}px monospace`;
+          ctx.font = `${fSize * _mpdTextScale}px monospace`;
           ctx.fillStyle = 'rgba(52, 211, 153, 0.85)';
           ctx.textAlign = 'left';
           ctx.textBaseline = 'top';
@@ -1171,7 +1194,7 @@ function _drawCadEntities(ctx, cad) {
           ctx.save();
           ctx.translate(t.x, t.y);
           ctx.scale(1, -1);
-          ctx.font = `${fSize}px monospace`;
+          ctx.font = `${fSize * _mpdTextScale}px monospace`;
           ctx.fillStyle = 'rgba(148, 163, 184, 0.75)';
           ctx.textAlign = 'left';
           ctx.textBaseline = 'top';
@@ -1185,7 +1208,7 @@ function _drawCadEntities(ctx, cad) {
           ctx.save();
           ctx.translate(t.x, t.y);
           ctx.scale(1, -1);
-          ctx.font = `${fontSize}px monospace`;
+          ctx.font = `${fontSize * _mpdTextScale}px monospace`;
           const lyr = (t.layer || '').toUpperCase();
           ctx.fillStyle = isMajorRoom ? '#38bdf8' : (isParkingStall ? '#34d399' : (lyr.includes('TEXT') ? '#e2e8f0' : 'rgba(255,255,255,0.7)'));
           ctx.textAlign = 'left';
@@ -1255,7 +1278,11 @@ function _drawPlot(ctx, plot) {
   const isSel = plot.plot_id === _mpdSelectedPlotId;
   const isHl = _mpdHighlightPlots.includes(plot.plot_id);
   const isHov = _mpdHoverPlot && _mpdHoverPlot.plot_id === plot.plot_id;
-  const color = getPlotColor(plot);
+  let color = getPlotColor(plot);
+  if(_mpdWorkingRevision && _mpdWorkingRevision.project === _getMpdProject() && _mpdWorkingRevision.styles[plot.plot_id]){
+    const hex = {yellow:'#ffff00',red:'#ff0000',green:'#00ff00',blue:'#0080ff',orange:'#ffa500',purple:'#a855f7'}[_mpdWorkingRevision.styles[plot.plot_id]];
+    color = {fill:hex+'66',stroke:hex,text:'#ffffff'};
+  }
 
   ctx.save();
 
@@ -1269,12 +1296,12 @@ function _drawPlot(ctx, plot) {
   ctx.closePath();
 
   // Fill
-  ctx.fillStyle = isSel ? 'rgba(47, 107, 255, 0.55)' : (isHl ? 'rgba(245, 183, 61, 0.55)' : (isHov ? 'rgba(255, 255, 255, 0.2)' : color.fill));
+  ctx.fillStyle = isHl ? _mpdHighlightColor + '88' : (isSel ? 'rgba(47, 107, 255, 0.55)' : (isHov ? 'rgba(255, 255, 255, 0.2)' : color.fill));
   ctx.fill();
 
   // Stroke
   ctx.lineWidth = (isSel ? 4 : (isHl || isHov ? 3 : 1.5)) / _mpdTransform.zoom;
-  ctx.strokeStyle = isSel ? '#00f2fe' : (isHl ? '#f5b73d' : (plot.status === 'violation' ? '#f2585f' : color.stroke));
+  ctx.strokeStyle = isHl ? _mpdHighlightColor : (isSel ? '#00f2fe' : (plot.status === 'violation' ? '#f2585f' : color.stroke));
   ctx.stroke();
 
   // Draw Setback Envelope if active
@@ -1296,14 +1323,15 @@ function _drawPlot(ctx, plot) {
   // Centroid Text Annotation
   const bbox = plot.geometry.bbox || [coords[0][0], coords[0][1], coords[1][0], coords[1][1]];
   const plotW = Math.max(20, bbox[2] - bbox[0]);
-  const cx = plot.geometry.centroid ? plot.geometry.centroid[0] : (bbox[0] + bbox[2]) / 2;
-  const cy = plot.geometry.centroid ? plot.geometry.centroid[1] : (bbox[1] + bbox[3]) / 2;
+  const anchor = plot.geometry.label_anchor || plot.geometry.centroid;
+  const cx = anchor ? anchor[0] : (bbox[0] + bbox[2]) / 2;
+  const cy = anchor ? anchor[1] : (bbox[1] + bbox[3]) / 2;
 
   // Bounded Plot ID (never exceeds plot width)
   const maxTitleFont = Math.min(plotW * 0.18, 14 / _mpdTransform.zoom);
-  const titleFont = Math.max(7, maxTitleFont);
+  const titleFont = Math.max(7, maxTitleFont) * _mpdTextScale;
   const maxSubFont = Math.min(plotW * 0.12, 11 / _mpdTransform.zoom);
-  const subFont = Math.max(6, maxSubFont);
+  const subFont = Math.max(6, maxSubFont) * _mpdTextScale;
 
   ctx.save();
   ctx.translate(cx, cy);
@@ -1312,11 +1340,11 @@ function _drawPlot(ctx, plot) {
   ctx.font = `bold ${titleFont}px Inter, sans-serif`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText(plot.plot_id, 0, -titleFont * 0.55);
+  if(_mpdTextMode !== 'off') ctx.fillText(plot.plot_id, 0, -titleFont * 0.55);
 
   ctx.font = `${subFont}px Inter, sans-serif`;
   ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
-  ctx.fillText(`FAR ${plot.far.toFixed(2)}`, 0, subFont * 0.75);
+  if(_mpdTextMode !== 'off') ctx.fillText(`FAR ${plot.far.toFixed(2)}`, 0, subFont * 0.75);
   ctx.restore();
 
   // Alert badge for violations
@@ -1336,7 +1364,7 @@ function _drawPlot(ctx, plot) {
     ctx.font = `bold ${badgeR * 1.3}px Inter, sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('!', 0, 0);
+    if(_mpdTextMode !== 'off') ctx.fillText('!', 0, 0);
     ctx.restore();
   }
 
@@ -1371,7 +1399,7 @@ async function _handleMpdChatSubmit() {
   agentMsg.innerHTML = `
     <div style="font-weight:700;display:flex;align-items:center;gap:6px;color:var(--accent2)">
       <svg class="ico" style="width:14px;height:14px;animation:spin 1s linear infinite" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 2a10 10 0 0 1 10 10"/></svg>
-      Qwen 3.5 9B Reasoning &amp; Spatial Planning...
+      Checking project data and requested action...
     </div>
   `;
   hist.appendChild(agentMsg);
@@ -1393,7 +1421,10 @@ async function _handleMpdChatSubmit() {
     if (!res.ok) throw new Error('AI query service error');
     const data = await res.json();
 
-    _mpdHighlightPlots = data.highlight_plots || [];
+    if(data.view_actions && data.view_actions.length){
+      data.answer = data.view_actions[0].type === 'edit_hatches' ? await window._performMpdCadAction(data.view_actions[0],proj) : window._applyMpdViewActions(data.view_actions, proj);
+    } else _mpdHighlightPlots = data.highlight_plots || [];
+    _mpdHighlightColor = /^#[0-9a-f]{6}$/i.test(data.highlight_color || '') ? data.highlight_color : '#ffff00';
     _drawCanvas();
 
     let toolBadges = '';
@@ -1403,7 +1434,7 @@ async function _handleMpdChatSubmit() {
 
     agentMsg.innerHTML = `
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
-        <div style="font-weight:700;color:var(--accent2);font-size:11.5px">Qwen 3.5 9B Copilot · Intent: ${_mpdEsc(data.intent || 'QUERY')}</div>
+        <div style="font-weight:700;color:var(--accent2);font-size:11.5px">Masterplan Copilot · Intent: ${_mpdEsc(data.intent || 'QUERY')}</div>
         <div>${toolBadges}</div>
       </div>
       <div style="line-height:1.5;font-size:12px">${mdLite(data.answer)}</div>
@@ -1502,6 +1533,17 @@ function _wireMpdEvents(proj) {
 
   // Toggle CAD Text Mode: Rooms -> All -> Off
   const btnToggleText = _mpd$('btnToggleTextMode');
+  if(btnToggleText && !document.getElementById('mpdTextSize')){
+    const label = document.createElement('label');
+    label.className = 'cad-btn';
+    label.innerHTML = 'Text size <input id="mpdTextSize" type="range" min="30" max="180" step="5" value="'+Math.round(_mpdTextScale*100)+'" aria-label="Drawing text size" style="width:85px"><span id="mpdTextSizeValue">'+Math.round(_mpdTextScale*100)+'%</span>';
+    btnToggleText.after(label);
+    document.getElementById('mpdTextSize').oninput = e => {
+      _mpdTextScale = Math.max(.3,Math.min(1.8,Number(e.target.value)/100));
+      document.getElementById('mpdTextSizeValue').textContent = Math.round(_mpdTextScale*100)+'%';
+      _drawCanvas();
+    };
+  }
   if (btnToggleText) {
     btnToggleText.onclick = function() {
       if (_mpdTextMode === 'rooms') {
@@ -2392,7 +2434,86 @@ window._calcInspFar = _calcInspFar;
 window._savePlotInspection = _savePlotInspection;
 window._sendMpdChip = _sendMpdChip;
 window._handleMpdChatSubmit = _handleMpdChatSubmit;
-window._highlightMpdPlots = (plots) => {
+window._performMpdCadAction = async (action, project) => {
+  if(project !== _getMpdProject() || _mpdSelectedSource === 'register') return 'Edit not applied: select the intended CAD drawing first.';
+  if(_mpdEditBusy) return 'An edit is already running. Wait for its result before the next edit.';
+  _mpdEditBusy=true;
+  try {
+  const sourceAtRequest = _mpdSelectedSource;
+  const previous = _mpdWorkingRevision && _mpdWorkingRevision.project === project ? _mpdWorkingRevision : null;
+  const res = await fetch(`${API}/api/v1/masterplan/projects/${encodeURIComponent(project)}/cad-revisions`,{
+    method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...action,source_id:sourceAtRequest || null,base_revision:previous ? previous.revision : null})
+  });
+  const result = await res.json();
+  if(!res.ok) return 'Edit not applied: '+(typeof result.detail==='string'?result.detail:'source validation failed');
+  if(project !== _getMpdProject() || sourceAtRequest !== _mpdSelectedSource) return 'Working revision created for the previous source; no change applied to this view.';
+  const styles = {...(previous ? previous.styles : {})};
+  result.plot_ids.forEach(id=>styles[id]=result.color);
+  _mpdWorkingRevision = {...result,project,styles};
+  _mpdHighlightPlots = [];
+  _drawCanvas();
+  return `Created a separate ${result.format.toUpperCase()} working revision: ${result.plot_ids.length} plot hatch(es) changed to ${result.color}. Original unchanged. Use Save working copy to download. Full drawing fidelity still requires review.`;
+  } finally { _mpdEditBusy=false; }
+};
+window._saveMpdWorkingCopy = () => {
+  const r = _mpdWorkingRevision;
+  if(!r || r.project !== _getMpdProject()){toast('Create a working revision through chat first');return;}
+  const a=document.createElement('a');a.href=`${API}/api/v1/masterplan/projects/${encodeURIComponent(r.project)}/cad-revisions/${r.revision}/working`;a.download='';a.click();
+};
+window._openMpdRevisions = async () => {
+  const project=_getMpdProject();
+  const response=await fetch(`${API}/api/v1/masterplan/projects/${encodeURIComponent(project)}/cad-revisions`);
+  if(!response.ok){toast('Could not load revisions');return;}
+  const data=await response.json();
+  const modal=document.createElement('dialog');
+  const heading=document.createElement('h3');heading.textContent='Saved CAD revisions';modal.appendChild(heading);
+  for(const revision of data.revisions){
+    const row=document.createElement('p');row.textContent=`${revision.source_name} — ${revision.color} — ${revision.created_at} `;
+    for(const artifact of ['working','original']){
+      if(artifact==='original' && (typeof currentUser==='undefined' || currentUser?.role!=='admin')) continue;
+      const link=document.createElement('a');link.textContent=artifact==='original'?' Admin original ':' Download copy ';
+      link.href=`${API}/api/v1/masterplan/projects/${encodeURIComponent(project)}/cad-revisions/${revision.revision}/${artifact}`;link.download='';row.appendChild(link);
+    }
+    modal.appendChild(row);
+  }
+  const close=document.createElement('button');close.textContent='Close';close.onclick=()=>modal.remove();modal.appendChild(close);
+  document.body.appendChild(modal);modal.showModal();
+};
+window._returnMpdOriginal = () => {
+  _mpdWorkingRevision=null;_mpdHighlightPlots=[];_loadMasterplanData(_getMpdProject());toast('Returned to original source view; saved revisions are retained');
+};
+window._applyMpdViewActions = (actions, project) => {
+  if(typeof currentDest !== 'undefined' && currentDest !== 'mpd') return 'Drawing action was not applied: open MPD first.';
+  if(project !== _getMpdProject() || !document.getElementById('mpdCanvas')) return 'Drawing action was not applied: the active project or MPD view changed.';
+  if(!Array.isArray(actions) || actions.length !== 1) return 'Drawing action was not applied: invalid command.';
+  const action = actions[0];
+  let receipt;
+  if(action.type === 'set_text_mode' && ['off','all','rooms'].includes(action.mode)){
+    _mpdTextMode = action.mode;
+    const label = document.getElementById('mpdTextModeLabel');
+    if(label) label.textContent = 'Text: ' + ({off:'Off',all:'All',rooms:'Rooms'}[action.mode]);
+    const button = document.getElementById('btnToggleTextMode');
+    if(button) button.classList.toggle('active', action.mode !== 'off');
+    receipt = action.mode === 'off' ? 'Hidden all drawing text, plot labels and FAR labels.' : 'Shown drawing text and plot labels.';
+  } else if(action.type === 'set_text_scale' && Number.isFinite(action.scale) && action.scale >= .3 && action.scale <= 1.8){
+    _mpdTextScale = action.scale;
+    const input = document.getElementById('mpdTextSize'), label = document.getElementById('mpdTextSizeValue');
+    if(input) input.value = Math.round(action.scale*100);
+    if(label) label.textContent = Math.round(action.scale*100)+'%';
+    receipt = 'Set drawing text size to '+Math.round(action.scale*100)+'%.';
+  } else if(action.type === 'return_to_original'){
+    window._returnMpdOriginal(); receipt='Returned to the original source view; working revisions are retained.';
+  } else if(action.type === 'save_working_copy'){
+    if(!_mpdWorkingRevision || _mpdWorkingRevision.project !== project) return 'No working revision is available to download.';
+    window._saveMpdWorkingCopy(); receipt='Working-copy download requested; original unchanged.';
+  } else if(action.type === 'fit_view'){
+    _fitCanvasToPlots(); receipt = 'Fitted the drawing to the view.';
+  } else return 'Drawing action was not applied: unsupported command.';
+  _drawCanvas();
+  return receipt;
+};
+window._highlightMpdPlots = (plots, color) => {
+  _mpdHighlightColor = /^#[0-9a-f]{6}$/i.test(color || '') ? color : '#ffff00';
   _mpdHighlightPlots = Array.isArray(plots) ? plots : [];
   _drawCanvas();
   if (_mpdHighlightPlots.length > 0) {

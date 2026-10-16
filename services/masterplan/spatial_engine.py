@@ -24,6 +24,13 @@ class SpatialReasoningEngine:
         3. Parking Adequacy: Provided vs Required
         4. Building Height: Story limit vs land use zone
         """
+        import json
+        try:
+            evidence = json.loads(plot.notes or '{}')
+        except (ValueError, TypeError):
+            evidence = {}
+        if isinstance(evidence, dict) and evidence.get('method') == 'hatch_label_containment':
+            return 'under_review', ['Hatch/label association only; approved zoning and engineering limits are not established']
         violations: List[str] = []
         status = "compliant"
 

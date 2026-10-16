@@ -484,10 +484,16 @@ def delete_file_record(project_id: str, file_id_or_name: str) -> bool:
     try:
         with conn:
             cur = conn.cursor()
-            cur.execute("SELECT id, file_path, filename FROM mp_files WHERE project_id = ? AND (id = ? OR filename = ?)", (project_id, file_id_or_name, file_id_or_name))
+            cur.execute("SELECT id, file_path, filename, file_type FROM mp_files WHERE project_id = ? AND (id = ? OR filename = ?)", (project_id, file_id_or_name, file_id_or_name))
             row = cur.fetchone()
             f_name = row["filename"] if row else file_id_or_name
             f_path = row["file_path"] if row else None
+            if not row:
+                return False
+            # Geometry currently has no per-file provenance. Conservatively invalidate
+            # CAD-derived geometry while retaining spreadsheet attributes for review.
+            if row['file_type'] == 'cad':
+                conn.execute('UPDATE mp_plots SET geometry_json = NULL WHERE project_id = ?', (project_id,))
 
             # Delete from database tables
             conn.execute("DELETE FROM mp_files WHERE project_id = ? AND (id = ? OR filename = ?)", (project_id, file_id_or_name, file_id_or_name))

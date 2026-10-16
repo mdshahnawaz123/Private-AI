@@ -1637,6 +1637,8 @@ from services.cad_api import cad_router
 app.include_router(cad_router)
 from services.masterplan.api import mpd_router
 app.include_router(mpd_router)
+from services.pdf_api import pdf_router
+app.include_router(pdf_router)
 
 vectorstores = {}
 _index_mutation_lock = threading.RLock()

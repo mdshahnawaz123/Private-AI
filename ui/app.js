@@ -52,7 +52,9 @@ function mdLite(s){
     .replace(/\[SOURCE:\s*([^\]\n]+?)\s*\|\s*PAGE\s+(\d+|UNPAGINATED)\s*\]/gi,
       (marker,name,page)=>'<details class="source-detail"><summary>Source · '+(page==='UNPAGINATED'?'unpaginated':'page '+page)+'</summary><div class="source-full">'+marker+'</div></details>')
     .replace(/\[([^\]]+)\]\(cadcraft:([^)]+)\)/gi,
-      (m,label,fname)=>'<div style="margin:8px 0"><button class="cad-action-btn" onclick="openCadDrawingFromProject(\''+esc(fname)+'\')"><svg class="ico" style="width:14px;height:14px;vertical-align:middle;margin-right:6px" viewBox="0 0 24 24"><path d="M3 3h18v18H3zM3 9h18M9 3v18"/><circle cx="15" cy="15" r="3"/></svg>'+esc(label)+'</button></div>');
+      (m,label,fname)=>'<div style="margin:8px 0"><button class="cad-action-btn" onclick="openCadDrawingFromProject(\''+esc(fname)+'\')"><svg class="ico" style="width:14px;height:14px;vertical-align:middle;margin-right:6px" viewBox="0 0 24 24"><path d="M3 3h18v18H3zM3 9h18M9 3v18"/><circle cx="15" cy="15" r="3"/></svg>'+esc(label)+'</button></div>')
+    .replace(/\[([^\]]+)\]\(pdfcraft:([^)]+)\)/gi,
+      (m,label,fname)=>'<div style="margin:8px 0"><button class="cad-action-btn" onclick="openPdfFromProjectLink(\''+esc(fname)+'\')"><svg class="ico" style="width:14px;height:14px;vertical-align:middle;margin-right:6px" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>'+esc(label)+'</button></div>');
   const lines=String(s==null?'':s).replace(/\r\n/g,'\n').split('\n');
   const out=[]; let i=0;
   // Citation markers are valid inside Markdown table cells. Protect their
@@ -354,6 +356,7 @@ const DESTS=[
   ['models','Models','<path d="M12 2l9 5v10l-9 5-9-5V7z"/>'],
   ['drawings','Drawings','<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/>'],
   ['cadcraft','CADCraft Studio','<path d="M3 3h18v18H3zM3 9h18M9 3v18"/><circle cx="15" cy="15" r="3"/>'],
+  ['pdfcraft','PdfCraft Studio','<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/>'],
   ['documents','Documents','<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/>'],
   ['schedules','Schedules','<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 3v18"/>'],
   ['specifications','Specifications','<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5z"/>'],
@@ -395,7 +398,7 @@ function navigate(dest){
   } else {
     design.style.display='none';
     $('genericWrap').style.display='block';
-    if(dest==='mpd' || dest==='cadcraft'){
+    if(dest==='mpd' || dest==='cadcraft' || dest==='pdfcraft'){
       $('genericWrap').style.position='absolute';
       $('genericWrap').style.inset='0';
       $('genericWrap').style.overflow='hidden';
@@ -431,6 +434,25 @@ function renderCadCraft(c){
     }, 50);
   }
 }
+function renderPdfCraft(c){
+  const fn = (typeof renderPdfCraftWorkspace === 'function') ? renderPdfCraftWorkspace : (typeof window !== 'undefined' && typeof window.renderPdfCraftWorkspace === 'function' ? window.renderPdfCraftWorkspace : null);
+  if (fn) {
+    fn(c);
+  } else {
+    c.innerHTML = '<div class="ws-scroll" style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;text-align:center"><div class="state" style="padding:40px"><div style="font-size:14px;font-weight:600;margin-bottom:8px">Loading PdfCraft Studio...</div><p style="color:var(--muted);font-size:12px;margin-bottom:16px">The offline local PDF engineering workbench is initializing.</p></div></div>';
+    let tries = 0;
+    const checkPdf = setInterval(() => {
+      tries++;
+      const readyFn = (typeof renderPdfCraftWorkspace === 'function') ? renderPdfCraftWorkspace : (typeof window !== 'undefined' ? window.renderPdfCraftWorkspace : null);
+      if (typeof readyFn === 'function') {
+        clearInterval(checkPdf);
+        if (typeof currentDest === 'undefined' || currentDest === 'pdfcraft') readyFn(c);
+      } else if (tries > 60) {
+        clearInterval(checkPdf);
+      }
+    }, 50);
+  }
+}
 function renderMPD(c){
   const fn = (typeof renderMPDWorkspace === 'function') ? renderMPDWorkspace : (typeof window !== 'undefined' ? window.renderMPDWorkspace : null);
   if(fn) fn(c);
@@ -440,6 +462,7 @@ function renderGeneric(dest){
   const b=$('genericWrap');
   const R={ overview:renderOverview, studio:renderStudio, video:renderVideoStudio, mpd:renderMPD, models:renderModels, drawings:renderDrawings,
     cadcraft:renderCadCraft,
+    pdfcraft:renderPdfCraft,
     documents:renderDocuments, schedules:renderSchedules, specifications:renderSpecifications,
     codes:renderCodes, qa:renderQA, reports:renderReports, settings:renderSettings };
   (R[dest]||(()=>{ b.innerHTML=`<div class="ws-scroll">${state('Nothing here yet.')}</div>`; }))(b);
@@ -546,7 +569,7 @@ async function renderOverview(b){
       ${tile('Schedules', c.schedules, 'structured data')}
     </div>
     <div style="margin-top:22px" class="tiles">
-      ${['design','studio','video','cadcraft','drawings','documents','schedules','codes','qa','reports'].map(k=>{ const m=DESTS.find(d=>d[0]===k); return `<div class="tile" style="cursor:pointer" onclick="navigate('${k}')"><h4>${svg(m[2])} ${esc(m[1])}</h4><p>Open workspace →</p></div>`; }).join('')}
+      ${['design','studio','video','cadcraft','pdfcraft','drawings','documents','schedules','codes','qa','reports'].map(k=>{ const m=DESTS.find(d=>d[0]===k); return `<div class="tile" style="cursor:pointer" onclick="navigate('${k}')"><h4>${svg(m[2])} ${esc(m[1])}</h4><p>Open workspace →</p></div>`; }).join('')}
     </div>`;
   }catch(e){ $('ovBody').innerHTML=state('Dashboard stats unavailable.','err'); }
 }
@@ -615,10 +638,12 @@ async function openPdfPreview(f,page=1,highlightSnippet=null,highlightRects=null
     if(pdfPreviewObjectUrl)URL.revokeObjectURL(pdfPreviewObjectUrl);
     pdfPreviewObjectUrl=URL.createObjectURL(pixels);
     const hlBadge = isHighlighted ? '<span class="badge-s b-pass" style="margin-left:8px;font-size:11px">📍 Evidence Highlighted</span>' : '';
-    v.innerHTML=`<div class="dt-toolbar"><button class="tb" id="pdfPrev" ${page<=1?'disabled':''}>Previous</button><span>Source page ${page} / ${pages}</span>${hlBadge}<button class="tb" id="pdfNext" ${page>=pages?'disabled':''}>Next</button><button class="tb" id="pdfZoom">Zoom in</button><button class="tb" id="pdfOriginal" style="margin-left:auto">Open original PDF</button></div><div style="height:calc(100% - 48px);overflow:auto;background:#fff"><img id="pdfSourcePage" alt="Source page ${page}: ${esc(f.filename)}" style="display:block;width:100%;height:auto" src="${pdfPreviewObjectUrl}"></div>`;
+    v.innerHTML=`<div class="dt-toolbar"><button class="tb" id="pdfPrev" ${page<=1?'disabled':''}>Previous</button><span>Source page ${page} / ${pages}</span>${hlBadge}<button class="tb" id="pdfNext" ${page>=pages?'disabled':''}>Next</button><button class="tb" id="pdfZoom">Zoom in</button><button class="tb" id="pdfCraftBtn" style="background:rgba(47,107,255,0.15);color:var(--accent2);border:1px solid rgba(47,107,255,0.35);font-weight:600;margin-left:8px;display:inline-flex;align-items:center;gap:6px"><svg class="ico" style="width:14px;height:14px" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg> Open &amp; Edit in PdfCraft</button><button class="tb" id="pdfOriginal" style="margin-left:auto">Open original PDF</button></div><div style="height:calc(100% - 48px);overflow:auto;background:#fff"><img id="pdfSourcePage" alt="Source page ${page}: ${esc(f.filename)}" style="display:block;width:100%;height:auto" src="${pdfPreviewObjectUrl}"></div>`;
     $('pdfPrev').onclick=()=>openPdfPreview(f,page-1,highlightSnippet,highlightRects);
     $('pdfNext').onclick=()=>openPdfPreview(f,page+1,highlightSnippet,highlightRects);
     $('pdfOriginal').onclick=()=>openFile(f.rel);
+    const pdfCraftBtn = $('pdfCraftBtn');
+    if(pdfCraftBtn) pdfCraftBtn.onclick = () => openPdfProjectDocumentFromPreview(f);
     $('pdfZoom').onclick=()=>{const image=$('pdfSourcePage');const fitted=image.style.width==='100%';image.style.width=fitted?'auto':'100%';$('pdfZoom').textContent=fitted?'Fit width':'Zoom in';};
   }catch(error){if(sequence===pdfPreviewSequence&&v.isConnected)v.innerHTML=state(error.message||'Source preview unavailable.','err');}
 }
@@ -660,6 +685,26 @@ async function openCadDrawingFromProject(filename){
   window._cadSkipDefaultSample = false;
 }
 window.openCadDrawingFromProject = openCadDrawingFromProject;
+
+async function openPdfProjectDocumentFromPreview(f){
+  window._pdfSkipDefaultSample = true;
+  navigate('pdfcraft');
+  if(window.openPdfProjectDocument){
+    await window.openPdfProjectDocument(f.filename, f.rel, currentProject);
+  }
+  window._pdfSkipDefaultSample = false;
+}
+window.openPdfProjectDocumentFromPreview = openPdfProjectDocumentFromPreview;
+
+async function openPdfFromProjectLink(filename){
+  window._pdfSkipDefaultSample = true;
+  navigate('pdfcraft');
+  if(window.openPdfProjectDocument){
+    await window.openPdfProjectDocument(filename, null, currentProject);
+  }
+  window._pdfSkipDefaultSample = false;
+}
+window.openPdfFromProjectLink = openPdfFromProjectLink;
 
 /* ---------- Schedules (new endpoint) ---------- */
 /* Heuristic: does a row's values look like column headers (short, mostly
@@ -3404,6 +3449,7 @@ async function sendAi(standards){ const t=$('aiIn'); const q=t.value.trim();
   if(!useCowork&&currentDest==='design'&&on3D&&viewerLoaded&&!documentQuestion&&!standards&&!currentAttachment){ const ctx=await getViewerCtx();
     await stream(q,`${API}/ask_model`,{project:currentProject,query:q+revNote,context:ctx.context||'',selection:ctx.selection||(lastSel&&lastSel.text)||'',messages:aiHist.slice(-6)}); }
   else if(!useCowork&&currentDest==='mpd'&&!standards){
+    const actionProject = currentProject;
     const selPlot = (typeof window._getMpdSelectedPlotId === 'function') ? window._getMpdSelectedPlotId() : null;
     const bub = addMsg('a', '<div class="ai-working" role="status"><span class="ai-working-dot"></span><div><strong>Masterplan Spatial Reasoning</strong><small>Evaluating zoning, FAR and parcel parameters with Qwen 3.5 9B…</small></div></div>');
     try {
@@ -3423,6 +3469,13 @@ async function sendAi(standards){ const t=$('aiIn'); const q=t.value.trim();
       }
       const data = await res.json();
       let toolBadges = '';
+      if(data.view_actions && data.view_actions.length){
+        data.answer = data.view_actions[0].type === 'edit_hatches' && typeof window._performMpdCadAction === 'function'
+          ? await window._performMpdCadAction(data.view_actions[0],actionProject)
+          : typeof window._applyMpdViewActions === 'function'
+          ? window._applyMpdViewActions(data.view_actions, actionProject)
+          : 'Drawing controls are unavailable. Open MPD and try again.';
+      }
       if(data.tools_called && data.tools_called.length){
         toolBadges = '<div style="margin-top:8px;display:flex;gap:4px;flex-wrap:wrap">' + data.tools_called.map(t => `<span class="mpd-badge" style="font-size:9.5px;padding:2px 6px">Tool: ${esc(t)}</span>`).join('') + '</div>';
       }
@@ -3435,7 +3488,7 @@ async function sendAi(standards){ const t=$('aiIn'); const q=t.value.trim();
       aiHist.push({role:'assistant',content:data.answer});
 
       if(data.highlight_plots && data.highlight_plots.length && typeof window._highlightMpdPlots === 'function'){
-        window._highlightMpdPlots(data.highlight_plots);
+        window._highlightMpdPlots(data.highlight_plots, data.highlight_color);
       }
     } catch(err){
       bub.innerHTML = `<span style="color:var(--red)">Failed to reach masterplan reasoning engine: ${esc(err.message)}</span>`;

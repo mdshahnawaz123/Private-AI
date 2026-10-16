@@ -6,7 +6,7 @@ parsers, graphics engine, audit logs, and Qwen 3.5 9B Copilot.
 import os
 import shutil
 from typing import List, Dict, Any, Optional
-from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Query
+from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Query, Request
 from fastapi.responses import FileResponse, JSONResponse
 from loguru import logger
 
@@ -33,6 +33,86 @@ dxf_parser = MasterplanDxfParser()
 excel_parser = MasterplanExcelParser()
 pdf_parser = MasterplanPdfParser()
 reconciliation_engine = MasterplanReconciliationEngine()
+
+
+def _revision_root():
+    from config import get_settings
+    return os.path.join(get_settings().data_dir, 'cad_revisions')
+
+
+@mpd_router.post('/projects/{project_id}/cad-revisions')
+async def edit_cad_revision(project_id: str, request: Request, payload: Dict[str, Any]):
+    import auth
+    from starlette.concurrency import run_in_threadpool
+    from services.masterplan.cad_revisions import create_revision, read_revision, digest
+    user=auth.require_project(request,project_id)
+    auth.require_roles(request,'admin','lead','user')
+    files=[f for f in db.get_file_records(project_id) if f['file_type']=='cad']
+    source_id=payload.get('source_id')
+    if source_id: files=[f for f in files if f['id']==source_id]
+    if not files: raise HTTPException(404,'Selected CAD source not found')
+    source=files[0]['file_path']
+    expected=os.path.realpath(os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))),'data','projects',project_id,'masterplan'))
+    from pathlib import Path
+    if not Path(source).resolve().is_relative_to(Path(expected).resolve()):
+        raise HTTPException(400,'Source is outside its project drawing folder')
+    ids=payload.get('plot_ids')
+    if payload.get('land_use'):
+        ids=[p.plot_id for p in db.get_plots(project_id,land_use=payload['land_use'])]
+    if not isinstance(ids,list) or not ids or len(ids)>1000 or any(not isinstance(p,str) for p in ids):
+        raise HTTPException(400,'Specify 1–1000 matched plot IDs')
+    import cad
+    base_working=None
+    previous=None
+    if payload.get('base_revision'):
+        try:
+            base_folder,previous=read_revision(_revision_root(),project_id,payload['base_revision'])
+            if previous['original_sha256']!=digest(source):
+                raise ValueError('Source revision changed; start from original')
+            base_working=base_folder/previous['working']
+        except (ValueError,OSError) as exc:
+            raise HTTPException(400,str(exc)) from exc
+    def save(doc,path):
+        if path.lower().endswith('.dwg'):
+            from ezdxf.addons import odafc
+            odafc.export_dwg(doc,path,replace=False)
+        else: doc.saveas(path)
+    try:
+        manifest=await run_in_threadpool(create_revision,_revision_root(),project_id,source,ids,payload.get('color'),user['id'],cad.load_doc,save,base_working)
+    except (ValueError, OSError, RuntimeError) as exc:
+        raise HTTPException(400,str(exc)) from exc
+    return manifest
+
+
+@mpd_router.get('/projects/{project_id}/cad-revisions/{revision}/{artifact}')
+async def download_cad_revision(project_id: str, revision: str, artifact: str, request: Request):
+    import auth
+    from services.masterplan.cad_revisions import read_revision
+    auth.require_project(request,project_id)
+    if artifact not in ('working','original'): raise HTTPException(400,'Invalid artifact')
+    if artifact=='original': auth.require_roles(request,'admin')
+    try:
+        folder,manifest=read_revision(_revision_root(),project_id,revision)
+    except (ValueError,OSError) as exc:
+        raise HTTPException(404,str(exc)) from exc
+    return FileResponse(folder/manifest[artifact],filename=revision[:8]+'_'+artifact+manifest['format'])
+
+
+@mpd_router.get('/projects/{project_id}/cad-revisions')
+async def list_cad_revisions(project_id: str, request: Request):
+    import auth
+    from services.masterplan.cad_revisions import revision_folder, read_revision
+    auth.require_project(request,project_id)
+    root=revision_folder(_revision_root(),project_id,'0'*32).parent
+    results=[]
+    if root.exists():
+        for folder in root.iterdir():
+            try:
+                _,manifest=read_revision(_revision_root(),project_id,folder.name)
+                results.append({key:manifest.get(key) for key in ('revision','created_at','source_name','color','plot_ids','format')})
+            except (ValueError,OSError):
+                continue
+    return {'revisions':sorted(results,key=lambda r:r['created_at'] or '',reverse=True)}
 
 
 @mpd_router.get("/projects", response_model=List[Dict[str, Any]])
@@ -189,13 +269,16 @@ async def delete_masterplan_file(project_id: str, file_id: str):
     deleted = db.delete_file_record(project_id, file_id)
     if not deleted:
         raise HTTPException(status_code=404, detail="File not found")
+    for key in list(_CAD_DRAWING_CACHE):
+        if key[0] == project_id:
+            _CAD_DRAWING_CACHE.pop(key, None)
     return {"status": "success", "message": "File deleted successfully"}
 
 
 _CAD_DRAWING_CACHE = {}
 
 @mpd_router.get("/projects/{project_id}/cad-drawing")
-async def get_project_cad_drawing(project_id: str):
+async def get_project_cad_drawing(project_id: str, file_id: Optional[str] = Query(None)):
     """
     Returns full CAD vector drawing linework (lines, polylines, arcs, circles, texts, layers)
     for rendering the full architectural CAD background in the MPD canvas.
@@ -205,6 +288,10 @@ async def get_project_cad_drawing(project_id: str):
     if not cad_files:
         return {"has_cad": False, "entities": [], "layers": [], "extents": None}
 
+    if file_id:
+        cad_files = [f for f in cad_files if f['id'] == file_id]
+        if not cad_files:
+            raise HTTPException(404, 'CAD source not found in this project')
     latest = cad_files[0]
     cad_path = latest.get("file_path")
     if not cad_path or not os.path.exists(cad_path):

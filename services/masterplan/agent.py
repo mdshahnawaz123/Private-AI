@@ -16,6 +16,7 @@ from services.masterplan.spatial_engine import SpatialReasoningEngine
 from services.masterplan.reconciliation import MasterplanReconciliationEngine
 from services.masterplan.parsers.dxf_parser import MasterplanDxfParser
 from services.masterplan.parsers.excel_parser import MasterplanExcelParser
+from services.masterplan.view_commands import parse_view_command
 
 OLLAMA_HOST = getattr(get_settings(), "ollama_host", "http://127.0.0.1:11434")
 REASONING_MODEL = "qwen3.5:9b"
@@ -50,7 +51,7 @@ class MasterplanAIAgent:
                 plots = [p for p in plots if p.far <= float(max_far)]
             return {
                 "count": len(plots),
-                "plots": [p.dict(exclude={"geometry"}) for p in plots[:25]],
+                "plots": [p.dict(exclude={"geometry"}) for p in plots],
                 "plot_ids": [p.plot_id for p in plots]
             }
 
@@ -307,33 +308,9 @@ class MasterplanAIAgent:
             "cad drawing", "dwg"
         ))
         if is_cad_audit:
-            files = db.get_file_records(project_id)
-            cad_files = [f for f in files if f.get("file_type") == "cad"]
-            dwg_name = cad_files[0]["filename"] if cad_files else "C3085-DWG-3EH6110-AR-2B10101(5) (1).dwg"
-
-            lines = [
-                f"### ⚡ CAD Vector Linework & Live Drawing Audit",
-                f"- **Active CAD Drawing**: `{dwg_name}` (Basement 2 Architectural & Structural Plan)",
-                f"- **Total Entities Audited**: **38,552 vector elements** (100% Vectorized & Processed)",
-                f"- **Overall Drawing Compliance**: **99.8% PASS** (AIA CAD Layer Guidelines & Dubai Building Code 2021)",
-                "",
-                "#### 🔍 Discipline Breakdown:",
-                f"- 🏗️ **Architectural Walls (`A-WALL`)**: 16,420 lines · 100% Closed loop geometry, 2-Hour fire rated compartment envelopes verified.",
-                f"- 🏛️ **Structural Columns & Shears (`S-COLS`, `S-WALL`)**: 4,892 elements · Grid alignment verified, no column clashes in drive aisles.",
-                f"- 🚗 **Civil Parking Bays (`A-PRKG`)**: 4,118 lines · **320 parking bays** conforming to Dubai RTA standards (5.00m length × 2.50m width, 6.00m drive aisles).",
-                f"- 🚪 **Emergency Egress & Stairs (`A-STRS`)**: 1,840 lines · NFPA 101 clear flight width ≥ 1.20m, max travel distance ≤ 45m.",
-                f"- ⚡ **MEP Plant Rooms**: 14 dedicated spaces (DEWA Substation, Transformer, Pump, and LV rooms isolated).",
-                f"- 🏷️ **CAD Text Annotations**: 1,838 tags with 3-tier semantic LOD filtering active on the canvas.",
-                "",
-                "💡 _Tip: You can hover your cursor over any individual line on the canvas to inspect its real-time live compliance, or click `[ ⚡ Live Audit Lines ]` in the toolbar._"
-            ]
             return MasterplanAIQueryResponse(
-                answer="\n".join(lines),
-                intent="CAD_LINEWORK_AUDIT",
-                tools_called=["audit_cad_drawing"],
-                highlight_plots=[]
-            )
-
+                answer='A verified CAD linework/compliance audit is not available. Uploaded files and plot registers do not establish measured entity counts, fire ratings or code compliance. Inspect the drawing with validated audit tools.',
+                intent='CAD_AUDIT_UNVERIFIED', confidence=0.0, tools_called=[], highlight_plots=[])
         # Check for Spatial Audit request
         if any(k in q for k in ("audit", "validate", "check compliance", "violations", "encroach")):
             audit_res = self._execute_tool("run_spatial_audit", {}, project_id)
@@ -390,7 +367,7 @@ class MasterplanAIAgent:
             )
 
         # Check for Land Use breakdown or filters
-        for lu in ("residential", "commercial", "mixed use", "open space", "park", "civic", "utilities"):
+        for lu in ("residential", "commercial", "mixed use", "mixed type", "mixed-use", "open space", "park", "civic", "utilities"):
             if lu in q:
                 norm_lu = "Residential" if "res" in lu else ("Commercial" if "com" in lu else ("Mixed Use" if "mix" in lu else ("Open Space / Park" if "park" in lu or "open" in lu else ("Civic" if "civ" in lu else "Utilities"))))
                 tool_res = self._execute_tool("query_plots", {"land_use": norm_lu}, project_id)
@@ -462,6 +439,18 @@ class MasterplanAIAgent:
 
         if matched_plot:
             plot = matched_plot
+            try:
+                evidence = json.loads(plot.notes or '{}')
+            except (ValueError,TypeError):
+                evidence = {}
+            if isinstance(evidence,dict) and evidence.get('method') == 'hatch_label_containment':
+                measured=evidence.get('measured_area_sqm')
+                annotated=evidence.get('annotated_area_sqm')
+                lines=[f"### Plot {plot.plot_id}", f"Source: {evidence.get('source')}"]
+                lines.append(f"Measured hatch area: **{measured:,.2f} m²**." if measured is not None else 'Measured area unavailable: drawing units need confirmation.')
+                lines.append(f"Area written in CAD label: **{annotated:,.2f} m²**." if annotated is not None else 'No unique area value was identified in the CAD label.')
+                lines.append('Linked by plot-ID label containment in a transformed hatch. Approval and engineering compliance have not been verified.')
+                return MasterplanAIQueryResponse(answer='\n'.join(lines),intent='INSPECT_PLOT',tools_called=['get_plot_details'],highlight_plots=[plot.plot_id])
             rel = db.get_latest_file_relation(project_id)
             lines = [
                 f"### 🎯 Detailed Inspection: Plot {plot.plot_id}",
@@ -519,9 +508,14 @@ class MasterplanAIAgent:
         """
         Coordinates the Local Agentic AI Qwen 3.5 9B with Intent Parsing and Tool Execution.
         """
+        action = parse_view_command(req.query)
+        if action:
+            return MasterplanAIQueryResponse(answer='Drawing action requested.',intent='VIEW_ACTION',view_actions=[action],tools_called=['drawing_view_controller'])
         # Check deterministic plan first for high-precision specific queries (Plot Inspection, Linework Audit, Direct Filters)
         det_res = self._fallback_deterministic_plan(req.query, req.project_id)
-        if det_res.intent in ("INSPECT_PLOT", "AUDIT_LINEWORK", "QUERY_VIOLATIONS"):
+        if det_res.intent in ("INSPECT_PLOT", "AUDIT_LINEWORK", "QUERY_VIOLATIONS", "QUERY_LAND_USE", "QUERY_DENSITY", "CAD_AUDIT_UNVERIFIED"):
+            colors = {'yellow':'#ffff00', 'red':'#ff0000', 'green':'#00ff00', 'blue':'#0080ff', 'orange':'#ffa500', 'purple':'#a855f7'}
+            det_res.highlight_color = next((value for name,value in colors.items() if re.search(r'\b'+name+r'\b', req.query, re.I)), None)
             return det_res
 
         # Try Ollama Qwen 3.5 9B with reasoning for open-ended or general questions

@@ -36,6 +36,12 @@ class MasterplanDxfParser:
             doc = ezdxf.readfile(file_path)
 
         msp = doc.modelspace()
+        from services.masterplan.parsers.hatch_link import linked_hatches
+        hatch_records = linked_hatches(doc, os.path.basename(file_path))
+        has_hatches = bool(msp.query('HATCH')) or any(bool(block.query('HATCH')) for block in doc.blocks)
+        if hatch_records or has_hatches:
+            logger.info('Linked {} unambiguous hatch parcels; polygon fallback not mixed into this dataset', len(hatch_records))
+            return [MasterplanPlot(project_id=project_id, **record) for record in hatch_records]
 
         # Step 0: Explode INSERT block references in modelspace to unpack nested text tags and boundary lines
         try:

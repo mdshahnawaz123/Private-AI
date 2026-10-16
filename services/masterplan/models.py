@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field
 
 
 class PlotGeometry(BaseModel):
+    label_anchor: Optional[List[float]] = Field(default=None, description="Verified leader arrow tip in scaled drawing coordinates")
     coordinates: List[List[float]] = Field(default_factory=list, description="Polygon vertices [[x, y], ...]")
     centroid: Optional[List[float]] = Field(default=None, description="[x, y] centroid")
     bbox: Optional[List[float]] = Field(default=None, description="[min_x, min_y, max_x, max_y]")
@@ -70,10 +71,12 @@ class MasterplanAIQueryRequest(BaseModel):
 
 
 class MasterplanAIQueryResponse(BaseModel):
+    view_actions: List[Dict[str, Any]] = Field(default_factory=list)
     answer: str
     intent: str
     tools_called: List[str] = Field(default_factory=list)
     highlight_plots: List[str] = Field(default_factory=list)
+    highlight_color: Optional[str] = None
     kpis: Optional[Dict[str, Any]] = None
     confidence: float = 1.0
     action_performed: Optional[str] = None

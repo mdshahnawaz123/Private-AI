@@ -103,101 +103,308 @@ const CAD_COMMANDS = {
 };
 
 /* ==========================================================================
-   RENDER CADCRAFT WORKSPACE UI
+   RENDER CADCRAFT WORKSPACE UI (Official AutoCAD / storytold/cadcraft Layout)
    ========================================================================== */
+function _toggleAccordion(id) {
+  const grp = document.getElementById(id);
+  if (!grp) return;
+  grp.classList.toggle('open');
+  const caret = grp.querySelector('.cad-acc-caret');
+  if (caret) caret.textContent = grp.classList.contains('open') ? '▾' : '▸';
+}
+window._toggleAccordion = _toggleAccordion;
+
+function _toggleLayerListTable() {
+  const container = $('cadLayerTableContainer');
+  const toggle = $('cadLayerListToggle');
+  if (!container || !toggle) return;
+  const isHidden = container.style.display === 'none';
+  container.style.display = isHidden ? 'block' : 'none';
+  toggle.innerHTML = isHidden ? '<span>▾ Hide Layer List</span>' : '<span>▸ Show Layer List</span>';
+}
+window._toggleLayerListTable = _toggleLayerListTable;
+
 function renderCadCraftWorkspace(container) {
   container.innerHTML = `
-    <div class="cad-workspace-root">
-      <!-- TOP RIBBON TOOLBAR -->
-      <div class="cad-ribbon">
-        <div class="cad-ribbon-group">
-          <div class="cad-group-title">FILE & CADCRAFT</div>
-          <div class="cad-group-btns">
-            <button class="cad-btn primary" id="cadOpenBtn" title="Open DXF or DWG file">
-              <svg class="ico" viewBox="0 0 24 24"><path d="M3 7v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-6l-2-2H5a2 2 0 0 0-2 2z"/></svg>
-              <span>Open CAD</span>
-            </button>
-            <input type="file" id="cadFileInput" accept=".dxf,.dwg" style="display:none">
+    <div class="cadcraft-app-root">
+      <!-- 1. TOP TITLEBAR & QUICK ACCESS TOOLBAR -->
+      <header class="cad-titlebar">
+        <!-- Quick Access Toolbar (Left) -->
+        <div class="cad-qat">
+          <button class="cad-icon-btn" id="cadNewBtn" title="New Drawing (Ctrl+N)">📄</button>
+          <button class="cad-icon-btn" id="cadOpenBtn" title="Open DWG/DXF (Ctrl+O)">📁</button>
+          <input type="file" id="cadFileInput" accept=".dxf,.dwg" style="display:none">
+          <button class="cad-icon-btn" id="cadSaveBtn" title="Save to Drawings (Ctrl+S)">💾</button>
+          <button class="cad-icon-btn" id="cadExportDxfBtn" title="Export AutoCAD DXF">💾⁺</button>
+          <div class="cad-vsep"></div>
+          <button class="cad-icon-btn" id="cadUndoBtn" title="Undo (Ctrl+Z)">↶</button>
+          <button class="cad-icon-btn" id="cadRedoBtn" title="Redo (Ctrl+Y)">↷</button>
+          <div class="cad-vsep"></div>
+          <button class="cad-icon-btn" id="cadPlotBtn" title="Plot / Print (Ctrl+P)">🖨️</button>
+          <button class="cad-icon-btn" id="cadPanBtn" title="Pan (P)">✋</button>
+          <button class="cad-icon-btn" id="cadZoomExtentsBtn" title="Zoom Extents (Z E)">⤢</button>
+          <button class="cad-icon-btn" id="cadMeasureBtn" title="Measure Distance (DIST)">📏</button>
+          <button class="cad-icon-btn" id="cadLayersQatBtn" title="Toggle Layers Panel">🗂️</button>
+          <button class="cad-icon-btn" id="cadHelpBtn" title="Shortcuts & Commands">?</button>
+        </div>
 
-            <button class="cad-btn" id="cadSaveBtn" title="Save DXF into project Drawings folder">
-              <svg class="ico" viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-              <span>Save DXF</span>
-            </button>
+        <!-- Center App Title & Drawing Name -->
+        <div class="cad-app-title">
+          <span class="cad-title-brand">CADCraft</span>
+          <span class="cad-title-doc" id="cadTitleDocName">apartment.dxf</span>
+        </div>
 
-            <div class="cad-dropdown-wrap">
-              <button class="cad-btn" id="cadSamplesBtn" title="Load architectural & engineering sample drawings">
-                <svg class="ico" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-                <span>Samples ▼</span>
-              </button>
-              <div class="cad-dropdown-menu" id="cadSamplesMenu" style="display:none">
-                <a href="javascript:void(0)" data-sample="sample_cadcraft_apartment">🏢 CADCraft Apartment Master Plan (Official Upstream)</a>
-                <a href="javascript:void(0)" data-sample="sample_apartment_plan">🏠 2-Bedroom Residential Floor Plan</a>
-                <a href="javascript:void(0)" data-sample="sample_structural_core">🏗️ Structural Column Grid & Core</a>
-                <a href="javascript:void(0)" data-sample="sample_mechanical_bracket">⚙️ Mechanical Mounting Bracket</a>
-              </div>
+        <!-- Right Header AI Tools & Samples -->
+        <div class="cad-header-right">
+          <div class="cad-dropdown-wrap">
+            <button class="cad-header-pill" id="cadSamplesBtn" title="Sample Drawings">
+              <span>🏢 Samples ▾</span>
+            </button>
+            <div class="cad-dropdown-menu" id="cadSamplesMenu" style="display:none">
+              <a href="javascript:void(0)" data-sample="sample_cadcraft_apartment">🏢 CADCraft Apartment Master Plan (Official Upstream)</a>
+              <a href="javascript:void(0)" data-sample="sample_apartment_plan">🏠 2-Bedroom Residential Floor Plan</a>
+              <a href="javascript:void(0)" data-sample="sample_structural_core">🏗️ Structural Column Grid & Core</a>
+              <a href="javascript:void(0)" data-sample="sample_mechanical_bracket">⚙️ Mechanical Mounting Bracket</a>
             </div>
-
-            <button class="cad-btn" id="cadExportDxfBtn" title="Export as AutoCAD DXF file">
-              <svg class="ico" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-              <span>Export DXF</span>
-            </button>
           </div>
+
+          <button class="cad-header-pill ai" id="cadRenderInAiStudioBtn" title="Render CAD in AI Design Studio for 3D Photorealism">
+            <span>🎨 Render in AI Studio</span>
+          </button>
+
+          <button class="cad-icon-btn close" id="cadCloseStudioBtn" title="Close CADCraft Studio" onclick="navigate('drawings')">✕</button>
         </div>
+      </header>
 
-        <div class="cad-ribbon-sep"></div>
-
-        <div class="cad-ribbon-group">
-          <div class="cad-group-title">DRAW TOOLS</div>
-          <div class="cad-group-btns">
-            <button class="cad-tool-btn on" data-tool="select" title="Selection Tool (Space/Esc)"><svg class="ico" viewBox="0 0 24 24"><path d="M3 3l7 18 3-7 7-3L3 3z"/></svg><span>Select</span></button>
-            <button class="cad-tool-btn" data-tool="line" title="Line (L)"><svg class="ico" viewBox="0 0 24 24"><line x1="4" y1="20" x2="20" y2="4"/></svg><span>Line</span></button>
-            <button class="cad-tool-btn" data-tool="polyline" title="Polyline (PL)"><svg class="ico" viewBox="0 0 24 24"><polyline points="4 18 10 6 16 14 20 4"/></svg><span>Polyline</span></button>
-            <button class="cad-tool-btn" data-tool="circle" title="Circle (C)"><svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/></svg><span>Circle</span></button>
-            <button class="cad-tool-btn" data-tool="arc" title="3-Point Arc (A)"><svg class="ico" viewBox="0 0 24 24"><path d="M4 18a9 9 0 0 1 16 0"/></svg><span>Arc</span></button>
-            <button class="cad-tool-btn" data-tool="rectangle" title="Rectangle (REC)"><svg class="ico" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="1"/></svg><span>Rect</span></button>
-            <button class="cad-tool-btn" data-tool="text" title="Text Note (T)"><svg class="ico" viewBox="0 0 24 24"><polyline points="4 7 4 4 20 4 20 7"/><line x1="12" y1="4" x2="12" y2="20"/></svg><span>Text</span></button>
-            <button class="cad-tool-btn" data-tool="dimension" title="Linear Dimension (DIM)"><svg class="ico" viewBox="0 0 24 24"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="3" y2="18"/><line x1="21" y1="6" x2="21" y2="18"/></svg><span>Dim</span></button>
-          </div>
+      <!-- 2. DOCUMENT TABS BAR -->
+      <div class="cad-doctabs-bar">
+        <div class="cad-doctab start" id="cadTabStart" title="Start Page">
+          <span>⊞ + Start</span>
         </div>
-
-        <div class="cad-ribbon-sep"></div>
-
-        <div class="cad-ribbon-group">
-          <div class="cad-group-title">MODIFY & VIEW</div>
-          <div class="cad-group-btns">
-            <button class="cad-tool-btn" data-tool="erase" title="Erase selected (E / Del)"><svg class="ico" viewBox="0 0 24 24"><path d="M19 6L6 19M6 6l13 13"/></svg><span>Erase</span></button>
-            <button class="cad-tool-btn" data-tool="move" title="Move (M)"><svg class="ico" viewBox="0 0 24 24"><polyline points="5 9 2 12 5 15"/><polyline points="9 5 12 2 15 5"/><polyline points="15 19 12 22 9 19"/><polyline points="19 9 22 12 19 15"/><line x1="2" y1="12" x2="22" y2="12"/><line x1="12" y1="2" x2="12" y2="22"/></svg><span>Move</span></button>
-            <button class="cad-tool-btn" data-tool="copy" title="Copy (CO)"><svg class="ico" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><span>Copy</span></button>
-            <button class="cad-tool-btn" data-tool="offset" title="Offset (O)"><svg class="ico" viewBox="0 0 24 24"><path d="M4 14l8-8 8 8M4 20l8-8 8 8"/></svg><span>Offset</span></button>
-            <button class="cad-btn" id="cadZoomExtentsBtn" title="Zoom to Extents (Z E)"><svg class="ico" viewBox="0 0 24 24"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg><span>Extents</span></button>
-            <button class="cad-btn" id="cadUndoBtn" title="Undo (Ctrl+Z)"><svg class="ico" viewBox="0 0 24 24"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg></button>
-            <button class="cad-btn" id="cadRedoBtn" title="Redo (Ctrl+Y)"><svg class="ico" viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg></button>
-          </div>
-        </div>
-
-        <div class="cad-ribbon-sep"></div>
-
-        <!-- GENERATIVE AI & CADCRAFT RUST BRIDGE -->
-        <div class="cad-ribbon-group" style="margin-left:auto">
-          <div class="cad-group-title">AI & CADCRAFT ENGINE</div>
-          <div class="cad-group-btns">
-            <button class="cad-btn ai" id="cadRenderInAiStudioBtn" title="Render CAD model into AI Design Studio for 3D photorealistic concept generation">
-              <svg class="ico" viewBox="0 0 24 24"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><circle cx="12" cy="12" r="9"/></svg>
-              <span>🎨 Render in AI Studio</span>
-            </button>
-            <button class="cad-btn ghost" id="cadEngineInfoBtn" title="View CADCraft Pure Rust Architecture & CLI Info">
-              <svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
-              <span>CADCraft Engine</span>
-            </button>
-          </div>
+        <div class="cad-doctab active" id="cadTabActiveDoc" title="Active Drawing">
+          <span id="cadTabActiveTitle">apartment.dxf</span>
+          <span class="cad-tab-close" id="cadTabCloseBtn" title="Close drawing">×</span>
         </div>
       </div>
 
-      <!-- MAIN CANVAS & PALETTES CONTAINER -->
-      <div class="cad-center-area">
-        <!-- CANVAS WORKSPACE -->
-        <div class="cad-canvas-wrap" id="cadCanvasWrap">
+      <!-- 3. MAIN WORKSPACE (LEFT TOOL PALETTES + CANVAS + RIGHT PALETTE) -->
+      <div class="cad-main-workspace">
+        <!-- LEFT TOOL PALETTE (AutoCAD Tool Palettes Style) -->
+        <aside class="cad-left-palette" id="cadLeftPalette">
+          <div class="cad-palette-tabs">
+            <div class="cad-pal-tab active" id="cadPalTabDrafting">Drafting</div>
+            <div class="cad-pal-tab" id="cadPalTabModeling">Modeling</div>
+            <button class="cad-pal-collapse" id="cadPalCollapseBtn" title="Collapse Palette">&lt;</button>
+          </div>
+
+          <div class="cad-palette-scroll" id="cadPaletteScroll">
+            <!-- DRAW ACCORDION -->
+            <div class="cad-acc-group open" id="cadAccDraw">
+              <div class="cad-acc-head" onclick="_toggleAccordion('cadAccDraw')">
+                <span class="cad-acc-caret">▾</span>
+                <span class="cad-acc-title">Draw</span>
+              </div>
+              <div class="cad-acc-body">
+                <div class="cad-tool-grid">
+                  <button class="cad-tbtn" data-tool="line" title="Line (L)"><svg viewBox="0 0 24 24"><line x1="4" y1="20" x2="20" y2="4" stroke="currentColor" stroke-width="2"/></svg></button>
+                  <button class="cad-tbtn" data-tool="polyline" title="Polyline / Spline (PL)"><svg viewBox="0 0 24 24"><path d="M4 18 Q 10 4 16 14 T 20 6" fill="none" stroke="currentColor" stroke-width="2"/></svg></button>
+                  <button class="cad-tbtn" data-tool="circle" title="Circle (C)"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/></svg></button>
+                  <button class="cad-tbtn" data-tool="rectangle" title="Rectangle (REC)"><svg viewBox="0 0 24 24"><rect x="4" y="6" width="16" height="12" fill="none" stroke="currentColor" stroke-width="2"/></svg></button>
+                  <button class="cad-tbtn" data-tool="arc" title="Arc (A)"><svg viewBox="0 0 24 24"><path d="M4 18 A 9 9 0 0 1 20 18" fill="none" stroke="currentColor" stroke-width="2"/></svg></button>
+                  <button class="cad-tbtn" data-tool="ellipse" title="Ellipse (EL)"><svg viewBox="0 0 24 24"><ellipse cx="12" cy="12" rx="9" ry="5" fill="none" stroke="currentColor" stroke-width="2"/></svg></button>
+                  <button class="cad-tbtn" data-tool="polygon" title="Polygon (POL)"><svg viewBox="0 0 24 24"><polygon points="12 4 20 9 17 19 7 19 4 9" fill="none" stroke="currentColor" stroke-width="2"/></svg></button>
+                  <button class="cad-tbtn" data-tool="hatch" title="Hatch (H)"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5"/><line x1="4" y1="12" x2="12" y2="4" stroke="currentColor" stroke-width="1.5"/><line x1="4" y1="20" x2="20" y2="4" stroke="currentColor" stroke-width="1.5"/><line x1="12" y1="20" x2="20" y2="12" stroke="currentColor" stroke-width="1.5"/></svg></button>
+                  <button class="cad-tbtn" data-tool="point" title="Point (PO)"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="2.5" fill="currentColor"/><line x1="6" y1="12" x2="18" y2="12" stroke="currentColor"/><line x1="12" y1="6" x2="12" y2="18" stroke="currentColor"/></svg></button>
+                  <button class="cad-tbtn" data-tool="revcloud" title="Revision Cloud"><svg viewBox="0 0 24 24"><path d="M6 16 A3 3 0 0 1 8 10 A4 4 0 0 1 15 9 A3 3 0 0 1 18 14 A3 3 0 0 1 16 18 L7 18 Z" fill="none" stroke="currentColor" stroke-width="1.5"/></svg></button>
+                  <button class="cad-tbtn" data-tool="donut" title="Donut (DO)"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="1.5"/></svg></button>
+                  <button class="cad-tbtn" data-tool="select" title="Selection Tool (Space)"><svg viewBox="0 0 24 24"><path d="M3 3l7 18 3-7 7-3L3 3z" fill="none" stroke="currentColor" stroke-width="1.8"/></svg></button>
+                </div>
+              </div>
+            </div>
+
+            <!-- HATCH ACCORDION -->
+            <div class="cad-acc-group" id="cadAccHatch">
+              <div class="cad-acc-head" onclick="_toggleAccordion('cadAccHatch')">
+                <span class="cad-acc-caret">▸</span>
+                <span class="cad-acc-title">Hatch</span>
+              </div>
+              <div class="cad-acc-body">
+                <div class="cad-tool-grid">
+                  <button class="cad-tbtn" data-tool="hatch-solid" title="Solid Hatch"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" fill="currentColor"/></svg></button>
+                  <button class="cad-tbtn" data-tool="hatch-pattern" title="Pattern Hatch (ANSI)"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" fill="none" stroke="currentColor"/><line x1="4" y1="12" x2="12" y2="4" stroke="currentColor"/><line x1="8" y1="20" x2="20" y2="8" stroke="currentColor"/></svg></button>
+                </div>
+              </div>
+            </div>
+
+            <!-- BLOCK ACCORDION -->
+            <div class="cad-acc-group" id="cadAccBlock">
+              <div class="cad-acc-head" onclick="_toggleAccordion('cadAccBlock')">
+                <span class="cad-acc-caret">▸</span>
+                <span class="cad-acc-title">Block</span>
+              </div>
+              <div class="cad-acc-body">
+                <div class="cad-tool-grid">
+                  <button class="cad-tbtn" data-tool="block" title="Create Block (B)"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="10" height="10" stroke="currentColor" fill="none"/><circle cx="16" cy="16" r="4" fill="currentColor"/></svg></button>
+                  <button class="cad-tbtn" data-tool="insert" title="Insert Block (I)"><svg viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" stroke="currentColor" fill="none"/><path d="M12 2v6m-3-3l3 3 3-3" stroke="currentColor" fill="none"/></svg></button>
+                </div>
+              </div>
+            </div>
+
+            <!-- MODIFY ACCORDION -->
+            <div class="cad-acc-group open" id="cadAccModify">
+              <div class="cad-acc-head" onclick="_toggleAccordion('cadAccModify')">
+                <span class="cad-acc-caret">▾</span>
+                <span class="cad-acc-title">Modify</span>
+              </div>
+              <div class="cad-acc-body">
+                <div class="cad-tool-grid">
+                  <button class="cad-tbtn" data-tool="move" title="Move (M)"><svg viewBox="0 0 24 24"><path d="M12 2v20M2 12h20M12 2l-3 3M12 2l3 3M12 22l-3-3M12 22l3-3M2 12l3-3M2 12l3 3M22 12l-3-3M22 12l3 3" stroke="currentColor" stroke-width="1.5"/></svg></button>
+                  <button class="cad-tbtn" data-tool="rotate" title="Rotate (RO)"><svg viewBox="0 0 24 24"><path d="M21 12 A9 9 0 1 1 18 5.6 L18 10 M18 5.6 L13 5.6" fill="none" stroke="currentColor" stroke-width="1.5"/></svg></button>
+                  <button class="cad-tbtn" data-tool="trim" title="Trim (TR)"><svg viewBox="0 0 24 24"><line x1="3" y1="12" x2="21" y2="12" stroke="currentColor" stroke-width="1.5"/><path d="M12 3 L12 21 M9 8 L15 16 M15 8 L9 16" stroke="currentColor" stroke-width="1.5"/></svg></button>
+                  <button class="cad-tbtn" data-tool="extend" title="Extend (EX)"><svg viewBox="0 0 24 24"><line x1="20" y1="3" x2="20" y2="21" stroke="currentColor" stroke-width="2"/><line x1="4" y1="12" x2="16" y2="12" stroke="currentColor" stroke-width="1.5"/><polyline points="12 8 16 12 12 16" fill="none" stroke="currentColor" stroke-width="1.5"/></svg></button>
+                  <button class="cad-tbtn" data-tool="erase" title="Erase (E / Del)"><svg viewBox="0 0 24 24"><line x1="5" y1="5" x2="19" y2="19" stroke="currentColor" stroke-width="2"/><line x1="19" y1="5" x2="5" y2="19" stroke="currentColor" stroke-width="2"/></svg></button>
+                  <button class="cad-tbtn" data-tool="copy" title="Copy (CO)"><svg viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="4" y="4" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-dasharray="2,2"/></svg></button>
+                  <button class="cad-tbtn" data-tool="mirror" title="Mirror (MI)"><svg viewBox="0 0 24 24"><polygon points="10 4 3 19 10 19" fill="none" stroke="currentColor" stroke-width="1.5"/><polygon points="14 4 21 19 14 19" fill="none" stroke="currentColor" stroke-width="1.5" stroke-dasharray="2,2"/><line x1="12" y1="2" x2="12" y2="22" stroke="currentColor" stroke-dasharray="2,1"/></svg></button>
+                  <button class="cad-tbtn" data-tool="fillet" title="Fillet (F)"><svg viewBox="0 0 24 24"><path d="M4 20 L12 20 A 8 8 0 0 0 20 12 L20 4" fill="none" stroke="currentColor" stroke-width="2"/></svg></button>
+                  <button class="cad-tbtn" data-tool="chamfer" title="Chamfer (CHA)"><svg viewBox="0 0 24 24"><polyline points="4 20 12 20 20 12 20 4" fill="none" stroke="currentColor" stroke-width="2"/></svg></button>
+                  <button class="cad-tbtn" data-tool="explode" title="Explode (X)"><svg viewBox="0 0 24 24"><rect x="8" y="8" width="8" height="8" fill="none" stroke="currentColor"/><line x1="4" y1="4" x2="7" y2="7" stroke="currentColor"/><line x1="20" y1="4" x2="17" y2="7" stroke="currentColor"/><line x1="4" y1="20" x2="7" y2="17" stroke="currentColor"/><line x1="20" y1="20" x2="17" y2="17" stroke="currentColor"/></svg></button>
+                  <button class="cad-tbtn" data-tool="scale" title="Scale (SC)"><svg viewBox="0 0 24 24"><rect x="4" y="12" width="8" height="8" stroke="currentColor" fill="none"/><rect x="4" y="4" width="16" height="16" stroke="currentColor" fill="none" stroke-dasharray="2,2"/></svg></button>
+                  <button class="cad-tbtn" data-tool="offset" title="Offset (O)"><svg viewBox="0 0 24 24"><path d="M4 16 C 8 8 16 8 20 16" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M4 20 C 8 12 16 12 20 20" fill="none" stroke="currentColor" stroke-width="1.5"/></svg></button>
+                </div>
+              </div>
+            </div>
+
+            <!-- TEXT ACCORDION -->
+            <div class="cad-acc-group" id="cadAccText">
+              <div class="cad-acc-head" onclick="_toggleAccordion('cadAccText')">
+                <span class="cad-acc-caret">▸</span>
+                <span class="cad-acc-title">Text</span>
+              </div>
+              <div class="cad-acc-body">
+                <div class="cad-tool-grid">
+                  <button class="cad-tbtn" data-tool="text" title="Multiline Text (MT / T)"><span style="font-size:14px;font-weight:bold">A</span></button>
+                  <button class="cad-tbtn" data-tool="text" title="Single-line Text (DT)"><span style="font-size:12px">A_</span></button>
+                  <button class="cad-tbtn" data-tool="find" title="Find (FIND)">🔍</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- DIMENSION ACCORDION -->
+            <div class="cad-acc-group open" id="cadAccDim">
+              <div class="cad-acc-head" onclick="_toggleAccordion('cadAccDim')">
+                <span class="cad-acc-caret">▾</span>
+                <span class="cad-acc-title">Dimension</span>
+              </div>
+              <div class="cad-acc-body">
+                <div class="cad-tool-grid">
+                  <button class="cad-tbtn" data-tool="dimension" title="Linear Dimension (DIMLIN)"><svg viewBox="0 0 24 24"><line x1="3" y1="12" x2="21" y2="12" stroke="currentColor" stroke-width="1.5"/><line x1="3" y1="6" x2="3" y2="18" stroke="currentColor"/><line x1="21" y1="6" x2="21" y2="18" stroke="currentColor"/><text x="12" y="10" font-size="7" fill="currentColor" text-anchor="middle">15</text></svg></button>
+                  <button class="cad-tbtn" data-tool="dim-aligned" title="Aligned Dimension (DIMALIGNED)"><svg viewBox="0 0 24 24"><line x1="4" y1="20" x2="20" y2="4" stroke="currentColor" stroke-width="1.5"/><line x1="2" y1="18" x2="6" y2="22" stroke="currentColor"/><line x1="18" y1="2" x2="22" y2="6" stroke="currentColor"/></svg></button>
+                  <button class="cad-tbtn" data-tool="dim-radius" title="Radius Dimension (DIMRAD)"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" stroke="currentColor" fill="none"/><line x1="12" y1="12" x2="19" y2="7" stroke="currentColor"/><text x="14" y="9" font-size="6" fill="currentColor">R</text></svg></button>
+                  <button class="cad-tbtn" data-tool="dim-diameter" title="Diameter Dimension (DIMDIA)"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" stroke="currentColor" fill="none"/><line x1="6" y1="18" x2="18" y2="6" stroke="currentColor"/><text x="15" y="8" font-size="6" fill="currentColor">⌀</text></svg></button>
+                </div>
+              </div>
+            </div>
+
+            <!-- LEADER ACCORDION -->
+            <div class="cad-acc-group" id="cadAccLeader">
+              <div class="cad-acc-head" onclick="_toggleAccordion('cadAccLeader')">
+                <span class="cad-acc-caret">▸</span>
+                <span class="cad-acc-title">Leader</span>
+              </div>
+              <div class="cad-acc-body">
+                <div class="cad-tool-grid">
+                  <button class="cad-tbtn" data-tool="leader" title="Multileader (MLD)"><svg viewBox="0 0 24 24"><polyline points="4 20 12 12 20 12" stroke="currentColor" fill="none" stroke-width="1.5"/><polygon points="4 20 7 16 8 19" fill="currentColor"/></svg></button>
+                </div>
+              </div>
+            </div>
+
+            <!-- TABLE ACCORDION -->
+            <div class="cad-acc-group" id="cadAccTable">
+              <div class="cad-acc-head" onclick="_toggleAccordion('cadAccTable')">
+                <span class="cad-acc-caret">▸</span>
+                <span class="cad-acc-title">Table</span>
+              </div>
+              <div class="cad-acc-body">
+                <div class="cad-tool-grid">
+                  <button class="cad-tbtn" data-tool="table" title="Table (TABLE)"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" stroke="currentColor" fill="none"/><line x1="4" y1="9" x2="20" y2="9" stroke="currentColor"/><line x1="4" y1="14" x2="20" y2="14" stroke="currentColor"/><line x1="12" y1="4" x2="12" y2="20" stroke="currentColor"/></svg></button>
+                </div>
+              </div>
+            </div>
+
+            <!-- PARAMETRIC ACCORDION -->
+            <div class="cad-acc-group" id="cadAccParametric">
+              <div class="cad-acc-head" onclick="_toggleAccordion('cadAccParametric')">
+                <span class="cad-acc-caret">▸</span>
+                <span class="cad-acc-title">Parametric</span>
+              </div>
+              <div class="cad-acc-body">
+                <div class="cad-tool-grid">
+                  <button class="cad-tbtn" data-tool="param-lock" title="Lock Constraints"><svg viewBox="0 0 24 24"><rect x="6" y="11" width="12" height="10" rx="2" stroke="currentColor" fill="none"/><path d="M9 11 V 7 A 3 3 0 0 1 15 7 V 11" stroke="currentColor" fill="none"/></svg></button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </aside>
+
+        <!-- CENTER CANVAS VIEWPORT -->
+        <main class="cad-canvas-wrap" id="cadCanvasWrap">
           <canvas id="cadCanvas"></canvas>
+
+          <!-- TOP-LEFT VIEWPORT HUD OVERLAY -->
+          <div class="cad-viewport-hud">
+            <span class="cad-hud-item" title="Viewport Controls">+</span>
+            <span class="cad-hud-sep">|</span>
+            <span class="cad-hud-item" id="cadHudViewName" title="View Direction">Top</span>
+            <span class="cad-hud-sep">|</span>
+            <span class="cad-hud-item" id="cadHudStyleName" title="Visual Style">2D Wireframe</span>
+          </div>
+
+          <!-- TOP-RIGHT AUTOCAD VIEWCUBE OVERLAY -->
+          <div class="cad-viewcube-wrap" id="cadViewCubeWrap">
+            <svg class="cad-viewcube-svg" viewBox="0 0 100 100" id="cadViewCubeSvg">
+              <!-- Compass Ring -->
+              <circle cx="50" cy="50" r="44" fill="rgba(30, 36, 46, 0.75)" stroke="#3a4454" stroke-width="1.5"/>
+              <circle cx="50" cy="50" r="34" fill="none" stroke="#2a3240" stroke-width="1"/>
+              <!-- Cardinal points -->
+              <polygon points="50,7 46,13 54,13" fill="#38bdf8"/>
+              <text x="50" y="21" fill="#e2e8f0" font-size="9" font-family="sans-serif" font-weight="bold" text-anchor="middle">N</text>
+              <text x="83" y="53" fill="#94a3b8" font-size="9" font-family="sans-serif" font-weight="bold" text-anchor="middle">E</text>
+              <text x="50" y="85" fill="#94a3b8" font-size="9" font-family="sans-serif" font-weight="bold" text-anchor="middle">S</text>
+              <text x="17" y="53" fill="#94a3b8" font-size="9" font-family="sans-serif" font-weight="bold" text-anchor="middle">W</text>
+              
+              <!-- Isometric ViewCube -->
+              <g id="cadCubeTopFace" class="cad-cube-face" style="cursor:pointer">
+                <polygon points="50,28 72,40 50,52 28,40" fill="#3f4857" stroke="#5d697e" stroke-width="1"/>
+                <text x="50" y="43" fill="#ffffff" font-size="9" font-family="sans-serif" font-weight="bold" text-anchor="middle">TOP</text>
+              </g>
+              <polygon points="28,40 50,52 50,68 28,56" fill="#2c333f" stroke="#485364" stroke-width="1"/>
+              <polygon points="50,52 72,40 72,56 50,68" fill="#242b36" stroke="#485364" stroke-width="1"/>
+            </svg>
+            <div class="cad-wcs-pill" id="cadWcsPill" title="Coordinate System">
+              <span>WCS ▾</span>
+            </div>
+          </div>
+
+          <!-- BOTTOM-LEFT UCS ICON OVERLAY -->
+          <div class="cad-ucs-hud">
+            <svg viewBox="0 0 50 50" width="50" height="50">
+              <line x1="10" y1="40" x2="42" y2="40" stroke="#ff4757" stroke-width="2"/>
+              <line x1="10" y1="40" x2="10" y2="8" stroke="#2ed573" stroke-width="2"/>
+              <rect x="7" y="37" width="6" height="6" fill="#ffffff"/>
+              <text x="38" y="36" fill="#ff4757" font-size="10" font-family="monospace" font-weight="bold">X</text>
+              <text x="14" y="16" fill="#2ed573" font-size="10" font-family="monospace" font-weight="bold">Y</text>
+            </svg>
+          </div>
+
+          <!-- BOTTOM-CENTER FLOATING COMMAND WINDOW -->
+          <div class="cad-floating-cmd" id="cadFloatingCmd">
+            <div class="cad-cmd-recent" id="cadCmdRecent">Command: ZOOM</div>
+            <div class="cad-cmd-row">
+              <span class="cad-cmd-prompt-ico">&gt;_</span>
+              <input type="text" class="cad-cmd-field" id="cadCmdInput" placeholder="Type a command" autocomplete="off" spellcheck="false">
+              <button class="cad-cmd-hist-btn" id="cadCmdHistBtn" title="Command History">⌄</button>
+            </div>
+          </div>
 
           <!-- LOADING OVERLAY -->
           <div class="cad-loading-overlay" id="cadLoadingOverlay" style="display:none">
@@ -205,84 +412,118 @@ function renderCadCraftWorkspace(container) {
             <div id="cadLoadingText" style="font-weight:600;font-size:13px;color:#fff">Loading CAD drawing...</div>
             <div id="cadLoadingSubtext" style="font-size:11px;color:var(--muted)">Converting vector geometry & layers</div>
           </div>
+        </main>
 
-          <!-- UCS ICON OVERLAY -->
-          <div class="cad-ucs-icon">
-            <svg viewBox="0 0 40 40" width="40" height="40">
-              <line x1="8" y1="32" x2="36" y2="32" stroke="#ff4757" stroke-width="2"/>
-              <line x1="8" y1="32" x2="8" y2="4" stroke="#2ed573" stroke-width="2"/>
-              <text x="32" y="28" fill="#ff4757" font-size="9" font-family="monospace" font-weight="bold">X</text>
-              <text x="12" y="12" fill="#2ed573" font-size="9" font-family="monospace" font-weight="bold">Y</text>
-              <rect x="6" y="30" width="4" height="4" fill="#ffffff"/>
-            </svg>
+        <!-- RIGHT SIDE PANEL (LAYERS & AUTOCAD PROPERTIES INSPECTOR) -->
+        <aside class="cad-right-palette" id="cadRightPalette">
+          <!-- PALETTE TOP ICON TABS -->
+          <div class="cad-right-tabs">
+            <button class="cad-rtab active" id="cadRTabLayers" title="Layers"><svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="currentColor" fill="none" stroke-width="1.8"/></svg></button>
+            <button class="cad-rtab" id="cadRTabProps" title="Properties"><svg viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" stroke="currentColor" fill="none" stroke-width="1.8"/></svg></button>
+            <button class="cad-rtab" id="cadRTabTables" title="Data / Table"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" stroke="currentColor" fill="none" stroke-width="1.8"/><line x1="3" y1="9" x2="21" y2="9" stroke="currentColor"/><line x1="3" y1="15" x2="21" y2="15" stroke="currentColor"/><line x1="9" y1="3" x2="9" y2="21" stroke="currentColor"/><line x1="15" y1="3" x2="15" y2="21" stroke="currentColor"/></svg></button>
           </div>
 
-          <!-- PROMPT BANNER OVERLAY -->
-          <div class="cad-prompt-banner" id="cadPromptBanner" style="display:none"></div>
-        </div>
-
-        <!-- RIGHT COLLAPSIBLE SIDEBAR: LAYERS & PROPERTIES -->
-        <aside class="cad-side-palette" id="cadSidePalette">
           <!-- LAYERS SECTION -->
-          <div class="cad-palette-box">
-            <div class="cad-palette-head">
-              <span>LAYERS</span>
-              <button class="cad-mini-btn" id="cadAddLayerBtn" title="Create new layer">+ New</button>
+          <div class="cad-layer-section">
+            <div class="cad-layer-title">Layers</div>
+            <div class="cad-layer-icons-bar">
+              <button class="cad-licon" id="cadAddLayerBtn" title="New Layer">+</button>
+              <button class="cad-licon" id="cadDelLayerBtn" title="Delete Layer">-</button>
+              <button class="cad-licon" id="cadSetCurLayerBtn" title="Set Current">✓</button>
+              <button class="cad-licon on" id="cadTogLayerBulb" title="Turn Layer On/Off">💡</button>
+              <button class="cad-licon on" id="cadTogLayerFreeze" title="Freeze / Thaw">☀️</button>
+              <button class="cad-licon" id="cadTogLayerLock" title="Lock / Unlock">🔒</button>
+              <span class="cad-layer-color-dot" id="cadActiveLayerColorDot" style="display:inline-block;width:12px;height:12px;background:#808080;border-radius:2px;border:1px solid rgba(255,255,255,0.2)"></span>
+              <button class="cad-licon" id="cadPlotLayerBtn" title="Plot On/Off">🖨️</button>
             </div>
-            <div class="cad-layer-table-wrap">
+
+            <div class="cad-active-layer-row">
+              <span class="cad-dot" id="cadCurrentLayerDot" style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#808080;margin-right:4px"></span>
+              <select id="cadActiveLayerSel" class="cad-layer-select"></select>
+            </div>
+
+            <div class="cad-layer-state-label">Unsaved Layer State</div>
+
+            <div class="cad-layer-list-toggle" id="cadLayerListToggle" onclick="_toggleLayerListTable()">
+              <span>▸ Show Layer List</span>
+            </div>
+
+            <div class="cad-layer-table-container" id="cadLayerTableContainer" style="display:none">
               <table class="cad-layer-table">
-                <thead><tr><th>St</th><th>Color</th><th>Name</th><th>Lock</th></tr></thead>
+                <thead>
+                  <tr><th>St</th><th>Color</th><th>Name</th><th>Lock</th></tr>
+                </thead>
                 <tbody id="cadLayerList"></tbody>
               </table>
             </div>
-            <div style="display:flex;align-items:center;gap:6px;margin-top:6px;font-size:11px">
-              <span style="color:var(--muted)">Active:</span>
-              <select id="cadActiveLayerSel" style="flex:1;background:var(--bg3);color:var(--text);border:1px solid var(--border);border-radius:4px;padding:3px"></select>
-            </div>
           </div>
 
-          <!-- PROPERTIES SECTION -->
-          <div class="cad-palette-box" style="flex:1;display:flex;flex-direction:column">
-            <div class="cad-palette-head">
-              <span>PROPERTIES</span>
+          <!-- AUTOCAD PROPERTIES INSPECTOR -->
+          <div class="cad-properties-section">
+            <div class="cad-prop-head">
+              <span>Properties</span>
+              <div class="cad-prop-pill">
+                <button class="active">All</button>
+                <button>My</button>
+              </div>
             </div>
-            <div id="cadPropsContent" class="cad-props-body">
-              <div style="color:var(--muted);font-size:11px;padding:8px 4px">No entity selected.<br>Click an entity to inspect or edit.</div>
+
+            <div class="cad-prop-target-row">
+              <select id="cadPropTargetSel" class="cad-target-select">
+                <option value="none">No selection</option>
+              </select>
+            </div>
+
+            <!-- AUTOCAD PROPERTY GRID (EXACT FIELDS FROM CADCRAFT SCREENSHOT) -->
+            <div class="cad-autocad-grid" id="cadAutocadGrid">
+              <div class="cad-grid-row"><span class="k">Color</span><span class="v" id="propColor">■ ByLayer ▾</span></div>
+              <div class="cad-grid-row"><span class="k">Layer</span><span class="v" id="propLayer">0 ▾</span></div>
+              <div class="cad-grid-row"><span class="k">Linetype</span><span class="v" id="propLinetype">ByLayer ▾</span></div>
+              <div class="cad-grid-row"><span class="k">Linetype scale</span><span class="v" id="propLtScale">1.0000</span></div>
+              <div class="cad-grid-row"><span class="k">Lineweight</span><span class="v" id="propLineweight">ByLayer ▾</span></div>
+              <div class="cad-grid-row"><span class="k">Transparency</span><span class="v" id="propTransparency">ByLayer ▾</span></div>
+              <div class="cad-grid-row"><span class="k">Thickness</span><span class="v" id="propThickness">0.0000</span></div>
+              <div class="cad-grid-row"><span class="k">Text style</span><span class="v" id="propTextStyle">Standard ▾</span></div>
+              <div class="cad-grid-row"><span class="k">Dimension style</span><span class="v" id="propDimStyle">Standard ▾</span></div>
+              <div class="cad-grid-row"><span class="k">Multileader style</span><span class="v" id="propMldStyle">Standard ▾</span></div>
+              <div class="cad-grid-row"><span class="k">Table style</span><span class="v" id="propTableStyle">Standard ▾</span></div>
+              <div class="cad-grid-row"><span class="k">Annotation scale</span><span class="v" id="propAnnoScale">1:1 ▾</span></div>
+              <div class="cad-grid-row"><span class="k">Text height</span><span class="v" id="propTextHeight">2.5000</span></div>
+              <div class="cad-grid-row"><span class="k">Plot style</span><span class="v" id="propPlotStyle">ByColor ▾</span></div>
+              <div class="cad-grid-row"><span class="k">Plot style table</span><span class="v" id="propPlotTable">None ▾</span></div>
+              <div class="cad-grid-row"><span class="k">Plot style attached to</span><span class="v" id="propPlotAttach">Model ▾</span></div>
+              <div class="cad-grid-row"><span class="k">Plot style type</span><span class="v" id="propPlotType">Not available</span></div>
+              <div id="cadDynamicEntityProps"></div>
             </div>
           </div>
         </aside>
       </div>
 
-      <!-- COMMAND LINE AREA -->
-      <div class="cad-cmd-area">
-        <div class="cad-cmd-history" id="cadCmdHistory">
-          <div class="cad-log-line">CADCraft Engine v0.4.2 [AutoCAD Clean-Room Pure Rust Environment]</div>
-          <div class="cad-log-line">Model Space initialized. Type L (LINE), C (CIRCLE), REC (RECTANGLE), DIM, or Z E (Zoom Extents).</div>
+      <!-- 4. BOTTOM LAYOUT TABS & STATUS BAR -->
+      <footer class="cad-bottom-bar">
+        <div class="cad-layout-tabs">
+          <button class="cad-ltab active" id="cadLTabModel">Model</button>
+          <button class="cad-ltab add" id="cadLTabAdd">+</button>
+          <button class="cad-ltab" id="cadLTabLayout1">Layout1</button>
+          <button class="cad-ltab" id="cadLTabLayout2">Layout2</button>
         </div>
-        <div class="cad-cmd-input-row">
-          <span class="cad-cmd-label">Command:</span>
-          <input type="text" class="cad-cmd-input" id="cadCmdInput" placeholder="Type a command or select a tool above..." autocomplete="off" spellcheck="false">
-          <div class="cad-cmd-suggest" id="cadCmdSuggest" style="display:none"></div>
-        </div>
-      </div>
 
-      <!-- STATUS BAR -->
-      <div class="cad-status-bar">
-        <div class="cad-coords" id="cadCoordsReadout">X: 0.000  Y: 0.000  Z: 0.000</div>
-        <div class="cad-status-sep"></div>
-        <div class="cad-status-toggles">
-          <span class="cad-toggle on" id="cadTogModel">MODEL</span>
-          <span class="cad-toggle on" id="cadTogGrid" title="Toggle Grid (F7)">GRID</span>
-          <span class="cad-toggle on" id="cadTogSnap" title="Toggle Object Snaps (F3)">OSNAP</span>
-          <span class="cad-toggle" id="cadTogOrtho" title="Toggle Ortho Mode (F8)">ORTHO</span>
-          <span class="cad-toggle" id="cadTogPolar" title="Toggle Polar Tracking (F10)">POLAR</span>
+        <div class="cad-bottom-status-right">
+          <button class="cad-sico on" id="cadTogModelPaper" title="Model / Paper Space">🔲</button>
+          <button class="cad-sico on" id="cadTogGrid" title="Grid Display (F7)">▦</button>
+          <button class="cad-sico on" id="cadTogSnap" title="Snap Mode (F9)">⤓</button>
+          <button class="cad-sico" id="cadTogOrtho" title="Ortho Mode (F8)">⟂</button>
+          <button class="cad-sico" id="cadTogPolar" title="Polar Tracking (F10)">∠</button>
+          <button class="cad-sico" id="cadTogIso" title="Isometric Drafting">◇</button>
+          <button class="cad-sico" id="cadTogTracking" title="Object Snap Tracking (F11)">⊹</button>
+          <button class="cad-sico on" id="cadTogOsnap" title="2D Object Snap (F3)">⊡</button>
+          <button class="cad-sico" id="cadTogLineweight" title="Show/Hide Lineweight">≡</button>
+          <button class="cad-sico" id="cadTogTransparency" title="Transparency Display">◧</button>
+          <button class="cad-sico" id="cadTogCycling" title="Selection Cycling">↻</button>
+          <span class="cad-scale-label">1:1 ▾</span>
+          <button class="cad-sico" id="cadTogCleanScreen" title="Clean Screen (Ctrl+0)">⛶</button>
         </div>
-        <div style="margin-left:auto;display:flex;align-items:center;gap:12px;font-size:10.5px;color:var(--muted)">
-          <span id="cadEntityCountReadout">Entities: 0</span>
-          <span>Scale: 1:1 (Metric mm)</span>
-          <span style="color:var(--accent2);font-weight:600">CADCraft Pure Rust</span>
-        </div>
-      </div>
+      </footer>
     </div>
   `;
 
@@ -313,14 +554,47 @@ function _initCadCraftEngine() {
   panX = wrap.clientWidth / 2;
   panY = wrap.clientHeight / 2;
 
-  // Tool buttons
-  document.querySelectorAll('.cad-tool-btn').forEach(btn => {
+  // Left Tool Palette Tool Buttons
+  document.querySelectorAll('.cad-tbtn[data-tool]').forEach(btn => {
     btn.onclick = () => {
-      document.querySelectorAll('.cad-tool-btn').forEach(b => b.classList.remove('on'));
-      btn.classList.add('on');
-      setCadTool(btn.getAttribute('data-tool'));
+      document.querySelectorAll('.cad-tbtn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const tool = btn.getAttribute('data-tool');
+      if (tool === 'erase') {
+        eraseSelectedEntities();
+      } else if (tool === 'line' || tool === 'polyline' || tool === 'circle' || tool === 'arc' || tool === 'rectangle' || tool === 'text' || tool === 'dimension' || tool === 'move' || tool === 'copy' || tool === 'offset' || tool === 'select') {
+        setCadTool(tool);
+      } else if (tool.startsWith('dim-')) {
+        setCadTool('dimension');
+      } else if (tool.startsWith('hatch')) {
+        setCadTool('hatch');
+      } else {
+        setCadTool(tool);
+      }
+      logCmd(`Activated tool: ${tool.toUpperCase()}`);
+      const recentEl = $('cadCmdRecent');
+      if (recentEl) recentEl.textContent = `Command: ${tool.toUpperCase()}`;
     };
   });
+
+  // Top QAT Buttons
+  const newBtn = $('cadNewBtn');
+  if (newBtn) {
+    newBtn.onclick = () => {
+      cadEntities = [];
+      cadUndoStack = [];
+      cadRedoStack = [];
+      selectedEntityIds.clear();
+      currentDrawingTitle = 'Untitled.dxf';
+      const docNameEl = $('cadTitleDocName');
+      if (docNameEl) docNameEl.textContent = currentDrawingTitle;
+      const tabTitleEl = $('cadTabActiveTitle');
+      if (tabTitleEl) tabTitleEl.textContent = currentDrawingTitle;
+      _refreshCadLayersUI();
+      _drawCadCanvas();
+      toast('Created new empty drawing.');
+    };
+  }
 
   // Toggles
   const togGrid = $('cadTogGrid');
@@ -332,9 +606,42 @@ function _initCadCraftEngine() {
   const togOrtho = $('cadTogOrtho');
   if (togOrtho) togOrtho.onclick = () => { orthoEnabled = !orthoEnabled; togOrtho.classList.toggle('on', orthoEnabled); };
 
-  // Zoom extents button
+  const togPolar = $('cadTogPolar');
+  if (togPolar) togPolar.onclick = () => { polarEnabled = !polarEnabled; togPolar.classList.toggle('on', polarEnabled); };
+
+  const togOsnap = $('cadTogOsnap');
+  if (togOsnap) togOsnap.onclick = () => { snapEnabled = !snapEnabled; togOsnap.classList.toggle('on', snapEnabled); };
+
+  const cleanScreenBtn = $('cadTogCleanScreen');
+  if (cleanScreenBtn) {
+    cleanScreenBtn.onclick = () => {
+      const lp = $('cadLeftPalette');
+      const rp = $('cadRightPalette');
+      if (lp) lp.style.display = lp.style.display === 'none' ? 'flex' : 'none';
+      if (rp) rp.style.display = rp.style.display === 'none' ? 'flex' : 'none';
+      setTimeout(resizeCanvas, 60);
+    };
+  }
+
+  // Zoom extents button & ViewCube
   const zExtBtn = $('cadZoomExtentsBtn');
   if (zExtBtn) zExtBtn.onclick = zoomExtents;
+
+  const cubeTop = $('cadCubeTopFace');
+  if (cubeTop) cubeTop.onclick = zoomExtents;
+
+  // Measure button
+  const measureBtn = $('cadMeasureBtn');
+  if (measureBtn) {
+    measureBtn.onclick = () => {
+      setCadTool('dist');
+      showPrompt('DIST: Click first point to measure distance:');
+    };
+  }
+
+  // Pan button
+  const panBtn = $('cadPanBtn');
+  if (panBtn) panBtn.onclick = () => { setCadTool('select'); toast('Middle-mouse drag or Left-click drag to pan.'); };
 
   // Undo / Redo
   const uBtn = $('cadUndoBtn');
@@ -383,10 +690,6 @@ function _initCadCraftEngine() {
   const aiBtn = $('cadRenderInAiStudioBtn');
   if (aiBtn) aiBtn.onclick = _renderCadForAiStudio;
 
-  // Engine info modal
-  const infoBtn = $('cadEngineInfoBtn');
-  if (infoBtn) infoBtn.onclick = _showCadCraftInfoModal;
-
   // Canvas Mouse Interactions
   canvas.onmousedown = _onCanvasMouseDown;
   window.addEventListener('mousemove', _onCanvasMouseMove);
@@ -394,14 +697,18 @@ function _initCadCraftEngine() {
   canvas.onwheel = _onCanvasWheel;
   canvas.oncontextmenu = (e) => { e.preventDefault(); _onCanvasContextMenu(e); };
 
-  // Command Input
+  // Floating Command Input
   const cmdInp = $('cadCmdInput');
   if (cmdInp) {
     cmdInp.onkeydown = (e) => {
       if (e.key === 'Enter') {
         const val = cmdInp.value.trim();
         cmdInp.value = '';
-        if (val) _executeCadCommand(val);
+        if (val) {
+          const recentEl = $('cadCmdRecent');
+          if (recentEl) recentEl.textContent = `Command: ${val}`;
+          _executeCadCommand(val);
+        }
       } else if (e.key === 'Escape') {
         cancelCurrentCommand();
         cmdInp.blur();
@@ -411,7 +718,7 @@ function _initCadCraftEngine() {
 
   // Keyboard hotkeys
   window.addEventListener('keydown', (e) => {
-    if (currentDest !== 'cadcraft') return;
+    if (typeof currentDest !== 'undefined' && currentDest !== 'cadcraft') return;
     if (document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA')) {
       if (document.activeElement.id !== 'cadCmdInput') return;
     }
@@ -666,11 +973,27 @@ function _renderCadEntity(ctx, ent, isSelected) {
     ctx.arc(c.x, c.y, Math.max(r, 1), ea, sa, false);
     ctx.stroke();
   } else if (type === 'TEXT') {
-    const h = (ent.height || 250) * zoom * dpr;
-    if (h >= 3 || isSelected) {
+    const raw = String(ent.text || '');
+    const lines = raw.split(/\\P|\r?\n/).map(l => {
+      return l.replace(/\{\\H[0-9.]+x;([^}]+)\}/gi, '$1')
+              .replace(/\\[A-Za-z0-9]+;/g, '')
+              .replace(/[\{\}]/g, '')
+              .trim();
+    }).filter(Boolean);
+
+    const baseH = (ent.height || 250) * zoom * dpr;
+    if (baseH >= 2.5 || isSelected) {
       const p = worldToScreen(ent.x, ent.y);
-      ctx.font = `${Math.min(120, Math.max(6 * dpr, h))}px sans-serif`;
-      ctx.fillText(ent.text, p.x, p.y);
+      ctx.save();
+      const isRoomLabel = ent.layer === 'ROOM_NAMES' || ent.layer === 'A-ANNO';
+      ctx.fillStyle = isSelected ? '#00ffff' : (isRoomLabel ? '#ffff00' : (ent.color || '#ffffff'));
+      lines.forEach((line, idx) => {
+        const lineH = idx === 0 ? Math.min(120, Math.max(7 * dpr, baseH)) : Math.min(90, Math.max(5.5 * dpr, baseH * 0.72));
+        ctx.font = `${idx === 0 && isRoomLabel ? 'bold ' : ''}${Math.round(lineH)}px -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif`;
+        const yOffset = idx * (lineH * 1.35);
+        ctx.fillText(line, p.x, p.y + yOffset);
+      });
+      ctx.restore();
     }
   } else if (type === 'DIMENSION') {
     _renderDimension(ctx, ent, isSelected, dpr);
@@ -686,9 +1009,10 @@ function _renderCadEntity(ctx, ent, isSelected) {
 function _renderHatch(ctx, ent, isSelected, dpr) {
   if (!ent.paths || ent.paths.length === 0) return;
   ctx.save();
-  ctx.strokeStyle = isSelected ? '#00ffff' : (ent.color || '#e2e8f0');
+  const isWall = (ent.layer || '').toUpperCase().includes('WALL');
+  ctx.strokeStyle = isSelected ? '#00ffff' : (ent.color || '#5a6475');
   ctx.lineWidth = 1 * dpr;
-  ctx.fillStyle = isSelected ? 'rgba(0, 255, 255, 0.25)' : (ent.color ? `${_cadColor(ent.color)}22` : 'rgba(255, 255, 255, 0.12)');
+  ctx.fillStyle = isSelected ? 'rgba(0, 255, 255, 0.25)' : (isWall ? '#3e4652' : (ent.color ? `${_cadColor(ent.color)}33` : 'rgba(255, 255, 255, 0.15)'));
 
   ent.paths.forEach(path => {
     if (path.length >= 3) {
@@ -1532,22 +1856,34 @@ function _refreshCadLayersUI() {
 }
 
 function _renderPropertiesPanel() {
-  const propBox = $('cadPropsContent');
-  if (!propBox) return;
+  const targetSel = $('cadPropTargetSel');
+  const dynamicBox = $('cadDynamicEntityProps');
+  const propColor = $('propColor');
+  const propLayer = $('propLayer');
+  const propLtScale = $('propLtScale');
+  const propTextHeight = $('propTextHeight');
 
   if (selectedEntityIds.size === 0) {
-    propBox.innerHTML = '<div style="color:var(--muted);font-size:11px;padding:8px 4px">No entity selected.<br>Click an entity to inspect or edit.</div>';
+    if (targetSel) targetSel.innerHTML = '<option value="none">No selection</option>';
+    if (propColor) propColor.innerHTML = '■ ByLayer ▾';
+    if (propLayer) propLayer.innerHTML = `${_cadEsc(activeLayer || '0')} ▾`;
+    if (propLtScale) propLtScale.textContent = '1.0000';
+    if (propTextHeight) propTextHeight.textContent = '2.5000';
+    if (dynamicBox) dynamicBox.innerHTML = '';
     return;
   }
 
   if (selectedEntityIds.size > 1) {
-    propBox.innerHTML = `
-      <div class="cad-prop-group">
-        <div class="cad-prop-title">MULTIPLE SELECTION</div>
-        <div class="cad-prop-row"><span>Selected Count:</span><b>${selectedEntityIds.size} entities</b></div>
-        <button class="cad-btn" style="margin-top:8px;width:100%" onclick="eraseSelectedEntities()">Erase All Selected</button>
-      </div>
-    `;
+    if (targetSel) targetSel.innerHTML = `<option value="all">Multiple (${selectedEntityIds.size})</option>`;
+    if (propColor) propColor.innerHTML = '■ *VARIES* ▾';
+    if (propLayer) propLayer.innerHTML = '*VARIES* ▾';
+    if (dynamicBox) {
+      dynamicBox.innerHTML = `
+        <div style="padding:8px 4px">
+          <button class="cad-action-btn" style="width:100%;font-size:11px;padding:5px" onclick="eraseSelectedEntities()">✕ Erase Selected (${selectedEntityIds.size})</button>
+        </div>
+      `;
+    }
     return;
   }
 
@@ -1555,52 +1891,58 @@ function _renderPropertiesPanel() {
   const ent = cadEntities.find(e => e.id === selectedId);
   if (!ent) return;
 
+  if (targetSel) targetSel.innerHTML = `<option value="${ent.id}">${_cadEsc(ent.type)} (1)</option>`;
+  if (propColor) propColor.innerHTML = `<span style="display:inline-block;width:9px;height:9px;background:${_cadColor(ent.color)};border-radius:2px;margin-right:4px"></span> ByLayer ▾`;
+  if (propLayer) {
+    propLayer.innerHTML = `
+      <select id="cadChangeLayerSel" style="background:#181b21;color:#e2e8f0;border:1px solid #333a48;border-radius:3px;padding:1px 4px;font-size:10px">
+        ${cadLayers.map(l => `<option value="${_cadEsc(l.name)}" ${l.name === ent.layer ? 'selected' : ''}>${_cadEsc(l.name)}</option>`).join('')}
+      </select>
+    `;
+    const changeLayerSel = $('cadChangeLayerSel');
+    if (changeLayerSel) {
+      changeLayerSel.onchange = () => {
+        _saveHistory();
+        ent.layer = changeLayerSel.value;
+        const matchedLayer = cadLayers.find(l => l.name === ent.layer);
+        ent.color = matchedLayer ? matchedLayer.color : '#ffffff';
+        _drawCadCanvas();
+        _renderPropertiesPanel();
+      };
+    }
+  }
+
   let detailsHTML = '';
   if (ent.type === 'LINE') {
     const len = Math.hypot(ent.x2 - ent.x1, ent.y2 - ent.y1);
     detailsHTML = `
-      <div class="cad-prop-row"><span>Length:</span><b>${len.toFixed(2)} mm</b></div>
-      <div class="cad-prop-row"><span>Start (X,Y):</span><b>${ent.x1}, ${ent.y1}</b></div>
-      <div class="cad-prop-row"><span>End (X,Y):</span><b>${ent.x2}, ${ent.y2}</b></div>
+      <div class="cad-grid-row"><span class="k">Length</span><span class="v">${len.toFixed(1)} mm</span></div>
+      <div class="cad-grid-row"><span class="k">Delta X, Y</span><span class="v">${(ent.x2 - ent.x1).toFixed(1)}, ${(ent.y2 - ent.y1).toFixed(1)}</span></div>
     `;
   } else if (ent.type === 'CIRCLE') {
     detailsHTML = `
-      <div class="cad-prop-row"><span>Radius:</span><b>${ent.radius} mm</b></div>
-      <div class="cad-prop-row"><span>Diameter:</span><b>${(ent.radius * 2)} mm</b></div>
-      <div class="cad-prop-row"><span>Center:</span><b>(${ent.cx}, ${ent.cy})</b></div>
+      <div class="cad-grid-row"><span class="k">Radius</span><span class="v">${ent.radius} mm</span></div>
+      <div class="cad-grid-row"><span class="k">Diameter</span><span class="v">${(ent.radius * 2)} mm</span></div>
+      <div class="cad-grid-row"><span class="k">Center X, Y</span><span class="v">${ent.cx}, ${ent.cy}</span></div>
     `;
   } else if (ent.type === 'TEXT') {
+    if (propTextHeight) propTextHeight.textContent = String(ent.height || 250);
     detailsHTML = `
-      <div class="cad-prop-row"><span>Contents:</span><b>${_cadEsc(ent.text)}</b></div>
-      <div class="cad-prop-row"><span>Height:</span><b>${_cadEsc(ent.height)} mm</b></div>
+      <div class="cad-grid-row"><span class="k">Contents</span><span class="v">${_cadEsc(ent.text).slice(0, 18)}</span></div>
+    `;
+  } else if (ent.type === 'DIMENSION') {
+    detailsHTML = `
+      <div class="cad-grid-row"><span class="k">Dimension text</span><span class="v">${_cadEsc(ent.text || 'Auto')}</span></div>
     `;
   }
 
-  propBox.innerHTML = `
-    <div class="cad-prop-group">
-      <div class="cad-prop-title">ENTITY DATA</div>
-      <div class="cad-prop-row"><span>Type:</span><b>${_cadEsc(ent.type)}</b></div>
-      <div class="cad-prop-row"><span>Layer:</span>
-        <select id="cadChangeLayerSel" style="background:var(--bg3);color:var(--text);border:1px solid var(--border);border-radius:4px;padding:2px 6px">
-          ${cadLayers.map(l => `<option value="${_cadEsc(l.name)}" ${l.name === ent.layer ? 'selected' : ''}>${_cadEsc(l.name)}</option>`).join('')}
-        </select>
-      </div>
-      <div class="cad-prop-row"><span>Color:</span><span style="display:inline-block;width:14px;height:14px;background:${_cadColor(ent.color)};border-radius:2px"></span></div>
+  if (dynamicBox) {
+    dynamicBox.innerHTML = `
       ${detailsHTML}
-      <button class="cad-btn" style="margin-top:8px;width:100%" onclick="eraseSelectedEntities()">Erase Entity</button>
-    </div>
-  `;
-
-  const changeLayerSel = $('cadChangeLayerSel');
-  if (changeLayerSel) {
-    changeLayerSel.onchange = () => {
-      _saveHistory();
-      ent.layer = changeLayerSel.value;
-      const matchedLayer = cadLayers.find(l => l.name === ent.layer);
-      ent.color = matchedLayer ? matchedLayer.color : '#ffffff';
-      _drawCadCanvas();
-      _renderPropertiesPanel();
-    };
+      <div style="padding:6px 4px">
+        <button class="cad-action-btn" style="width:100%;font-size:11px;padding:4px" onclick="eraseSelectedEntities()">✕ Erase Entity</button>
+      </div>
+    `;
   }
 }
 
@@ -1896,7 +2238,12 @@ async function _loadCadSample(sampleId) {
         cadLayers = data.layers;
         activeLayer = cadLayers[1] ? cadLayers[1].name : cadLayers[0].name;
       }
-      currentDrawingTitle = data.title || 'Sample Drawing';
+      const docName = sampleId === 'sample_cadcraft_apartment' ? 'apartment.dxf' : (data.title || 'drawing.dxf');
+      currentDrawingTitle = docName;
+      const docNameEl = $('cadTitleDocName');
+      if (docNameEl) docNameEl.textContent = docName;
+      const tabTitleEl = $('cadTabActiveTitle');
+      if (tabTitleEl) tabTitleEl.textContent = docName;
       _refreshCadLayersUI();
       zoomExtents();
       logCmd(`Loaded: ${currentDrawingTitle} (${cadEntities.length} entities)`);
@@ -2030,6 +2377,10 @@ async function openCadProjectDrawing(filename, projectName) {
       cadEntities = data.entities;
       if (data.layers && data.layers.length) cadLayers = data.layers;
       currentDrawingTitle = filename;
+      const docNameEl = $('cadTitleDocName');
+      if (docNameEl) docNameEl.textContent = filename;
+      const tabTitleEl = $('cadTabActiveTitle');
+      if (tabTitleEl) tabTitleEl.textContent = filename;
       _refreshCadLayersUI();
       zoomExtents();
       logCmd(`Opened project drawing: ${filename} (${cadEntities.length} entities, ${cadLayers.length} layers)`);

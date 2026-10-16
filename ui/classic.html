@@ -956,7 +956,16 @@ async function reindexFile(encName, btn){
   }
 }
 
-function openFile(enc, page){ const rel = decodeURIComponent(enc); const hash = (page!=null && page!=='') ? ('#page='+page) : ''; window.open(fileURL(rel) + hash, '_blank'); }
+function openFile(enc, page){
+  const rel = decodeURIComponent(enc);
+  if (/\.pdf$/i.test(rel)) {
+    const pageArg = (page!=null && page!=='') ? ('&page=' + page) : '';
+    window.open('/app?open_pdf=' + encodeURIComponent(rel) + pageArg, '_blank');
+    return;
+  }
+  const hash = (page!=null && page!=='') ? ('#page='+page) : '';
+  window.open(fileURL(rel) + hash, '_blank');
+}
 async function fetchDocData(rel){
   try {
     const r = await fetch(`${API}/projects/${encodeURIComponent(currentProject)}/document?rel=${encodeURIComponent(rel)}`);
@@ -964,11 +973,21 @@ async function fetchDocData(rel){
     return await r.json();
   } catch(e){ return null; }
 }
-function _openPreview(rel, html, openUrl){
+function _openPreview(rel, html, openUrl, isPdf=false, page=null){
   document.getElementById('previewBox').innerHTML = html;
   document.getElementById('pvName').textContent = rel.split('/').pop();
   const ou = openUrl || fileURL(rel);
   document.getElementById('pvOpen').onclick = () => window.open(ou, '_blank');
+  const pdfBtn = document.getElementById('pvPdfCraft');
+  if(pdfBtn){
+    if(isPdf){
+      pdfBtn.style.display = 'inline-block';
+      const pageArg = (page!=null && page!=='') ? ('&page=' + page) : '';
+      pdfBtn.onclick = () => window.open('/app?open_pdf=' + encodeURIComponent(rel) + pageArg, '_blank');
+    } else {
+      pdfBtn.style.display = 'none';
+    }
+  }
   document.getElementById('filePreview').classList.add('open');
 }
 async function previewFile(enc, page){
@@ -977,7 +996,7 @@ async function previewFile(enc, page){
   const url = fileURL(rel);
   const pageHash = (page!=null && page!=='') ? ('#page='+page) : '';
   if (/^(png|jpg|jpeg|webp|gif|bmp)$/.test(ext)){ _openPreview(rel, `<img src='${url}' style='max-width:100%;max-height:100%;object-fit:contain'>`); return; }
-  if (ext === 'pdf'){ _openPreview(rel, `<iframe src='${url}${pageHash}' style='width:100%;height:100%;border:none;background:#fff'></iframe>`, url + pageHash); return; }
+  if (ext === 'pdf'){ _openPreview(rel, `<iframe src='${url}${pageHash}' style='width:100%;height:100%;border:none;background:#fff'></iframe>`, url + pageHash, true, page); return; }
   _openPreview(rel, "<div style='color:#9aa0aa;padding:20px'>Loading preview...</div>");
   const data = await fetchDocData(rel);
   if (!data){ _openPreview(rel, "<div class='pv-scroll' style='text-align:center;padding:40px'>No inline preview available for this file.<br>Use <b>Open original</b> to view it in its app.</div>"); return; }
@@ -2626,7 +2645,7 @@ function highlightCode(code, lang) {
 <div id="filePreview">
  <div class="pv-head">
   <span id="pvName"></span>
-  <span><button id="pvOpen">Open original</button><button onclick="closeFilePreview()">Close</button></span>
+  <span><button id="pvPdfCraft" style="display:none;background:#2f6bff;color:#fff;border-color:#2f6bff;font-weight:600;margin-right:8px">Open in PdfCraft Studio</button><button id="pvOpen">Open original</button><button onclick="closeFilePreview()">Close</button></span>
  </div>
  <div id="previewBox"></div>
 </div>

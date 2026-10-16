@@ -314,7 +314,16 @@ function selectProject(p){ currentProject=p; currentRevision=''; viewerLoaded=fa
   currentAttachment=null; $('attachCard').hidden=true; $('attachMenu').hidden=true;
   $('pcName').textContent=p||'—';
   resetViewer();
-  loadDocuments().then(()=>{ navigate(currentDest||'design'); });
+  loadDocuments().then(()=>{
+    const urlParams = new URLSearchParams(window.location.search);
+    const openPdfParam = urlParams.get('open_pdf');
+    const openPageParam = parseInt(urlParams.get('page') || '1', 10);
+    if(openPdfParam){
+      openProjectPdf(openPdfParam, openPageParam);
+      return;
+    }
+    navigate(currentDest||'design');
+  });
 }
 function resetViewer(){ const fr=$('viewerFrame'); if(fr){ try{fr.src='about:blank';}catch(e){} fr.style.display='none'; } const ve=$('vpEmpty'); if(ve)ve.style.display='grid'; }
 async function loadDocuments(){
@@ -343,7 +352,65 @@ function buildRevSelect(){
   $('revSel').value=currentRevision||'';
 }
 function fileURL(rel){ return `${API}/projects/${encodeURIComponent(currentProject)}/file?rel=${encodeURIComponent(rel)}&token=${encodeURIComponent(authToken||'')}`; }
-function openFile(rel){ window.open(fileURL(rel),'_blank'); }
+function openRawFile(rel){ window.open(fileURL(rel),'_blank'); }
+window.openRawFile = openRawFile;
+
+async function openProjectPdf(docOrRel, targetPage = 1, opts = {}) {
+  let f = null;
+  let filename = '';
+  let rel = '';
+  if (docOrRel && typeof docOrRel === 'object') {
+    f = docOrRel;
+    filename = f.filename || '';
+    rel = f.rel || f.filename || '';
+  } else if (typeof docOrRel === 'string') {
+    rel = docOrRel;
+    const base = String(rel).replace(/\\/g, '/').split('/').pop();
+    f = allDocs.find(x => x.rel === rel || x.filename === base || (x.rel && x.rel.endsWith('/' + base))) || null;
+    filename = f ? f.filename : base;
+  }
+  if (!filename) {
+    if (rel) window.open(fileURL(rel), '_blank');
+    return;
+  }
+  const proj = (opts && opts.project) || currentProject;
+  const pageNum = (Number.isInteger(Number(targetPage)) && Number(targetPage) > 0) ? Number(targetPage) : 1;
+  const metadata = f || {
+    filename: filename,
+    rel: rel || filename,
+    folder: (opts && opts.folder) || 'Documents',
+    _rev: (opts && opts.revision) || ''
+  };
+
+  // Preserve active project and document context for Copilot and UI
+  setDocContext(metadata);
+
+  // Arm pending doc for PdfCraft workbench
+  window._pdfSkipDefaultSample = true;
+  window._pdfPendingDoc = {
+    filename: filename,
+    relPath: rel,
+    project: proj,
+    targetPage: pageNum,
+    metadata: metadata
+  };
+
+  // Navigate to integrated PdfCraft Studio
+  navigate('pdfcraft');
+
+  if (typeof window.openPdfProjectDocument === 'function') {
+    await window.openPdfProjectDocument(filename, rel, proj, pageNum, metadata);
+  }
+  window._pdfSkipDefaultSample = false;
+}
+window.openProjectPdf = openProjectPdf;
+
+function openFile(rel, page = 1){
+  if (rel && /\.pdf$/i.test(rel)) {
+    return openProjectPdf(rel, page);
+  }
+  window.open(fileURL(rel),'_blank');
+}
 function docsBy(filter){ let list=allDocs.filter(filter); if(currentRevision) list=list.filter(f=>f._rev===currentRevision); return list; }
 
 /* ============================================================
@@ -610,14 +677,60 @@ function renderSplitDocs(b, list, kind, emptyMsg){
   </div>`;
   initSplitter(b.querySelector('.split'));
   const lc=$('docList');
-  lc.innerHTML=list.map((f,i)=>`<div class="li" data-i="${i}"><div class="fi">${fileTypeIcon(fileExt(f.filename))}</div>
-    <div class="fn"><b>${esc(f.filename)}</b><span>${esc(f.folder||f.category||'')}${f._rev?` · File Rev ${esc(f._rev)}`:''}${f.chunks?` · ${f.chunks} chunks`:''}</span></div></div>`).join('');
-  lc.querySelectorAll('.li').forEach(li=>li.onclick=()=>{
-    lc.querySelectorAll('.li').forEach(x=>x.classList.remove('on')); li.classList.add('on');
-    const f=list[+li.dataset.i]; openInViewer(f);
+  lc.innerHTML=list.map((f,i)=>{
+    const isPdf = /\.pdf$/i.test(f.filename);
+    const isCad = /\.(dwg|dxf)$/i.test(f.filename);
+    return `<div class="li" data-i="${i}" style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+      <div style="display:flex;align-items:center;gap:10px;min-width:0;flex:1">
+        <div class="fi" title="${isPdf ? 'PDF Document' : (isCad ? 'CAD Drawing' : 'File')}">${fileTypeIcon(fileExt(f.filename))}</div>
+        <div class="fn" style="min-width:0">
+          <b class="doc-title-text" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${esc(f.filename)}">${esc(f.filename)}</b>
+          <span>${esc(f.folder||f.category||'')}${f._rev?` · File Rev ${esc(f._rev)}`:''}${f.chunks?` · ${f.chunks} chunks`:''}</span>
+        </div>
+      </div>
+      <div class="doc-actions" style="flex:none;display:flex;align-items:center;gap:6px">
+        ${isPdf ? `<button class="tb primary pdf-quick-open-btn" data-i="${i}" style="padding:3px 9px;font-size:11px;font-weight:600;display:inline-flex;align-items:center;gap:4px" title="Open in PdfCraft Studio"><svg class="ico" style="width:12px;height:12px" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>Open</button>` : ''}
+        ${isCad ? `<button class="tb primary cad-quick-open-btn" data-i="${i}" style="padding:3px 9px;font-size:11px;font-weight:600" title="Open in CADCraft Studio">Open</button>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+
+  lc.querySelectorAll('.pdf-quick-open-btn').forEach(btn => {
+    btn.onclick = (e) => {
+      e.stopPropagation();
+      const f = list[+btn.dataset.i];
+      openProjectPdf(f);
+    };
+  });
+  lc.querySelectorAll('.cad-quick-open-btn').forEach(btn => {
+    btn.onclick = (e) => {
+      e.stopPropagation();
+      const f = list[+btn.dataset.i];
+      openCadDrawingFromProject(f.filename);
+    };
+  });
+
+  lc.querySelectorAll('.li').forEach(li=>{
+    li.onclick=(e)=>{
+      lc.querySelectorAll('.li').forEach(x=>x.classList.remove('on'));
+      li.classList.add('on');
+      const f=list[+li.dataset.i];
+      openInViewer(f);
+    };
+    li.ondblclick=()=>{
+      const f=list[+li.dataset.i];
+      if(/\.pdf$/i.test(f.filename)){
+        openProjectPdf(f);
+      } else if(/\.(dwg|dxf)$/i.test(f.filename)){
+        openCadDrawingFromProject(f.filename);
+      } else {
+        openFile(f.rel);
+      }
+    };
   });
   // auto-open first
-  lc.querySelector('.li').click();
+  const firstLi = lc.querySelector('.li');
+  if (firstLi) firstLi.click();
 }
 let pdfPreviewSequence=0, pdfPreviewObjectUrl=null;
 async function openPdfPreview(f,page=1,highlightSnippet=null,highlightRects=null){
@@ -638,13 +751,38 @@ async function openPdfPreview(f,page=1,highlightSnippet=null,highlightRects=null
     if(pdfPreviewObjectUrl)URL.revokeObjectURL(pdfPreviewObjectUrl);
     pdfPreviewObjectUrl=URL.createObjectURL(pixels);
     const hlBadge = isHighlighted ? '<span class="badge-s b-pass" style="margin-left:8px;font-size:11px">📍 Evidence Highlighted</span>' : '';
-    v.innerHTML=`<div class="dt-toolbar"><button class="tb" id="pdfPrev" ${page<=1?'disabled':''}>Previous</button><span>Source page ${page} / ${pages}</span>${hlBadge}<button class="tb" id="pdfNext" ${page>=pages?'disabled':''}>Next</button><button class="tb" id="pdfZoom">Zoom in</button><button class="tb" id="pdfCraftBtn" style="background:rgba(47,107,255,0.15);color:var(--accent2);border:1px solid rgba(47,107,255,0.35);font-weight:600;margin-left:8px;display:inline-flex;align-items:center;gap:6px"><svg class="ico" style="width:14px;height:14px" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg> Open &amp; Edit in PdfCraft</button><button class="tb" id="pdfOriginal" style="margin-left:auto">Open original PDF</button></div><div style="height:calc(100% - 48px);overflow:auto;background:#fff"><img id="pdfSourcePage" alt="Source page ${page}: ${esc(f.filename)}" style="display:block;width:100%;height:auto" src="${pdfPreviewObjectUrl}"></div>`;
+    v.innerHTML=`
+      <div class="dt-toolbar">
+        <button class="tb" id="pdfPrev" ${page<=1?'disabled':''}>Previous</button>
+        <span>Source page ${page} / ${pages}</span>${hlBadge}
+        <button class="tb" id="pdfNext" ${page>=pages?'disabled':''}>Next</button>
+        <button class="tb" id="pdfZoom">Zoom in</button>
+        <button class="tb primary" id="pdfCraftBtn" style="font-weight:600;margin-left:8px;display:inline-flex;align-items:center;gap:6px" title="Open and edit full document in PdfCraft Studio">
+          <svg class="ico" style="width:14px;height:14px" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+          Open in PdfCraft Studio
+        </button>
+        <button class="tb ghost" id="pdfOriginal" style="margin-left:auto" title="Download raw unmodified PDF file">Download original</button>
+      </div>
+      <div id="pdfSourcePageWrap" style="height:calc(100% - 48px);overflow:auto;background:#0d1527;display:flex;flex-direction:column;align-items:center;padding:14px 0;cursor:pointer;position:relative" title="Click anywhere on page to open in PdfCraft Studio">
+        <div style="position:sticky;top:8px;z-index:2;background:rgba(15,23,42,0.85);backdrop-filter:blur(6px);border:1px solid rgba(47,107,255,0.4);border-radius:6px;padding:6px 14px;color:#fff;font-size:11.5px;font-weight:600;display:flex;align-items:center;gap:8px;box-shadow:0 4px 12px rgba(0,0,0,0.3);margin-bottom:12px">
+          <svg class="ico" style="width:14px;height:14px;color:var(--accent2)" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+          <span>Click page to edit in <b>PdfCraft Studio</b></span>
+        </div>
+        <img id="pdfSourcePage" alt="Source page ${page}: ${esc(f.filename)}" style="display:block;max-width:92%;height:auto;box-shadow:0 6px 20px rgba(0,0,0,0.45);border-radius:4px" src="${pdfPreviewObjectUrl}">
+      </div>
+    `;
     $('pdfPrev').onclick=()=>openPdfPreview(f,page-1,highlightSnippet,highlightRects);
     $('pdfNext').onclick=()=>openPdfPreview(f,page+1,highlightSnippet,highlightRects);
-    $('pdfOriginal').onclick=()=>openFile(f.rel);
+    $('pdfOriginal').onclick=()=>openRawFile(f.rel);
     const pdfCraftBtn = $('pdfCraftBtn');
-    if(pdfCraftBtn) pdfCraftBtn.onclick = () => openPdfProjectDocumentFromPreview(f);
-    $('pdfZoom').onclick=()=>{const image=$('pdfSourcePage');const fitted=image.style.width==='100%';image.style.width=fitted?'auto':'100%';$('pdfZoom').textContent=fitted?'Fit width':'Zoom in';};
+    if(pdfCraftBtn) pdfCraftBtn.onclick = () => openProjectPdf(f, page);
+    const wrap = $('pdfSourcePageWrap');
+    if(wrap) wrap.onclick = (e) => {
+      if(e.target.tagName !== 'BUTTON') {
+        openProjectPdf(f, page);
+      }
+    };
+    $('pdfZoom').onclick=()=>{const image=$('pdfSourcePage');const fitted=image.style.maxWidth==='100%';image.style.maxWidth=fitted?'92%':'100%';$('pdfZoom').textContent=fitted?'Zoom in':'Fit width';};
   }catch(error){if(sequence===pdfPreviewSequence&&v.isConnected)v.innerHTML=state(error.message||'Source preview unavailable.','err');}
 }
 function openInViewer(f){
@@ -666,12 +804,12 @@ function openInViewer(f){
           <button class="primary" style="display:inline-flex;align-items:center;gap:7px;padding:9px 18px" onclick="openCadDrawingFromProject('${esc(f.filename)}')">
             <span>✏️ Open & Redesign in CADCraft</span>
           </button>
-          <button class="ghost" style="padding:9px 16px" onclick="openFile('${esc(f.rel)}')">Download file</button>
+          <button class="ghost" style="padding:9px 16px" onclick="openRawFile('${esc(f.rel)}')">Download file</button>
         </div>
       </div>
     `;
   }
-  else { v.innerHTML=`<div class="ws-scroll">${state('Preview not available for .'+fileExt(f.filename).toLowerCase()+' — open in a new tab.')}<div style="text-align:center"><button class="primary" onclick="openFile('${esc(f.rel)}')">Open file</button></div></div>`; }
+  else { v.innerHTML=`<div class="ws-scroll">${state('Preview not available for .'+fileExt(f.filename).toLowerCase()+' — open in a new tab.')}<div style="text-align:center"><button class="primary" onclick="openRawFile('${esc(f.rel)}')">Open file</button></div></div>`; }
   // set copilot context to this document
   setDocContext(f);
 }
@@ -687,22 +825,12 @@ async function openCadDrawingFromProject(filename){
 window.openCadDrawingFromProject = openCadDrawingFromProject;
 
 async function openPdfProjectDocumentFromPreview(f){
-  window._pdfSkipDefaultSample = true;
-  navigate('pdfcraft');
-  if(window.openPdfProjectDocument){
-    await window.openPdfProjectDocument(f.filename, f.rel, currentProject);
-  }
-  window._pdfSkipDefaultSample = false;
+  return openProjectPdf(f);
 }
 window.openPdfProjectDocumentFromPreview = openPdfProjectDocumentFromPreview;
 
 async function openPdfFromProjectLink(filename){
-  window._pdfSkipDefaultSample = true;
-  navigate('pdfcraft');
-  if(window.openPdfProjectDocument){
-    await window.openPdfProjectDocument(filename, null, currentProject);
-  }
-  window._pdfSkipDefaultSample = false;
+  return openProjectPdf(filename);
 }
 window.openPdfFromProjectLink = openPdfFromProjectLink;
 
@@ -872,7 +1000,18 @@ async function renderSchedules(b){
         $('schDetailTable').querySelectorAll('tbody tr').forEach(tr=>{ tr.style.display=tr.textContent.toLowerCase().includes(q)?'':'none'; });
       };
       if($('schDetailTable')) enableSort($('schDetailTable'));
-      $('schView').querySelectorAll('td.src').forEach(td=>{ const doc=td.dataset.doc; const f=allDocs.find(x=>x.filename===doc); if(f){ td.onclick=()=>openFile(f.rel); } });
+      $('schView').querySelectorAll('td.src').forEach(td=>{
+        const doc=td.dataset.doc;
+        const f=allDocs.find(x=>x.filename===doc);
+        td.style.cursor='pointer';
+        td.title='Open in PdfCraft Studio';
+        td.onclick=()=>{
+          if(f && /\.pdf$/i.test(f.filename)) openProjectPdf(f);
+          else if(doc && /\.pdf$/i.test(doc)) openProjectPdf(doc, 1, { folder: 'Schedules' });
+          else if(f) openFile(f.rel);
+          else if(doc) openFile(doc);
+        };
+      });
     }
     function showTable(i){ $('schView').innerHTML=_schedTableHTML(order[i], groups[order[i]]); wireDetail(); }
     function showQty(){ $('schView').innerHTML=_schedQtyHTML(qty); wireDetail(); }
@@ -910,7 +1049,13 @@ async function renderCodes(b){
   $('codesBody').innerHTML=`
     <div class="dt-toolbar"><b>Standards knowledge base (${kb.length})</b>
       <button class="primary" style="margin-left:auto" onclick="setAiTab('chat');$('aiIn').value='Search the codes and standards: ';$('aiIn').focus()">Search codes with AI</button></div>
-    ${kb.length?`<div class="tiles">${kb.map(k=>`<div class="tile"><h4>${svg('<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5z"/>')} ${esc(k.filename||k.name||'standard')}</h4><p>${esc((k.chunks!=null?k.chunks+' chunks':'')||'')}</p></div>`).join('')}</div>`:state('No code/standard documents in the knowledge base yet.')}
+    ${kb.length?`<div class="tiles">${kb.map(k=>`<div class="tile" style="cursor:pointer" onclick="openProjectPdf('${esc(k.filename||k.name||'standard')}', 1, {project:'__knowledge_base__', folder:'Codes & Standards'})" title="Open in PdfCraft Studio">
+      <h4>${svg('<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5z"/>')} ${esc(k.filename||k.name||'standard')}</h4>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px">
+        <p style="margin:0">${esc((k.chunks!=null?k.chunks+' chunks':'')||'')}</p>
+        <span class="badge-s b-pass" style="font-size:10px">Open in PdfCraft</span>
+      </div>
+    </div>`).join('')}</div>`:state('No code/standard documents in the knowledge base yet.')}
     <div class="dt-toolbar" style="margin-top:24px"><b>Deterministic compliance rules (${rules.length})</b></div>
     ${rules.length?`<table class="dt"><thead><tr><th>Rule</th><th>Requirement</th><th>Operator</th><th>Value</th><th>Code ref</th></tr></thead><tbody>
       ${rules.map(rl=>`<tr><td><b>${esc(rl.rule_id||rl.id||'')}</b></td><td>${esc(rl.title||rl.description||rl.name||'')}</td>
@@ -948,10 +1093,25 @@ async function showFinding(f){
     ${row('Actual value', esc(full.actual_value))}
     ${row('Expected value', esc(full.expected_value))}
     ${row('Recommendation', esc(full.recommendation))}
-    ${row('Source', full.source_doc?`<span class="srclink" data-doc="${esc(full.source_doc)}" style="color:var(--accent2);cursor:pointer">${esc(full.source_doc)}${full.source_page!=null?' · p.'+esc(full.source_page):''}</span>`:'')}
+    ${row('Source', full.source_doc?`<span class="srclink" data-doc="${esc(full.source_doc)}" style="color:var(--accent2);cursor:pointer;font-weight:600" title="Click to open source page in PdfCraft Studio">${esc(full.source_doc)}${full.source_page!=null?' · p.'+esc(full.source_page):''} <svg class="ico" style="width:11px;height:11px;vertical-align:middle" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></span>`:'')}
     ${row('Lifecycle', esc(full.lifecycle_state))}
     <div style="margin-top:16px"><button class="ghost" id="findAsk">Ask Design AI to explain</button></div>`;
-  const sl=$('findBody').querySelector('.srclink'); if(sl){ sl.onclick=()=>{ const f=allDocs.find(x=>x.filename===full.source_doc); if(f)openFile(f.rel); }; }
+  const sl=$('findBody').querySelector('.srclink');
+  if(sl){
+    sl.onclick=()=>{
+      const f=allDocs.find(x=>x.filename===full.source_doc);
+      const targetPage = (full.source_page!=null && Number(full.source_page)>0) ? Number(full.source_page) : 1;
+      if(f && /\.pdf$/i.test(f.filename)){
+        openProjectPdf(f, targetPage);
+      } else if(full.source_doc && /\.pdf$/i.test(full.source_doc)){
+        openProjectPdf(full.source_doc, targetPage);
+      } else if(f){
+        openFile(f.rel);
+      } else {
+        openFile(full.source_doc);
+      }
+    };
+  }
   const fa=$('findBody').querySelector('#findAsk'); if(fa){ fa.onclick=()=>askAbout(`Explain this QA finding: ${(full.title||full.finding_id)}. What does it mean and how should it be resolved?`); }
 }
 
@@ -968,9 +1128,19 @@ async function loadReportsList(){
     <select class="tb" id="repType"><option value="compliance">Compliance report</option><option value="bim_qa">BIM QA report</option><option value="issue_register">Issue register</option></select>
     <select class="tb" id="repFmt"><option value="pdf">PDF</option><option value="xlsx">Excel</option><option value="docx">Word</option></select>
     <button class="primary" id="repGen">Generate</button></div>
-    ${reports.length?`<table class="dt"><thead><tr><th>Report</th><th>Size</th><th>Created</th><th></th></tr></thead><tbody>
-      ${reports.map(r=>`<tr><td>📄 ${esc(r.filename)}</td><td>${fmtBytes(r.size)}</td><td>${esc((r.created||'').replace('T',' ').slice(0,16))}</td>
-        <td><a class="tb" href="${API}/api/v1/reports/${encodeURIComponent(r.filename.replace(/\.[^.]+$/,''))}/download" target="_blank">Download</a></td></tr>`).join('')}</tbody></table>`
+    ${reports.length?`<table class="dt"><thead><tr><th>Report</th><th>Size</th><th>Created</th><th style="text-align:right">Actions</th></tr></thead><tbody>
+      ${reports.map(r=>{
+        const isPdf = /\.pdf$/i.test(r.filename);
+        return `<tr>
+          <td>${isPdf ? `<span class="pdf-report-link" style="cursor:pointer;font-weight:600;color:var(--text);display:inline-flex;align-items:center;gap:6px" onclick="openProjectPdf('${esc(r.filename)}', 1, {folder:'Reports'})" title="Open in PdfCraft Studio">📄 ${esc(r.filename)} <span class="badge-s b-pass" style="font-size:9.5px">PdfCraft</span></span>` : `📄 ${esc(r.filename)}`}</td>
+          <td>${fmtBytes(r.size)}</td>
+          <td>${esc((r.created||'').replace('T',' ').slice(0,16))}</td>
+          <td style="text-align:right">
+            ${isPdf ? `<button class="tb primary" onclick="openProjectPdf('${esc(r.filename)}', 1, {folder:'Reports'})" style="margin-right:6px;display:inline-flex;align-items:center;gap:4px" title="Open in PdfCraft Studio"><svg class="ico" style="width:12px;height:12px" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>Open in PdfCraft</button>` : ''}
+            <a class="tb ghost" href="${API}/api/v1/reports/${encodeURIComponent(r.filename.replace(/\.[^.]+$/,''))}/download" target="_blank" title="Download report file">Download</a>
+          </td>
+        </tr>`;
+      }).join('')}</tbody></table>`
       :state('No reports generated yet. Choose a type and click Generate.')}`;
 }
 function wireReportGen(){ const btn=$('repGen'); if(!btn)return;
@@ -3366,30 +3536,23 @@ function addCommandCard(d){
   $('aiMsgs').scrollTop=$('aiMsgs').scrollHeight;
 }
 
-/* Open a cited source at its page using the EXISTING document viewer (no second viewer). */
+/* Open a cited source at its page using the default PdfCraft Studio for PDFs */
 function openSourceTile(rel, page, snippet=null, bbox=null){
   if(!rel){ return; }
   const base=String(rel).replace(/\\/g,'/').split('/').pop();
   const f=allDocs.find(x=>x.rel===rel || x.filename===base || (x.rel&&x.rel.endsWith('/'+base)));
-  if(!f){ openFile(rel); return; }
-  if(/\.pdf$/i.test(f.filename)){
-    navigate('documents');
-    // A cited accessible PDF may live in Reports or Schedules. Show the
-    // actual source without changing its folder or falling back to page 1.
-    renderSplitDocs($('genericWrap'),[f],'source document','Source unavailable.');
-    const sourcePage=Number.isInteger(Number(page))&&Number(page)>0?Number(page):1;
-    openPdfPreview(f,sourcePage,snippet,bbox);
-    setDocContext(f);
+  const isPdf = f ? /\.pdf$/i.test(f.filename) : /\.pdf$/i.test(rel);
+  const sourcePage = (Number.isInteger(Number(page)) && Number(page) > 0) ? Number(page) : 1;
+  if(isPdf){
+    openProjectPdf(f || rel, sourcePage);
     return;
   }
-  const dest=/\.(pdf|dwg|dxf)$/i.test(f.filename)?'drawings':(/\.(xlsx|xls|csv)$/i.test(f.filename)?'schedules':'documents');
+  const dest=/\.(dwg|dxf)$/i.test(f?f.filename:base)?'drawings':(/\.(xlsx|xls|csv)$/i.test(f?f.filename:base)?'schedules':'documents');
   if(currentDest!==dest){ try{ navigate(dest); }catch(e){} }
   setTimeout(()=>{
-    const isPdf=/\.pdf$/i.test(f.filename);
     const v=$('docView');
-    if(v && isPdf){ const pg=page?('#page='+page):''; v.innerHTML=`<div class="docframe-wrap"><iframe class="docframe" src="${fileURL(f.rel)}${pg||'#toolbar=1'}"></iframe></div>`; setDocContext(f); }
-    else if(v){ openInViewer(f); }
-    else { openFile(f.rel); }
+    if(v && f){ openInViewer(f); }
+    else { openRawFile(rel); }
   }, dest===currentDest?0:60);
 }
 window.openSourceTile = openSourceTile;
@@ -3517,8 +3680,11 @@ function renderReferencesPane(){
   if(!refs.length){ b.innerHTML=`<div class="state"><div class="muted">Ask a question — the sources behind the answer appear here with page and revision.</div></div>`; return; }
   b.innerHTML=`<div class="dt-toolbar"><b>Sources used in the last answer</b></div>`+refs.map(s=>{
     const name=s.filename||s.source||s.rel||'source'; const rel=s.rel||s.source||'';
-    return `<div class="li" onclick="openFile('${esc(rel)}')"><div class="fi">${fileTypeIcon(fileExt(name))}</div>
-      <div class="fn"><b>${esc(name)}</b><span>${s.page!=null?('Page '+s.page):''}${s.revision?(' · Rev '+esc(s.revision)):''}</span></div></div>`; }).join('');
+    const isPdf = /\.pdf$/i.test(name) || /\.pdf$/i.test(rel);
+    const clickHandler = isPdf ? `openProjectPdf('${esc(rel||name)}', ${s.page||1})` : `openFile('${esc(rel)}')`;
+    return `<div class="li" onclick="${clickHandler}" title="${isPdf ? 'Open in PdfCraft Studio' : 'Open file'}"><div class="fi">${fileTypeIcon(fileExt(name))}</div>
+      <div class="fn"><b>${esc(name)}</b><span>${s.page!=null?('Page '+s.page):''}${s.revision?(' · Rev '+esc(s.revision)):''}</span></div>
+      ${isPdf ? `<span class="badge-s b-pass" style="font-size:9.5px;margin-left:auto">PdfCraft</span>` : ''}</div>`; }).join('');
 }
 
 /* --- Compliance pane (deterministic engine, not the LLM) --- */

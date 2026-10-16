@@ -263,9 +263,13 @@ function renderPdfCraftWorkspace(container) {
   _initPdfCraftStyles();
   _bindPdfEvents();
 
-  // Load default architectural sample or previously opened PDF
-  if (_pdfState.docId && _pdfState.info) {
-    _applyLoadedDocument(_pdfState.docId, _pdfState.filename, _pdfState.info);
+  // Load pending project PDF, previously opened PDF, or default architectural sample
+  if (window._pdfPendingDoc) {
+    const p = window._pdfPendingDoc;
+    window._pdfPendingDoc = null;
+    openPdfProjectDocument(p.filename, p.relPath, p.project, p.targetPage, p.metadata);
+  } else if (_pdfState.docId && _pdfState.info) {
+    _applyLoadedDocument(_pdfState.docId, _pdfState.filename, _pdfState.info, _pdfState.relPath, _pdfState.metadata);
   } else if (!window._pdfSkipDefaultSample) {
     _loadSampleDocument('sample_expo_masterplan_spec');
   }
@@ -993,18 +997,26 @@ async function _uploadPdfFile(file) {
   }
 }
 
-async function openPdfProjectDocument(filename, relPath, project) {
+async function openPdfProjectDocument(filename, relPath, project, targetPage = 1, metadata = null) {
   _showLoading(`Loading ${filename}...`, 'Opening from project storage');
-  const proj = project || currentProject;
+  const proj = project || (typeof currentProject !== 'undefined' ? currentProject : null);
   const fd = new FormData();
-  fd.append('project', proj);
+  if (proj) fd.append('project', proj);
   if (filename) fd.append('filename', filename);
   if (relPath) fd.append('rel', relPath);
   try {
     const res = await fetch(`${API}/api/v1/pdf/open`, { method: 'POST', body: fd });
-    if (!res.ok) throw new Error('Document open error');
+    if (!res.ok) {
+      let errDetail = 'Document open error';
+      try { const errJson = await res.json(); errDetail = errJson.detail || errDetail; } catch(e){}
+      throw new Error(errDetail);
+    }
     const data = await res.json();
-    _applyLoadedDocument(data.doc_id, data.filename, data.info);
+    _applyLoadedDocument(data.doc_id, data.filename, data.info, relPath, metadata || { folder: data.folder, project: data.project });
+    const p = parseInt(targetPage, 10);
+    if (Number.isInteger(p) && p > 1) {
+      _goToPage(p);
+    }
     toast(`Loaded ${filename} in PdfCraft Studio`);
   } catch (err) {
     toast(`Failed to open project document: ${err.message}`);
@@ -1013,9 +1025,11 @@ async function openPdfProjectDocument(filename, relPath, project) {
   }
 }
 
-function _applyLoadedDocument(docId, filename, info) {
+function _applyLoadedDocument(docId, filename, info, relPath = null, metadata = null) {
   _pdfState.docId = docId;
   _pdfState.filename = filename;
+  _pdfState.relPath = relPath || filename;
+  _pdfState.metadata = metadata || {};
   _pdfState.info = info;
   _pdfState.currentPage = 1;
   _pdfState.totalPages = info.page_count || 1;
@@ -1025,17 +1039,21 @@ function _applyLoadedDocument(docId, filename, info) {
 
   // Sync with App Copilot context
   if (typeof setDocContext === 'function') {
+    const rev = (metadata && metadata._rev) || '';
+    const fldr = (metadata && (metadata.folder || metadata.category)) || (info && info.folder) || 'Documents';
     setDocContext({
       filename: filename,
-      rel: filename,
-      folder: 'PdfCraft',
-      _rev: ''
+      rel: relPath || filename,
+      folder: fldr,
+      _rev: rev,
+      ...(metadata || {})
     });
   }
 
   // Status bar updates
+  const revStr = (metadata && metadata._rev) ? ` · Rev ${metadata._rev}` : '';
   const nameEl = document.getElementById('pdfDocNameLabel');
-  if (nameEl) nameEl.textContent = `📄 ${filename} (${info.page_count} Pages)`;
+  if (nameEl) nameEl.textContent = `📄 ${filename}${revStr} (${info.page_count} Pages)`;
   const secEl = document.getElementById('pdfSecurityLabel');
   if (secEl) secEl.textContent = info.is_encrypted ? '🔒 AES-256 Protected' : '🔓 Unlocked (Full Access)';
 

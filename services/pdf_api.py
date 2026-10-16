@@ -188,23 +188,65 @@ async def open_pdf(
         doc_title = file.filename
         with open(cached_path, "wb") as f_out:
             shutil.copyfileobj(file.file, f_out)
-    elif project and (filename or rel):
-        doc_title = filename or os.path.basename(rel)
-        proj_dir = os.path.join(db.DATA_DIR, "docs", project)
+    elif (project or filename or rel):
+        clean_name = filename or (os.path.basename(rel) if rel else "")
+        doc_title = clean_name
         target_path = None
-        if rel:
-            rel_clean = rel.replace("\\", "/").lstrip("/")
-            candidate = os.path.join(proj_dir, rel_clean)
-            if os.path.exists(candidate) and os.path.isfile(candidate):
-                target_path = candidate
-        if not target_path and filename:
-            for root, _, files in os.walk(proj_dir):
-                if filename in files:
-                    target_path = os.path.join(root, filename)
-                    break
+        detected_folder = "Documents"
+
+        # 1. Search in project docs directory
+        if project:
+            proj_dir = os.path.join(db.DATA_DIR, "docs", project)
+            if rel:
+                rel_clean = rel.replace("\\", "/").lstrip("/")
+                candidate = os.path.join(proj_dir, rel_clean)
+                if os.path.exists(candidate) and os.path.isfile(candidate):
+                    target_path = candidate
+                    detected_folder = os.path.dirname(rel_clean) or "Documents"
+            if not target_path and clean_name and os.path.exists(proj_dir):
+                for root, _, files in os.walk(proj_dir):
+                    if clean_name in files:
+                        target_path = os.path.join(root, clean_name)
+                        rel_sub = os.path.relpath(target_path, proj_dir).replace("\\", "/")
+                        detected_folder = os.path.dirname(rel_sub) or "Documents"
+                        break
+
+            # 2. Search in project reports directory
+            if not target_path:
+                rep_dir = os.path.join(db.DATA_DIR, "reports", project)
+                if os.path.exists(rep_dir):
+                    for root, _, files in os.walk(rep_dir):
+                        if clean_name in files:
+                            target_path = os.path.join(root, clean_name)
+                            detected_folder = "Reports"
+                            break
+
+        # 3. Search in knowledge base (__knowledge_base__)
+        if not target_path:
+            kb_dir = os.path.join(db.DATA_DIR, "docs", "__knowledge_base__")
+            if os.path.exists(kb_dir):
+                for root, _, files in os.walk(kb_dir):
+                    if clean_name in files:
+                        target_path = os.path.join(root, clean_name)
+                        detected_folder = "Codes & Standards"
+                        break
+
+        # 4. Fallback search across all docs folders
+        if not target_path and clean_name:
+            all_docs_dir = os.path.join(db.DATA_DIR, "docs")
+            if os.path.exists(all_docs_dir):
+                for root, _, files in os.walk(all_docs_dir):
+                    if clean_name in files:
+                        target_path = os.path.join(root, clean_name)
+                        break
+
         if not target_path or not os.path.exists(target_path):
-            raise HTTPException(status_code=404, detail=f"File '{filename or rel}' not found in project '{project}'.")
-        # Copy to cache for non-destructive incremental editing
+            raise HTTPException(
+                status_code=404, 
+                detail=f"PDF document '{clean_name or rel}' could not be located in project storage, reports, or knowledge base."
+            )
+
+        # Copy to cache for non-destructive local editing
         shutil.copyfile(target_path, cached_path)
     else:
         raise HTTPException(status_code=400, detail="Must provide either an uploaded PDF file or project and filename.")
@@ -213,13 +255,16 @@ async def open_pdf(
         "path": cached_path,
         "name": doc_title,
         "original_project": project,
-        "original_filename": filename
+        "original_filename": clean_name or doc_title,
+        "detected_folder": detected_folder
     }
 
     info = PdfService.inspect_pdf(cached_path, password=password)
     return {
         "doc_id": session_id,
         "filename": doc_title,
+        "project": project,
+        "folder": detected_folder,
         "info": info
     }
 
@@ -278,13 +323,17 @@ async def get_thumbnail(
 @pdf_router.get("/search")
 async def search_document(
     doc_id: str = Query(...),
-    query: str = Query(...),
+    query: Optional[str] = Query(None),
+    q: Optional[str] = Query(None),
     password: Optional[str] = Query(None)
 ):
     """Searches document for query text, returning matches with bounding boxes."""
+    search_term = query or q
+    if not search_term:
+        raise HTTPException(status_code=400, detail="Must provide 'query' or 'q' parameter.")
     path = _get_doc_path(doc_id)
-    results = PdfService.search_text(path, query, password=password)
-    return {"query": query, "total_matches": len(results), "matches": results}
+    results = PdfService.search_text(path, search_term, password=password)
+    return {"query": search_term, "total_matches": len(results), "matches": results}
 
 
 @pdf_router.post("/organize")
@@ -449,7 +498,8 @@ async def remove_security(doc_id: str = Form(...), password: str = Form(...)):
 async def save_to_project(req: SaveToProjectRequest):
     """Atomically saves modified PDF back to project documents folder."""
     src_path = _get_doc_path(req.doc_id)
-    proj_dir = os.path.join(db.DATA_DIR, "docs", req.project, req.folder or "Documents")
+    folder_name = req.folder or "Documents"
+    proj_dir = os.path.join(db.DATA_DIR, "docs", req.project, folder_name)
     os.makedirs(proj_dir, exist_ok=True)
 
     dest_filename = os.path.basename(req.filename)
@@ -459,14 +509,30 @@ async def save_to_project(req: SaveToProjectRequest):
     dest_path = os.path.join(proj_dir, dest_filename)
     shutil.copyfile(src_path, dest_path)
 
-    # Register in database
-    db.upsert_document(
-        project_name=req.project,
-        filename=dest_filename,
-        folder=req.folder or "Documents",
-        size_bytes=os.path.getsize(dest_path),
-        chunks=1
-    )
+    # Resolve folder_id if exists
+    folder_id = None
+    try:
+        folders = db.list_folders(req.project)
+        for fld in folders:
+            if fld.get("name", "").lower() == folder_name.lower():
+                folder_id = fld.get("id")
+                break
+    except Exception:
+        pass
+
+    # Register in database using standard record_document
+    try:
+        db.record_document(
+            project=req.project,
+            filename=dest_filename,
+            path=dest_path,
+            chunks=1,
+            discipline=None,
+            status="ready",
+            folder_id=folder_id
+        )
+    except Exception as exc:
+        logger.warning(f"Failed to record document in db: {exc}")
 
     return {
         "status": "success",

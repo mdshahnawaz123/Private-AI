@@ -297,6 +297,8 @@ table.dt tr:hover td{background:#0e1826}
 #login.show{display:grid}
 #pwchange{position:fixed;inset:0;background:rgba(6,9,14,.94);display:none;place-items:center;z-index:101}
 #pwchange.show{display:grid}
+#accountModal{position:fixed;inset:0;background:rgba(6,9,14,.94);display:none;place-items:center;z-index:102}
+#accountModal.show{display:grid}
 .lcard{background:var(--surface2);border:1px solid var(--border);border-radius:16px;padding:30px 28px;width:340px;box-shadow:var(--shadow-2)}
 .lcard .lg{width:44px;height:44px;border-radius:11px;background:linear-gradient(150deg,var(--accent),var(--violet));display:grid;place-items:center;font-weight:800;color:#fff;font-size:22px;margin-bottom:16px}
 .lcard h2{margin:0 0 3px;font-size:19px}.lcard p{margin:0 0 18px;color:var(--muted);font-size:12.5px}
@@ -639,7 +641,8 @@ body.chat-expanded #ai .ctx-actions{display:none}
     <button class="iconbtn" id="btnNotif" title="Notifications"><svg class="ico" viewBox="0 0 24 24" style="width:20px;height:20px"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg><span class="dot" id="notifDot" hidden></span></button>
     <button class="iconbtn" id="btnHelp" title="Help"><svg class="ico" viewBox="0 0 24 24" style="width:20px;height:20px"><circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg></button>
     <button class="iconbtn" id="btnSettings" title="Settings"><svg class="ico" viewBox="0 0 24 24" style="width:20px;height:20px"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-1.8-.3 1.6 1.6 0 0 0-1 1.5V21a2 2 0 0 1-4 0v-.1a1.6 1.6 0 0 0-1-1.5 1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0 .3-1.8 1.6 1.6 0 0 0-1.5-1H3a2 2 0 0 1 0-4h.1a1.6 1.6 0 0 0 1.5-1 1.6 1.6 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 1.8.3H9a1.6 1.6 0 0 0 1-1.5V3a2 2 0 0 1 4 0v.1a1.6 1.6 0 0 0 1 1.5 1.6 1.6 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8V9a1.6 1.6 0 0 0 1.5 1H21a2 2 0 0 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1z"/></svg></button>
-    <div class="user"><div class="av" id="uav">--</div><div><div class="un" id="uname">—</div><div class="ur" id="urole">—</div></div>
+    <div class="user"><div class="av" id="uav" style="cursor:pointer" title="Manage Account">--</div><div style="cursor:pointer" id="uprofile"><div class="un" id="uname">—</div><div class="ur" id="urole">—</div></div>
+      <button class="tb" id="accountBtn" style="padding:6px 10px;margin-left:4px" title="Manage Account & Password">Account</button>
       <button class="tb" id="logoutBtn" style="padding:6px 10px;margin-left:4px">Logout</button></div>
   </div>
 </header>
@@ -765,11 +768,27 @@ body.chat-expanded #ai .ctx-actions{display:none}
   <div class="lcard">
     <div class="lg">E</div>
     <h2>Change your password</h2><p>This account is still using its default/seeded password. Set a new one to continue.</p>
+    <label>New Username (optional)</label><input id="pwcUsername" autocomplete="username" placeholder="Leave blank to keep current">
     <label>Current password</label><input id="pwcOld" type="password" autocomplete="current-password">
     <label>New password</label><input id="pwcNew" type="password" autocomplete="new-password">
     <label>Confirm new password</label><input id="pwcConfirm" type="password" autocomplete="new-password">
     <button id="pwcBtn">Set new password</button>
     <div id="pwcErr"></div>
+  </div>
+</div>
+
+<!-- ACCOUNT CREDENTIALS MODAL -->
+<div id="accountModal">
+  <div class="lcard" style="width:380px;position:relative">
+    <button id="accountCloseBtn" style="position:absolute;top:16px;right:16px;background:none;border:none;color:var(--muted);font-size:22px;cursor:pointer;width:auto;margin:0;padding:0;line-height:1" title="Close">&times;</button>
+    <div class="lg">👤</div>
+    <h2>Account Credentials</h2><p>Update your username or password.</p>
+    <label>Username</label><input id="accUsername" autocomplete="username" placeholder="Enter username">
+    <label>Current password <span style="color:var(--muted);font-size:11px">(required)</span></label><input id="accOldPw" type="password" autocomplete="current-password" placeholder="Current password">
+    <label>New password <span style="color:var(--muted);font-size:11px">(leave blank to keep current)</span></label><input id="accNewPw" type="password" autocomplete="new-password" placeholder="At least 8 characters">
+    <label>Confirm new password</label><input id="accConfirmPw" type="password" autocomplete="new-password" placeholder="Confirm new password">
+    <button id="accSaveBtn">Save Changes</button>
+    <div id="accErr" style="color:var(--red);font-size:12px;margin-top:10px;min-height:16px"></div>
   </div>
 </div>
 

@@ -1830,6 +1830,14 @@ class ActiveReq(BaseModel):
 class ChangePwReq(BaseModel):
     old_password: str
     new_password: str
+    new_username: Optional[str] = None
+
+class UpdateProfileReq(BaseModel):
+    old_password: str
+    new_username: Optional[str] = None
+    new_password: Optional[str] = None
+    full_name: Optional[str] = None
+    email: Optional[str] = None
 
 class CreateProjectReq(BaseModel):
     name: str
@@ -5700,8 +5708,54 @@ async def change_password(body: ChangePwReq, request: Request):
     full = db.get_user_by_username(u["username"])
     if not full or not auth.verify_password(body.old_password, full.get("password_hash")):
         raise HTTPException(400, "Current password is incorrect")
-    db.set_user_password(u["id"], auth.hash_password(body.new_password), by=u)
-    return {"status": "ok"}
+    if len(body.new_password) < 8:
+        raise HTTPException(400, "New password must be at least 8 characters")
+    if body.new_password == body.old_password and not body.new_username:
+        raise HTTPException(400, "New password must be different from current password")
+    try:
+        updated_user = db.update_user_profile(
+            uid=u["id"],
+            new_username=body.new_username if body.new_username else None,
+            new_password_hash=auth.hash_password(body.new_password),
+            by=u
+        )
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    new_token = auth.make_token(updated_user)
+    return {"status": "ok", "token": new_token, "user": updated_user, "message": "Password updated successfully"}
+
+@app.post("/auth/update-profile")
+async def update_profile(body: UpdateProfileReq, request: Request):
+    u = auth.require_user(request)
+    full = db.get_user_by_username(u["username"])
+    if not full or not auth.verify_password(body.old_password, full.get("password_hash")):
+        raise HTTPException(400, "Current password is incorrect")
+    
+    new_pw_hash = None
+    if body.new_password:
+        if len(body.new_password) < 8:
+            raise HTTPException(400, "New password must be at least 8 characters")
+        if body.new_password == body.old_password:
+            raise HTTPException(400, "New password must be different from current password")
+        new_pw_hash = auth.hash_password(body.new_password)
+        
+    if not body.new_username and not new_pw_hash and body.full_name is None and body.email is None:
+        raise HTTPException(400, "No changes specified")
+
+    try:
+        updated_user = db.update_user_profile(
+            uid=u["id"],
+            new_username=body.new_username if body.new_username else None,
+            full_name=body.full_name,
+            email=body.email,
+            new_password_hash=new_pw_hash,
+            by=u
+        )
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    
+    new_token = auth.make_token(updated_user)
+    return {"status": "ok", "token": new_token, "user": updated_user, "message": "Profile updated successfully"}
 
 @app.get("/admin/users")
 async def admin_list_users(request: Request):

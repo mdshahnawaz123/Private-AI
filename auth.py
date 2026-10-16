@@ -199,12 +199,17 @@ def must_change_password(user: dict) -> bool:
     """Check if the user must change their password (first login with default)."""
     if not user:
         return False
-    # Admin with default password must change it
-    if user.get("role") == "admin" and user.get("username") == "admin":
-        # Check if password is still the default
-        from config import get_settings
-        settings = get_settings()
-        default_pw = settings.admin_password
-        if verify_password(default_pw, user.get("password_hash", "")):
-            return True
+    # Any admin account with default password must change it
+    if user.get("role") == "admin":
+        pw_hash = user.get("password_hash")
+        if not pw_hash and user.get("username"):
+            u_row = db.get_user_by_username(user.get("username"))
+            if u_row:
+                pw_hash = u_row.get("password_hash")
+        if pw_hash:
+            from config import get_settings
+            settings = get_settings()
+            default_pw = settings.admin_password
+            if verify_password(default_pw, pw_hash):
+                return True
     return False

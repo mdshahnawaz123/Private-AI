@@ -535,6 +535,8 @@ async function doLogin(){
 function logout(){ clearToken(); currentUser = null; window._mustChangePw = false; location.reload(); }
 
 async function doForcedPwChange(){
+  const unEl = document.getElementById('pwcUsername');
+  const newUsername = unEl ? unEl.value.trim() : '';
   const oldPw = document.getElementById('pwcOld').value;
   const newPw = document.getElementById('pwcNew').value;
   const confirmPw = document.getElementById('pwcConfirm').value;
@@ -542,15 +544,73 @@ async function doForcedPwChange(){
   if (!oldPw || !newPw) { err.textContent = 'Enter your current and new password.'; return; }
   if (newPw.length < 8) { err.textContent = 'New password must be at least 8 characters.'; return; }
   if (newPw !== confirmPw) { err.textContent = 'New passwords do not match.'; return; }
-  if (newPw === oldPw) { err.textContent = 'New password must be different from the current one.'; return; }
+  if (newPw === oldPw && !newUsername) { err.textContent = 'New password must be different from the current one.'; return; }
   try {
-    const r = await _origFetch(`${API}/auth/change-password`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ old_password: oldPw, new_password: newPw }) });
+    const payload = { old_password: oldPw, new_password: newPw };
+    if (newUsername) payload.new_username = newUsername;
+    const r = await _origFetch(`${API}/auth/change-password`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
     const d = await r.json();
     if (!r.ok) throw new Error(d.detail || 'Password change failed');
+    if (d.token) saveToken(d.token);
+    if (d.user) currentUser = d.user;
     window._mustChangePw = false;
     const pwo = document.getElementById('pwChangeOverlay'); if (pwo) pwo.style.display = 'none';
     onAuthed();
+    toast('Credentials updated successfully');
   } catch(e) { err.textContent = e.message || 'Password change failed'; }
+}
+
+function openAccountModalClassic(){
+  const m = document.getElementById('accountModalClassic');
+  if (!m) return;
+  const unEl = document.getElementById('accClassicUser');
+  if (unEl && currentUser) unEl.value = currentUser.username || '';
+  if (document.getElementById('accClassicOld')) document.getElementById('accClassicOld').value = '';
+  if (document.getElementById('accClassicNew')) document.getElementById('accClassicNew').value = '';
+  if (document.getElementById('accClassicConfirm')) document.getElementById('accClassicConfirm').value = '';
+  if (document.getElementById('accClassicErr')) document.getElementById('accClassicErr').textContent = '';
+  m.classList.add('open');
+}
+
+function closeAccountModalClassic(){
+  const m = document.getElementById('accountModalClassic');
+  if (m) m.classList.remove('open');
+}
+
+async function saveAccountCredentialsClassic(){
+  const err = document.getElementById('accClassicErr'); if (err) err.textContent = '';
+  const un = document.getElementById('accClassicUser') ? document.getElementById('accClassicUser').value.trim() : '';
+  const oldPw = document.getElementById('accClassicOld') ? document.getElementById('accClassicOld').value : '';
+  const newPw = document.getElementById('accClassicNew') ? document.getElementById('accClassicNew').value : '';
+  const confirmPw = document.getElementById('accClassicConfirm') ? document.getElementById('accClassicConfirm').value : '';
+
+  if (!oldPw) { if (err) err.textContent = 'Current password is required.'; return; }
+
+  const payload = { old_password: oldPw };
+  const currentUn = (currentUser && currentUser.username) || '';
+  if (un && un !== currentUn) payload.new_username = un;
+  if (newPw) {
+    if (newPw.length < 8) { if (err) err.textContent = 'New password must be at least 8 characters.'; return; }
+    if (newPw !== confirmPw) { if (err) err.textContent = 'New passwords do not match.'; return; }
+    if (newPw === oldPw) { if (err) err.textContent = 'New password must be different from current password.'; return; }
+    payload.new_password = newPw;
+  }
+
+  if (!payload.new_username && !payload.new_password) {
+    if (err) err.textContent = 'No changes entered.';
+    return;
+  }
+
+  try {
+    const r = await _origFetch(`${API}/auth/update-profile`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.detail || 'Failed to update credentials');
+    if (d.token) saveToken(d.token);
+    if (d.user) currentUser = d.user;
+    closeAccountModalClassic();
+    onAuthed();
+    toast(d.message || 'Credentials updated successfully');
+  } catch(e) { if (err) err.textContent = e.message || 'Could not reach server'; }
 }
 /* ===== Document library (upload button, documents tab, preview) ===== */
 let _toastTimer = null;
@@ -2293,6 +2353,7 @@ function highlightCode(code, lang) {
 </style>
 <div id="authBar">
  <span id="authWho"></span>
+ <button class="abtn" id="accountBtnClassic" onclick="openAccountModalClassic()">Account</button>
  <button class="abtn" id="adminBtn" style="display:none" onclick="openAdmin()">Admin</button>
  <button class="abtn" id="newProjBtn" style="display:none" onclick="openNewProj()">New project</button>
  <button class="abtn" onclick="logout()">Logout</button>
@@ -2312,10 +2373,30 @@ function highlightCode(code, lang) {
   <h2>Change your password</h2>
   <p>This account is still using its default/seeded password. Set a new password to continue.</p>
   <div id="pwChangeErr"></div>
+  <input id="pwcUsername" placeholder="New username (optional)" autocomplete="username" />
   <input id="pwcOld" type="password" placeholder="Current password" autocomplete="current-password" />
   <input id="pwcNew" type="password" placeholder="New password" autocomplete="new-password" />
   <input id="pwcConfirm" type="password" placeholder="Confirm new password" autocomplete="new-password" onkeydown="if(event.key==='Enter')doForcedPwChange()" />
   <button onclick="doForcedPwChange()">Set new password</button>
+ </div>
+</div>
+<div class="modal-back" id="accountModalClassic">
+ <div class="modal" style="width:380px;background:var(--bg2,#15181d);border:1px solid var(--border,#2a2f37);border-radius:16px;padding:24px;box-shadow:0 20px 60px rgba(0,0,0,.5)">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+   <h2 style="margin:0;font-size:18px;color:var(--text,#e8eaed)">Account Credentials</h2>
+   <button onclick="closeAccountModalClassic()" style="background:none;border:none;color:var(--muted,#9aa0aa);font-size:22px;cursor:pointer;line-height:1">&times;</button>
+  </div>
+  <p style="margin:0 0 14px;color:var(--muted,#9aa0aa);font-size:12.5px">Change your username or password.</p>
+  <div id="accClassicErr" style="color:#f87171;font-size:12px;min-height:16px;margin-bottom:8px"></div>
+  <label style="font-size:11px;color:var(--muted,#9aa0aa);display:block;margin-bottom:4px">Username</label>
+  <input id="accClassicUser" style="width:100%;box-sizing:border-box;background:var(--panel,#1b1f26);border:1px solid var(--border,#2a2f37);border-radius:8px;padding:9px 12px;color:var(--text,#e8eaed);font-size:13px;margin-bottom:10px" placeholder="Username" autocomplete="username" />
+  <label style="font-size:11px;color:var(--muted,#9aa0aa);display:block;margin-bottom:4px">Current password (required)</label>
+  <input id="accClassicOld" type="password" style="width:100%;box-sizing:border-box;background:var(--panel,#1b1f26);border:1px solid var(--border,#2a2f37);border-radius:8px;padding:9px 12px;color:var(--text,#e8eaed);font-size:13px;margin-bottom:10px" placeholder="Current password" autocomplete="current-password" />
+  <label style="font-size:11px;color:var(--muted,#9aa0aa);display:block;margin-bottom:4px">New password (optional, min 8 chars)</label>
+  <input id="accClassicNew" type="password" style="width:100%;box-sizing:border-box;background:var(--panel,#1b1f26);border:1px solid var(--border,#2a2f37);border-radius:8px;padding:9px 12px;color:var(--text,#e8eaed);font-size:13px;margin-bottom:10px" placeholder="Leave blank to keep current" autocomplete="new-password" />
+  <label style="font-size:11px;color:var(--muted,#9aa0aa);display:block;margin-bottom:4px">Confirm new password</label>
+  <input id="accClassicConfirm" type="password" style="width:100%;box-sizing:border-box;background:var(--panel,#1b1f26);border:1px solid var(--border,#2a2f37);border-radius:8px;padding:9px 12px;color:var(--text,#e8eaed);font-size:13px;margin-bottom:14px" placeholder="Confirm new password" autocomplete="new-password" />
+  <button onclick="saveAccountCredentialsClassic()" style="width:100%;background:#3b82f6;color:#fff;border:none;border-radius:8px;padding:10px;font-size:13px;font-weight:600;cursor:pointer">Save Changes</button>
  </div>
 </div>
 <div class="modal-back" id="adminModal">

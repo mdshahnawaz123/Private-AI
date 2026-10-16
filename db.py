@@ -817,6 +817,62 @@ def set_user_password(uid, password_hash, by=None):
     audit("user.password", target=un, user=by or SYSTEM_USER)
     return True
 
+def update_user_profile(uid, new_username=None, full_name=None, email=None, new_password_hash=None, by=None):
+    """Update user credentials / profile: username, full_name, email, and/or password.
+    Increments auth_version if username or password changes so old tokens are superseded.
+    """
+    from sqlalchemy import func
+    import re
+
+    with SessionLocal() as s:
+        u = s.get(User, uid)
+        if not u:
+            return None
+        old_username = u.username
+        credentials_changed = False
+
+        if new_username is not None:
+            clean_name = new_username.strip()
+            if not clean_name:
+                raise ValueError("Username cannot be empty")
+            if len(clean_name) < 3 or len(clean_name) > 50:
+                raise ValueError("Username must be between 3 and 50 characters")
+            if not re.match(r'^[A-Za-z0-9_.-]+$', clean_name):
+                raise ValueError("Username may only contain letters, numbers, hyphens, underscores, and periods")
+            if clean_name.lower() != old_username.lower():
+                existing = s.query(User).filter(func.lower(User.username) == clean_name.lower(), User.id != uid).first()
+                if existing:
+                    raise ValueError(f"Username '{clean_name}' is already taken")
+                u.username = clean_name
+                credentials_changed = True
+            elif clean_name != old_username:
+                u.username = clean_name
+                credentials_changed = True
+
+        if new_password_hash:
+            u.password_hash = new_password_hash
+            credentials_changed = True
+
+        if full_name is not None:
+            u.full_name = full_name.strip()
+        if email is not None:
+            u.email = email.strip()
+
+        if credentials_changed:
+            u.auth_version = (u.auth_version or 0) + 1
+
+        s.commit()
+        un = u.username
+
+    if new_username and new_username != old_username:
+        audit("user.rename", target=un, detail={"old": old_username, "new": un}, user=by or SYSTEM_USER)
+    if new_password_hash:
+        audit("user.password", target=un, user=by or SYSTEM_USER)
+    if not (new_username and new_username != old_username) and not new_password_hash:
+        audit("user.update_profile", target=un, user=by or SYSTEM_USER)
+
+    return get_user(uid)
+
 def set_user_role(uid, role, by=None):
     if role not in ROLES:
         raise ValueError("bad role")

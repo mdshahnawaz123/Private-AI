@@ -132,16 +132,96 @@ let mustChangePw=false;
 async function doForcedPwChange(){
   const err=$('pwcErr'); err.textContent='';
   const oldPw=$('pwcOld').value, newPw=$('pwcNew').value, confirmPw=$('pwcConfirm').value;
+  const newUsername=($('pwcUsername')&&$('pwcUsername').value.trim())||'';
   if(!oldPw||!newPw){ err.textContent='Enter your current and new password.'; return; }
   if(newPw.length<8){ err.textContent='New password must be at least 8 characters.'; return; }
   if(newPw!==confirmPw){ err.textContent='New passwords do not match.'; return; }
-  if(newPw===oldPw){ err.textContent='New password must be different from the current one.'; return; }
+  if(newPw===oldPw && !newUsername){ err.textContent='New password must be different from the current one.'; return; }
   try{
-    const r=await _fetch(`${API}/auth/change-password`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({old_password:oldPw,new_password:newPw})});
+    const payload={old_password:oldPw, new_password:newPw};
+    if(newUsername) payload.new_username=newUsername;
+    const r=await _fetch(`${API}/auth/change-password`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
     const d=await r.json();
     if(!r.ok){ err.textContent=d.detail||'Password change failed.'; return; }
+    if(d.token){ authToken=d.token; try{localStorage.setItem('expo_token',d.token);}catch(e){} }
+    if(d.user){ currentUser=d.user; }
     mustChangePw=false; $('pwchange').classList.remove('show'); onAuthed();
+    toast('Credentials updated successfully.');
   }catch(e){ err.textContent='Could not reach the server.'; }
+}
+
+function openAccountModal(){
+  const m=$('accountModal');
+  if(!m) return;
+  const unInput=$('accUsername');
+  if(unInput && currentUser) unInput.value = currentUser.username || '';
+  if($('accOldPw')) $('accOldPw').value = '';
+  if($('accNewPw')) $('accNewPw').value = '';
+  if($('accConfirmPw')) $('accConfirmPw').value = '';
+  if($('accErr')) $('accErr').textContent = '';
+  m.classList.add('show');
+  setTimeout(()=>{ if($('accOldPw')) $('accOldPw').focus(); }, 50);
+}
+
+function closeAccountModal(){
+  const m=$('accountModal');
+  if(m) m.classList.remove('show');
+}
+
+async function saveAccountCredentials(){
+  const err=$('accErr'); if(err) err.textContent='';
+  const newUsername=$('accUsername') ? $('accUsername').value.trim() : '';
+  const oldPw=$('accOldPw') ? $('accOldPw').value : '';
+  const newPw=$('accNewPw') ? $('accNewPw').value : '';
+  const confirmPw=$('accConfirmPw') ? $('accConfirmPw').value : '';
+
+  if(!oldPw){ if(err) err.textContent='Current password is required to save changes.'; return; }
+
+  const payload = { old_password: oldPw };
+  const currentUn = (currentUser && currentUser.username) || '';
+  if(newUsername && newUsername !== currentUn){
+    payload.new_username = newUsername;
+  }
+  if(newPw){
+    if(newPw.length < 8){ if(err) err.textContent='New password must be at least 8 characters.'; return; }
+    if(newPw !== confirmPw){ if(err) err.textContent='New passwords do not match.'; return; }
+    if(newPw === oldPw){ if(err) err.textContent='New password must be different from current password.'; return; }
+    payload.new_password = newPw;
+  }
+
+  if(!payload.new_username && !payload.new_password){
+    if(err) err.textContent='No changes entered. Enter a new username or new password.';
+    return;
+  }
+
+  const btn=$('accSaveBtn');
+  if(btn){ btn.disabled = true; btn.textContent = 'Saving…'; }
+  try{
+    const r=await _fetch(`${API}/auth/update-profile`,{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(payload)
+    });
+    const d=await r.json();
+    if(!r.ok){
+      if(err) err.textContent = d.detail || 'Failed to update credentials.';
+      return;
+    }
+    if(d.token){
+      authToken = d.token;
+      try{ localStorage.setItem('expo_token', d.token); }catch(e){}
+    }
+    if(d.user){
+      currentUser = d.user;
+    }
+    closeAccountModal();
+    onAuthed();
+    toast(d.message || 'Credentials updated successfully.');
+  }catch(e){
+    if(err) err.textContent = 'Could not reach server.';
+  }finally{
+    if(btn){ btn.disabled = false; btn.textContent = 'Save Changes'; }
+  }
 }
 function onAuthed(){
   if(mustChangePw){ $('pwchange').classList.add('show'); return; }
@@ -178,6 +258,13 @@ function wireTopbar(){
   $('lpass').addEventListener('keydown',e=>{ if(e.key==='Enter')doLogin(); });
   $('pwcBtn').onclick=doForcedPwChange;
   $('pwcConfirm').addEventListener('keydown',e=>{ if(e.key==='Enter')doForcedPwChange(); });
+  if($('accountBtn')) $('accountBtn').onclick = openAccountModal;
+  if($('accountCloseBtn')) $('accountCloseBtn').onclick = closeAccountModal;
+  if($('accountModal')) $('accountModal').addEventListener('click', e => { if(e.target === $('accountModal')) closeAccountModal(); });
+  if($('accSaveBtn')) $('accSaveBtn').onclick = saveAccountCredentials;
+  if($('accConfirmPw')) $('accConfirmPw').addEventListener('keydown', e => { if(e.key==='Enter') saveAccountCredentials(); });
+  if($('uav')) $('uav').onclick = openAccountModal;
+  if($('uprofile')) $('uprofile').onclick = openAccountModal;
   $('logoutBtn').onclick=logout;
   $('sbToggle').onclick=()=>{ document.body.classList.toggle('sb-collapsed'); document.body.classList.toggle('show-sb'); };
   $('sbCollapse').onclick=()=>document.body.classList.add('sb-collapsed');
@@ -854,10 +941,19 @@ function renderSettings(b){
     <div class="tiles">
       <div class="tile"><h4>Project</h4><div class="big" style="font-size:18px">${esc(currentProject||'—')}</div><p>${esc(counts().models)} models · ${esc(allDocs.length)} files</p></div>
       <div class="tile"><h4>Signed in as</h4><div class="big" style="font-size:18px">${esc((currentUser&&(currentUser.full_name||currentUser.username))||'—')}</div><p>Role: ${esc(role)}</p></div>
+      <div class="tile" style="grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+        <div>
+          <h4>Account & Security</h4>
+          <p style="margin:4px 0 0;font-size:13px;color:var(--muted)">Username: <b>${esc((currentUser&&currentUser.username)||'—')}</b> · Change your username or password anytime.</p>
+        </div>
+        <button class="ghost" id="settingsAccountBtn" style="padding:8px 14px;cursor:pointer">Change Username & Password</button>
+      </div>
     </div>
     <p class="muted" style="margin-top:18px">${esc(mgmtNote)}</p>
     <button class="ghost" onclick="window.open('/ui/classic.html','_blank')">${esc(mgmtBtnLabel)}</button>
   </div>`;
+  const setAccBtn = $('settingsAccountBtn');
+  if(setAccBtn) setAccBtn.onclick = openAccountModal;
 }
 
 /* ============================================================

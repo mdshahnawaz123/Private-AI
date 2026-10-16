@@ -440,12 +440,13 @@ class Agent:
         # never as a stand-in for a project drawing.
         sample_id = None
         if low.startswith("sample") or "sample" in low.split() or "sample" in self.q.lower():
-            for k, v in (("apartment", "sample_apartment_plan"), ("core", "sample_structural_core"),
-                         ("grid", "sample_structural_core"), ("bracket", "sample_mechanical_bracket")):
+            for k, v in (("cadcraft", "sample_cadcraft_apartment"), ("apartment", "sample_cadcraft_apartment"),
+                         ("core", "sample_structural_core"), ("grid", "sample_structural_core"),
+                         ("bracket", "sample_mechanical_bracket"), ("2bed", "sample_apartment_plan")):
                 if k in low:
                     sample_id = v
                     break
-            if low.startswith("sample_") and low in ("sample_apartment_plan", "sample_structural_core", "sample_mechanical_bracket"):
+            if low.startswith("sample_") and low in ("sample_cadcraft_apartment", "sample_apartment_plan", "sample_structural_core", "sample_mechanical_bracket"):
                 sample_id = low
         if sample_id:
             data = CadService.load_sample_drawing(sample_id)
@@ -520,12 +521,16 @@ class Agent:
         if role not in ("admin", "lead", "user"):
             return "You do not have permission to save drawings in this project."
 
-        sample_id = "sample_apartment_plan"
+        sample_id = "sample_cadcraft_apartment"
         pt = (plan_type or "").lower()
         if "core" in pt or "grid" in pt or "struct" in pt:
             sample_id = "sample_structural_core"
         elif "bracket" in pt or "mech" in pt:
             sample_id = "sample_mechanical_bracket"
+        elif "2bed" in pt or "residential" in pt:
+            sample_id = "sample_apartment_plan"
+        elif "apartment" in pt or "master" in pt or "cadcraft" in pt:
+            sample_id = "sample_cadcraft_apartment"
         data = CadService.load_sample_drawing(sample_id)
 
         base = os.path.basename((filename or "").replace("\\", "/"))
@@ -548,8 +553,12 @@ class Agent:
             folders = db.list_folders(self.project)
             fo = next((x for x in folders if str(x.get("name", "")).lower() == "drawings"), None)
             fid = fo["id"] if fo else (lambda r: r["id"] if isinstance(r, dict) else int(r))(db.create_folder(self.project, "Drawings"))
+            u_obj = self.user if (isinstance(self.user, dict) and "id" in self.user) else None
+            if not u_obj:
+                uname = (self.user or {}).get("username") if isinstance(self.user, dict) else "admin"
+                u_obj = db.get_user_by_username(uname) or db.SYSTEM_USER
             db.record_document(project=self.project, filename=out_filename, path=file_path, chunks=0,
-                               discipline="Architectural", status="ready", folder_id=fid, user=self.user)
+                               discipline="Architectural", status="ready", folder_id=fid, user=u_obj)
         except Exception as e:
             logger.warning("cad_draft: saved {} but could not register it: {}", out_filename, e)
 

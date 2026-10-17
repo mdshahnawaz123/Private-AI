@@ -40,7 +40,13 @@ let _pdfState = {
   markups: [], // local session markups [{page, type, rect, content, color}]
   aiChatHistory: [], // [{role: 'user'|'assistant', text, citedPages, model, isVision}]
   aiVisionMode: false,
-  aiIsThinking: false
+  aiIsThinking: false,
+  auditData: null,
+  auditHighlights: [],
+  measureScale: '1:100',
+  measureUnit: 'm',
+  measurePoints: [],
+  measurements: []
 };
 
 /* ==========================================================================
@@ -137,6 +143,8 @@ function renderPdfCraftWorkspace(container) {
             <button class="pdf-tool-btn" data-tool="highlight" title="Text Highlight Markup"><svg class="ico" viewBox="0 0 24 24"><path d="M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg><span>Highlight</span></button>
             <button class="pdf-tool-btn" data-tool="rect" title="Rectangle Markup Box"><svg class="ico" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/></svg><span>Box</span></button>
             <button class="pdf-tool-btn" data-tool="note" title="Sticky Comment Note"><svg class="ico" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><span>Note</span></button>
+            <button class="pdf-tool-btn" data-tool="measure-dist" title="Measure Distance (Calibrated 2D)"><svg class="ico" viewBox="0 0 24 24"><path d="M2 17l10 5 10-5M2 12l10 5 10-5M12 2L2 7l10 5 10-5-10-5z"/></svg><span>Distance</span></button>
+            <button class="pdf-tool-btn" data-tool="measure-area" title="Measure Polygon Area (Calibrated 2D)"><svg class="ico" viewBox="0 0 24 24"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polygon points="2 17 12 22 22 17"/></svg><span>Area</span></button>
             <button class="pdf-btn" id="pdfWatermarkModalBtn" title="Stamp Watermark across document">
               <svg class="ico" viewBox="0 0 24 24"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg>
               <span>Watermark</span>
@@ -150,6 +158,16 @@ function renderPdfCraftWorkspace(container) {
         <div class="pdf-ribbon-group" style="margin-left:auto">
           <div class="pdf-group-title">OPERATIONS &amp; AI STUDIO</div>
           <div class="pdf-group-btns">
+            <button class="pdf-btn" id="pdfAuditBtn" title="Audit Redactions (storytold/pdfcraft crates/audit)" style="border:1px solid rgba(239,68,68,0.45);background:rgba(239,68,68,0.12);color:#fca5a5;font-weight:700">
+              <svg class="ico" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+              <span>🛡️ Audit Redactions</span>
+            </button>
+
+            <button class="pdf-btn" id="pdfStatsBtn" title="Document Statistics &amp; Word Count (pdfcraft text_word_count)">
+              <svg class="ico" viewBox="0 0 24 24"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
+              <span>📊 Stats</span>
+            </button>
+
             <button class="pdf-btn" id="pdfMergeModalBtn" title="Combine multiple PDF documents into one">
               <svg class="ico" viewBox="0 0 24 24"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/><path d="M12 8v8M8 12h8"/></svg>
               <span>Merge</span>
@@ -191,8 +209,10 @@ function renderPdfCraftWorkspace(container) {
             <button class="pdf-tab-btn on" data-tab="pages" title="Page Thumbnails">📑 Pages</button>
             <button class="pdf-tab-btn" data-tab="outline" title="Bookmarks Outline">🔖 Outline</button>
             <button class="pdf-tab-btn" data-tab="search" title="Search Text">🔍 Search</button>
+            <button class="pdf-tab-btn" data-tab="audit" title="Faux-Redaction Security Audit (pdfcraft-audit)" style="color:#ef4444;font-weight:700">🛡️ Audit</button>
+            <button class="pdf-tab-btn" data-tab="measure" title="2D Calibrated Measurements (pdfcraft-measure)" style="color:#38bdf8;font-weight:700">📐 Measure</button>
             <button class="pdf-tab-btn" data-tab="ai" title="Ask Local AI (qwen3.5:9b / vision)" style="color:var(--accent2);font-weight:700">✨ Ask AI</button>
-            <button class="pdf-tab-btn" data-tab="properties" title="Document Properties">🛡️ Info</button>
+            <button class="pdf-tab-btn" data-tab="properties" title="Document Properties">ℹ️ Info</button>
           </div>
 
           <div class="pdf-sidebar-content" id="pdfSidebarContent">
@@ -477,7 +497,7 @@ function _initPdfCraftStyles() {
       position: relative;
     }
     .pdf-sidebar {
-      width: 280px;
+      width: 320px;
       background: #0d1424;
       border-right: 1px solid var(--border, rgba(255,255,255,0.08));
       display: flex;
@@ -486,19 +506,26 @@ function _initPdfCraftStyles() {
     }
     .pdf-sidebar-tabs {
       display: flex;
+      overflow-x: auto;
       border-bottom: 1px solid var(--border, rgba(255,255,255,0.08));
       background: #070b15;
+      white-space: nowrap;
+      scrollbar-width: none;
+    }
+    .pdf-sidebar-tabs::-webkit-scrollbar {
+      display: none;
     }
     .pdf-tab-btn {
       flex: 1;
-      padding: 8px 4px;
-      font-size: 11px;
+      padding: 8px 6px;
+      font-size: 10.5px;
       font-weight: 600;
       color: var(--muted, #64748b);
       background: transparent;
       border: none;
       border-bottom: 2px solid transparent;
       cursor: pointer;
+      white-space: nowrap;
     }
     .pdf-tab-btn:hover {
       color: #fff;
@@ -903,6 +930,11 @@ function _bindPdfEvents() {
       document.querySelectorAll('.pdf-tool-btn').forEach(b => b.classList.remove('on'));
       tb.classList.add('on');
       _pdfState.activeTool = tb.dataset.tool;
+      if (tb.dataset.tool && tb.dataset.tool.startsWith('measure')) {
+        _pdfState.leftTab = 'measure';
+        document.querySelectorAll('.pdf-tab-btn').forEach(b => b.classList.toggle('on', b.dataset.tab === 'measure'));
+        _renderSidebarContent();
+      }
     };
   });
 
@@ -916,6 +948,21 @@ function _bindPdfEvents() {
     if (!_pdfState.docId) return;
     window.open(`${API}/api/v1/pdf/export?doc_id=${encodeURIComponent(_pdfState.docId)}&filename=${encodeURIComponent(_pdfState.filename)}`, '_blank');
   };
+
+  // Audit Redactions (storytold/pdfcraft crates/audit)
+  const auditBtn = document.getElementById('pdfAuditBtn');
+  if (auditBtn) {
+    auditBtn.onclick = () => {
+      _pdfState.leftTab = 'audit';
+      document.querySelectorAll('.pdf-tab-btn').forEach(b => b.classList.toggle('on', b.dataset.tab === 'audit'));
+      _renderSidebarContent();
+      _runRedactionAudit();
+    };
+  }
+
+  // Document Statistics (pdfcraft text_word_count)
+  const statsBtn = document.getElementById('pdfStatsBtn');
+  if (statsBtn) statsBtn.onclick = _showDocumentStatsModal;
 
   // Modals
   const watermarkBtn = document.getElementById('pdfWatermarkModalBtn');
@@ -1089,6 +1136,12 @@ async function _renderCurrentPage() {
 
   imgEl.src = imgUrl;
   imgEl.style.display = 'block';
+  imgEl.onload = () => {
+    _renderMarkupOverlay();
+  };
+  _renderMarkupOverlay();
+
+  if (overlay) overlay.onclick = _handleOverlayClick;
 
   // Highlight active thumbnail in sidebar
   document.querySelectorAll('.pdf-thumb-card').forEach(c => {
@@ -1189,6 +1242,10 @@ function _renderSidebarContent() {
         </div>
       </div>
     `;
+  } else if (tab === 'audit') {
+    _renderAuditTabContent(content);
+  } else if (tab === 'measure') {
+    _renderMeasureTabContent(content);
   }
 }
 
@@ -1431,6 +1488,506 @@ function _jumpToSearchResult(index) {
   const match = _pdfState.searchResults[index];
   _goToPage(match.page);
 }
+window._jumpToSearchResult = _jumpToSearchResult;
+
+/* ==========================================================================
+   MARKUP OVERLAY, 2D MEASUREMENTS & REDACTION AUDIT
+   (Clean-room implementations inspired by storytold/pdfcraft crates:
+    crates/audit (PR #2698), crates/measure, crates/automation)
+   ========================================================================== */
+
+function _renderMarkupOverlay() {
+  const overlay = document.getElementById('pdfMarkupOverlay');
+  if (!overlay || !_pdfState.info || !_pdfState.info.pages) return;
+  const pMeta = _pdfState.info.pages[_pdfState.currentPage - 1];
+  if (!pMeta) return;
+
+  const pw = pMeta.width;
+  const ph = pMeta.height;
+  const curPage = _pdfState.currentPage;
+
+  let html = '';
+
+  // 1. Audit Highlights (pdfcraft-audit: faux redactions & unapplied marks)
+  const pageAudit = (_pdfState.auditHighlights || []).filter(a => a.page === curPage);
+  pageAudit.forEach(a => {
+    const [x0, y0, x1, y1] = a.rect;
+    const l = (x0 / pw) * 100;
+    const t = (y0 / ph) * 100;
+    const w = Math.max(1.5, ((x1 - x0) / pw) * 100);
+    const h = Math.max(1.5, ((y1 - y0) / ph) * 100);
+    const isFaux = a.kind === 'faux_redaction';
+    html += `
+      <div style="position:absolute;left:${l}%;top:${t}%;width:${w}%;height:${h}%;border:2px solid ${isFaux ? '#ef4444' : '#f59e0b'};background:${isFaux ? 'rgba(239,68,68,0.3)' : 'rgba(245,158,11,0.3)'};box-shadow:0 0 12px ${isFaux ? 'rgba(239,68,68,0.7)' : 'rgba(245,158,11,0.7)'};pointer-events:none;z-index:20;border-radius:2px">
+        <span style="position:absolute;bottom:100%;left:0;margin-bottom:2px;background:${isFaux ? '#ef4444' : '#f59e0b'};color:#fff;font-size:9.5px;font-weight:700;padding:2px 5px;border-radius:3px;white-space:nowrap;box-shadow:0 2px 5px rgba(0,0,0,0.5)">
+          ⚠️ ${isFaux ? 'LEAK' : 'UNAPPLIED'}: ${_esc(a.covered_text.slice(0, 24))}
+        </span>
+      </div>
+    `;
+  });
+
+  // 2. Search Highlights
+  const pageSearch = (_pdfState.searchResults || []).filter(s => s.page === curPage);
+  pageSearch.forEach(s => {
+    if (s.rect && s.rect.length === 4) {
+      const [x0, y0, x1, y1] = s.rect;
+      const l = (x0 / pw) * 100;
+      const t = (y0 / ph) * 100;
+      const w = Math.max(1, ((x1 - x0) / pw) * 100);
+      const h = Math.max(1, ((y1 - y0) / ph) * 100);
+      html += `
+        <div style="position:absolute;left:${l}%;top:${t}%;width:${w}%;height:${h}%;background:rgba(250,204,21,0.45);border:1px solid #facc15;pointer-events:none;z-index:15"></div>
+      `;
+    }
+  });
+
+  // 3. 2D Calibrated Measurements (pdfcraft-measure)
+  const pageMeasures = (_pdfState.measurements || []).filter(m => m.page === curPage);
+  pageMeasures.forEach(m => {
+    if (m.type === 'distance' && m.points.length === 2) {
+      const [p1, p2] = m.points;
+      const x1 = (p1.x / pw) * 100;
+      const y1 = (p1.y / ph) * 100;
+      const x2 = (p2.x / pw) * 100;
+      const y2 = (p2.y / ph) * 100;
+      const midX = (x1 + x2) / 2;
+      const midY = (y1 + y2) / 2;
+      html += `
+        <svg style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:16">
+          <line x1="${x1}%" y1="${y1}%" x2="${x2}%" y2="${y2}%" stroke="#38bdf8" stroke-width="2.5" stroke-dasharray="4,3"/>
+          <circle cx="${x1}%" cy="${y1}%" r="4.5" fill="#0284c7" stroke="#fff" stroke-width="1.5"/>
+          <circle cx="${x2}%" cy="${y2}%" r="4.5" fill="#0284c7" stroke="#fff" stroke-width="1.5"/>
+        </svg>
+        <div style="position:absolute;left:${midX}%;top:${midY}%;transform:translate(-50%,-50%);background:#0284c7;color:#fff;font-size:10.5px;font-weight:700;padding:2px 7px;border-radius:4px;box-shadow:0 2px 8px rgba(0,0,0,0.6);border:1px solid rgba(255,255,255,0.4);pointer-events:none;z-index:22;white-space:nowrap">
+          📏 ${_esc(m.valueText)}
+        </div>
+      `;
+    } else if (m.type === 'area' && m.points.length >= 3) {
+      const ptsAttr = m.points.map(p => `${(p.x / pw) * 100}%,${(p.y / ph) * 100}%`).join(' ');
+      const cx = m.points.reduce((s, p) => s + (p.x / pw) * 100, 0) / m.points.length;
+      const cy = m.points.reduce((s, p) => s + (p.y / ph) * 100, 0) / m.points.length;
+      html += `
+        <svg style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:16">
+          <polygon points="${ptsAttr}" fill="rgba(56,189,248,0.22)" stroke="#38bdf8" stroke-width="2.5"/>
+        </svg>
+        <div style="position:absolute;left:${cx}%;top:${cy}%;transform:translate(-50%,-50%);background:#0284c7;color:#fff;font-size:10.5px;font-weight:700;padding:2px 7px;border-radius:4px;box-shadow:0 2px 8px rgba(0,0,0,0.6);border:1px solid rgba(255,255,255,0.4);pointer-events:none;z-index:22;white-space:nowrap">
+          📐 ${_esc(m.valueText)}
+        </div>
+      `;
+    }
+  });
+
+  // 4. In-progress measurement points
+  if (_pdfState.measurePoints && _pdfState.measurePoints.length > 0) {
+    _pdfState.measurePoints.forEach((p, idx) => {
+      const px = (p.x / pw) * 100;
+      const py = (p.y / ph) * 100;
+      html += `
+        <div style="position:absolute;left:${px}%;top:${py}%;transform:translate(-50%,-50%);width:10px;height:10px;border-radius:50%;background:#f59e0b;border:2px solid #fff;box-shadow:0 0 6px #f59e0b;pointer-events:none;z-index:25"></div>
+      `;
+    });
+  }
+
+  overlay.innerHTML = html;
+}
+
+function _handleOverlayClick(e) {
+  const overlay = document.getElementById('pdfMarkupOverlay');
+  if (!overlay || !_pdfState.info || !_pdfState.info.pages) return;
+  const pMeta = _pdfState.info.pages[_pdfState.currentPage - 1];
+  if (!pMeta) return;
+
+  const rect = overlay.getBoundingClientRect();
+  const clickX = e.clientX - rect.left;
+  const clickY = e.clientY - rect.top;
+
+  const pdfX = (clickX / rect.width) * pMeta.width;
+  const pdfY = (clickY / rect.height) * pMeta.height;
+
+  if (_pdfState.activeTool === 'measure-dist') {
+    _pdfState.measurePoints.push({ x: pdfX, y: pdfY });
+    if (_pdfState.measurePoints.length === 2) {
+      const [p1, p2] = _pdfState.measurePoints;
+      const dx = p2.x - p1.x;
+      const dy = p2.y - p1.y;
+      const ptsDist = Math.hypot(dx, dy);
+      const scaleRatios = { '1:50': 50, '1:100': 100, '1:200': 200, '1:500': 500, '1:1': 1 };
+      const ratio = scaleRatios[_pdfState.measureScale] || 100;
+      let valText = '';
+      if (_pdfState.measureScale === '1:1') {
+        valText = `${Math.round(ptsDist)} pt`;
+      } else {
+        const realMeters = (ptsDist * 0.352778 * ratio) / 1000;
+        valText = realMeters >= 1 ? `${realMeters.toFixed(2)} m` : `${(realMeters * 1000).toFixed(0)} mm`;
+      }
+
+      _pdfState.measurements.push({
+        page: _pdfState.currentPage,
+        type: 'distance',
+        points: [..._pdfState.measurePoints],
+        valueText: valText
+      });
+      _pdfState.measurePoints = [];
+      _renderMarkupOverlay();
+      _renderSidebarContent();
+      toast(`Measured Distance: ${valText}`);
+    } else {
+      _renderMarkupOverlay();
+      toast('Click 2nd point to finish distance measurement');
+    }
+  } else if (_pdfState.activeTool === 'measure-area') {
+    _pdfState.measurePoints.push({ x: pdfX, y: pdfY });
+    if (_pdfState.measurePoints.length >= 3) {
+      const p0 = _pdfState.measurePoints[0];
+      const cur = _pdfState.measurePoints[_pdfState.measurePoints.length - 1];
+      if (Math.hypot(cur.x - p0.x, cur.y - p0.y) < 18 || e.detail >= 2) {
+        let area = 0;
+        const pts = _pdfState.measurePoints;
+        for (let i = 0; i < pts.length; i++) {
+          const j = (i + 1) % pts.length;
+          area += pts[i].x * pts[j].y;
+          area -= pts[j].x * pts[i].y;
+        }
+        area = Math.abs(area) / 2;
+        const scaleRatios = { '1:50': 50, '1:100': 100, '1:200': 200, '1:500': 500, '1:1': 1 };
+        const ratio = scaleRatios[_pdfState.measureScale] || 100;
+        const realSqMeters = area * Math.pow((0.352778 * ratio) / 1000, 2);
+        const valText = `${realSqMeters.toFixed(2)} m²`;
+
+        _pdfState.measurements.push({
+          page: _pdfState.currentPage,
+          type: 'area',
+          points: [...pts],
+          valueText: valText
+        });
+        _pdfState.measurePoints = [];
+        _renderMarkupOverlay();
+        _renderSidebarContent();
+        toast(`Measured Area: ${valText}`);
+      } else {
+        _renderMarkupOverlay();
+        toast(`Point ${_pdfState.measurePoints.length} added. Click near start or double-click to complete.`);
+      }
+    } else {
+      _renderMarkupOverlay();
+      toast(`Point ${_pdfState.measurePoints.length} added. Need 3+ points for area.`);
+    }
+  }
+}
+
+function _removeMeasurement(idx) {
+  const curPageMeasures = _pdfState.measurements.filter(m => m.page === _pdfState.currentPage);
+  if (curPageMeasures[idx]) {
+    const target = curPageMeasures[idx];
+    _pdfState.measurements = _pdfState.measurements.filter(m => m !== target);
+    _renderMarkupOverlay();
+    _renderSidebarContent();
+  }
+}
+window._removeMeasurement = _removeMeasurement;
+
+function _renderAuditTabContent(content) {
+  if (!_pdfState.docId) {
+    content.innerHTML = '<div style="color:var(--muted);font-size:12px;text-align:center;padding:30px">Open a document first</div>';
+    return;
+  }
+
+  if (!_pdfState.auditData) {
+    content.innerHTML = `
+      <div style="display:flex;flex-direction:column;align-items:center;text-align:center;padding:24px 10px;gap:12px">
+        <div style="font-size:32px">🛡️</div>
+        <div style="font-size:13px;font-weight:700;color:var(--text)">Redaction Security Audit</div>
+        <div style="font-size:11px;color:var(--muted);line-height:1.5">
+          Based on <b>storytold/pdfcraft</b> clean-room audit engine (PR #2698 / M8).<br>
+          Detects faux redactions (opaque shapes covering extractable text) and unapplied redaction marks.
+        </div>
+        <button class="pdf-btn primary" id="pdfRunAuditBtn" style="padding:8px 16px;font-size:12px;font-weight:700">
+          🔍 Scan Document for Leaks
+        </button>
+      </div>
+    `;
+    const runBtn = document.getElementById('pdfRunAuditBtn');
+    if (runBtn) runBtn.onclick = _runRedactionAudit;
+    return;
+  }
+
+  const data = _pdfState.auditData;
+  const findings = data.findings || [];
+  const safe = findings.length === 0;
+
+  content.innerHTML = `
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase">Redaction Security Audit</div>
+        <button class="pdf-btn" id="pdfRescanAuditBtn" style="font-size:10px;padding:3px 7px">↻ Rescan</button>
+      </div>
+
+      <div style="background:${safe ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)'};border:1px solid ${safe ? '#10b981' : '#ef4444'};border-radius:8px;padding:12px;display:flex;align-items:center;gap:10px">
+        <div style="font-size:24px">${safe ? '✅' : '⚠️'}</div>
+        <div>
+          <div style="font-size:12px;font-weight:700;color:#fff">${safe ? 'Document is Safe' : `${findings.length} Leak(s) Detected`}</div>
+          <div style="font-size:10.5px;color:var(--muted)">
+            ${safe ? 'Zero faux redactions or unapplied redaction marks found.' : `${data.summary.faux_redactions} faux redaction(s), ${data.summary.unapplied_marks} unapplied mark(s).`}
+          </div>
+        </div>
+      </div>
+
+      ${!safe ? `
+        <button class="pdf-btn primary" id="pdfSanitizeAllBtn" style="background:#dc2626;border-color:#b91c1c;padding:8px 12px;font-size:11.5px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:6px">
+          <span>🔒 Sanitize &amp; Burn Redactions</span>
+        </button>
+      ` : ''}
+
+      <div style="display:flex;flex-direction:column;gap:8px;max-height:420px;overflow-y:auto">
+        ${findings.map((f, idx) => `
+          <div style="background:#070b15;border:1px solid rgba(239,68,68,0.3);border-radius:6px;padding:10px;cursor:pointer"
+               onmouseover="this.style.borderColor='#ef4444'" onmouseout="this.style.borderColor='rgba(239,68,68,0.3)'"
+               onclick="_jumpToAuditFinding(${idx})">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+              <span class="badge-s ${f.kind === 'faux_redaction' ? 'b-fail' : 'b-warn'}" style="font-size:9px;text-transform:uppercase">
+                ${f.kind === 'faux_redaction' ? '🔴 Faux Redaction' : '🟠 Unapplied Mark'}
+              </span>
+              <span style="font-size:10px;color:var(--muted);font-weight:600">Page ${f.page}</span>
+            </div>
+            <div style="font-size:11px;color:#fca5a5;font-family:monospace;background:rgba(0,0,0,0.4);padding:4px 6px;border-radius:4px;word-break:break-all;margin-bottom:4px">
+              "${_esc(f.covered_text)}"
+            </div>
+            <div style="font-size:10px;color:var(--muted)">${_esc(f.description)}</div>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `;
+
+  const rescanBtn = document.getElementById('pdfRescanAuditBtn');
+  if (rescanBtn) rescanBtn.onclick = _runRedactionAudit;
+
+  const sanitizeBtn = document.getElementById('pdfSanitizeAllBtn');
+  if (sanitizeBtn) sanitizeBtn.onclick = _applyRedactionsSanitize;
+}
+
+async function _runRedactionAudit() {
+  if (!_pdfState.docId) return;
+  toast('Running Redaction Security Audit (pdfcraft-audit)...');
+  try {
+    const res = await fetch(`${API}/api/v1/pdf/audit?doc_id=${encodeURIComponent(_pdfState.docId)}`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    _pdfState.auditData = data;
+    _pdfState.auditHighlights = data.findings || [];
+    _renderSidebarContent();
+    _renderCurrentPage();
+    if (data.total_findings > 0) {
+      toast(`⚠️ Audit complete: ${data.total_findings} security leak(s) found!`);
+      const first = data.findings[0];
+      if (first && first.page !== _pdfState.currentPage) {
+        _goToPage(first.page);
+      }
+    } else {
+      toast('✅ Document is clean! Zero redaction leaks found.');
+    }
+  } catch (err) {
+    toast(`Audit failed: ${err.message}`);
+  }
+}
+window._runRedactionAudit = _runRedactionAudit;
+
+async function _applyRedactionsSanitize() {
+  if (!_pdfState.docId || !_pdfState.auditData || !_pdfState.auditData.findings) return;
+  const findings = _pdfState.auditData.findings;
+  if (!findings.length) return;
+
+  if (!confirm(`Permanently burn and sanitize ${findings.length} redaction area(s)?\n\nThis will strip and destroy the underlying text and vectors, rendering the document leak-proof.`)) {
+    return;
+  }
+
+  toast('Applying permanent redactions (stripping text bytes)...');
+  try {
+    const res = await fetch(`${API}/api/v1/pdf/redact-apply`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        doc_id: _pdfState.docId,
+        redactions: findings.map(f => ({ page: f.page, rect: f.rect }))
+      })
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    _pdfState.info = data.info;
+    _pdfState.pageRenderCache.clear();
+    toast(`✅ Successfully sanitized document! ${data.applied_count} redaction(s) burned permanently.`);
+    await _runRedactionAudit();
+  } catch (err) {
+    toast(`Failed to apply redactions: ${err.message}`);
+  }
+}
+
+function _jumpToAuditFinding(idx) {
+  if (!_pdfState.auditData || !_pdfState.auditData.findings || !_pdfState.auditData.findings[idx]) return;
+  const f = _pdfState.auditData.findings[idx];
+  _goToPage(f.page);
+}
+window._jumpToAuditFinding = _jumpToAuditFinding;
+
+function _renderMeasureTabContent(content) {
+  content.innerHTML = `
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase">2D Calibrated Measurements</div>
+
+      <div style="background:#070b15;border:1px solid rgba(255,255,255,0.08);border-radius:6px;padding:10px;display:flex;flex-direction:column;gap:8px">
+        <div>
+          <label style="font-size:10.5px;color:var(--muted);display:block;margin-bottom:4px">Drawing Scale Preset</label>
+          <select id="pdfMeasureScaleSel" class="pdf-select" style="width:100%;background:#162035;color:#fff;border-radius:4px;padding:5px">
+            <option value="1:50" ${_pdfState.measureScale === '1:50' ? 'selected' : ''}>1:50 (1 cm = 0.5 m)</option>
+            <option value="1:100" ${_pdfState.measureScale === '1:100' ? 'selected' : ''}>1:100 (1 cm = 1.0 m)</option>
+            <option value="1:200" ${_pdfState.measureScale === '1:200' ? 'selected' : ''}>1:200 (1 cm = 2.0 m)</option>
+            <option value="1:500" ${_pdfState.measureScale === '1:500' ? 'selected' : ''}>1:500 (1 cm = 5.0 m)</option>
+            <option value="1:1" ${_pdfState.measureScale === '1:1' ? 'selected' : ''}>1:1 (PDF Points)</option>
+          </select>
+        </div>
+
+        <div style="display:flex;gap:6px">
+          <button class="pdf-btn ${_pdfState.activeTool === 'measure-dist' ? 'primary' : ''}" id="pdfMeasureDistBtn" style="flex:1;padding:6px;font-size:11px">
+            📏 Distance
+          </button>
+          <button class="pdf-btn ${_pdfState.activeTool === 'measure-area' ? 'primary' : ''}" id="pdfMeasureAreaBtn" style="flex:1;padding:6px;font-size:11px">
+            📐 Area
+          </button>
+        </div>
+
+        <div style="font-size:10px;color:var(--muted);line-height:1.4">
+          ${_pdfState.activeTool === 'measure-dist' ? '👉 Click two points on the drawing to measure real-world distance.' : (_pdfState.activeTool === 'measure-area' ? '👉 Click 3+ points to measure enclosed polygon area. Click near first point to close.' : 'Select Distance or Area to start measuring.')}
+        </div>
+      </div>
+
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <span style="font-size:11px;font-weight:700;color:var(--muted)">Measurements (${_pdfState.measurements.filter(m => m.page === _pdfState.currentPage).length})</span>
+        <button class="pdf-btn" id="pdfClearMeasureBtn" style="font-size:10px;padding:2px 6px">Clear Page</button>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:6px;max-height:300px;overflow-y:auto">
+        ${_pdfState.measurements.filter(m => m.page === _pdfState.currentPage).map((m, idx) => `
+          <div style="background:#070b15;border:1px solid rgba(56,189,248,0.25);border-radius:6px;padding:8px;display:flex;justify-content:space-between;align-items:center">
+            <div>
+              <span style="font-size:10px;color:var(--muted);text-transform:uppercase">${m.type}:</span>
+              <b style="font-size:12px;color:var(--accent2);margin-left:4px">${_esc(m.valueText)}</b>
+            </div>
+            <button class="pdf-btn" onclick="_removeMeasurement(${idx})" style="font-size:9px;padding:2px 5px">✕</button>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `;
+
+  const scaleSel = document.getElementById('pdfMeasureScaleSel');
+  if (scaleSel) {
+    scaleSel.onchange = () => {
+      _pdfState.measureScale = scaleSel.value;
+      _renderCurrentPage();
+    };
+  }
+
+  const distBtn = document.getElementById('pdfMeasureDistBtn');
+  if (distBtn) distBtn.onclick = () => {
+    document.querySelectorAll('.pdf-tool-btn').forEach(b => b.classList.toggle('on', b.dataset.tool === 'measure-dist'));
+    _pdfState.activeTool = 'measure-dist';
+    _renderSidebarContent();
+  };
+
+  const areaBtn = document.getElementById('pdfMeasureAreaBtn');
+  if (areaBtn) areaBtn.onclick = () => {
+    document.querySelectorAll('.pdf-tool-btn').forEach(b => b.classList.toggle('on', b.dataset.tool === 'measure-area'));
+    _pdfState.activeTool = 'measure-area';
+    _renderSidebarContent();
+  };
+
+  const clrBtn = document.getElementById('pdfClearMeasureBtn');
+  if (clrBtn) {
+    clrBtn.onclick = () => {
+      _pdfState.measurements = _pdfState.measurements.filter(m => m.page !== _pdfState.currentPage);
+      _pdfState.measurePoints = [];
+      _renderSidebarContent();
+      _renderCurrentPage();
+    };
+  }
+}
+
+async function _showDocumentStatsModal() {
+  if (!_pdfState.docId) {
+    toast('No document loaded.');
+    return;
+  }
+  toast('Calculating document word count & statistics...');
+  try {
+    const res = await fetch(`${API}/api/v1/pdf/stats?doc_id=${encodeURIComponent(_pdfState.docId)}`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+
+    const m = document.createElement('div');
+    m.className = 'pdf-modal-backdrop';
+    m.innerHTML = `
+      <div class="pdf-modal-card" style="max-width:540px">
+        <div class="pdf-modal-header">
+          <div class="pdf-modal-title">📊 Document Statistics &amp; Word Count</div>
+          <button class="pdf-modal-close" onclick="this.closest('.pdf-modal-backdrop').remove()">✕</button>
+        </div>
+        <div class="pdf-modal-body">
+          <div style="font-size:11px;color:var(--muted);margin-bottom:12px">
+            Based on <b>storytold/pdfcraft</b> <code>text_word_count</code> specification.
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px">
+            <div style="background:#070b15;border:1px solid rgba(255,255,255,0.08);border-radius:6px;padding:10px;text-align:center">
+              <div style="font-size:20px;font-weight:700;color:var(--accent2)">${data.total_words.toLocaleString()}</div>
+              <div style="font-size:10px;color:var(--muted);text-transform:uppercase">Total Words</div>
+            </div>
+            <div style="background:#070b15;border:1px solid rgba(255,255,255,0.08);border-radius:6px;padding:10px;text-align:center">
+              <div style="font-size:20px;font-weight:700;color:var(--green)">${data.total_characters.toLocaleString()}</div>
+              <div style="font-size:10px;color:var(--muted);text-transform:uppercase">Characters</div>
+            </div>
+            <div style="background:#070b15;border:1px solid rgba(255,255,255,0.08);border-radius:6px;padding:10px;text-align:center">
+              <div style="font-size:20px;font-weight:700;color:#fff">${data.page_count}</div>
+              <div style="font-size:10px;color:var(--muted);text-transform:uppercase">Pages</div>
+            </div>
+          </div>
+
+          <div style="background:#070b15;border:1px solid rgba(255,255,255,0.08);border-radius:6px;padding:10px;margin-bottom:14px">
+            <div style="font-size:11px;font-weight:700;color:var(--muted);margin-bottom:6px">EMBEDDED FONTS (${data.font_count})</div>
+            <div style="font-size:11px;color:var(--text);font-family:monospace;max-height:80px;overflow-y:auto;line-height:1.5">
+              ${(data.fonts && data.fonts.length) ? data.fonts.map(f => `<div>• ${_esc(f)}</div>`).join('') : '<div>No embedded Type1/TrueType fonts detected.</div>'}
+            </div>
+          </div>
+
+          <div style="font-size:11px;font-weight:700;color:var(--muted);margin-bottom:6px">PER-PAGE BREAKDOWN</div>
+          <div style="max-height:160px;overflow-y:auto;border:1px solid rgba(255,255,255,0.08);border-radius:6px">
+            <table style="width:100%;border-collapse:collapse;font-size:11px">
+              <thead style="background:#070b15;color:var(--muted);position:sticky;top:0">
+                <tr><th style="padding:6px;text-align:left">Page</th><th style="padding:6px;text-align:right">Words</th><th style="padding:6px;text-align:right">Chars</th><th style="padding:6px;text-align:right">Dimensions</th></tr>
+              </thead>
+              <tbody>
+                ${(data.per_page || []).map(p => `
+                  <tr style="border-top:1px solid rgba(255,255,255,0.04)">
+                    <td style="padding:5px 6px">Page ${p.page}</td>
+                    <td style="padding:5px 6px;text-align:right;color:var(--accent2);font-weight:600">${p.words}</td>
+                    <td style="padding:5px 6px;text-align:right">${p.characters}</td>
+                    <td style="padding:5px 6px;text-align:right;color:var(--muted)">${p.dimensions}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="pdf-modal-footer">
+          <button class="pdf-btn primary" onclick="this.closest('.pdf-modal-backdrop').remove()">Close</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(m);
+  } catch (err) {
+    toast(`Failed to load stats: ${err.message}`);
+  }
+}
+window._showDocumentStatsModal = _showDocumentStatsModal;
+
 
 /* ==========================================================================
    CARD-BASED PAGE ORGANIZER (STORYTOLD/PDFCRAFT CLEAN-ROOM BENCHMARK)

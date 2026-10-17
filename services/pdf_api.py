@@ -15,6 +15,8 @@ import os
 import re
 import uuid
 import shutil
+import tempfile
+import time
 from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, File, Form, HTTPException, Query, Request, Response, UploadFile
 from fastapi.responses import FileResponse, JSONResponse, Response
@@ -116,6 +118,12 @@ class AskPdfRequest(BaseModel):
     model: Optional[str] = Field(default="qwen3.5:9b", description="Local Ollama model name")
     vision_mode: Optional[bool] = Field(default=False, description="Whether to analyze visually with local vision model")
     password: Optional[str] = Field(default=None, description="PDF password if encrypted")
+
+
+class ApplyRedactionRequest(BaseModel):
+    doc_id: str = Field(..., description="Active PDF session ID")
+    redactions: List[Dict[str, Any]] = Field(..., description="List of redaction specs e.g. [{'page': 1, 'rect': [x0, y0, x1, y1]}]")
+    password: Optional[str] = Field(default=None, description="Document password if encrypted")
 
 
 # --- Endpoints ---
@@ -600,4 +608,63 @@ async def ask_pdf(req: AskPdfRequest):
     except Exception as exc:
         logger.error(f"Failed to answer question on PDF {req.doc_id}: {exc}")
         raise HTTPException(status_code=500, detail=str(exc))
+
+
+@pdf_router.get("/audit")
+async def audit_pdf_redactions(doc_id: str = Query(..., description="Active PDF session ID")):
+    """
+    Runs the clean-room faux-redaction and unapplied mark audit (storytold/pdfcraft crates/audit).
+    Detects opaque covers over extractable text and unapplied /Redact annotations.
+    """
+    path = _get_doc_path(doc_id)
+    try:
+        result = await run_in_threadpool(PdfService.audit_redactions, path)
+        return result
+    except Exception as exc:
+        logger.error(f"Failed to audit PDF redactions {doc_id}: {exc}")
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@pdf_router.post("/redact-apply")
+async def apply_pdf_redactions(req: ApplyRedactionRequest):
+    """
+    Permanently burns and applies redactions into the document, stripping underlying characters
+    and raster image pixels so they can never be extracted or recovered.
+    """
+    path = _get_doc_path(req.doc_id)
+    try:
+        temp_out = os.path.join(tempfile.gettempdir(), f"redacted_{req.doc_id}_{int(time.time())}.pdf")
+        result = await run_in_threadpool(
+            PdfService.apply_permanent_redactions,
+            path,
+            temp_out,
+            req.redactions
+        )
+        _PDF_SESSION_CACHE[req.doc_id] = temp_out
+        new_info = await run_in_threadpool(PdfService.inspect_pdf, temp_out)
+        return {
+            "success": True,
+            "applied_count": result.get("applied_count", 0),
+            "doc_id": req.doc_id,
+            "info": new_info
+        }
+    except Exception as exc:
+        logger.error(f"Failed to apply redactions on PDF {req.doc_id}: {exc}")
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@pdf_router.get("/stats")
+async def get_pdf_statistics(doc_id: str = Query(..., description="Active PDF session ID")):
+    """
+    Computes comprehensive document statistics (storytold/pdfcraft text_word_count).
+    Reports total words, character count, page count, images, and embedded fonts.
+    """
+    path = _get_doc_path(doc_id)
+    try:
+        result = await run_in_threadpool(PdfService.get_document_statistics, path)
+        return result
+    except Exception as exc:
+        logger.error(f"Failed to get PDF statistics {doc_id}: {exc}")
+        raise HTTPException(status_code=500, detail=str(exc))
+
 

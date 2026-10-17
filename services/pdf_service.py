@@ -17,11 +17,13 @@ Features:
 - Built-in engineering and architectural sample documents
 """
 import io
+import json
 import os
 import re
 import math
 import shutil
 import tempfile
+import urllib.request
 from typing import Any, Dict, List, Optional, Tuple
 from loguru import logger
 from PIL import Image
@@ -1086,6 +1088,259 @@ class PdfService:
 
         except Exception as exc:
             logger.error(f"Error in ask_document: {exc}")
+            raise
+        finally:
+            if doc:
+                try:
+                    doc.close()
+                except Exception:
+                    pass
+
+    @classmethod
+    def audit_redactions(cls, file_path_or_bytes: Any) -> Dict[str, Any]:
+        """
+        Runs the clean-room faux-redaction and unapplied mark audit (storytold/pdfcraft crates/audit).
+        Detects:
+        1. Faux Redaction: Opaque dark filled rectangle drawn over extractable text lines,
+           hiding words from view while leaving them extractable underneath.
+        2. Unapplied Mark: Annotations of subtype /Redact that were drawn/marked but never applied.
+        """
+        cls._require_fitz()
+        doc = None
+        try:
+            if isinstance(file_path_or_bytes, (bytes, bytearray)):
+                doc = fitz.open(stream=file_path_or_bytes, filetype="pdf")
+            elif isinstance(file_path_or_bytes, io.BytesIO):
+                doc = fitz.open(stream=file_path_or_bytes.getvalue(), filetype="pdf")
+            elif isinstance(file_path_or_bytes, str):
+                doc = fitz.open(file_path_or_bytes)
+            else:
+                doc = fitz.open(file_path_or_bytes)
+
+            findings: List[Dict[str, Any]] = []
+
+            for page_idx in range(doc.page_count):
+                page = doc.load_page(page_idx)
+                p_num = page_idx + 1
+
+                # 1. Check unapplied /Redact annotations
+                for annot in page.annots():
+                    annot_type = annot.type[1] if isinstance(annot.type, (list, tuple)) and len(annot.type) > 1 else str(annot.type)
+                    if annot_type.lower() == "redact" or (isinstance(annot.type, (list, tuple)) and annot.type[0] == 12):
+                        r = annot.rect
+                        hidden_txt = page.get_text("text", clip=r).strip().replace("\n", " ")
+                        findings.append({
+                            "page": p_num,
+                            "kind": "unapplied_mark",
+                            "rect": [round(r.x0, 2), round(r.y0, 2), round(r.x1, 2), round(r.y1, 2)],
+                            "covered_text": hidden_txt or "[Unapplied Redact Annotation Box]",
+                            "severity": "HIGH",
+                            "description": "Redaction mark placed on document but never permanently applied/burned into page."
+                        })
+
+                # 2. Extract words on page: (x0, y0, x1, y1, word, block_no, line_no, word_no)
+                words = page.get_text("words")
+                if not words:
+                    continue
+
+                # 3. Check page vector drawings for faux redactions (opaque dark rectangles)
+                drawings = page.get_drawings()
+                for draw in drawings:
+                    fill_col = draw.get("fill")
+                    if not fill_col:
+                        continue
+                    
+                    if isinstance(fill_col, (list, tuple)):
+                        if len(fill_col) == 1:
+                            lum = fill_col[0]
+                        elif len(fill_col) >= 3:
+                            lum = 0.299 * fill_col[0] + 0.587 * fill_col[1] + 0.114 * fill_col[2]
+                        else:
+                            lum = 0.5
+                    elif isinstance(fill_col, (int, float)):
+                        lum = float(fill_col)
+                    else:
+                        lum = 0.5
+
+                    fill_opacity = draw.get("fill_opacity", 1.0)
+                    if fill_opacity is None:
+                        fill_opacity = 1.0
+                    if lum > 0.35 or fill_opacity < 0.75:
+                        continue
+
+                    d_rect = draw.get("rect")
+                    if not d_rect:
+                        continue
+                    d_r = fitz.Rect(d_rect)
+                    if d_r.is_empty or d_r.width < 4 or d_r.height < 4:
+                        continue
+
+                    # Check which words are covered by this dark rectangle
+                    covered_words: List[str] = []
+                    for w in words:
+                        w_r = fitz.Rect(w[0], w[1], w[2], w[3])
+                        inter = d_r & w_r
+                        if not inter.is_empty:
+                            w_area = w_r.width * w_r.height
+                            if w_area > 0 and (inter.width * inter.height) / w_area >= 0.45:
+                                covered_words.append(w[4])
+
+                    if covered_words:
+                        leaked_str = " ".join(covered_words)
+                        duplicate = False
+                        for f in findings:
+                            if f["page"] == p_num and f["kind"] == "faux_redaction":
+                                prev_r = fitz.Rect(f["rect"])
+                                if abs(prev_r.x0 - d_r.x0) < 5 and abs(prev_r.y0 - d_r.y0) < 5 and abs(prev_r.x1 - d_r.x1) < 5 and abs(prev_r.y1 - d_r.y1) < 5:
+                                    duplicate = True
+                                    break
+                        if not duplicate:
+                            findings.append({
+                                "page": p_num,
+                                "kind": "faux_redaction",
+                                "rect": [round(d_r.x0, 2), round(d_r.y0, 2), round(d_r.x1, 2), round(d_r.y1, 2)],
+                                "covered_text": leaked_str,
+                                "severity": "HIGH",
+                                "description": f"Opaque cover hides {len(covered_words)} word(s) from view, but raw text remains extractable."
+                            })
+
+            faux_cnt = sum(1 for f in findings if f["kind"] == "faux_redaction")
+            unapp_cnt = sum(1 for f in findings if f["kind"] == "unapplied_mark")
+
+            return {
+                "total_findings": len(findings),
+                "findings": findings,
+                "summary": {
+                    "faux_redactions": faux_cnt,
+                    "unapplied_marks": unapp_cnt,
+                    "safe": len(findings) == 0
+                }
+            }
+        except Exception as exc:
+            logger.error(f"Error auditing redactions: {exc}")
+            raise
+        finally:
+            if doc:
+                try:
+                    doc.close()
+                except Exception:
+                    pass
+
+    @classmethod
+    def apply_permanent_redactions(
+        cls,
+        input_path: str,
+        output_path: str,
+        redactions: List[Dict[str, Any]]
+    ) -> Dict[str, Any]:
+        """
+        Permanently applies and burns redactions into the document, stripping underlying
+        characters, glyphs, and raster image pixels beneath each specified bounding box.
+        """
+        cls._require_fitz()
+        if not os.path.exists(input_path):
+            raise FileNotFoundError(f"Source PDF not found: {input_path}")
+
+        doc = None
+        try:
+            doc = fitz.open(input_path)
+            applied_total = 0
+
+            by_page: Dict[int, List[List[float]]] = {}
+            for red in redactions:
+                p = int(red.get("page", 1))
+                r = red.get("rect")
+                if r and len(r) == 4:
+                    by_page.setdefault(p, []).append(r)
+
+            for p_num, rect_list in by_page.items():
+                if 1 <= p_num <= doc.page_count:
+                    page = doc.load_page(p_num - 1)
+                    for r in rect_list:
+                        page.add_redact_annot(fitz.Rect(r), fill=(0, 0, 0))
+                        applied_total += 1
+                    page.apply_redactions(images=fitz.PDF_REDACT_IMAGE_PIXELS)
+
+            os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
+            doc.save(output_path, garbage=4, deflate=True)
+
+            return {
+                "success": True,
+                "applied_count": applied_total,
+                "output_path": output_path
+            }
+        except Exception as exc:
+            logger.error(f"Error applying permanent redactions: {exc}")
+            raise
+        finally:
+            if doc:
+                try:
+                    doc.close()
+                except Exception:
+                    pass
+
+    @classmethod
+    def get_document_statistics(cls, file_path_or_bytes: Any) -> Dict[str, Any]:
+        """
+        Computes comprehensive document statistics inspired by storytold/pdfcraft text_word_count.
+        Reports total words, character count, page count, images, and embedded fonts.
+        """
+        cls._require_fitz()
+        doc = None
+        try:
+            if isinstance(file_path_or_bytes, (bytes, bytearray)):
+                doc = fitz.open(stream=file_path_or_bytes, filetype="pdf")
+            elif isinstance(file_path_or_bytes, io.BytesIO):
+                doc = fitz.open(stream=file_path_or_bytes.getvalue(), filetype="pdf")
+            elif isinstance(file_path_or_bytes, str):
+                doc = fitz.open(file_path_or_bytes)
+            else:
+                doc = fitz.open(file_path_or_bytes)
+
+            total_words = 0
+            total_chars = 0
+            total_images = 0
+            fonts_set = set()
+            per_page = []
+
+            for i in range(doc.page_count):
+                p = doc.load_page(i)
+                txt = p.get_text("text")
+                words_list = re.findall(r"\b\w+\b", txt)
+                w_cnt = len(words_list)
+                c_cnt = len(txt)
+                img_cnt = len(p.get_images())
+
+                try:
+                    for f in p.get_fonts():
+                        if len(f) > 3 and f[3]:
+                            fonts_set.add(f[3])
+                except Exception:
+                    pass
+
+                total_words += w_cnt
+                total_chars += c_cnt
+                total_images += img_cnt
+
+                per_page.append({
+                    "page": i + 1,
+                    "words": w_cnt,
+                    "characters": c_cnt,
+                    "images": img_cnt,
+                    "dimensions": f"{round(p.rect.width, 1)} × {round(p.rect.height, 1)} pt"
+                })
+
+            return {
+                "page_count": doc.page_count,
+                "total_words": total_words,
+                "total_characters": total_chars,
+                "total_images": total_images,
+                "font_count": len(fonts_set),
+                "fonts": sorted(list(fonts_set)),
+                "per_page": per_page
+            }
+        except Exception as exc:
+            logger.error(f"Error computing document statistics: {exc}")
             raise
         finally:
             if doc:

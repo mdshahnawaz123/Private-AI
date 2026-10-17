@@ -46,7 +46,11 @@ let _pdfState = {
   measureScale: '1:100',
   measureUnit: 'm',
   measurePoints: [],
-  measurements: []
+  measurements: [],
+  markupsDrawerOpen: false,
+  selectedStamp: 'APPROVED',
+  markupAuthor: 'Lead Engineer',
+  pendingCallout: null
 };
 
 function _getAuthToken() {
@@ -157,12 +161,28 @@ function renderPdfCraftWorkspace(container) {
 
         <div class="pdf-ribbon-sep"></div>
 
-        <!-- MARKUP & ANNOTATIONS -->
+        <!-- MARKUP & ANNOTATIONS (BLUEBEAM AEC TOOLS) -->
         <div class="pdf-ribbon-group">
-          <div class="pdf-group-title">MARKUP &amp; TOOLS</div>
+          <div class="pdf-group-title">BLUEBEAM AEC MARKUP &amp; TOOLS</div>
           <div class="pdf-group-btns">
             <button class="pdf-tool-btn on" data-tool="select" title="Select / Cursor Tool"><svg class="ico" viewBox="0 0 24 24"><path d="M3 3l7 18 3-7 7-3L3 3z"/></svg><span>Select</span></button>
             <button class="pdf-tool-btn" data-tool="pan" title="Hand / Pan Viewport"><svg class="ico" viewBox="0 0 24 24"><path d="M18 11V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v0M14 10V4a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v2M10 10.5V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v8M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"/></svg><span>Pan</span></button>
+            <button class="pdf-tool-btn" data-tool="cloud" title="Bluebeam Revision Cloud (Curved Arcs)" style="color:#ef4444"><svg class="ico" viewBox="0 0 24 24"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/></svg><span>☁️ Cloud</span></button>
+            <button class="pdf-tool-btn" data-tool="callout" title="Bluebeam Callout Arrow &amp; Leader" style="color:#38bdf8"><svg class="ico" viewBox="0 0 24 24"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg><span>💬 Callout</span></button>
+            
+            <div class="pdf-dropdown-wrap">
+              <button class="pdf-btn" id="pdfStampDropdownBtn" title="Engineering Stamps">
+                <span>🏛️ Stamp ▼</span>
+              </button>
+              <div class="pdf-dropdown-menu" id="pdfStampsMenu" style="display:none">
+                <a href="javascript:void(0)" onclick="_pickStamp('APPROVED')">✅ APPROVED (Green)</a>
+                <a href="javascript:void(0)" onclick="_pickStamp('REJECTED')">❌ REJECTED (Red)</a>
+                <a href="javascript:void(0)" onclick="_pickStamp('REVISE &amp; RESUBMIT')">🔄 REVISE &amp; RESUBMIT (Orange)</a>
+                <a href="javascript:void(0)" onclick="_pickStamp('FOR REVIEW ONLY')">ℹ️ FOR REVIEW ONLY (Blue)</a>
+                <a href="javascript:void(0)" onclick="_pickStamp('AS-BUILT')">🏗️ AS-BUILT (Purple)</a>
+              </div>
+            </div>
+
             <button class="pdf-tool-btn" data-tool="highlight" title="Text Highlight Markup"><svg class="ico" viewBox="0 0 24 24"><path d="M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg><span>Highlight</span></button>
             <button class="pdf-tool-btn" data-tool="rect" title="Rectangle Markup Box"><svg class="ico" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/></svg><span>Box</span></button>
             <button class="pdf-tool-btn" data-tool="note" title="Sticky Comment Note"><svg class="ico" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><span>Note</span></button>
@@ -179,8 +199,13 @@ function renderPdfCraftWorkspace(container) {
 
         <!-- OPERATIONS & AI BRIDGE -->
         <div class="pdf-ribbon-group" style="margin-left:auto">
-          <div class="pdf-group-title">OPERATIONS &amp; AI STUDIO</div>
+          <div class="pdf-group-title">BLUEBEAM OPERATIONS &amp; AI STUDIO</div>
           <div class="pdf-group-btns">
+            <button class="pdf-btn" id="pdfOverlayModalBtn" title="Bluebeam Overlay Pages: Compare two drawing revisions (Red vs Green)" style="border:1px solid rgba(56,189,248,0.45);background:rgba(56,189,248,0.12);color:#38bdf8;font-weight:700">
+              <svg class="ico" viewBox="0 0 24 24"><path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></svg>
+              <span>🔀 Overlay Revisions</span>
+            </button>
+
             <button class="pdf-btn" id="pdfAuditBtn" title="Audit Redactions (storytold/pdfcraft crates/audit)" style="border:1px solid rgba(239,68,68,0.45);background:rgba(239,68,68,0.12);color:#fca5a5;font-weight:700">
               <svg class="ico" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
               <span>🛡️ Audit Redactions</span>
@@ -215,11 +240,6 @@ function renderPdfCraftWorkspace(container) {
               <svg class="ico" viewBox="0 0 24 24"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><circle cx="12" cy="12" r="9"/></svg>
               <span>🎨 Render in AI Studio</span>
             </button>
-
-            <button class="pdf-btn ghost" id="pdfEngineInfoBtn" title="View storytold/pdfcraft Architecture &amp; Clean-Room Info">
-              <svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
-              <span>PdfCraft Engine</span>
-            </button>
           </div>
         </div>
       </div>
@@ -230,6 +250,7 @@ function renderPdfCraftWorkspace(container) {
         <div class="pdf-sidebar" id="pdfSidebar">
           <div class="pdf-sidebar-tabs">
             <button class="pdf-tab-btn on" data-tab="pages" title="Page Thumbnails">📑 Pages</button>
+            <button class="pdf-tab-btn" data-tab="toolchest" title="Bluebeam Tool Chest" style="color:#f59e0b;font-weight:700">🧰 Tool Chest</button>
             <button class="pdf-tab-btn" data-tab="outline" title="Bookmarks Outline">🔖 Outline</button>
             <button class="pdf-tab-btn" data-tab="search" title="Search Text">🔍 Search</button>
             <button class="pdf-tab-btn" data-tab="audit" title="Faux-Redaction Security Audit (pdfcraft-audit)" style="color:#ef4444;font-weight:700">🛡️ Audit</button>
@@ -287,8 +308,53 @@ function renderPdfCraftWorkspace(container) {
         </div>
       </div>
 
+      <!-- BLUEBEAM MARKUPS LIST (BOTTOM DRAWER) -->
+      <div class="pdf-markups-drawer" id="pdfMarkupsDrawer">
+        <div class="pdf-markups-header" id="pdfMarkupsHeader">
+          <div class="pdf-markups-title" onclick="_toggleMarkupsDrawer()">
+            <svg class="ico" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+            <span>Markups List (<span id="pdfMarkupsCount">0</span>)</span>
+            <span class="pdf-drawer-arrow" id="pdfDrawerArrow">▲</span>
+          </div>
+          <div class="pdf-markups-toolbar">
+            <input type="text" id="pdfMarkupsSearch" placeholder="Filter markups..." class="pdf-search-input sm" oninput="_renderMarkupsTable()">
+            <select id="pdfMarkupsStatusFilter" class="pdf-select sm" onchange="_renderMarkupsTable()">
+              <option value="all">All Statuses</option>
+              <option value="Pending">Pending</option>
+              <option value="Accepted">Accepted</option>
+              <option value="Rejected">Rejected</option>
+              <option value="Completed">Completed</option>
+            </select>
+            <button class="pdf-btn sm" id="pdfExportMarkupsCsvBtn" onclick="_exportMarkupsCsv()" title="Export Markups List to CSV">📥 Export CSV</button>
+            <button class="pdf-btn sm ai" id="pdfAiSummarizeMarkupsBtn" onclick="_openAiMarkupsReviewModal()" title="AI Review &amp; Engineering Punch List Memo">🤖 AI Review Markups</button>
+          </div>
+        </div>
+        <div class="pdf-markups-body" id="pdfMarkupsBody" style="display:none">
+          <table class="pdf-markups-table">
+            <thead>
+              <tr>
+                <th style="width:110px">Status</th>
+                <th style="width:130px">Subject / Tool</th>
+                <th style="width:65px">Page</th>
+                <th style="width:95px">Author</th>
+                <th style="width:110px">Date</th>
+                <th style="width:95px">Measurement</th>
+                <th>Comments &amp; Engineering Notes</th>
+                <th style="width:65px;text-align:right">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="pdfMarkupsTbody">
+              <!-- populated dynamically -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
       <!-- STATUS BAR -->
       <div class="pdf-statusbar">
+        <button class="pdf-btn sm" id="pdfSbToggleMarkupsBtn" onclick="_toggleMarkupsDrawer()" style="background:rgba(47,107,255,0.2);border:1px solid rgba(47,107,255,0.4);color:#38bdf8;font-weight:700;margin-right:8px;padding:3px 8px">
+          📋 Markups List (<span id="pdfSbMarkupsCount">0</span>) ▲
+        </button>
         <div class="pdf-sb-item" id="pdfDocNameLabel">📄 No document loaded</div>
         <div class="pdf-sb-sep"></div>
         <div class="pdf-sb-item" id="pdfPageDimLabel">Size: —</div>
@@ -813,6 +879,174 @@ function _initPdfCraftStyles() {
       0%, 100% { opacity: 0.3; transform: scale(0.9); }
       50% { opacity: 1; transform: scale(1.1); }
     }
+
+    /* BLUEBEAM MARKUPS DRAWER & AEC TOOLS */
+    .pdf-markups-drawer {
+      position: absolute;
+      bottom: 26px;
+      left: 0;
+      right: 0;
+      background: #0b111e;
+      border-top: 1px solid var(--border, rgba(255,255,255,0.12));
+      z-index: 150;
+      display: flex;
+      flex-direction: column;
+      height: 36px;
+      transition: height 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+      box-shadow: 0 -8px 28px rgba(0,0,0,0.65);
+      overflow: hidden;
+    }
+    .pdf-markups-drawer.expanded {
+      height: 280px;
+    }
+    .pdf-markups-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 6px 14px;
+      background: #070d18;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      user-select: none;
+      gap: 12px;
+      height: 36px;
+      box-sizing: border-box;
+      flex-shrink: 0;
+    }
+    .pdf-markups-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 11.5px;
+      font-weight: 700;
+      color: #f1f5f9;
+      cursor: pointer;
+    }
+    .pdf-markups-title:hover {
+      color: var(--accent2, #38bdf8);
+    }
+    .pdf-drawer-arrow {
+      font-size: 10px;
+      color: var(--accent2, #38bdf8);
+      transition: transform 0.2s ease;
+    }
+    .pdf-markups-toolbar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .pdf-search-input.sm {
+      background: #141c2e;
+      border: 1px solid rgba(255,255,255,0.15);
+      color: #fff;
+      border-radius: 4px;
+      padding: 3px 8px;
+      font-size: 11px;
+      width: 140px;
+      outline: none;
+    }
+    .pdf-select.sm {
+      background: #141c2e;
+      border: 1px solid rgba(255,255,255,0.15);
+      color: #fff;
+      border-radius: 4px;
+      padding: 3px 6px;
+      font-size: 11px;
+      outline: none;
+    }
+    .pdf-markups-body {
+      flex: 1;
+      overflow-y: auto;
+      background: #090e1a;
+      position: relative;
+    }
+    .pdf-markups-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 11px;
+      text-align: left;
+    }
+    .pdf-markups-table th {
+      background: #0e1628;
+      color: #94a3b8;
+      font-weight: 600;
+      padding: 6px 10px;
+      position: sticky;
+      top: 0;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      z-index: 2;
+    }
+    .pdf-markups-table td {
+      padding: 6px 10px;
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+      color: #cbd5e1;
+      vertical-align: middle;
+    }
+    .pdf-markups-table tr:hover td {
+      background: rgba(56,189,248,0.08);
+      cursor: pointer;
+    }
+    .pdf-markups-table tr.selected td {
+      background: rgba(47,107,255,0.18);
+    }
+    .pdf-status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 7px;
+      border-radius: 4px;
+      font-weight: 700;
+      font-size: 10px;
+      cursor: pointer;
+      user-select: none;
+      border: 1px solid transparent;
+    }
+    .pdf-status-badge.pending { background: rgba(245,158,11,0.18); color: #fbbf24; border-color: rgba(245,158,11,0.4); }
+    .pdf-status-badge.accepted { background: rgba(16,185,129,0.18); color: #34d399; border-color: rgba(16,185,129,0.4); }
+    .pdf-status-badge.rejected { background: rgba(239,68,68,0.18); color: #f87171; border-color: rgba(239,68,68,0.4); }
+    .pdf-status-badge.completed { background: rgba(56,189,248,0.18); color: #38bdf8; border-color: rgba(56,189,248,0.4); }
+    .pdf-stamp-box {
+      position: absolute;
+      transform: translate(-50%, -50%) rotate(-4deg);
+      border: 3px double;
+      border-radius: 6px;
+      padding: 6px 12px;
+      font-weight: 900;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      font-family: 'Arial Black', Impact, sans-serif;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.5);
+      user-select: none;
+      pointer-events: auto;
+      background: rgba(10,15,28,0.85);
+      text-align: center;
+      cursor: pointer;
+      z-index: 22;
+    }
+    .pdf-toolchest-card {
+      background: #141c2e;
+      border: 1px solid rgba(255,255,255,0.09);
+      border-radius: 6px;
+      padding: 8px 10px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 6px;
+      transition: all 0.15s ease;
+    }
+    .pdf-toolchest-card:hover {
+      border-color: #38bdf8;
+      background: rgba(56,189,248,0.08);
+      transform: translateX(2px);
+    }
+    .pdf-markup-pulsing {
+      animation: pdfMarkupPulse 1.2s ease-in-out infinite;
+    }
+    @keyframes pdfMarkupPulse {
+      0% { box-shadow: 0 0 0 0 rgba(56, 189, 248, 0.9); }
+      70% { box-shadow: 0 0 0 16px rgba(56, 189, 248, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(56, 189, 248, 0); }
+    }
   `;
   document.head.appendChild(style);
 }
@@ -1018,6 +1252,21 @@ function _bindPdfEvents() {
   const aiRenderBtn = document.getElementById('pdfRenderAiStudioBtn');
   if (aiRenderBtn) aiRenderBtn.onclick = _renderPageForAiStudio;
 
+  // Bluebeam Stamps Dropdown
+  const stampBtn = document.getElementById('pdfStampDropdownBtn');
+  const stampsMenu = document.getElementById('pdfStampsMenu');
+  if (stampBtn && stampsMenu) {
+    stampBtn.onclick = (e) => {
+      e.stopPropagation();
+      stampsMenu.style.display = stampsMenu.style.display === 'none' ? 'block' : 'none';
+    };
+    document.addEventListener('click', () => { if (stampsMenu) stampsMenu.style.display = 'none'; });
+  }
+
+  // Bluebeam Overlay Pages Modal
+  const overlayBtn = document.getElementById('pdfOverlayModalBtn');
+  if (overlayBtn) overlayBtn.onclick = _openOverlayModal;
+
   const infoBtn = document.getElementById('pdfEngineInfoBtn');
   if (infoBtn) infoBtn.onclick = _showPdfCraftEngineModal;
 }
@@ -1134,6 +1383,8 @@ function _applyLoadedDocument(docId, filename, info, relPath = null, metadata = 
   _renderSidebarContent();
   _renderCurrentPage();
   _renderOrganizerGrid();
+  _updateMarkupsCounter();
+  _renderMarkupsTable();
 }
 
 async function _renderCurrentPage() {
@@ -1299,6 +1550,8 @@ function _renderSidebarContent() {
     _renderAuditTabContent(content);
   } else if (tab === 'measure') {
     _renderMeasureTabContent(content);
+  } else if (tab === 'toolchest') {
+    _renderToolChestContent(content);
   }
 }
 
@@ -1549,6 +1802,42 @@ window._jumpToSearchResult = _jumpToSearchResult;
     crates/audit (PR #2698), crates/measure, crates/automation)
    ========================================================================== */
 
+function _generateCloudSvgPath(x, y, w, h, arcRadius = 14) {
+  const step = arcRadius * 1.6;
+  const numX = Math.max(2, Math.round(w / step));
+  const numY = Math.max(2, Math.round(h / step));
+  const stepX = w / numX;
+  const stepY = h / numY;
+  
+  let d = `M ${x} ${y}`;
+  // Top edge (left to right): arcs bubble upwards
+  for (let i = 0; i < numX; i++) {
+    const endX = x + (i + 1) * stepX;
+    const endY = y;
+    d += ` A ${stepX * 0.65} ${stepX * 0.65} 0 0 1 ${endX} ${endY}`;
+  }
+  // Right edge (top to bottom): arcs bubble rightwards
+  for (let i = 0; i < numY; i++) {
+    const endX = x + w;
+    const endY = y + (i + 1) * stepY;
+    d += ` A ${stepY * 0.65} ${stepY * 0.65} 0 0 1 ${endX} ${endY}`;
+  }
+  // Bottom edge (right to left): arcs bubble downwards
+  for (let i = numX; i > 0; i--) {
+    const endX = x + (i - 1) * stepX;
+    const endY = y + h;
+    d += ` A ${stepX * 0.65} ${stepX * 0.65} 0 0 1 ${endX} ${endY}`;
+  }
+  // Left edge (bottom to top): arcs bubble leftwards
+  for (let i = numY; i > 0; i--) {
+    const endX = x;
+    const endY = y + (i - 1) * stepY;
+    d += ` A ${stepY * 0.65} ${stepY * 0.65} 0 0 1 ${endX} ${endY}`;
+  }
+  d += ' Z';
+  return d;
+}
+
 function _renderMarkupOverlay() {
   const overlay = document.getElementById('pdfMarkupOverlay');
   if (!overlay || !_pdfState.info || !_pdfState.info.pages) return;
@@ -1641,6 +1930,110 @@ function _renderMarkupOverlay() {
     });
   }
 
+  // 5. In-progress Callout anchor
+  if (_pdfState.pendingCallout) {
+    const ax = (_pdfState.pendingCallout.x / pw) * 100;
+    const ay = (_pdfState.pendingCallout.y / ph) * 100;
+    html += `
+      <div style="position:absolute;left:${ax}%;top:${ay}%;transform:translate(-50%,-50%);width:12px;height:12px;border-radius:50%;background:#38bdf8;border:2px solid #fff;box-shadow:0 0 8px #38bdf8;pointer-events:none;z-index:30"></div>
+    `;
+  }
+
+  // 6. Bluebeam Markups (Revision Clouds, Callouts, Stamps, Rectangles, Highlights, Notes)
+  const pageMarkups = (_pdfState.markups || []).filter(m => m.page === curPage);
+  
+  // Vector SVG overlay for clouds & callout leader arrows
+  let svgPaths = '';
+  pageMarkups.forEach(m => {
+    if (m.type === 'cloud') {
+      const d = _generateCloudSvgPath(m.x, m.y, m.w, m.h, 12);
+      svgPaths += `
+        <path id="markup-el-${m.id}" d="${d}" fill="rgba(239,68,68,0.12)" stroke="${m.color || '#ef4444'}" stroke-width="2.5" vector-effect="non-scaling-stroke" style="cursor:pointer;pointer-events:auto" onclick="event.stopPropagation();_locateMarkup('${m.id}')"/>
+      `;
+    } else if (m.type === 'callout' && m.arrow && m.box) {
+      const boxCenterX = m.box.x + m.box.w / 2;
+      const boxCenterY = m.box.y + m.box.h / 2;
+      svgPaths += `
+        <line x1="${boxCenterX}" y1="${boxCenterY}" x2="${m.arrow.x}" y2="${m.arrow.y}" stroke="${m.color || '#38bdf8'}" stroke-width="2.5" marker-end="url(#pdfArrowMarker)" vector-effect="non-scaling-stroke" style="pointer-events:none"/>
+      `;
+    }
+  });
+
+  if (svgPaths) {
+    html += `
+      <svg viewBox="0 0 ${pw} ${ph}" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:18">
+        <defs>
+          <marker id="pdfArrowMarker" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M 0 1.5 L 9 5 L 0 8.5 z" fill="#38bdf8"/>
+          </marker>
+        </defs>
+        ${svgPaths}
+      </svg>
+    `;
+  }
+
+  // HTML Overlay Elements for Callouts, Stamps, Rectangles, Highlights, Notes
+  pageMarkups.forEach(m => {
+    if (m.type === 'cloud') {
+      const lx = (m.x / pw) * 100;
+      const ty = (m.y / ph) * 100;
+      html += `
+        <div id="markup-tag-${m.id}" style="position:absolute;left:${lx}%;top:${ty}%;transform:translate(0,-100%);background:rgba(239,68,68,0.9);color:#fff;font-size:10px;font-weight:700;padding:2px 6px;border-radius:3px;box-shadow:0 2px 6px rgba(0,0,0,0.5);pointer-events:auto;cursor:pointer;z-index:22" onclick="event.stopPropagation();_locateMarkup('${m.id}')">
+          ☁️ ${_esc(m.text || 'Cloud')}
+        </div>
+      `;
+    } else if (m.type === 'callout' && m.box) {
+      const bx = (m.box.x / pw) * 100;
+      const by = (m.box.y / ph) * 100;
+      html += `
+        <div id="markup-el-${m.id}" style="position:absolute;left:${bx}%;top:${by}%;background:#091222;border:2px solid ${m.color || '#38bdf8'};border-radius:6px;padding:6px 10px;box-shadow:0 4px 14px rgba(0,0,0,0.6);color:#fff;font-size:11px;max-width:220px;pointer-events:auto;cursor:pointer;z-index:23" onclick="event.stopPropagation();_locateMarkup('${m.id}')">
+          <div style="font-size:9.5px;color:#94a3b8;font-weight:700;margin-bottom:2px;display:flex;justify-content:space-between">
+            <span>💬 CALLOUT</span>
+            <span>${_esc(m.status)}</span>
+          </div>
+          <div>${_esc(m.text || 'Engineering Note')}</div>
+        </div>
+      `;
+    } else if (m.type === 'stamp') {
+      const sx = (m.x / pw) * 100;
+      const sy = (m.y / ph) * 100;
+      html += `
+        <div id="markup-el-${m.id}" class="pdf-stamp-box" style="left:${sx}%;top:${sy}%;border-color:${m.color || '#10b981'};color:${m.color || '#10b981'}" onclick="event.stopPropagation();_locateMarkup('${m.id}')">
+          <div style="font-size:14px;letter-spacing:1px">${_esc(m.stampType || 'APPROVED')}</div>
+          <div style="font-size:8.5px;font-weight:700;color:#94a3b8;margin-top:2px;letter-spacing:0.5px">BY: ${_esc(m.author || 'Engineer')} · ${_esc((m.date || '').slice(0, 10))}</div>
+        </div>
+      `;
+    } else if (m.type === 'rect') {
+      const rx = (m.x / pw) * 100;
+      const ry = (m.y / ph) * 100;
+      const rw = (m.w / pw) * 100;
+      const rh = (m.h / ph) * 100;
+      html += `
+        <div id="markup-el-${m.id}" style="position:absolute;left:${rx}%;top:${ry}%;width:${rw}%;height:${rh}%;border:2px dashed ${m.color || '#f59e0b'};background:rgba(245,158,11,0.12);box-shadow:0 0 10px rgba(245,158,11,0.25);pointer-events:auto;cursor:pointer;z-index:21" onclick="event.stopPropagation();_locateMarkup('${m.id}')">
+          <span style="position:absolute;bottom:100%;left:0;margin-bottom:2px;background:#f59e0b;color:#000;font-size:9.5px;font-weight:700;padding:1px 5px;border-radius:2px">
+            🔲 ${_esc(m.text || 'Box')}
+          </span>
+        </div>
+      `;
+    } else if (m.type === 'highlight') {
+      const hx = (m.x / pw) * 100;
+      const hy = (m.y / ph) * 100;
+      const hw = (m.w / pw) * 100;
+      const hh = (m.h / ph) * 100;
+      html += `
+        <div id="markup-el-${m.id}" style="position:absolute;left:${hx}%;top:${hy}%;width:${hw}%;height:${hh}%;background:rgba(250,204,21,0.45);border:1px solid #facc15;pointer-events:auto;cursor:pointer;z-index:15" onclick="event.stopPropagation();_locateMarkup('${m.id}')"></div>
+      `;
+    } else if (m.type === 'note') {
+      const nx = (m.x / pw) * 100;
+      const ny = (m.y / ph) * 100;
+      html += `
+        <div id="markup-el-${m.id}" style="position:absolute;left:${nx}%;top:${ny}%;transform:translate(-50%,-50%);font-size:24px;filter:drop-shadow(0 4px 6px rgba(0,0,0,0.5));pointer-events:auto;cursor:pointer;z-index:24" onclick="event.stopPropagation();_locateMarkup('${m.id}')" title="${_esc(m.text)}">
+          📝
+        </div>
+      `;
+    }
+  });
+
   overlay.innerHTML = html;
 }
 
@@ -1657,7 +2050,117 @@ function _handleOverlayClick(e) {
   const pdfX = (clickX / rect.width) * pMeta.width;
   const pdfY = (clickY / rect.height) * pMeta.height;
 
-  if (_pdfState.activeTool === 'measure-dist') {
+  if (_pdfState.activeTool === 'cloud') {
+    const w = 160;
+    const h = 100;
+    const x = Math.max(10, pdfX - w / 2);
+    const y = Math.max(10, pdfY - h / 2);
+    const comment = prompt('Enter Revision Cloud change note:', 'Revision: verify connection detail');
+    if (comment !== null) {
+      _addMarkup({
+        type: 'cloud',
+        page: _pdfState.currentPage,
+        subject: 'Revision Cloud',
+        x: x,
+        y: y,
+        w: w,
+        h: h,
+        text: comment || 'Revision Cloud',
+        color: '#ef4444'
+      });
+      toast('☁️ Placed Revision Cloud');
+    }
+  } else if (_pdfState.activeTool === 'callout') {
+    if (!_pdfState.pendingCallout) {
+      _pdfState.pendingCallout = { x: pdfX, y: pdfY };
+      _renderMarkupOverlay();
+      toast('📍 Arrow anchor set. Click location for note text box.');
+    } else {
+      const arrow = _pdfState.pendingCallout;
+      _pdfState.pendingCallout = null;
+      const note = prompt('Enter Callout note / punch-list item:', 'Clarify slab edge setback & rebar cover');
+      if (note !== null) {
+        _addMarkup({
+          type: 'callout',
+          page: _pdfState.currentPage,
+          subject: 'Engineering Callout',
+          arrow: arrow,
+          box: { x: pdfX, y: pdfY, w: 150, h: 44 },
+          text: note || 'Callout note',
+          color: '#38bdf8'
+        });
+        toast('💬 Placed Callout with leader arrow');
+      } else {
+        _renderMarkupOverlay();
+      }
+    }
+  } else if (_pdfState.activeTool === 'stamp') {
+    const stampType = _pdfState.selectedStamp || 'APPROVED';
+    const colorMap = {
+      'APPROVED': '#10b981',
+      'REJECTED': '#ef4444',
+      'REVISE & RESUBMIT': '#f59e0b',
+      'FOR REVIEW ONLY': '#38bdf8',
+      'AS-BUILT': '#a855f7'
+    };
+    _addMarkup({
+      type: 'stamp',
+      page: _pdfState.currentPage,
+      subject: `Stamp: ${stampType}`,
+      stampType: stampType,
+      x: pdfX,
+      y: pdfY,
+      text: stampType,
+      color: colorMap[stampType] || '#10b981'
+    });
+    toast(`🏛️ Placed ${stampType} Stamp`);
+  } else if (_pdfState.activeTool === 'rect') {
+    const w = 150, h = 90;
+    const x = Math.max(10, pdfX - w / 2);
+    const y = Math.max(10, pdfY - h / 2);
+    const note = prompt('Enter Box markup note:', 'Engineering Zone Note');
+    if (note !== null) {
+      _addMarkup({
+        type: 'rect',
+        page: _pdfState.currentPage,
+        subject: 'Box Markup',
+        x: x,
+        y: y,
+        w: w,
+        h: h,
+        text: note || 'Box Markup',
+        color: '#f59e0b'
+      });
+      toast('🔲 Placed Box Markup');
+    }
+  } else if (_pdfState.activeTool === 'highlight') {
+    _addMarkup({
+      type: 'highlight',
+      page: _pdfState.currentPage,
+      subject: 'Text Highlight',
+      x: Math.max(10, pdfX - 75),
+      y: Math.max(5, pdfY - 12),
+      w: 150,
+      h: 24,
+      text: 'Highlighted Text',
+      color: '#facc15'
+    });
+    toast('🖍️ Placed Text Highlight');
+  } else if (_pdfState.activeTool === 'note') {
+    const note = prompt('Enter Sticky Comment Note:', 'Engineering comment');
+    if (note !== null) {
+      _addMarkup({
+        type: 'note',
+        page: _pdfState.currentPage,
+        subject: 'Sticky Note',
+        x: pdfX,
+        y: pdfY,
+        text: note || 'Note comment',
+        color: '#facc15'
+      });
+      toast('📝 Placed Sticky Note');
+    }
+  } else if (_pdfState.activeTool === 'measure-dist') {
     _pdfState.measurePoints.push({ x: pdfX, y: pdfY });
     if (_pdfState.measurePoints.length === 2) {
       const [p1, p2] = _pdfState.measurePoints;
@@ -1683,6 +2186,15 @@ function _handleOverlayClick(e) {
       _pdfState.measurePoints = [];
       _renderMarkupOverlay();
       _renderSidebarContent();
+
+      _addMarkup({
+        type: 'distance',
+        page: _pdfState.currentPage,
+        subject: 'Calibrated Distance',
+        measurement: valText,
+        text: `Measured distance: ${valText} (${_pdfState.measureScale})`,
+        color: '#38bdf8'
+      });
       toast(`Measured Distance: ${valText}`);
     } else {
       _renderMarkupOverlay();
@@ -1716,6 +2228,15 @@ function _handleOverlayClick(e) {
         _pdfState.measurePoints = [];
         _renderMarkupOverlay();
         _renderSidebarContent();
+
+        _addMarkup({
+          type: 'area',
+          page: _pdfState.currentPage,
+          subject: 'Calibrated Area',
+          measurement: valText,
+          text: `Measured area: ${valText} (${_pdfState.measureScale})`,
+          color: '#38bdf8'
+        });
         toast(`Measured Area: ${valText}`);
       } else {
         _renderMarkupOverlay();
@@ -1738,6 +2259,571 @@ function _removeMeasurement(idx) {
   }
 }
 window._removeMeasurement = _removeMeasurement;
+
+/* ==========================================================================
+   BLUEBEAM MARKUPS LIST, TOOL CHEST & REVISION OVERLAYS
+   ========================================================================== */
+
+function _addMarkup(m) {
+  const author = _pdfState.markupAuthor || 'Lead Engineer';
+  const now = new Date();
+  const dateStr = now.toISOString().slice(0, 16).replace('T', ' ');
+  const id = 'mk_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
+
+  let status = m.status || 'Pending';
+  if (m.stampType === 'APPROVED') status = 'Accepted';
+  if (m.stampType === 'REJECTED') status = 'Rejected';
+
+  const fullMarkup = {
+    id: id,
+    page: m.page || _pdfState.currentPage,
+    subject: m.subject || 'Markup',
+    type: m.type || 'generic',
+    author: author,
+    date: dateStr,
+    status: status,
+    measurement: m.measurement || '—',
+    text: m.text || '',
+    color: m.color || '#38bdf8',
+    ...m
+  };
+
+  _pdfState.markups.push(fullMarkup);
+  _updateMarkupsCounter();
+  _renderMarkupsTable();
+  _renderMarkupOverlay();
+}
+
+function _updateMarkupsCounter() {
+  const count = (_pdfState.markups || []).length;
+  const countEl = document.getElementById('pdfMarkupsCount');
+  if (countEl) countEl.textContent = count;
+  const sbCountEl = document.getElementById('pdfSbMarkupsCount');
+  if (sbCountEl) sbCountEl.textContent = count;
+}
+
+function _toggleMarkupsDrawer(forceOpen) {
+  const drawer = document.getElementById('pdfMarkupsDrawer');
+  const body = document.getElementById('pdfMarkupsBody');
+  const arrow = document.getElementById('pdfDrawerArrow');
+  if (!drawer || !body) return;
+
+  const shouldOpen = forceOpen !== undefined ? forceOpen : !_pdfState.markupsDrawerOpen;
+  _pdfState.markupsDrawerOpen = shouldOpen;
+
+  if (shouldOpen) {
+    drawer.classList.add('expanded');
+    body.style.display = 'block';
+    if (arrow) arrow.textContent = '▼';
+    _renderMarkupsTable();
+  } else {
+    drawer.classList.remove('expanded');
+    body.style.display = 'none';
+    if (arrow) arrow.textContent = '▲';
+  }
+}
+
+function _renderMarkupsTable() {
+  const tbody = document.getElementById('pdfMarkupsTbody');
+  if (!tbody) return;
+
+  _updateMarkupsCounter();
+
+  const search = (document.getElementById('pdfMarkupsSearch')?.value || '').toLowerCase().trim();
+  const statusFilter = document.getElementById('pdfMarkupsStatusFilter')?.value || 'all';
+
+  let list = _pdfState.markups || [];
+
+  if (statusFilter !== 'all') {
+    list = list.filter(m => (m.status || '').toLowerCase() === statusFilter.toLowerCase());
+  }
+
+  if (search) {
+    list = list.filter(m => {
+      const s = `${m.subject} ${m.author} ${m.text} ${m.measurement} ${m.status}`.toLowerCase();
+      return s.includes(search);
+    });
+  }
+
+  if (list.length === 0) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="8" style="text-align:center;padding:24px;color:var(--muted)">
+          No markups in list. Use Revision Cloud ☁️, Callout 💬, Stamp 🏛️, or Measure 📐 above.
+        </td>
+      </tr>
+    `;
+    return;
+  }
+
+  const iconMap = {
+    'cloud': '☁️',
+    'callout': '💬',
+    'stamp': '🏛️',
+    'rect': '🔲',
+    'highlight': '🖍️',
+    'note': '📝',
+    'measurement': '📐',
+    'distance': '📏',
+    'area': '📐'
+  };
+
+  tbody.innerHTML = list.map(m => {
+    const ico = iconMap[m.type] || '📌';
+    const st = (m.status || 'Pending').toLowerCase();
+    return `
+      <tr data-id="${m.id}" onclick="_locateMarkup('${m.id}')" title="Click to jump to page and highlight">
+        <td>
+          <select class="pdf-status-badge ${st}" onclick="event.stopPropagation()" onchange="_updateMarkupStatus('${m.id}', this.value)" style="border:none;outline:none">
+            <option value="Pending" ${st === 'pending' ? 'selected' : ''}>⏳ Pending</option>
+            <option value="Accepted" ${st === 'accepted' ? 'selected' : ''}>✅ Accepted</option>
+            <option value="Rejected" ${st === 'rejected' ? 'selected' : ''}>❌ Rejected</option>
+            <option value="Completed" ${st === 'completed' ? 'selected' : ''}>🏁 Completed</option>
+          </select>
+        </td>
+        <td style="font-weight:600;color:#f1f5f9;display:flex;align-items:center;gap:6px">
+          <span style="font-size:13px">${ico}</span>
+          <span>${_esc(m.subject)}</span>
+        </td>
+        <td>
+          <span class="pdf-btn sm" style="font-size:10px;padding:2px 6px;cursor:pointer" onclick="event.stopPropagation();_goToPage(${m.page})">
+            P. ${m.page}
+          </span>
+        </td>
+        <td style="color:#94a3b8">${_esc(m.author || 'Engineer')}</td>
+        <td style="color:#64748b;font-size:10px">${_esc(m.date || '—')}</td>
+        <td style="color:#38bdf8;font-weight:700">${_esc(m.measurement || '—')}</td>
+        <td>
+          <input type="text" value="${_esc(m.text || '')}" class="pdf-table-comment-input"
+                 style="width:100%;background:transparent;border:none;border-bottom:1px solid transparent;color:#cbd5e1;font-size:11px;padding:2px 4px"
+                 onclick="event.stopPropagation()"
+                 onfocus="this.style.borderBottomColor='#38bdf8';this.style.background='#162035'"
+                 onblur="this.style.borderBottomColor='transparent';this.style.background='transparent';_updateMarkupComment('${m.id}', this.value)">
+        </td>
+        <td style="text-align:right" onclick="event.stopPropagation()">
+          <button class="pdf-icon-btn" style="display:inline-flex;color:#ef4444" onclick="_deleteMarkup('${m.id}')" title="Delete Markup">
+            <svg class="ico" viewBox="0 0 24 24" style="width:14px;height:14px"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+          </button>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+function _locateMarkup(id) {
+  const m = (_pdfState.markups || []).find(x => x.id === id);
+  if (!m) return;
+
+  if (m.page !== _pdfState.currentPage) {
+    _goToPage(m.page);
+  }
+
+  // Highlight table row
+  document.querySelectorAll('#pdfMarkupsTbody tr').forEach(tr => {
+    tr.classList.toggle('selected', tr.dataset.id === id);
+  });
+
+  // Pulse on canvas overlay
+  setTimeout(() => {
+    const el = document.getElementById(`markup-el-${id}`) || document.getElementById(`markup-tag-${id}`);
+    if (el) {
+      el.classList.add('pdf-markup-pulsing');
+      setTimeout(() => el.classList.remove('pdf-markup-pulsing'), 3000);
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }, 120);
+}
+
+function _updateMarkupStatus(id, newStatus) {
+  const m = (_pdfState.markups || []).find(x => x.id === id);
+  if (m) {
+    m.status = newStatus;
+    _renderMarkupsTable();
+    toast(`Markup status updated to ${newStatus}`);
+  }
+}
+
+function _updateMarkupComment(id, newText) {
+  const m = (_pdfState.markups || []).find(x => x.id === id);
+  if (m) {
+    m.text = newText;
+  }
+}
+
+function _deleteMarkup(id) {
+  _pdfState.markups = (_pdfState.markups || []).filter(x => x.id !== id);
+  _renderMarkupsTable();
+  _renderMarkupOverlay();
+  toast('Markup deleted');
+}
+
+function _exportMarkupsCsv() {
+  const markups = _pdfState.markups || [];
+  if (markups.length === 0) {
+    toast('No markups to export.');
+    return;
+  }
+
+  const headers = ['ID', 'Status', 'Subject', 'Page', 'Author', 'Date', 'Measurement', 'Comments'];
+  const rows = markups.map(m => [
+    `"${(m.id || '').replace(/"/g, '""')}"`,
+    `"${(m.status || 'Pending').replace(/"/g, '""')}"`,
+    `"${(m.subject || '').replace(/"/g, '""')}"`,
+    m.page || 1,
+    `"${(m.author || '').replace(/"/g, '""')}"`,
+    `"${(m.date || '').replace(/"/g, '""')}"`,
+    `"${(m.measurement || '').replace(/"/g, '""')}"`,
+    `"${(m.text || '').replace(/"/g, '""')}"`
+  ]);
+
+  const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\r\n');
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  const baseName = (_pdfState.filename || 'document').replace(/\.pdf$/i, '');
+  a.download = `${baseName}_markups_list.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  toast(`📥 Exported ${markups.length} markups to CSV!`);
+}
+
+function _pickStamp(type) {
+  _pdfState.activeTool = 'stamp';
+  _pdfState.selectedStamp = type;
+  const stampsMenu = document.getElementById('pdfStampsMenu');
+  if (stampsMenu) stampsMenu.style.display = 'none';
+  document.querySelectorAll('.pdf-tool-btn').forEach(b => b.classList.remove('on'));
+  toast(`🏛️ Selected Stamp: ${type}. Click on page to place.`);
+}
+
+function _renderToolChestContent(content) {
+  content.innerHTML = `
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <!-- AUTHOR & IDENTITY -->
+      <div style="background:#070b15;border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:10px">
+        <label style="display:block;font-size:10.5px;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:4px">
+          Markup Author Name
+        </label>
+        <input type="text" id="pdfMarkupAuthorInput" value="${_esc(_pdfState.markupAuthor || 'Lead Engineer')}"
+               style="width:100%;background:#141c2e;border:1px solid rgba(255,255,255,0.15);color:#fff;border-radius:4px;padding:4px 8px;font-size:11px"
+               oninput="_pdfState.markupAuthor = this.value">
+      </div>
+
+      <!-- REVISION & REVIEW TOOLS -->
+      <div>
+        <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:6px">AEC Revision Tools</div>
+        <div class="pdf-toolchest-card" onclick="_selectToolChestTool('cloud')">
+          <span style="font-size:18px">☁️</span>
+          <div>
+            <div style="font-size:11.5px;font-weight:700;color:#ef4444">Revision Cloud</div>
+            <div style="font-size:10px;color:var(--muted)">Scalloped arcs for drawing change boundaries</div>
+          </div>
+        </div>
+        <div class="pdf-toolchest-card" onclick="_selectToolChestTool('callout')">
+          <span style="font-size:18px">💬</span>
+          <div>
+            <div style="font-size:11.5px;font-weight:700;color:#38bdf8">Engineering Callout</div>
+            <div style="font-size:10px;color:var(--muted)">Leader line & arrow with comment note box</div>
+          </div>
+        </div>
+        <div class="pdf-toolchest-card" onclick="_selectToolChestTool('rect')">
+          <span style="font-size:18px">🔲</span>
+          <div>
+            <div style="font-size:11.5px;font-weight:700;color:#f59e0b">Markup Box</div>
+            <div style="font-size:10px;color:var(--muted)">Rectangular zone for engineering comments</div>
+          </div>
+        </div>
+        <div class="pdf-toolchest-card" onclick="_selectToolChestTool('highlight')">
+          <span style="font-size:18px">🖍️</span>
+          <div>
+            <div style="font-size:11.5px;font-weight:700;color:#facc15">Text Highlight</div>
+            <div style="font-size:10px;color:var(--muted)">Translucent highlight over specifications</div>
+          </div>
+        </div>
+        <div class="pdf-toolchest-card" onclick="_selectToolChestTool('note')">
+          <span style="font-size:18px">📝</span>
+          <div>
+            <div style="font-size:11.5px;font-weight:700;color:#e2e8f0">Sticky Comment Note</div>
+            <div style="font-size:10px;color:var(--muted)">Collapsible engineering feedback note</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ENGINEERING STAMPS -->
+      <div>
+        <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:6px">Engineering Stamps</div>
+        <div class="pdf-toolchest-card" onclick="_pickStamp('APPROVED')">
+          <span style="font-size:18px">✅</span>
+          <div>
+            <div style="font-size:11.5px;font-weight:700;color:#10b981">APPROVED</div>
+            <div style="font-size:10px;color:var(--muted)">Green double-bordered submittal stamp</div>
+          </div>
+        </div>
+        <div class="pdf-toolchest-card" onclick="_pickStamp('REJECTED')">
+          <span style="font-size:18px">❌</span>
+          <div>
+            <div style="font-size:11.5px;font-weight:700;color:#ef4444">REJECTED</div>
+            <div style="font-size:10px;color:var(--muted)">Red double-bordered submittal stamp</div>
+          </div>
+        </div>
+        <div class="pdf-toolchest-card" onclick="_pickStamp('REVISE & RESUBMIT')">
+          <span style="font-size:18px">🔄</span>
+          <div>
+            <div style="font-size:11.5px;font-weight:700;color:#f59e0b">REVISE &amp; RESUBMIT</div>
+            <div style="font-size:10px;color:var(--muted)">Orange caution submittal stamp</div>
+          </div>
+        </div>
+        <div class="pdf-toolchest-card" onclick="_pickStamp('FOR REVIEW ONLY')">
+          <span style="font-size:18px">ℹ️</span>
+          <div>
+            <div style="font-size:11.5px;font-weight:700;color:#38bdf8">FOR REVIEW ONLY</div>
+            <div style="font-size:10px;color:var(--muted)">Blue informational review stamp</div>
+          </div>
+        </div>
+        <div class="pdf-toolchest-card" onclick="_pickStamp('AS-BUILT')">
+          <span style="font-size:18px">🏗️</span>
+          <div>
+            <div style="font-size:11.5px;font-weight:700;color:#a855f7">AS-BUILT</div>
+            <div style="font-size:10px;color:var(--muted)">Purple record drawing submittal stamp</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- MEASUREMENTS & TAKEOFF -->
+      <div>
+        <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:6px">Calibrated 2D Takeoff</div>
+        <div class="pdf-toolchest-card" onclick="_selectToolChestTool('measure-dist')">
+          <span style="font-size:18px">📏</span>
+          <div>
+            <div style="font-size:11.5px;font-weight:700;color:#38bdf8">Distance Measurement</div>
+            <div style="font-size:10px;color:var(--muted)">Point-to-point dimensioning</div>
+          </div>
+        </div>
+        <div class="pdf-toolchest-card" onclick="_selectToolChestTool('measure-area')">
+          <span style="font-size:18px">📐</span>
+          <div>
+            <div style="font-size:11.5px;font-weight:700;color:#38bdf8">Area Takeoff</div>
+            <div style="font-size:10px;color:var(--muted)">Polygon area & square footage</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function _selectToolChestTool(toolName) {
+  _pdfState.activeTool = toolName;
+  document.querySelectorAll('.pdf-tool-btn').forEach(b => {
+    b.classList.toggle('on', b.dataset.tool === toolName);
+  });
+  toast(`Selected Tool: ${toolName}`);
+}
+
+async function _openAiMarkupsReviewModal() {
+  const markups = _pdfState.markups || [];
+  if (markups.length === 0) {
+    toast('⚠️ No markups in list to review. Add clouds, callouts, or measurements first!');
+    return;
+  }
+
+  _removeExistingModal();
+  const modal = _createModal(`
+    <div style="font-size:16px;font-weight:800;color:var(--text);display:flex;align-items:center;gap:8px">
+      <span style="font-size:20px">🤖</span>
+      <span>Bluebeam Local AI Markups Review Memo</span>
+    </div>
+    <div id="pdfAiMemoLoading" style="display:flex;flex-direction:column;align-items:center;padding:36px 12px;gap:12px">
+      <div class="pdf-spinner"></div>
+      <div style="font-size:13px;font-weight:700;color:#fff">Analyzing Markups with Local qwen3.5:9b...</div>
+      <div style="font-size:11px;color:var(--muted)">Classifying architectural & engineering disciplines, summarizing punch-list...</div>
+    </div>
+    <div id="pdfAiMemoContent" style="display:none;flex-direction:column;gap:12px;max-height:65vh;overflow-y:auto"></div>
+  `);
+
+  try {
+    const res = await fetch(`${API}/api/v1/pdf/summarize-markups`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        markups: markups,
+        document_name: _pdfState.filename || 'Engineering Document'
+      })
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    const memo = data.summary || {};
+
+    const loadEl = modal.querySelector('#pdfAiMemoLoading');
+    const contEl = modal.querySelector('#pdfAiMemoContent');
+    if (loadEl) loadEl.style.display = 'none';
+    if (contEl) {
+      contEl.style.display = 'flex';
+      
+      const discBadges = Object.entries(memo.by_discipline || {}).map(([d, c]) => `
+        <span style="background:rgba(47,107,255,0.15);border:1px solid rgba(47,107,255,0.3);padding:3px 8px;border-radius:4px;font-size:11px;color:#93c5fd">
+          <b>${d}:</b> ${c}
+        </span>
+      `).join('');
+
+      const actionItems = (memo.action_items || []).map(item => `
+        <li style="margin-bottom:6px;line-height:1.5;color:#e2e8f0;font-size:11.5px">
+          ${_esc(item)}
+        </li>
+      `).join('');
+
+      contEl.innerHTML = `
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
+          <div style="background:#070b15;border:1px solid rgba(255,255,255,0.08);border-radius:6px;padding:8px 10px;text-align:center">
+            <div style="font-size:10px;color:var(--muted);text-transform:uppercase">Total Markups</div>
+            <div style="font-size:20px;font-weight:800;color:#fff">${memo.total_count || markups.length}</div>
+          </div>
+          <div style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);border-radius:6px;padding:8px 10px;text-align:center">
+            <div style="font-size:10px;color:#fca5a5;text-transform:uppercase">Open / Pending</div>
+            <div style="font-size:20px;font-weight:800;color:#ef4444">${memo.open_issues_count || 0}</div>
+          </div>
+          <div style="background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.3);border-radius:6px;padding:8px 10px;text-align:center">
+            <div style="font-size:10px;color:#6ee7b7;text-transform:uppercase">Resolved / Accepted</div>
+            <div style="font-size:20px;font-weight:800;color:#10b981">${(memo.total_count || markups.length) - (memo.open_issues_count || 0)}</div>
+          </div>
+        </div>
+
+        <div style="background:#070b15;border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:12px">
+          <div style="font-size:11px;font-weight:700;color:var(--accent2);text-transform:uppercase;margin-bottom:6px">📋 Executive Review Summary</div>
+          <div style="font-size:12px;line-height:1.6;color:#cbd5e1">${_esc(memo.executive_summary || 'Review completed.')}</div>
+        </div>
+
+        <div>
+          <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:6px">Discipline Breakdown</div>
+          <div style="display:flex;flex-wrap:wrap;gap:6px">
+            ${discBadges || '<span style="color:var(--muted);font-size:11px">General</span>'}
+          </div>
+        </div>
+
+        <div style="background:#070b15;border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:12px">
+          <div style="font-size:11px;font-weight:700;color:#f59e0b;text-transform:uppercase;margin-bottom:6px">⚡ Recommended Action Items</div>
+          <ul style="padding-left:18px;margin:0">
+            ${actionItems || '<li style="color:var(--muted);font-size:11px">None identified</li>'}
+          </ul>
+        </div>
+
+        <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:8px">
+          <button class="pdf-btn" id="pdfCopyMemoBtn">📋 Copy Memo</button>
+          <button class="pdf-btn primary" onclick="_removeExistingModal()">Close</button>
+        </div>
+      `;
+
+      const copyBtn = modal.querySelector('#pdfCopyMemoBtn');
+      if (copyBtn) {
+        copyBtn.onclick = () => {
+          const textToCopy = `EXECUTIVE MARKUPS MEMO - ${_pdfState.filename}\n\n${memo.executive_summary}\n\nACTION ITEMS:\n${(memo.action_items || []).map((x, i) => `${i + 1}. ${x}`).join('\n')}`;
+          navigator.clipboard.writeText(textToCopy);
+          toast('✅ Memo copied to clipboard!');
+        };
+      }
+    }
+  } catch (err) {
+    const loadEl = modal.querySelector('#pdfAiMemoLoading');
+    if (loadEl) {
+      loadEl.innerHTML = `
+        <div style="color:#ef4444;font-size:13px;font-weight:700">Failed to generate AI Review: ${_esc(err.message)}</div>
+        <button class="pdf-btn" onclick="_removeExistingModal()" style="margin-top:10px">Close</button>
+      `;
+    }
+  }
+}
+
+async function _openOverlayModal() {
+  _removeExistingModal();
+  const curPage = _pdfState.currentPage || 1;
+  const curDocId = _pdfState.docId;
+
+  const modal = _createModal(`
+    <div style="font-size:16px;font-weight:800;color:var(--text);display:flex;align-items:center;gap:8px">
+      <span style="font-size:20px">🔀</span>
+      <span>Bluebeam Overlay Pages: Two-Color Revision Comparison</span>
+    </div>
+    <div style="font-size:12px;color:var(--muted);line-height:1.5">
+      Compare two revisions of architectural or engineering drawings. Subtractive channel separation detects additions and deletions instantly:
+      <div style="display:flex;gap:12px;margin-top:6px;font-weight:700;font-size:11px">
+        <span style="color:#ef4444">🔴 Red: Rev 1 Deletions</span>
+        <span style="color:#10b981">🟢 Green: Rev 2 Additions</span>
+        <span style="color:#94a3b8">⚫ Black: Unchanged Geometry</span>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;background:#070b15;border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:12px">
+      <div>
+        <label style="display:block;font-size:11px;font-weight:700;color:#ef4444;margin-bottom:4px">Revision 1 (Base Drawing / Red)</label>
+        <div style="font-size:11.5px;color:#fff;margin-bottom:6px">${_esc(_pdfState.filename)}</div>
+        <div style="display:flex;align-items:center;gap:6px">
+          <span style="font-size:11px;color:var(--muted)">Page:</span>
+          <input type="number" id="pdfRev1Page" value="${curPage}" min="1" max="${_pdfState.totalPages}" style="width:60px;background:#141c2e;border:1px solid rgba(255,255,255,0.15);color:#fff;border-radius:4px;padding:3px 6px;font-size:11px">
+        </div>
+      </div>
+      <div>
+        <label style="display:block;font-size:11px;font-weight:700;color:#10b981;margin-bottom:4px">Revision 2 (New Drawing / Green)</label>
+        <select id="pdfRev2Doc" style="width:100%;background:#141c2e;border:1px solid rgba(255,255,255,0.15);color:#fff;border-radius:4px;padding:4px 6px;font-size:11px;margin-bottom:6px">
+          <option value="${curDocId}">Current Document (${_esc(_pdfState.filename)})</option>
+        </select>
+        <div style="display:flex;align-items:center;gap:6px">
+          <span style="font-size:11px;color:var(--muted)">Page:</span>
+          <input type="number" id="pdfRev2Page" value="${Math.min(_pdfState.totalPages, curPage + 1)}" min="1" max="${_pdfState.totalPages}" style="width:60px;background:#141c2e;border:1px solid rgba(255,255,255,0.15);color:#fff;border-radius:4px;padding:3px 6px;font-size:11px">
+        </div>
+      </div>
+    </div>
+
+    <div id="pdfOverlayResultArea" style="min-height:240px;background:#050811;border:1px solid rgba(255,255,255,0.08);border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative;overflow:auto;max-height:48vh;padding:8px">
+      <div style="color:var(--muted);font-size:12px;text-align:center">Click <b>Compare Revisions</b> to render differential overlay</div>
+    </div>
+
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px">
+      <div style="font-size:11px;color:var(--muted)">Pure offline sub-pixel raster comparison</div>
+      <div style="display:flex;gap:8px">
+        <button class="pdf-btn" onclick="_removeExistingModal()">Cancel</button>
+        <button class="pdf-btn primary" id="pdfRunOverlayBtn" style="font-weight:700">🔀 Compare Revisions</button>
+      </div>
+    </div>
+  `);
+
+  const runBtn = modal.querySelector('#pdfRunOverlayBtn');
+  if (runBtn) {
+    runBtn.onclick = () => {
+      const p1 = modal.querySelector('#pdfRev1Page').value;
+      const p2 = modal.querySelector('#pdfRev2Page').value;
+      const doc2 = modal.querySelector('#pdfRev2Doc').value;
+      const resArea = modal.querySelector('#pdfOverlayResultArea');
+      
+      resArea.innerHTML = `
+        <div class="pdf-spinner"></div>
+        <div style="margin-top:10px;font-size:12px;color:#fff">Calculating subtractive color channels (Red vs Green)...</div>
+      `;
+
+      const overlayUrl = _buildPdfUrl('/api/v1/pdf/overlay', {
+        doc1: curDocId,
+        page1: p1,
+        doc2: doc2,
+        page2: p2,
+        v: Date.now()
+      });
+
+      const img = new Image();
+      img.onload = () => {
+        resArea.innerHTML = `
+          <div style="width:100%;height:100%;overflow:auto;text-align:center">
+            <img src="${overlayUrl}" style="max-width:100%;height:auto;border-radius:4px;box-shadow:0 8px 30px rgba(0,0,0,0.7);background:#fff" alt="Overlay Comparison">
+          </div>
+        `;
+      };
+      img.onerror = () => {
+        resArea.innerHTML = `<div style="color:#ef4444;font-size:12px">Failed to render overlay. Ensure both pages are valid.</div>`;
+      };
+      img.src = overlayUrl;
+    };
+  }
+}
 
 function _renderAuditTabContent(content) {
   if (!_pdfState.docId) {
@@ -2631,4 +3717,15 @@ window._removeExistingModal = _removeExistingModal;
 window._askAiQuick = _askAiQuick;
 window._clearAiChat = _clearAiChat;
 window._sendAiQuestion = _sendAiQuestion;
+window._toggleMarkupsDrawer = _toggleMarkupsDrawer;
+window._renderMarkupsTable = _renderMarkupsTable;
+window._locateMarkup = _locateMarkup;
+window._updateMarkupStatus = _updateMarkupStatus;
+window._updateMarkupComment = _updateMarkupComment;
+window._deleteMarkup = _deleteMarkup;
+window._exportMarkupsCsv = _exportMarkupsCsv;
+window._openAiMarkupsReviewModal = _openAiMarkupsReviewModal;
+window._openOverlayModal = _openOverlayModal;
+window._pickStamp = _pickStamp;
+window._selectToolChestTool = _selectToolChestTool;
 

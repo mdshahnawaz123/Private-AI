@@ -668,3 +668,77 @@ async def get_pdf_statistics(doc_id: str = Query(..., description="Active PDF se
         raise HTTPException(status_code=500, detail=str(exc))
 
 
+# ── Bluebeam Revu Features: Overlay Pages & Markups AI ─────────────────────
+@pdf_router.get("/overlay")
+async def overlay_revisions(
+    doc_a: Optional[str] = Query(None),
+    doc_b: Optional[str] = Query(None),
+    doc1: Optional[str] = Query(None),
+    doc2: Optional[str] = Query(None),
+    page_a: Optional[int] = Query(None),
+    page_b: Optional[int] = Query(None),
+    page1: Optional[int] = Query(None),
+    page2: Optional[int] = Query(None),
+    zoom: float = Query(1.5),
+    password_a: Optional[str] = Query(None),
+    password_b: Optional[str] = Query(None),
+):
+    """
+    Bluebeam Revu standard Overlay Pages comparison.
+    Renders Page A in Red and Page B in Green.
+    Unchanged lines appear Black; additions appear Green; deletions appear Red.
+    """
+    target_doc_a = doc_a or doc1
+    target_doc_b = doc_b or doc2
+    if not target_doc_a or not target_doc_b:
+        raise HTTPException(status_code=400, detail="Missing document IDs for comparison (doc1/doc2 or doc_a/doc_b required)")
+
+    target_page_a = page_a or page1 or 1
+    target_page_b = page_b or page2 or 1
+
+    path_a = _get_doc_path(target_doc_a)
+    path_b = _get_doc_path(target_doc_b)
+    try:
+        img_bytes, w, h = await run_in_threadpool(
+            PdfService.compare_revisions_overlay,
+            path_a, path_b, page_a=target_page_a, page_b=target_page_b, zoom=zoom,
+            password_a=password_a, password_b=password_b
+        )
+        return Response(
+            content=img_bytes,
+            media_type="image/png",
+            headers={"X-Page-Width": str(w), "X-Page-Height": str(h), "Cache-Control": "public, max-age=600"}
+        )
+    except Exception as exc:
+        logger.error(f"Failed to overlay revisions {target_doc_a} and {target_doc_b}: {exc}")
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+class MarkupsSummarizeRequest(BaseModel):
+    doc_id: Optional[str] = None
+    doc_name: Optional[str] = None
+    document_name: Optional[str] = None
+    markups: List[Dict[str, Any]] = Field(default_factory=list)
+
+
+@pdf_router.post("/summarize-markups")
+async def summarize_markups(req: MarkupsSummarizeRequest):
+    """
+    Bluebeam Markups List AI Review:
+    Summarizes all markups, open issues, and action items using local LLM.
+    """
+    try:
+        doc_title = req.document_name or req.doc_name or "Active Document"
+        res = await run_in_threadpool(
+            PdfService.summarize_markups_ai,
+            req.markups,
+            doc_name=doc_title
+        )
+        if isinstance(res, dict):
+            return {"summary": res, **res}
+        return {"summary": res}
+    except Exception as exc:
+        logger.error(f"Failed to summarize markups: {exc}")
+        raise HTTPException(status_code=500, detail=str(exc))
+
+

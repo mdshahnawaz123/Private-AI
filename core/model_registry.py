@@ -54,6 +54,11 @@ class ModelConfig:
     status: str = "active"
     priority: int = 1
     extra: Dict[str, Any] = field(default_factory=dict)
+    modalities: List[str] = field(default_factory=lambda: ["text"])
+    license: str = ""
+    sha256: str = ""
+    is_local: bool = True
+    fallback_roles: List[str] = field(default_factory=list)
 
 
 # ── Provider abstraction ────────────────────────────────────
@@ -195,8 +200,11 @@ class ModelRegistry:
             provider="ollama",
             endpoint=chat_role["base_url"],
             context_length=int(os.getenv("EXPO_NUM_CTX", "16384")),
-            capabilities=["chat", "reasoning"],
+            capabilities=["chat", "reasoning", "structured_outputs"],
+            modalities=["text"],
             priority=1,
+            is_local=True,
+            fallback_roles=[ModelRole.FAST_LLM],
         ))
 
         # Vision model -- its own role/endpoint (Sec 6.1 'vision'); may live on a
@@ -207,8 +215,11 @@ class ModelRegistry:
             provider="ollama",
             endpoint=vision_role["base_url"],
             context_length=int(os.getenv("EXPO_NUM_CTX", "16384")),
-            capabilities=["vision", "chat"],
+            capabilities=["vision", "chat", "reasoning"],
+            modalities=["text", "image"],
             priority=1,
+            is_local=True,
+            fallback_roles=[ModelRole.REASONING_LLM],
         ))
 
         # Embedding model
@@ -218,7 +229,9 @@ class ModelRegistry:
             provider="ollama",
             endpoint=embed_role["base_url"],
             capabilities=["embedding"],
+            modalities=["text"],
             priority=1,
+            is_local=True,
         ))
 
         # Fast LLM (lighter model for simple queries) -- no resolve_role role for
@@ -230,7 +243,9 @@ class ModelRegistry:
             endpoint=ollama_host,
             context_length=8192,
             capabilities=["chat"],
+            modalities=["text"],
             priority=2,
+            is_local=True,
             enabled=os.getenv("EXPO_FAST_LLM_ENABLED", "0") == "1",
         ))
 
@@ -242,7 +257,9 @@ class ModelRegistry:
             provider="ollama",
             endpoint=ollama_host,
             capabilities=["reranking"],
+            modalities=["text"],
             priority=2,
+            is_local=True,
             enabled=os.getenv("EXPO_RERANKER_ENABLED", "0") == "1",
         ))
 
@@ -279,6 +296,10 @@ class ModelRegistry:
                 "enabled": m.enabled,
                 "status": m.status,
                 "capabilities": m.capabilities,
+                "context_length": m.context_length,
+                "modalities": m.modalities,
+                "is_local": m.is_local,
+                "fallback_roles": m.fallback_roles,
             }
             for m in self._models.values()
         ]

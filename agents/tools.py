@@ -25,6 +25,8 @@ from dataclasses import dataclass, field
 from typing import List, Dict, Any, Optional, Callable
 from enum import Enum
 
+from core.tooldesk import ToolPrerequisites
+
 try:
     from loguru import logger
 except Exception:
@@ -49,6 +51,7 @@ class ToolDefinition:
     permission: ToolPermission
     handler: Optional[Callable] = None
     enabled: bool = True
+    prerequisites: Optional[ToolPrerequisites] = None
 
 
 @dataclass
@@ -88,6 +91,13 @@ class ToolRegistry:
                 "required": ["document_id"],
             },
             permission=ToolPermission.READ,
+            prerequisites=ToolPrerequisites(
+                required_capabilities=["chat", "reasoning"],
+                min_context_tokens=16384,
+                input_modalities=["text", "pdf"],
+                output_modalities=["text"],
+                recommended_role="REASONING_LLM",
+            ),
         ))
 
         self.register(ToolDefinition(
@@ -103,6 +113,13 @@ class ToolRegistry:
                 "required": ["query"],
             },
             permission=ToolPermission.READ,
+            prerequisites=ToolPrerequisites(
+                required_capabilities=["chat"],
+                min_context_tokens=8192,
+                input_modalities=["text"],
+                output_modalities=["text", "json"],
+                recommended_role="REASONING_LLM",
+            ),
         ))
 
         self.register(ToolDefinition(
@@ -118,6 +135,13 @@ class ToolRegistry:
                 "required": ["query"],
             },
             permission=ToolPermission.READ,
+            prerequisites=ToolPrerequisites(
+                required_capabilities=["chat"],
+                min_context_tokens=8192,
+                input_modalities=["text"],
+                output_modalities=["text", "json"],
+                recommended_role="REASONING_LLM",
+            ),
         ))
 
         self.register(ToolDefinition(
@@ -132,6 +156,12 @@ class ToolRegistry:
                 "required": ["drawing_id"],
             },
             permission=ToolPermission.READ,
+            prerequisites=ToolPrerequisites(
+                required_capabilities=["chat"],
+                min_context_tokens=4096,
+                input_modalities=["text", "geometry_dxf"],
+                output_modalities=["json"],
+            ),
         ))
 
         self.register(ToolDefinition(
@@ -147,6 +177,12 @@ class ToolRegistry:
                 "required": ["guid"],
             },
             permission=ToolPermission.READ,
+            prerequisites=ToolPrerequisites(
+                required_capabilities=["chat"],
+                min_context_tokens=4096,
+                input_modalities=["text", "bim_ifc"],
+                output_modalities=["json"],
+            ),
         ))
 
         self.register(ToolDefinition(
@@ -161,6 +197,11 @@ class ToolRegistry:
                 "required": ["element_id", "measurement_type"],
             },
             permission=ToolPermission.READ,
+            prerequisites=ToolPrerequisites(
+                deterministic=True,
+                input_modalities=["geometry_dxf", "bim_ifc"],
+                output_modalities=["json"],
+            ),
         ))
 
         self.register(ToolDefinition(
@@ -174,6 +215,13 @@ class ToolRegistry:
                 },
             },
             permission=ToolPermission.READ,
+            prerequisites=ToolPrerequisites(
+                required_capabilities=["chat", "reasoning"],
+                min_context_tokens=8192,
+                input_modalities=["geometry_dxf"],
+                output_modalities=["json"],
+                recommended_role="REASONING_LLM",
+            ),
         ))
 
         self.register(ToolDefinition(
@@ -190,6 +238,13 @@ class ToolRegistry:
                 "required": ["project", "plan_type", "filename"],
             },
             permission=ToolPermission.WRITE,
+            prerequisites=ToolPrerequisites(
+                required_capabilities=["chat", "reasoning", "structured_outputs"],
+                min_context_tokens=8192,
+                input_modalities=["text"],
+                output_modalities=["geometry_dxf"],
+                recommended_role="REASONING_LLM",
+            ),
         ))
 
         self.register(ToolDefinition(
@@ -204,6 +259,13 @@ class ToolRegistry:
                 "required": ["query"],
             },
             permission=ToolPermission.READ,
+            prerequisites=ToolPrerequisites(
+                required_capabilities=["chat", "reasoning"],
+                min_context_tokens=8192,
+                input_modalities=["bim_ifc"],
+                output_modalities=["json"],
+                recommended_role="REASONING_LLM",
+            ),
         ))
 
         self.register(ToolDefinition(
@@ -219,6 +281,11 @@ class ToolRegistry:
                 "required": ["rule_id", "actual_value"],
             },
             permission=ToolPermission.EXECUTE,
+            prerequisites=ToolPrerequisites(
+                deterministic=True,
+                input_modalities=["json"],
+                output_modalities=["json"],
+            ),
         ))
 
         self.register(ToolDefinition(
@@ -233,6 +300,11 @@ class ToolRegistry:
                 "required": ["expression"],
             },
             permission=ToolPermission.EXECUTE,
+            prerequisites=ToolPrerequisites(
+                deterministic=True,
+                input_modalities=["text"],
+                output_modalities=["text", "number"],
+            ),
         ))
 
         # Write tools (require explicit permission)
@@ -251,6 +323,12 @@ class ToolRegistry:
                 "required": ["title", "description"],
             },
             permission=ToolPermission.WRITE,
+            prerequisites=ToolPrerequisites(
+                required_capabilities=["chat", "structured_outputs"],
+                min_context_tokens=4096,
+                input_modalities=["text"],
+                output_modalities=["finding"],
+            ),
         ))
 
         self.register(ToolDefinition(
@@ -266,6 +344,53 @@ class ToolRegistry:
                 "required": ["report_type", "project_id"],
             },
             permission=ToolPermission.WRITE,
+            prerequisites=ToolPrerequisites(
+                required_capabilities=["chat", "reasoning"],
+                min_context_tokens=16384,
+                input_modalities=["text", "json"],
+                output_modalities=["pdf", "json"],
+                recommended_role="REASONING_LLM",
+            ),
+        ))
+
+        # PdfCraft Studio Integration tools (storytold/pdfcraft capabilities)
+        self.register(ToolDefinition(
+            name="pdfcraft_audit",
+            description="Run Redaction Security Audit on a PDF to detect unapplied redactions and unsafe metadata.",
+            parameters={
+                "type": "object",
+                "properties": {
+                    "document_id": {"type": "string", "description": "Document ID or filename"},
+                },
+                "required": ["document_id"],
+            },
+            permission=ToolPermission.READ,
+            prerequisites=ToolPrerequisites(
+                required_capabilities=["chat", "reasoning"],
+                min_context_tokens=8192,
+                input_modalities=["pdf"],
+                output_modalities=["json"],
+                recommended_role="REASONING_LLM",
+            ),
+        ))
+
+        self.register(ToolDefinition(
+            name="pdfcraft_measure",
+            description="Calibrated 2D PDF drawing measurement and area calculation.",
+            parameters={
+                "type": "object",
+                "properties": {
+                    "document_id": {"type": "string", "description": "Document ID or filename"},
+                    "measurement_type": {"type": "string", "enum": ["distance", "area", "perimeter"]},
+                },
+                "required": ["document_id", "measurement_type"],
+            },
+            permission=ToolPermission.READ,
+            prerequisites=ToolPrerequisites(
+                deterministic=True,
+                input_modalities=["pdf"],
+                output_modalities=["json"],
+            ),
         ))
 
     def register(self, tool: ToolDefinition):
@@ -290,6 +415,7 @@ class ToolRegistry:
                 "description": tool.description,
                 "parameters": tool.parameters,
                 "permission": tool.permission.value,
+                "prerequisites": tool.prerequisites.to_dict() if tool.prerequisites else None,
             })
         return tools
 

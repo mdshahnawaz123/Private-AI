@@ -640,6 +640,28 @@ async def models_health():
     return model_registry.health_check()
 
 
+# ── ToolDesk Capability Matrix & Vault (craft-ai-integrations pattern) ──
+@api_v1.get("/tooldesk/matrix")
+async def tooldesk_matrix():
+    """Return the full capability matrix cross-referencing tools against models."""
+    from core.tooldesk import get_tooldesk
+    return get_tooldesk().audit_matrix()
+
+
+@api_v1.get("/tooldesk/resolve/{tool_name}")
+async def tooldesk_resolve_tool(tool_name: str, preferred_role: str = ""):
+    """Resolve the optimal model and verify prerequisites for a specific tool."""
+    from core.tooldesk import get_tooldesk
+    return get_tooldesk().resolve_model_for_tool(tool_name, preferred_role=preferred_role or None)
+
+
+@api_v1.get("/tooldesk/vault-status")
+async def tooldesk_vault_status():
+    """Return DPAPI native credential vault diagnostics (inspired by craft-ai-native)."""
+    from core.credential_vault import get_vault
+    return get_vault().get_status()
+
+
 # ── Knowledge Hub endpoints ─────────────────────────────────
 
 @api_v1.get("/knowledge/stats")

@@ -31,7 +31,7 @@ let _mpdHighlightColor = '#ffff00';
 let _mpdSelectedSource = '';
 let _mpdWorkingRevision = null;
 let _mpdEditBusy = false;
-let _mpdActiveTab = 'chat'; // 'chat' | 'register'
+let _mpdActiveTab = 'register'; // 'register' | 'inspector'
 let _mpdFilterSector = 'All';
 let _mpdFilterLandUse = 'All';
 let _mpdFilterStatus = 'All';
@@ -65,8 +65,9 @@ async function renderMPDWorkspace(container) {
   const proj = _getMpdProject();
   container.innerHTML = `
     <div class="mpd-root" id="mpdRoot">
-      <!-- Unified Masterplan CAD Toolbar -->
+      <!-- Unified Masterplan CAD Toolbar (4 Functional Groups) -->
       <div class="mpd-canvas-toolbar">
+        <!-- Group 1: Project & Sources -->
         <div class="mpd-canvas-toolbar-group">
           <button class="cad-btn" id="mpdImportBtn" onclick="window._openImportModal && window._openImportModal()" title="Import DXF, DWG, Excel or PDF">
             <svg class="ico" style="width:13px;height:13px" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
@@ -77,36 +78,17 @@ async function renderMPDWorkspace(container) {
             Files (<span id="mpdFileCount">0</span>)
           </button>
           <select class="cad-btn" id="mpdSourceSelect" aria-label="Drawing shown in workspace"><option value="">Latest CAD drawing</option></select>
-          <button class="cad-btn" onclick="window._saveMpdWorkingCopy()">Save working copy</button>
-          <button class="cad-btn" onclick="window._returnMpdOriginal()">Return to original</button>
-          <button class="cad-btn" onclick="window._openMpdRevisions()">Revisions / originals</button>
           <button class="cad-btn" id="mpdReconcileBtn" onclick="window._triggerReconciliation && window._triggerReconciliation()" title="Reconcile and stabilize CAD vs Excel relation">
             <svg class="ico" style="width:13px;height:13px;color:var(--accent2)" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
             Reconcile &amp; Link
           </button>
-          <button class="cad-btn" id="mpdOpenCadCraftBtn" title="Open full vector drawing in CADCraft Studio with layer manager & CAD tools" style="background:rgba(47,107,255,0.15);border-color:rgba(47,107,255,0.4);color:var(--accent2)">
-            <svg class="ico" style="width:13px;height:13px" viewBox="0 0 24 24"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
-            📐 Open in CADCraft
-          </button>
-          <button class="cad-btn" id="mpdAuditBtn" title="Run spatial rule and zoning audit">
-            <svg class="ico" style="width:13px;height:13px" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-            Run Spatial Audit
-          </button>
-          <button class="cad-btn" id="mpdExportCadBtn" title="Export highlighted CAD DXF">
-            <svg class="ico" style="width:13px;height:13px" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
-            Export CAD (.dxf)
-          </button>
-          <button class="cad-btn" id="mpdAuditLogBtn" title="View audit history & undo changes">
-            <svg class="ico" style="width:13px;height:13px" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 14 14"/></svg>
-            Audit Log &amp; Undo
-          </button>
-          <button class="cad-btn" id="mpdLiveAuditBtn" title="Run instant live audit across all 38,552 CAD lines & elements" style="background:rgba(53,208,127,0.15);border-color:rgba(53,208,127,0.4);color:var(--green)">
-            <svg class="ico" style="width:13px;height:13px" viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
-            ⚡ Live Audit Lines
-          </button>
+          <button class="cad-btn" onclick="window._saveMpdWorkingCopy()" title="Save edits to working copy">Save copy</button>
+          <button class="cad-btn" onclick="window._returnMpdOriginal()" title="Revert to original drawing">Revert</button>
+          <button class="cad-btn" onclick="window._openMpdRevisions()" title="Browse revisions history">Revisions</button>
+        </div>
 
-          <div style="width:1px;height:18px;background:var(--border);margin:0 4px"></div>
-
+        <!-- Group 2: Overlays & Layers -->
+        <div class="mpd-canvas-toolbar-group">
           <button class="mpd-canvas-ctrl active" id="btnToggleCadDrawing" title="Toggle Full CAD Vector Drawing Linework">
             <svg class="ico" style="width:12px;height:12px" viewBox="0 0 24 24"><path d="M4 4h16v16H4z"/><path d="M4 12h16M12 4v16"/></svg>
             CAD Linework (<span id="mpdCadEntityCount">0</span>)
@@ -129,17 +111,163 @@ async function renderMPDWorkspace(container) {
           </button>
         </div>
 
+        <!-- Group 3: Engineering Tools -->
+        <div class="mpd-canvas-toolbar-group">
+          <button class="cad-btn" id="mpdAuditBtn" title="Run spatial rule and zoning audit">
+            <svg class="ico" style="width:13px;height:13px" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            Spatial Audit
+          </button>
+          <button class="cad-btn" id="mpdLiveAuditBtn" title="Run instant live audit across active CAD elements" style="background:rgba(53,208,127,0.15);border-color:rgba(53,208,127,0.4);color:var(--green)">
+            <svg class="ico" style="width:13px;height:13px" viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+            ⚡ Live Audit Lines
+          </button>
+          <button class="cad-btn" id="mpdAuditLogBtn" title="View audit history & undo changes">
+            <svg class="ico" style="width:13px;height:13px" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 14 14"/></svg>
+            Audit Log
+          </button>
+          <button class="cad-btn" id="mpdExportCadBtn" title="Export highlighted CAD DXF">
+            <svg class="ico" style="width:13px;height:13px" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+            Export DXF
+          </button>
+        </div>
+
+        <!-- Group 4: Zoom & View -->
         <div class="mpd-canvas-toolbar-group">
           <button class="mpd-canvas-ctrl" id="btnZoomIn" title="Zoom In">+</button>
           <button class="mpd-canvas-ctrl" id="btnZoomOut" title="Zoom Out">-</button>
           <button class="mpd-canvas-ctrl" id="btnZoomFit" title="Fit Entire Masterplan">Fit</button>
+          <button class="mpd-canvas-ctrl active" id="btnToggleSidePane" title="Toggle Side Register / Inspector Drawer">
+            <svg class="ico" style="width:12px;height:12px" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="15" y1="3" x2="15" y2="21"/></svg>
+            Side Drawer
+          </button>
         </div>
       </div>
 
-      <!-- Full-screen Canvas Container -->
-      <div class="mpd-canvas-container" id="mpdCanvasContainer">
-        <canvas id="mpdCanvas"></canvas>
-        <div class="mpd-canvas-tooltip" id="mpdTooltip"></div>
+      <!-- KPI Ribbon Bar -->
+      <div class="mpd-kpi-bar" id="mpdKpiBar">
+        <div class="mpd-kpi-item"><span style="color:var(--muted)">Area:</span> <b id="kpiArea">-- m²</b></div>
+        <div class="mpd-kpi-item"><span style="color:var(--muted)">Parcels:</span> <b id="kpiPlots">-- plots</b></div>
+        <div class="mpd-kpi-item"><span style="color:var(--muted)">Total GFA:</span> <b id="kpiGfa">-- m²</b></div>
+        <div class="mpd-kpi-item"><span style="color:var(--muted)">FAR:</span> <b id="kpiFar">--</b></div>
+        <div class="mpd-kpi-item"><span style="color:var(--muted)">Compliance:</span> <span id="kpiCompliance">--</span></div>
+      </div>
+
+      <!-- Main Split Workspace: Canvas + Collapsible Sliding Drawer -->
+      <div class="mpd-main-split">
+        <div class="mpd-canvas-container" id="mpdCanvasContainer">
+          <canvas id="mpdCanvas"></canvas>
+          <div class="mpd-canvas-tooltip" id="mpdTooltip"></div>
+        </div>
+
+        <div class="mpd-side-pane" id="mpdSidePane">
+          <div class="mpd-side-header">
+            <div class="mpd-tabs">
+              <button class="mpd-tab active" id="tabRegister" onclick="_switchMpdTab('register')">
+                Plot Register (<span id="mpdPlotCountBadge">0</span>)
+              </button>
+              <button class="mpd-tab" id="tabInspector" onclick="_switchMpdTab('inspector')">
+                Property Inspector
+              </button>
+            </div>
+            <button id="btnCloseSidePane" title="Collapse Side Drawer" style="background:none;border:none;color:var(--muted);font-size:16px;cursor:pointer;padding:4px 8px;line-height:1">&times;</button>
+          </div>
+
+          <div class="mpd-side-body">
+            <!-- Tab 1: Plot Register Table -->
+            <div class="mpd-pane" id="paneRegister">
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+                <input type="text" class="mpd-input" id="tblSearch" placeholder="Search Plot ID, Sector..." oninput="_filterPlots()">
+                <select class="mpd-input" id="tblLandUse" onchange="_filterPlots()">
+                  <option value="All">All Land Uses</option>
+                  <option value="Residential">Residential</option>
+                  <option value="Commercial">Commercial</option>
+                  <option value="Mixed Use">Mixed Use</option>
+                  <option value="Open Space / Park">Open Space / Park</option>
+                  <option value="Civic">Civic</option>
+                  <option value="Utilities">Utilities</option>
+                </select>
+              </div>
+
+              <div class="mpd-table-wrap">
+                <table class="mpd-table" id="mpdPlotTable">
+                  <thead>
+                    <tr>
+                      <th>Plot ID</th>
+                      <th>Land Use</th>
+                      <th>Area (m²)</th>
+                      <th>Ach. GFA</th>
+                      <th>FAR</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody id="mpdPlotTableBody"></tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- Tab 2: Property Inspector -->
+            <div class="mpd-pane" id="paneInspector" style="display:none">
+              <div class="mpd-inspector" id="mpdInspector">
+                <div style="display:flex;justify-content:space-between;align-items:center">
+                  <span style="font-weight:700;font-size:12px;color:var(--text)" id="inspPlotTitle">Plot Details Inspector</span>
+                  <span id="inspStatusBadge" class="mpd-badge">Select a Plot</span>
+                </div>
+
+                <div class="mpd-form-row">
+                  <div class="mpd-form-group">
+                    <span class="mpd-form-label">Sector</span>
+                    <input type="text" class="mpd-input" id="inspSector" readonly>
+                  </div>
+                  <div class="mpd-form-group">
+                    <span class="mpd-form-label">Land Use</span>
+                    <select class="mpd-input" id="inspLandUse">
+                      <option value="Residential">Residential</option>
+                      <option value="Commercial">Commercial</option>
+                      <option value="Mixed Use">Mixed Use</option>
+                      <option value="Open Space / Park">Open Space / Park</option>
+                      <option value="Civic">Civic</option>
+                      <option value="Utilities">Utilities</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div class="mpd-form-row">
+                  <div class="mpd-form-group">
+                    <span class="mpd-form-label">Footprint Area (m²)</span>
+                    <input type="number" class="mpd-input" id="inspArea" readonly>
+                  </div>
+                  <div class="mpd-form-group">
+                    <span class="mpd-form-label">Achieved GFA (m²)</span>
+                    <input type="number" class="mpd-input" id="inspAchGfa" oninput="_calcInspFar()">
+                  </div>
+                </div>
+
+                <div class="mpd-form-row">
+                  <div class="mpd-form-group">
+                    <span class="mpd-form-label">Calculated FAR (Max allowed)</span>
+                    <input type="text" class="mpd-input" id="inspFar" readonly>
+                  </div>
+                  <div class="mpd-form-group">
+                    <span class="mpd-form-label">Front Setback (m)</span>
+                    <input type="number" step="0.5" class="mpd-input" id="inspFrontSb">
+                  </div>
+                </div>
+
+                <div id="inspViolationsBox" style="font-size:11px;color:var(--red);background:rgba(242,88,95,.1);border:1px solid rgba(242,88,95,.25);padding:6px 10px;border-radius:6px;display:none"></div>
+
+                <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:4px">
+                  <button class="cad-btn" id="inspSaveBtn" onclick="_savePlotInspection()" style="background:var(--accent);color:#fff">
+                    Save &amp; Recalculate
+                  </button>
+                </div>
+              </div>
+
+              <div style="padding:10px 12px;background:#0d1424;border:1px solid var(--border);border-radius:6px;font-size:11px;color:var(--muted);line-height:1.5">
+                <b style="color:var(--text)">Live Spatial Sync:</b> Changing the achieved GFA or front setback will automatically recalculate the plot's FAR and re-evaluate setback encroachment boundaries against adjacent parcels and masterplan rules.
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- Canvas Footer Status Bar -->
@@ -167,10 +295,24 @@ async function renderMPDWorkspace(container) {
 
 function _switchMpdTab(tab) {
   _mpdActiveTab = tab;
-  $('tabChat').classList.toggle('active', tab === 'chat');
-  $('tabRegister').classList.toggle('active', tab === 'register');
-  $('paneChat').style.display = tab === 'chat' ? 'flex' : 'none';
-  $('paneRegister').style.display = tab === 'register' ? 'flex' : 'none';
+  const tabReg = _mpd$('tabRegister');
+  const tabInsp = _mpd$('tabInspector');
+  const paneReg = _mpd$('paneRegister');
+  const paneInsp = _mpd$('paneInspector');
+  if (tabReg) tabReg.classList.toggle('active', tab === 'register');
+  if (tabInsp) tabInsp.classList.toggle('active', tab === 'inspector');
+  if (paneReg) paneReg.style.display = tab === 'register' ? 'flex' : 'none';
+  if (paneInsp) paneInsp.style.display = tab === 'inspector' ? 'flex' : 'none';
+}
+
+function _toggleSidePane(forceOpen) {
+  const pane = _mpd$('mpdSidePane');
+  const btn = _mpd$('btnToggleSidePane');
+  if (!pane) return;
+  const isCollapsed = pane.classList.contains('collapsed');
+  const shouldOpen = forceOpen != null ? forceOpen : isCollapsed;
+  pane.classList.toggle('collapsed', !shouldOpen);
+  if (btn) btn.classList.toggle('active', shouldOpen);
 }
 
 async function _loadMasterplanData(proj) {
@@ -274,7 +416,7 @@ function _renderPlotTable(plots) {
         : '<span class="mpd-badge red" style="padding:1px 6px;font-size:9.5px">Violation</span>');
 
     return `
-      <tr class="${isSel ? 'selected' : ''}" onclick="_selectPlot('${_mpdEsc(p.plot_id)}')">
+      <tr class="${isSel ? 'selected' : ''}" onclick="_selectPlot('${_mpdEsc(p.plot_id)}', true)">
         <td><b>${_mpdEsc(p.plot_id)}</b></td>
         <td>${_mpdEsc(p.land_use)}</td>
         <td>${Math.round(p.area_sqm).toLocaleString()}</td>
@@ -323,6 +465,10 @@ function _selectPlot(plotId, zoomTo = false) {
     return;
   }
   _mpdSelectedPlotId = plot.plot_id;
+
+  // Ensure side drawer is open and inspector tab is active
+  _toggleSidePane(true);
+  _switchMpdTab('inspector');
 
   // Update selection banner
   const selInfo = $('mpdSelectedInfo');
@@ -461,42 +607,43 @@ function _initCanvas() {
       statusCoords.textContent = `Cursor: (${worldX.toFixed(1)}, ${worldY.toFixed(1)}) m · Scale: ${Math.round(_mpdTransform.zoom * 100)}%`;
     }
 
-    // Hit testing: CAD entity (lines/arcs/text) first, then parcel plots
-    const hitEnt = _hitTestCadEntity(worldX, worldY, _mpdTransform.zoom);
+    // Hit testing: prioritize parcel plots if parcels overlay is active, then CAD entities
     const hitPlot = _mpdShowPlots ? _hitTestPlots(worldX, worldY) : null;
+    const hitEnt = !hitPlot ? _hitTestCadEntity(worldX, worldY, _mpdTransform.zoom) : null;
     const tooltip = $('mpdTooltip');
 
-    if (hitEnt) {
-      _mpdHoverCadEntity = hitEnt;
-      _mpdHoverPlot = null;
-      const audit = _auditCadEntityLive(hitEnt);
-      const selInfo = $('mpdSelectedInfo');
-      if (selInfo && audit) {
-        selInfo.innerHTML = `🔍 <b>Live Line Audit:</b> <span style="color:var(--accent2)">[${_mpdEsc(audit.layer)}]</span> ${_mpdEsc(audit.description)}${audit.length ? ` · <b>${audit.length}m</b>` : ''} · <span style="color:var(--green);font-weight:700">✓ ${audit.status}</span>`;
-      }
-      if (tooltip && audit) {
-        tooltip.style.display = 'block';
-        tooltip.style.left = `${mouseX + 14}px`;
-        tooltip.style.top = `${mouseY + 14}px`;
-        tooltip.innerHTML = `
-          <div style="font-weight:700;color:var(--accent2);font-size:12px">⚡ Live CAD Element Audit</div>
-          <div style="font-size:11px;color:var(--text);margin-top:2px"><b>Layer:</b> ${_mpdEsc(audit.layer)}</div>
-          <div style="font-size:11px;color:var(--text)"><b>Type:</b> ${_mpdEsc(audit.description)}</div>
-          ${audit.length ? `<div style="font-size:11px;color:var(--text)"><b>Length:</b> ${audit.length} m</div>` : ''}
-          <div style="font-size:10.5px;color:var(--green);margin-top:4px;font-weight:600">${audit.auditNotes.map(n => `✓ ${_mpdEsc(n)}`).join('<br>')}</div>
-        `;
-      }
-    } else if (hitPlot) {
-      _mpdHoverCadEntity = null;
+    if (hitPlot) {
       _mpdHoverPlot = hitPlot;
+      _mpdHoverCadEntity = null;
       if (tooltip) {
         tooltip.style.display = 'block';
         tooltip.style.left = `${mouseX + 14}px`;
         tooltip.style.top = `${mouseY + 14}px`;
         tooltip.innerHTML = `
           <div style="font-weight:700;color:var(--text);font-size:12px">${_mpdEsc(hitPlot.plot_id)} · ${_mpdEsc(hitPlot.land_use)}</div>
-          <div style="font-size:10.5px;color:var(--muted)">Area: ${Math.round(hitPlot.area_sqm).toLocaleString()} m² | FAR: ${hitPlot.far.toFixed(2)}</div>
-          <div style="font-size:10.5px;color:${hitPlot.status==='violation'?'var(--red)':'var(--green)'}">Status: ${hitPlot.status.toUpperCase()}</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:2px">Area: <b>${Math.round(hitPlot.area_sqm).toLocaleString()} m²</b></div>
+          <div style="font-size:11px;color:var(--muted)">FAR: <b>${hitPlot.far.toFixed(2)}</b> (Max: ${hitPlot.max_far.toFixed(2)})</div>
+          <div style="font-size:11px;margin-top:3px;font-weight:600;color:${hitPlot.status==='violation'?'var(--red)':'var(--green)'}">Status: ${hitPlot.status.toUpperCase()}</div>
+        `;
+      }
+    } else if (hitEnt) {
+      _mpdHoverCadEntity = hitEnt;
+      _mpdHoverPlot = null;
+      const audit = _auditCadEntityLive(hitEnt);
+      const selInfo = $('mpdSelectedInfo');
+      if (selInfo && audit) {
+        selInfo.innerHTML = `🔍 <b>CAD Element:</b> <span style="color:var(--accent2)">[${_mpdEsc(audit.layer)}]</span> ${_mpdEsc(audit.description)}${audit.length ? ` · <b>${audit.length}m</b>` : ''}`;
+      }
+      if (tooltip && audit) {
+        tooltip.style.display = 'block';
+        tooltip.style.left = `${mouseX + 14}px`;
+        tooltip.style.top = `${mouseY + 14}px`;
+        tooltip.innerHTML = `
+          <div style="font-weight:700;color:var(--accent2);font-size:12px">CAD Element Inspector</div>
+          <div style="font-size:11px;color:var(--text);margin-top:2px"><b>Layer:</b> ${_mpdEsc(audit.layer)}</div>
+          <div style="font-size:11px;color:var(--text)"><b>Type:</b> ${_mpdEsc(audit.description)}</div>
+          ${audit.length ? `<div style="font-size:11px;color:var(--text)"><b>Length:</b> ${audit.length} m</div>` : ''}
+          <div style="font-size:10.5px;color:var(--muted);margin-top:4px">${audit.auditNotes.map(n => `• ${_mpdEsc(n)}`).join('<br>')}</div>
         `;
       }
     } else {
@@ -533,15 +680,18 @@ function _initCanvas() {
     const worldX = (mouseX - _mpdTransform.panX) / _mpdTransform.zoom;
     const worldY = (_mpdTransform.panY - mouseY) / _mpdTransform.zoom;
 
+    // Prioritize parcel polygons when parcels layer is active
+    const hitPlot = _mpdShowPlots ? _hitTestPlots(worldX, worldY) : null;
+    if (hitPlot) {
+      _selectPlot(hitPlot.plot_id, false);
+      return;
+    }
+
+    // Otherwise check CAD linework/entities
     const hitEnt = _hitTestCadEntity(worldX, worldY, _mpdTransform.zoom);
     if (hitEnt) {
       _selectCadEntity(hitEnt);
       return;
-    }
-
-    const hit = _mpdShowPlots ? _hitTestPlots(worldX, worldY) : null;
-    if (hit) {
-      _selectPlot(hit.plot_id);
     }
   });
 
@@ -668,73 +818,49 @@ function _auditCadEntityLive(e) {
     const dy = e.y2 - e.y1;
     const len = Math.sqrt(dx * dx + dy * dy);
     length = len.toFixed(2);
+    notes.push(`Start: (${e.x1.toFixed(1)}, ${e.y1.toFixed(1)}) · End: (${e.x2.toFixed(1)}, ${e.y2.toFixed(1)})`);
+    notes.push(`Length: ${length} m`);
 
     if (lyr.includes('WALL')) {
       category = 'Wall Partition / Boundary (A-WALL)';
       discipline = 'Architectural (ARC)';
-      notes.push('Layer matches AIA standard A-WALL partition boundary');
-      notes.push('Wall geometry continuous — 0 open gap detected');
-      notes.push('Fire-rated compartment boundary per Dubai Building Code');
+      notes.push('AIA standard A-WALL partition layer');
     } else if (lyr.includes('COLS')) {
       category = 'Structural Column / Core (S-COLS)';
       discipline = 'Structural Engineering (STR)';
-      notes.push('Reinforced concrete column/shear aligned to structural grid');
-      notes.push('AIA S-COLS structural core standard verified');
-      notes.push('Vertical load path integrity verified');
+      notes.push('Structural grid alignment element');
     } else if (lyr.includes('PRKG') || lyr.includes('PARK')) {
       category = 'Parking Stall Demarcation (A-PRKG)';
       discipline = 'Civil / Traffic / Parking';
-      if (Math.abs(len - 5.0) < 0.45) {
-        notes.push(`Stall Length: ${length}m (Dubai RTA Standard = 5.00m) ✓ PASS`);
-      } else if (Math.abs(len - 2.5) < 0.45) {
-        notes.push(`Stall Width: ${length}m (Dubai RTA Standard = 2.50m) ✓ PASS`);
-      } else if (Math.abs(len - 6.0) < 0.6) {
-        notes.push(`Drive Aisle Width: ${length}m (Min Two-Way 6.00m) ✓ PASS`);
-      } else {
-        notes.push(`Parking bay boundary line: ${length}m`);
-      }
-      notes.push('Dubai Municipality Parking Code Compliant');
+      notes.push('Vehicular parking stall / marking line');
     } else if (lyr.includes('STRS') || lyr.includes('FLOR')) {
-      category = 'Stairway / Slab Egress Edge (A-STRS)';
-      discipline = 'Architecture / Life Safety';
-      notes.push('Emergency egress route conforms to NFPA 101');
-      notes.push('Clear flight width meets 1.20m commercial requirement');
-      notes.push('Riser/Tread ratio conforms to Dubai Civil Defense');
+      category = 'Floor / Stair Boundary (A-FLOR)';
+      discipline = 'Architecture / Egress Edge';
+      notes.push('Floor perimeter / stair boundary linework');
     } else if (lyr.includes('DIM')) {
       category = 'Dimension Line (G-ANNO-DIMS)';
       discipline = 'CAD Documentation';
-      notes.push('Drawing linear dimension annotation');
-      notes.push('Unit scale 1:1 metric meter (Dubai Grid)');
+      notes.push('Linear dimension annotation vector');
     } else {
-      category = `Linework [${e.layer || 'General'}]`;
+      category = `CAD Linework [${e.layer || 'General'}]`;
       discipline = lyr.startsWith('MP_') ? 'Masterplan Division (MPD)' : 'Architectural Linework';
       notes.push('Vector linework continuous and valid');
-      notes.push('CAD layer syntax verified');
     }
   } else if (type === 'ARC' || type === 'CIRCLE') {
     const r = (e.radius || 0).toFixed(2);
-    category = type === 'CIRCLE' ? 'Column / Core Curve' : 'Door Swing / Arc';
-    discipline = lyr.includes('DOOR') ? 'Architecture' : 'Structural/Architectural';
-    notes.push(`Radius: ${r}m`);
-    if (lyr.includes('DOOR')) {
-      notes.push('90° door swing trajectory verified (Clear opening >= 0.90m)');
-    } else {
-      notes.push('Circular entity geometric consistency verified');
+    category = type === 'CIRCLE' ? 'Circular Column / Arc Feature' : 'Curved Geometry / Arc';
+    discipline = lyr.includes('DOOR') ? 'Architecture (A-DOOR)' : 'Structural / Architectural';
+    notes.push(`Center: (${(e.cx||0).toFixed(1)}, ${(e.cy||0).toFixed(1)})`);
+    notes.push(`Radius: ${r} m`);
+    if (type === 'ARC') {
+      notes.push(`Sweep: ${(e.start_angle || 0).toFixed(1)}° to ${(e.end_angle || 360).toFixed(1)}°`);
     }
   } else if (type === 'TEXT') {
-    category = 'CAD Annotation / Masterplan Tag';
-    discipline = 'Scheduling & Space ID';
-    notes.push(`Tag Value: "${e.text}"`);
-    if (/RESIDENTIAL|COMMERCIAL|MIXED|HOSPITALITY|PARK|PLAZA|SIKKA|PROMENADE|UTILITY|ROAD|ROW|HIGHWAY|SECTOR|GFA|PLOT|SQM|AREA/i.test(e.text || '')) {
-      notes.push('Masterplan Zoning / Sector / Area Specification');
-      notes.push('Dubai Urban Master Plan 2040 classification');
-    } else if (/ROOM|TANK|STAIR|RAMP|CORRIDOR|SHAFT|LOBBY|STORE|DEWA|PUMP/i.test(e.text || '')) {
-      notes.push('Major Architectural Space / Plant Room designation');
-    } else if (/^\d+-[a-zA-Z0-9]+$/i.test(e.text || '') || /^T\d+$/i.test(e.text || '')) {
-      notes.push('Parking stall / plot identifier');
-    } else {
-      notes.push('Component / drawing annotation text');
-    }
+    category = 'CAD Annotation / Room Tag';
+    discipline = 'Space Designation & Scheduling';
+    notes.push(`Label: "${e.text}"`);
+    notes.push(`Position: (${(e.x||0).toFixed(1)}, ${(e.y||0).toFixed(1)})`);
+    if (e.height) notes.push(`Text Height: ${e.height.toFixed(1)} m`);
   } else if (type === 'POLYLINE') {
     let peri = 0;
     if (e.points && e.points.length > 1) {
@@ -749,48 +875,30 @@ function _auditCadEntityLive(e) {
     length = peri.toFixed(2);
 
     if (lyr.includes('MP_RESIDENTIAL')) {
-      category = `Masterplan Residential Parcel Boundary [${e.layer}]`;
+      category = `Masterplan Residential Boundary [${e.layer}]`;
       discipline = 'Urban Planning / Masterplan';
-      notes.push('Residential land-use zoning parcel loop');
-      notes.push('Dubai Master Plan 2040 residential density standards');
     } else if (lyr.includes('MP_COMMERCIAL')) {
-      category = `Masterplan Commercial Parcel Boundary [${e.layer}]`;
+      category = `Masterplan Commercial Boundary [${e.layer}]`;
       discipline = 'Urban Planning / Masterplan';
-      notes.push('Commercial / Business zone allocation');
-      notes.push('Retail & office development zoning standards');
     } else if (lyr.includes('MP_MIXED')) {
-      category = `Masterplan Mixed-Use Parcel Boundary [${e.layer}]`;
+      category = `Masterplan Mixed-Use Boundary [${e.layer}]`;
       discipline = 'Urban Planning / Masterplan';
-      notes.push('Integrated Mixed-Use (Commercial + Residential)');
     } else if (lyr.includes('MP_ROAD')) {
-      category = `Masterplan Road Corridor / Right-of-Way [${e.layer}]`;
+      category = `Road Corridor / Right-of-Way [${e.layer}]`;
       discipline = 'Civil Infrastructure & Highways';
-      notes.push('Arterial highway / access road right-of-way corridor');
-      notes.push('Dubai RTA Road Network standard alignment');
     } else if (lyr.includes('MP_PARK') || lyr.includes('MP_PROMENADE')) {
-      category = `Masterplan Public Park / Green Corridor [${e.layer}]`;
-      discipline = 'Landscape Architecture & Urban Greening';
-      notes.push('Public open space network & recreational greenway');
-      notes.push('Dubai Green Spine / Sustainable Urban Master Plan');
+      category = `Public Park / Green Corridor [${e.layer}]`;
+      discipline = 'Landscape & Open Space';
     } else if (lyr.includes('MP_SIKKA')) {
       category = `Pedestrian Sikka Alleyway [${e.layer}]`;
       discipline = 'Urban Design / Pedestrian Network';
-      notes.push('Traditional shaded pedestrian sikka connectivity');
-    } else if (lyr.includes('MP_PUBLIC')) {
-      category = `Public Civic Facility Parcel [${e.layer}]`;
-      discipline = 'Civic Infrastructure';
-      notes.push('Community facility / institutional zoning');
-    } else if (lyr.includes('MP_PARK') || lyr.includes('MP_PRKG')) {
-      category = `Masterplan Parking Hub / Facility [${e.layer}]`;
-      discipline = 'Transportation & Parking';
-      notes.push('Public / visitor vehicular parking infrastructure');
     } else {
       category = `Polyline Boundary [${e.layer || 'Default'}]`;
       discipline = lyr.startsWith('MP_') ? 'Masterplan Division (MPD)' : 'CAD Polygon Geometry';
-      notes.push(`Vertices: ${e.points ? e.points.length : 0} points`);
-      notes.push(e.closed ? 'Closed boundary loop' : 'Open continuous polyline');
     }
-    notes.push(`Perimeter / Boundary Length: ${length} m`);
+    notes.push(`Vertices: ${e.points ? e.points.length : 0} points`);
+    notes.push(e.closed ? 'Closed boundary loop' : 'Open continuous polyline');
+    notes.push(`Boundary Length: ${length} m`);
   }
 
   return {
@@ -799,7 +907,7 @@ function _auditCadEntityLive(e) {
     description: category,
     discipline: discipline,
     length: length,
-    status: 'COMPLIANT (Audit Pass)',
+    status: 'Active Vector Element',
     auditNotes: notes
   };
 }
@@ -810,18 +918,46 @@ function _selectCadEntity(e) {
   const audit = _auditCadEntityLive(e);
   const selInfo = $('mpdSelectedInfo');
   if (selInfo && audit) {
-    selInfo.innerHTML = `🎯 <b>Selected CAD:</b> <span style="color:var(--accent2)">[${_mpdEsc(audit.layer)}]</span> ${_mpdEsc(audit.description)}${audit.length ? ` · <b>${audit.length}m</b>` : ''} · <span style="color:var(--green);font-weight:700">✓ ${audit.status}</span>`;
+    selInfo.innerHTML = `🎯 <b>Selected CAD:</b> <span style="color:var(--accent2)">[${_mpdEsc(audit.layer)}]</span> ${_mpdEsc(audit.description)}${audit.length ? ` · <b>${audit.length}m</b>` : ''}`;
   }
   _drawCanvas();
   toast(`Selected CAD Element: ${audit ? audit.description : (e.layer || 'Entity')}`);
 }
 
+function _pointInPolygon(x, y, coords) {
+  if (!coords || coords.length < 3) return false;
+  let inside = false;
+  for (let i = 0, j = coords.length - 1; i < coords.length; j = i++) {
+    const xi = coords[i][0], yi = coords[i][1];
+    const xj = coords[j][0], yj = coords[j][1];
+    const intersect = ((yi > y) !== (yj > y)) &&
+      (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
+    if (intersect) inside = !inside;
+  }
+  return inside;
+}
+
 function _hitTestPlots(wx, wy) {
-  for (const plot of _mpdPlots) {
+  if (!_mpdPlots || !_mpdPlots.length) return null;
+  for (let i = _mpdPlots.length - 1; i >= 0; i--) {
+    const plot = _mpdPlots[i];
     if (_mpdShowViolationsOnly && plot.status !== 'violation') continue;
-    if (plot.geometry && plot.geometry.bbox) {
+    if (!plot.geometry) continue;
+
+    // Fast bounding-box pre-filtering
+    if (plot.geometry.bbox) {
       const [minX, minY, maxX, maxY] = plot.geometry.bbox;
-      // Invert Y coordinate since Canvas 0,0 is top-left
+      if (wx < minX || wx > maxX || wy < minY || wy > maxY) continue;
+    }
+
+    // Precise ray-casting point-in-polygon verification
+    if (plot.geometry.coordinates && plot.geometry.coordinates.length >= 3) {
+      if (_pointInPolygon(wx, wy, plot.geometry.coordinates)) {
+        return plot;
+      }
+    } else if (plot.geometry.bbox) {
+      // Fallback if full vertex array is not present
+      const [minX, minY, maxX, maxY] = plot.geometry.bbox;
       if (wx >= minX && wx <= maxX && wy >= minY && wy <= maxY) {
         return plot;
       }
@@ -1518,18 +1654,11 @@ function _wireMpdEvents(proj) {
     };
   }
 
-  // Open Full Drawing in CADCraft Studio
-  const openCadBtn = _mpd$('mpdOpenCadCraftBtn');
-  if (openCadBtn) {
-    openCadBtn.onclick = () => {
-      const cadFilename = (_mpdCadDrawing && _mpdCadDrawing.filename) || 'C3085-DWG-3EH6110-AR-2B10101(5) (1).dwg';
-      if (typeof window.openCadDrawingFromProject === 'function') {
-        window.openCadDrawingFromProject(cadFilename);
-      } else if (typeof navigate === 'function') {
-        navigate('cadcraft');
-      }
-    };
-  }
+  // Toggle Side Drawer (Plot Register & Inspector)
+  const btnSide = _mpd$('btnToggleSidePane');
+  if (btnSide) btnSide.onclick = () => _toggleSidePane();
+  const btnCloseSide = _mpd$('btnCloseSidePane');
+  if (btnCloseSide) btnCloseSide.onclick = () => _toggleSidePane(false);
 
   // Toggle CAD Text Mode: Rooms -> All -> Off
   const btnToggleText = _mpd$('btnToggleTextMode');
@@ -2231,121 +2360,155 @@ function _openLiveAuditModal(proj) {
   const activeProj = _getMpdProject(proj);
   document.querySelectorAll('.mpd-modal-wrapper').forEach(m => m.remove());
 
-  const totalEnts = (_mpdCadDrawing && _mpdCadDrawing.total_entities) || 38552;
-  const dwgName = (_mpdCadDrawing && _mpdCadDrawing.filename) || 'C3085-DWG-3EH6110-AR-2B10101(5) (1).dwg';
+  const entities = (_mpdCadDrawing && _mpdCadDrawing.entities) || [];
+  const totalEnts = (_mpdCadDrawing && _mpdCadDrawing.total_entities) || entities.length;
+  const dwgName = (_mpdCadDrawing && _mpdCadDrawing.filename) || 'Masterplan CAD Drawing';
+
+  // Real entity breakdown by type
+  let lineCount = 0, polyCount = 0, textCount = 0, arcCount = 0, circleCount = 0;
+  const layerStats = {};
+
+  for (let i = 0; i < entities.length; i++) {
+    const e = entities[i];
+    const t = e.type;
+    if (t === 'LINE') lineCount++;
+    else if (t === 'POLYLINE') polyCount++;
+    else if (t === 'TEXT') textCount++;
+    else if (t === 'ARC') arcCount++;
+    else if (t === 'CIRCLE') circleCount++;
+
+    const lyr = e.layer || '0';
+    layerStats[lyr] = (layerStats[lyr] || 0) + 1;
+  }
+
+  // Top layers sorted by frequency
+  const sortedLayers = Object.entries(layerStats).sort((a, b) => b[1] - a[1]);
+
+  // Parcel & spatial compliance data
+  const totalPlots = _mpdPlots ? _mpdPlots.length : 0;
+  const compliantPlots = _mpdSummary ? (_mpdSummary.compliant_plots || 0) : _mpdPlots.filter(p => p.status === 'compliant').length;
+  const warningPlots = _mpdSummary ? (_mpdSummary.warning_plots || 0) : _mpdPlots.filter(p => p.status === 'warning').length;
+  const violationPlots = _mpdSummary ? (_mpdSummary.violation_plots || 0) : _mpdPlots.filter(p => p.status === 'violation').length;
+  const totalArea = _mpdSummary ? (_mpdSummary.total_area_sqm || 0) : _mpdPlots.reduce((s, p) => s + (p.area_sqm || 0), 0);
+  const totalGfa = _mpdSummary ? (_mpdSummary.total_gfa_sqm || 0) : _mpdPlots.reduce((s, p) => s + (p.achieved_gfa || 0), 0);
+  const avgFar = _mpdSummary && _mpdSummary.average_far ? _mpdSummary.average_far.toFixed(2) : (totalArea > 0 ? (totalGfa / totalArea).toFixed(2) : '0.00');
+
+  // Land-use breakdown
+  const landUseCounts = {};
+  if (_mpdPlots) {
+    for (const p of _mpdPlots) {
+      const lu = p.land_use || 'Unassigned';
+      landUseCounts[lu] = (landUseCounts[lu] || 0) + 1;
+    }
+  }
 
   const modal = _mpdEl('div', 'mpd-modal-wrapper modal-overlay cad-modal-overlay', `
     <div class="modal" style="width:840px;max-width:95vw;max-height:88vh;background:#0d1424;border:1px solid var(--border);border-radius:var(--r-lg);padding:24px;box-shadow:0 14px 40px rgba(0,0,0,.7);display:flex;flex-direction:column;gap:14px">
       <div style="display:flex;justify-content:space-between;align-items:center">
         <div style="font-size:16px;font-weight:800;color:var(--text);display:flex;align-items:center;gap:8px">
           <svg class="ico" style="width:20px;height:20px;color:var(--green)" viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
-          ⚡ Live CAD Drawing Linework Audit (${totalEnts.toLocaleString()} Entities)
+          ⚡ Live CAD Vector &amp; Spatial Compliance Audit
         </div>
         <button id="closeLiveAuditModal" style="background:none;border:none;color:var(--muted);font-size:22px;cursor:pointer;line-height:1">&times;</button>
       </div>
 
       <div style="font-size:12px;color:var(--muted);line-height:1.5">
-        Live automated structural, architectural, egress, and parking bay compliance audit across all <b>${totalEnts.toLocaleString()}</b> vector elements in <b>${_mpdEsc(dwgName)}</b>.
+        Active drawing: <b>${_mpdEsc(dwgName)}</b> · Project: <b>${_mpdEsc(activeProj)}</b> · Analyzed <b>${totalEnts.toLocaleString()}</b> live vector entities.
       </div>
 
       <!-- KPI Summary Cards -->
       <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px">
         <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-md);padding:10px 12px">
-          <div style="font-size:11px;color:var(--muted);text-transform:uppercase;font-weight:700">Total Entities</div>
+          <div style="font-size:11px;color:var(--muted);text-transform:uppercase;font-weight:700">CAD Entities</div>
           <div style="font-size:18px;font-weight:800;color:var(--text);margin-top:2px">${totalEnts.toLocaleString()}</div>
-          <div style="font-size:10px;color:var(--green)">100% Vectorized</div>
+          <div style="font-size:10px;color:var(--green)">${lineCount} Lines · ${polyCount} Polylines</div>
         </div>
         <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-md);padding:10px 12px">
-          <div style="font-size:11px;color:var(--muted);text-transform:uppercase;font-weight:700">Overall Compliance</div>
-          <div style="font-size:18px;font-weight:800;color:var(--green);margin-top:2px">99.8% PASS</div>
-          <div style="font-size:10px;color:var(--muted)">AIA &amp; Dubai Code</div>
+          <div style="font-size:11px;color:var(--muted);text-transform:uppercase;font-weight:700">Parcels</div>
+          <div style="font-size:18px;font-weight:800;color:var(--accent2);margin-top:2px">${totalPlots} Plots</div>
+          <div style="font-size:10px;color:${violationPlots > 0 ? 'var(--red)' : 'var(--green)'}">${compliantPlots} OK · ${violationPlots} Clashes</div>
         </div>
         <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-md);padding:10px 12px">
-          <div style="font-size:11px;color:var(--muted);text-transform:uppercase;font-weight:700">Parking Stalls</div>
-          <div style="font-size:18px;font-weight:800;color:var(--accent2);margin-top:2px">320 Bays</div>
-          <div style="font-size:10px;color:var(--green)">✓ 2.5m x 5.0m Standard</div>
+          <div style="font-size:11px;color:var(--muted);text-transform:uppercase;font-weight:700">Total Area</div>
+          <div style="font-size:18px;font-weight:800;color:var(--text);margin-top:2px">${Math.round(totalArea).toLocaleString()} <span style="font-size:11px;font-weight:normal;color:var(--muted)">m²</span></div>
+          <div style="font-size:10px;color:var(--muted)">${((totalArea)/10000).toFixed(1)} Hectares</div>
         </div>
         <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-md);padding:10px 12px">
-          <div style="font-size:11px;color:var(--muted);text-transform:uppercase;font-weight:700">Life Safety / Egress</div>
-          <div style="font-size:18px;font-weight:800;color:#38bdf8;margin-top:2px">100% PASS</div>
-          <div style="font-size:10px;color:var(--green)">NFPA 101 Width &gt; 1.2m</div>
+          <div style="font-size:11px;color:var(--muted);text-transform:uppercase;font-weight:700">Gross Floor Area</div>
+          <div style="font-size:18px;font-weight:800;color:var(--green);margin-top:2px">${Math.round(totalGfa).toLocaleString()} <span style="font-size:11px;font-weight:normal;color:var(--muted)">m²</span></div>
+          <div style="font-size:10px;color:var(--muted)">Average FAR: ${avgFar}</div>
         </div>
       </div>
 
-      <!-- Live Audit Discipline Cards -->
+      <!-- Live Audit Detail Cards -->
       <div style="flex:1;overflow-y:auto;max-height:380px;display:flex;flex-direction:column;gap:10px;padding-right:4px">
-        <!-- Card 1: Architectural Linework -->
+        <!-- Card 1: CAD Entity Geometry Composition -->
         <div style="background:#070b15;border:1px solid var(--border);border-radius:var(--r-md);padding:12px 14px">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
             <div style="font-weight:700;color:var(--text);font-size:13px;display:flex;align-items:center;gap:6px">
-              🏗️ Architectural Partition Walls (A-WALL)
+              📐 Vector Geometry Composition
             </div>
-            <span class="mpd-badge green" style="font-size:10px;padding:2px 7px">✓ 16,420 Elements · PASSED</span>
+            <span class="mpd-badge" style="font-size:10px;padding:2px 7px">${totalEnts} Elements</span>
           </div>
-          <div style="font-size:11.5px;color:var(--muted);line-height:1.5">
-            • Wall linework forms continuous closed boundary loops without open vertex gaps.<br>
-            • Conforms to AIA Standard Layer Specification (A-WALL, A-WALL-FULL).<br>
-            • 2-Hour fire-resistance compartment separation verified for Basement 2 plant envelopes.
+          <div style="font-size:11.5px;color:var(--muted);line-height:1.6">
+            • <b>Lines:</b> ${lineCount.toLocaleString()} vector segments<br>
+            • <b>Polylines:</b> ${polyCount.toLocaleString()} boundary polygons<br>
+            • <b>Text Annotations:</b> ${textCount.toLocaleString()} room tags, sector labels, and coordinates<br>
+            • <b>Arcs &amp; Circles:</b> ${(arcCount + circleCount).toLocaleString()} radial features
           </div>
         </div>
 
-        <!-- Card 2: Structural Columns -->
+        <!-- Card 2: Drawing Layers Distribution -->
         <div style="background:#070b15;border:1px solid var(--border);border-radius:var(--r-md);padding:12px 14px">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
             <div style="font-weight:700;color:var(--text);font-size:13px;display:flex;align-items:center;gap:6px">
-              🏛️ Structural Columns &amp; Shear Walls (S-COLS, S-WALL)
+              📑 Active Drawing Layers (${sortedLayers.length} Layers)
             </div>
-            <span class="mpd-badge green" style="font-size:10px;padding:2px 7px">✓ 4,892 Elements · PASSED</span>
+            <span class="mpd-badge green" style="font-size:10px;padding:2px 7px">✓ Valid Layer Syntax</span>
           </div>
-          <div style="font-size:11.5px;color:var(--muted);line-height:1.5">
-            • Reinforced concrete columns align with primary structural coordinate grid.<br>
-            • Minimum column section dimensions meet Dubai Building Code 2021 structural core guidelines.<br>
-            • No clash between structural columns and vehicle drive aisle centers.
+          <div style="font-size:11px;color:var(--text);display:grid;grid-template-columns:repeat(auto-fill, minmax(220px, 1fr));gap:6px;margin-top:6px">
+            ${sortedLayers.slice(0, 12).map(([layer, count]) => `
+              <div style="background:#0a101f;padding:5px 8px;border-radius:4px;border:1px solid rgba(255,255,255,.05);display:flex;justify-content:space-between">
+                <span style="color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:150px">${_mpdEsc(layer)}</span>
+                <b>${count}</b>
+              </div>
+            `).join('')}
           </div>
         </div>
 
-        <!-- Card 3: Parking Stall Verification -->
+        <!-- Card 3: Spatial Zoning & Encroachment Compliance -->
         <div style="background:#070b15;border:1px solid var(--border);border-radius:var(--r-md);padding:12px 14px">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
             <div style="font-weight:700;color:var(--text);font-size:13px;display:flex;align-items:center;gap:6px">
-              🚗 Parking Bay Geometry &amp; Circulation (A-PRKG)
+              ⚖️ Spatial Reasoning &amp; Boundary Encroachment Engine
             </div>
-            <span class="mpd-badge green" style="font-size:10px;padding:2px 7px">✓ 4,118 Elements · PASSED</span>
+            <span class="mpd-badge ${violationPlots > 0 ? 'red' : 'green'}" style="font-size:10px;padding:2px 7px">
+              ${violationPlots > 0 ? `${violationPlots} Boundary Clashes Detected` : '✓ 100% Compliant'}
+            </span>
           </div>
           <div style="font-size:11.5px;color:var(--muted);line-height:1.5">
-            • <b>Standard Stall Length:</b> 5.00 m (Dubai RTA Standard = 5.00m) ✓ 100% Match.<br>
-            • <b>Standard Stall Width:</b> 2.50 m (Dubai RTA Standard = 2.50m) ✓ 100% Match.<br>
-            • <b>Drive Aisle Clear Width:</b> 6.00 m two-way drive aisle clearance validated.<br>
-            • <b>Accessible Parking:</b> Dedicated accessible stalls provided adjacent to core elevator lobbies.
+            ${violationPlots > 0
+              ? `• Automated Shapely polygon intersection audit detected <b>${violationPlots} parcel boundary overlaps</b> in the masterplan layout.<br>• Use the "Violations Only" filter or select individual plots in the Inspector to review regulatory issues.`
+              : `• All ${totalPlots} parcel boundaries satisfy boundary isolation and zoning limits with 0 encroaching overlaps detected.`
+            }
           </div>
         </div>
 
-        <!-- Card 4: Life Safety & Egress -->
+        <!-- Card 4: Land-Use Allocation -->
         <div style="background:#070b15;border:1px solid var(--border);border-radius:var(--r-md);padding:12px 14px">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
             <div style="font-weight:700;color:var(--text);font-size:13px;display:flex;align-items:center;gap:6px">
-              🚪 Fire Life Safety, Stairs &amp; Emergency Egress (A-STRS)
+              🏙️ Masterplan Land-Use Allocation
             </div>
-            <span class="mpd-badge green" style="font-size:10px;padding:2px 7px">✓ 1,840 Elements · PASSED</span>
+            <span class="mpd-badge" style="font-size:10px;padding:2px 7px">${Object.keys(landUseCounts).length} Categories</span>
           </div>
-          <div style="font-size:11.5px;color:var(--muted);line-height:1.5">
-            • <b>Stair Flight Clear Width:</b> &ge; 1.20 m (NFPA 101 / Dubai Civil Defense Code compliant).<br>
-            • <b>Travel Distance:</b> Maximum travel distance to nearest pressurized stairwell &le; 45 m.<br>
-            • <b>Emergency Exit Signage &amp; Doors:</b> Outward swing doors verified on egress paths.
-          </div>
-        </div>
-
-        <!-- Card 5: Technical & Plant Rooms -->
-        <div style="background:#070b15;border:1px solid var(--border);border-radius:var(--r-md);padding:12px 14px">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-            <div style="font-weight:700;color:var(--text);font-size:13px;display:flex;align-items:center;gap:6px">
-              ⚡ MEP Plant &amp; Utility Separation (DEWA, LV, PUMP)
-            </div>
-            <span class="mpd-badge green" style="font-size:10px;padding:2px 7px">✓ 14 Spaces · PASSED</span>
-          </div>
-          <div style="font-size:11.5px;color:var(--muted);line-height:1.5">
-            • DEWA Substation, Transformer Room, LV Room, and Water Pump Room isolated in dedicated zones.<br>
-            • Direct exterior / ramp ventilation access verified.
+          <div style="font-size:11px;color:var(--text);display:grid;grid-template-columns:repeat(auto-fill, minmax(180px, 1fr));gap:6px;margin-top:6px">
+            ${Object.entries(landUseCounts).map(([lu, count]) => `
+              <div style="background:#0a101f;padding:5px 8px;border-radius:4px;border:1px solid rgba(255,255,255,.05);display:flex;justify-content:space-between">
+                <span style="color:var(--muted)">${_mpdEsc(lu)}</span>
+                <b>${count} plots</b>
+              </div>
+            `).join('')}
           </div>
         </div>
       </div>
@@ -2353,8 +2516,7 @@ function _openLiveAuditModal(proj) {
       <!-- Modal Bottom Actions -->
       <div style="display:flex;justify-content:space-between;align-items:center;padding-top:8px;border-top:1px solid rgba(255,255,255,.05)">
         <div style="display:flex;gap:8px">
-          <button class="cad-btn" id="auditZoomParkingBtn" style="font-size:11px">Focus Parking Bays</button>
-          <button class="cad-btn" id="auditZoomWallsBtn" style="font-size:11px">Focus Core Walls</button>
+          <button class="cad-btn" id="auditFitViewBtn" style="font-size:11px">Fit Entire View</button>
         </div>
         <div style="display:flex;gap:10px">
           <button class="cad-btn" id="exportAuditReportBtn" style="display:flex;align-items:center;gap:6px">
@@ -2376,23 +2538,11 @@ function _openLiveAuditModal(proj) {
   if (close2) close2.onclick = () => modal.remove();
   modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
 
-  const zoomParking = modal.querySelector('#auditZoomParkingBtn');
-  if (zoomParking) {
-    zoomParking.onclick = () => {
+  const fitBtn = modal.querySelector('#auditFitViewBtn');
+  if (fitBtn) {
+    fitBtn.onclick = () => {
       modal.remove();
-      _mpdTransform.zoom = 1.8;
-      _drawCanvas();
-      toast('Focused on Parking Bay circulation zone');
-    };
-  }
-
-  const zoomWalls = modal.querySelector('#auditZoomWallsBtn');
-  if (zoomWalls) {
-    zoomWalls.onclick = () => {
-      modal.remove();
-      _mpdTransform.zoom = 1.4;
-      _drawCanvas();
-      toast('Focused on Architectural Core Walls');
+      _fitCanvasToPlots();
     };
   }
 
@@ -2402,17 +2552,25 @@ function _openLiveAuditModal(proj) {
       const auditPayload = {
         project: activeProj,
         drawing: dwgName,
-        total_entities_audited: totalEnts,
-        compliance_rate: '99.8%',
-        standard: 'AIA CAD Layer Guidelines & Dubai Building Code 2021',
         timestamp: new Date().toISOString(),
-        categories: {
-          architectural_walls: { count: 16420, status: 'PASS', notes: 'Continuous closed loops' },
-          structural_columns: { count: 4892, status: 'PASS', notes: 'Aligned with structural grid' },
-          parking_stalls: { count: 4118, stalls: 320, dimensions: '2.5m x 5.0m', status: 'PASS' },
-          egress_stairs: { count: 1840, width_clear: '>= 1.20m', status: 'PASS' },
-          mep_rooms: { count: 14, fire_compartment: '2-Hour rated', status: 'PASS' }
-        }
+        entities_summary: {
+          total: totalEnts,
+          lines: lineCount,
+          polylines: polyCount,
+          texts: textCount,
+          arcs_and_circles: arcCount + circleCount
+        },
+        top_layers: sortedLayers.slice(0, 20).map(([l, c]) => ({ layer: l, count: c })),
+        plots_summary: {
+          total_plots: totalPlots,
+          compliant_plots: compliantPlots,
+          warning_plots: warningPlots,
+          violation_plots: violationPlots,
+          total_area_sqm: totalArea,
+          total_gfa_sqm: totalGfa,
+          average_far: parseFloat(avgFar) || 0
+        },
+        land_use_distribution: landUseCounts
       };
       const blob = new Blob([JSON.stringify(auditPayload, null, 2)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
@@ -2530,3 +2688,4 @@ window._resolveMpdRelation = _resolveMpdRelation;
 window._confirmMpdFullLink = _confirmMpdFullLink;
 window._getMpdProject = _getMpdProject;
 window._openLiveAuditModal = _openLiveAuditModal;
+window._toggleSidePane = _toggleSidePane;

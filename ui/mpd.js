@@ -31,7 +31,7 @@ let _mpdHighlightColor = '#ffff00';
 let _mpdSelectedSource = '';
 let _mpdWorkingRevision = null;
 let _mpdEditBusy = false;
-let _mpdActiveTab = 'chat'; // 'chat' | 'register' | 'inspector'
+let _mpdActiveTab = 'register'; // 'register' | 'inspector'
 let _mpdFilterSector = 'All';
 let _mpdFilterLandUse = 'All';
 let _mpdFilterStatus = 'All';
@@ -65,81 +65,86 @@ async function renderMPDWorkspace(container) {
   const proj = _getMpdProject();
   container.innerHTML = `
     <div class="mpd-root" id="mpdRoot">
-      <!-- Unified Masterplan CAD Toolbar (4 Functional Groups) -->
+      <!-- Masterplan CAD Toolbar (2 Clean Rows) -->
       <div class="mpd-canvas-toolbar">
-        <!-- Group 1: Project & Sources -->
-        <div class="mpd-canvas-toolbar-group">
-          <button class="cad-btn" id="mpdImportBtn" onclick="window._openImportModal && window._openImportModal()" title="Import DXF, DWG, Excel or PDF">
-            <svg class="ico" style="width:13px;height:13px" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
-            Import File
-          </button>
-          <button class="cad-btn" id="mpdFilesBtn" onclick="window._openFilesModal && window._openFilesModal()" title="View masterplan source files and cross-reconciliation status">
-            <svg class="ico" style="width:13px;height:13px" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-            Files (<span id="mpdFileCount">0</span>)
-          </button>
-          <select class="cad-btn" id="mpdSourceSelect" aria-label="Drawing shown in workspace"><option value="">Latest CAD drawing</option></select>
-          <button class="cad-btn" id="mpdReconcileBtn" onclick="window._triggerReconciliation && window._triggerReconciliation()" title="Reconcile and stabilize CAD vs Excel relation">
-            <svg class="ico" style="width:13px;height:13px;color:var(--accent2)" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
-            Reconcile &amp; Link
-          </button>
-          <button class="cad-btn" onclick="window._saveMpdWorkingCopy()" title="Save edits to working copy">Save copy</button>
-          <button class="cad-btn" onclick="window._returnMpdOriginal()" title="Revert to original drawing">Revert</button>
-          <button class="cad-btn" onclick="window._openMpdRevisions()" title="Browse revisions history">Revisions</button>
+        <!-- Row 1: Source Management & View -->
+        <div class="mpd-canvas-toolbar-row">
+          <div class="mpd-canvas-toolbar-group">
+            <button class="cad-btn" id="mpdImportBtn" onclick="window._openImportModal && window._openImportModal()" title="Import DXF, DWG, Excel or PDF">
+              <svg class="ico" style="width:13px;height:13px" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+              Import File
+            </button>
+            <button class="cad-btn" id="mpdFilesBtn" onclick="window._openFilesModal && window._openFilesModal()" title="View masterplan source files and cross-reconciliation status">
+              <svg class="ico" style="width:13px;height:13px" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+              Files (<span id="mpdFileCount">0</span>)
+            </button>
+            <select class="cad-btn" id="mpdSourceSelect" aria-label="Drawing shown in workspace"><option value="">Latest CAD drawing</option></select>
+            <button class="cad-btn" id="mpdReconcileBtn" onclick="window._triggerReconciliation && window._triggerReconciliation()" title="Reconcile and stabilize CAD vs Excel relation">
+              <svg class="ico" style="width:13px;height:13px;color:var(--accent2)" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+              Reconcile &amp; Link
+            </button>
+            <div class="mpd-toolbar-sep"></div>
+            <button class="cad-btn" onclick="window._saveMpdWorkingCopy()" title="Save edits to working copy">Save copy</button>
+            <button class="cad-btn" onclick="window._returnMpdOriginal()" title="Revert to original drawing">Revert</button>
+            <button class="cad-btn" onclick="window._openMpdRevisions()" title="Browse revisions history">Revisions</button>
+          </div>
+
+          <div class="mpd-canvas-toolbar-group">
+            <button class="mpd-canvas-ctrl" id="btnZoomIn" title="Zoom In">+</button>
+            <button class="mpd-canvas-ctrl" id="btnZoomOut" title="Zoom Out">-</button>
+            <button class="mpd-canvas-ctrl" id="btnZoomFit" title="Fit Entire Masterplan">Fit</button>
+            <div class="mpd-toolbar-sep"></div>
+            <button class="mpd-canvas-ctrl active" id="btnToggleSidePane" title="Toggle Side Register / Inspector Drawer">
+              <svg class="ico" style="width:12px;height:12px" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="15" y1="3" x2="15" y2="21"/></svg>
+              Side Drawer
+            </button>
+          </div>
         </div>
 
-        <!-- Group 2: Overlays & Layers -->
-        <div class="mpd-canvas-toolbar-group">
-          <button class="mpd-canvas-ctrl active" id="btnToggleCadDrawing" title="Toggle Full CAD Vector Drawing Linework">
-            <svg class="ico" style="width:12px;height:12px" viewBox="0 0 24 24"><path d="M4 4h16v16H4z"/><path d="M4 12h16M12 4v16"/></svg>
-            CAD Linework (<span id="mpdCadEntityCount">0</span>)
-          </button>
-          <button class="mpd-canvas-ctrl active" id="btnToggleTextMode" title="Filter CAD Text: Rooms Only / All Text / Hide Text">
-            <svg class="ico" style="width:12px;height:12px" viewBox="0 0 24 24"><path d="M4 7V4h16v3M9 20h6M12 4v16"/></svg>
-            <span id="mpdTextModeLabel">Text: Rooms</span>
-          </button>
-          <button class="mpd-canvas-ctrl active" id="btnTogglePlots" title="Toggle Masterplan Parcel Polygons">
-            <svg class="ico" style="width:12px;height:12px" viewBox="0 0 24 24"><polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5 12 2"/></svg>
-            Parcels (<span id="mpdPlotBtnCount">0</span>)
-          </button>
-          <button class="mpd-canvas-ctrl active" id="btnToggleSetbacks" title="Toggle Setback Envelopes">
-            <svg class="ico" style="width:12px;height:12px" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><rect x="7" y="7" width="10" height="10" stroke-dasharray="2 2"/></svg>
-            Setbacks
-          </button>
-          <button class="mpd-canvas-ctrl" id="btnToggleViolations" title="Show Violations Only">
-            <svg class="ico" style="width:12px;height:12px;color:var(--red)" viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-            Violations Only
-          </button>
-        </div>
+        <!-- Row 2: Overlays, Layers & Engineering Tools -->
+        <div class="mpd-canvas-toolbar-row">
+          <div class="mpd-canvas-toolbar-group">
+            <button class="mpd-canvas-ctrl active" id="btnToggleCadDrawing" title="Toggle Full CAD Vector Drawing Linework">
+              <svg class="ico" style="width:12px;height:12px" viewBox="0 0 24 24"><path d="M4 4h16v16H4z"/><path d="M4 12h16M12 4v16"/></svg>
+              CAD Linework (<span id="mpdCadEntityCount">0</span>)
+            </button>
+            <button class="mpd-canvas-ctrl active" id="btnTogglePlots" title="Toggle Masterplan Parcel Polygons">
+              <svg class="ico" style="width:12px;height:12px" viewBox="0 0 24 24"><polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5 12 2"/></svg>
+              Parcels (<span id="mpdPlotBtnCount">0</span>)
+            </button>
+            <button class="mpd-canvas-ctrl active" id="btnToggleSetbacks" title="Toggle Setback Envelopes">
+              <svg class="ico" style="width:12px;height:12px" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><rect x="7" y="7" width="10" height="10" stroke-dasharray="2 2"/></svg>
+              Setbacks
+            </button>
+            <button class="mpd-canvas-ctrl" id="btnToggleViolations" title="Show Violations Only">
+              <svg class="ico" style="width:12px;height:12px;color:var(--red)" viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+              Violations Only
+            </button>
+            <div class="mpd-toolbar-sep"></div>
+            <button class="mpd-canvas-ctrl active" id="btnToggleTextMode" title="Filter CAD Text: Rooms Only / All Text / Hide Text">
+              <svg class="ico" style="width:12px;height:12px" viewBox="0 0 24 24"><path d="M4 7V4h16v3M9 20h6M12 4v16"/></svg>
+              <span id="mpdTextModeLabel">Text: Rooms</span>
+            </button>
+          </div>
 
-        <!-- Group 3: Engineering Tools -->
-        <div class="mpd-canvas-toolbar-group">
-          <button class="cad-btn" id="mpdAuditBtn" title="Run spatial rule and zoning audit">
-            <svg class="ico" style="width:13px;height:13px" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-            Spatial Audit
-          </button>
-          <button class="cad-btn" id="mpdLiveAuditBtn" title="Run instant live audit across active CAD elements" style="background:rgba(53,208,127,0.15);border-color:rgba(53,208,127,0.4);color:var(--green)">
-            <svg class="ico" style="width:13px;height:13px" viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
-            ⚡ Live Audit Lines
-          </button>
-          <button class="cad-btn" id="mpdAuditLogBtn" title="View audit history & undo changes">
-            <svg class="ico" style="width:13px;height:13px" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 14 14"/></svg>
-            Audit Log
-          </button>
-          <button class="cad-btn" id="mpdExportCadBtn" title="Export highlighted CAD DXF">
-            <svg class="ico" style="width:13px;height:13px" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
-            Export DXF
-          </button>
-        </div>
-
-        <!-- Group 4: Zoom & View -->
-        <div class="mpd-canvas-toolbar-group">
-          <button class="mpd-canvas-ctrl" id="btnZoomIn" title="Zoom In">+</button>
-          <button class="mpd-canvas-ctrl" id="btnZoomOut" title="Zoom Out">-</button>
-          <button class="mpd-canvas-ctrl" id="btnZoomFit" title="Fit Entire Masterplan">Fit</button>
-          <button class="mpd-canvas-ctrl active" id="btnToggleSidePane" title="Toggle Side Register / Inspector Drawer">
-            <svg class="ico" style="width:12px;height:12px" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="15" y1="3" x2="15" y2="21"/></svg>
-            Side Drawer
-          </button>
+          <div class="mpd-canvas-toolbar-group">
+            <button class="cad-btn" id="mpdAuditBtn" title="Run spatial rule and zoning audit">
+              <svg class="ico" style="width:13px;height:13px" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+              Spatial Audit
+            </button>
+            <button class="cad-btn" id="mpdLiveAuditBtn" title="Run instant live audit across active CAD elements" style="background:rgba(53,208,127,0.15);border-color:rgba(53,208,127,0.4);color:var(--green)">
+              <svg class="ico" style="width:13px;height:13px" viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+              ⚡ Live Audit Lines
+            </button>
+            <button class="cad-btn" id="mpdAuditLogBtn" title="View audit history & undo changes">
+              <svg class="ico" style="width:13px;height:13px" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 14 14"/></svg>
+              Audit Log
+            </button>
+            <button class="cad-btn" id="mpdExportCadBtn" title="Export highlighted CAD DXF">
+              <svg class="ico" style="width:13px;height:13px" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+              Export DXF
+            </button>
+          </div>
         </div>
       </div>
 
@@ -162,10 +167,7 @@ async function renderMPDWorkspace(container) {
         <div class="mpd-side-pane" id="mpdSidePane">
           <div class="mpd-side-header">
             <div class="mpd-tabs">
-              <button class="mpd-tab active" id="tabChat" onclick="_switchMpdTab('chat')">
-                🤖 AI Copilot
-              </button>
-              <button class="mpd-tab" id="tabRegister" onclick="_switchMpdTab('register')">
+              <button class="mpd-tab active" id="tabRegister" onclick="_switchMpdTab('register')">
                 📋 Plot Register (<span id="mpdPlotCountBadge">0</span>)
               </button>
               <button class="mpd-tab" id="tabInspector" onclick="_switchMpdTab('inspector')">
@@ -176,40 +178,8 @@ async function renderMPDWorkspace(container) {
           </div>
 
           <div class="mpd-side-body">
-            <!-- Tab 1: AI Copilot -->
-            <div class="mpd-pane" id="paneChat" style="display:flex;flex-direction:column;height:100%;gap:8px">
-              <div class="mpd-chat-history" id="mpdChatHistory">
-                <div class="mpd-msg agent">
-                  <div style="font-weight:700;color:var(--accent2);display:flex;align-items:center;gap:6px">
-                    <span>🤖 Masterplan Agentic Copilot</span>
-                    <span class="mpd-badge" style="font-size:9.5px;padding:2px 6px">Qwen 3.5 9B / Spatial Engine</span>
-                  </div>
-                  <div style="font-size:12px;color:var(--text);line-height:1.5">
-                    Ask me any question regarding your masterplan, zoning regulations, or plot parameters. I will reason across CAD vector geometry, database records, and spatial constraints to provide detailed answers and highlight relevant plots.
-                  </div>
-                </div>
-              </div>
-
-              <!-- Quick Action Chips -->
-              <div class="mpd-chip-bar" id="mpdChipBar">
-                <div class="mpd-chip" onclick="_sendMpdChip(this)">Check FAR Violations</div>
-                <div class="mpd-chip" onclick="_sendMpdChip(this)">Audit Setback Encroachments</div>
-                <div class="mpd-chip" onclick="_sendMpdChip(this)">Summarize Residential vs Commercial GFA</div>
-                <div class="mpd-chip" onclick="_sendMpdChip(this)">High Density Plots (FAR ≥ 2.8)</div>
-                <div class="mpd-chip" onclick="_sendMpdChip(this)">Inspect Plot P-105</div>
-              </div>
-
-              <!-- Input bar -->
-              <div class="mpd-chat-input-bar">
-                <input type="text" class="mpd-chat-input" id="mpdChatInput" placeholder="Ask AI Copilot (e.g., 'Which plots violate FAR?' or 'Show residential plots')..." onkeydown="if(event.key==='Enter') _handleMpdChatSubmit()">
-                <button class="cad-btn" onclick="_handleMpdChatSubmit()" style="background:var(--accent);color:#fff;padding:0 12px" title="Send message">
-                  <svg class="ico" style="width:13px;height:13px" viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-                </button>
-              </div>
-            </div>
-
-            <!-- Tab 2: Plot Register Table -->
-            <div class="mpd-pane" id="paneRegister" style="display:none">
+            <!-- Tab 1: Plot Register Table -->
+            <div class="mpd-pane" id="paneRegister">
               <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
                 <input type="text" class="mpd-input" id="tblSearch" placeholder="Search Plot ID, Sector..." oninput="_filterPlots()">
                 <select class="mpd-input" id="tblLandUse" onchange="_filterPlots()">
@@ -330,16 +300,12 @@ async function renderMPDWorkspace(container) {
 
 function _switchMpdTab(tab) {
   _mpdActiveTab = tab;
-  const tabChat = _mpd$('tabChat');
   const tabReg = _mpd$('tabRegister');
   const tabInsp = _mpd$('tabInspector');
-  const paneChat = _mpd$('paneChat');
   const paneReg = _mpd$('paneRegister');
   const paneInsp = _mpd$('paneInspector');
-  if (tabChat) tabChat.classList.toggle('active', tab === 'chat');
   if (tabReg) tabReg.classList.toggle('active', tab === 'register');
   if (tabInsp) tabInsp.classList.toggle('active', tab === 'inspector');
-  if (paneChat) paneChat.style.display = tab === 'chat' ? 'flex' : 'none';
   if (paneReg) paneReg.style.display = tab === 'register' ? 'flex' : 'none';
   if (paneInsp) paneInsp.style.display = tab === 'inspector' ? 'flex' : 'none';
 }
@@ -507,7 +473,7 @@ function _selectPlot(plotId, zoomTo = false, switchTab = true) {
 
   // Ensure side drawer is open and inspector tab is active if requested
   _toggleSidePane(true);
-  if (switchTab && _mpdActiveTab !== 'chat') {
+  if (switchTab) {
     _switchMpdTab('inspector');
   }
 
@@ -1504,25 +1470,31 @@ function _drawPlot(ctx, plot) {
   const cx = anchor ? anchor[0] : (bbox[0] + bbox[2]) / 2;
   const cy = anchor ? anchor[1] : (bbox[1] + bbox[3]) / 2;
 
-  // Bounded Plot ID (never exceeds plot width)
-  const maxTitleFont = Math.min(plotW * 0.18, 14 / _mpdTransform.zoom);
-  const titleFont = Math.max(7, maxTitleFont) * _mpdTextScale;
-  const maxSubFont = Math.min(plotW * 0.12, 11 / _mpdTransform.zoom);
-  const subFont = Math.max(6, maxSubFont) * _mpdTextScale;
+  // Level-of-detail (LOD): when zoomed out (scale < 0.28), declutter dense micro-parcel text
+  const isZoomedOut = _mpdTransform.zoom < 0.28;
+  const showPlotLabel = !isZoomedOut || isSel || isHl || plot.status === 'violation' || plotW > 120;
 
-  ctx.save();
-  ctx.translate(cx, cy);
-  ctx.scale(1, -1);
-  ctx.fillStyle = isSel ? '#ffffff' : color.text;
-  ctx.font = `bold ${titleFont}px Inter, sans-serif`;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  if(_mpdTextMode !== 'off') ctx.fillText(plot.plot_id, 0, -titleFont * 0.55);
+  if (showPlotLabel && _mpdTextMode !== 'off') {
+    // Bounded Plot ID (never exceeds plot width)
+    const maxTitleFont = Math.min(plotW * 0.18, 14 / _mpdTransform.zoom);
+    const titleFont = Math.max(7, maxTitleFont) * _mpdTextScale;
+    const maxSubFont = Math.min(plotW * 0.12, 11 / _mpdTransform.zoom);
+    const subFont = Math.max(6, maxSubFont) * _mpdTextScale;
 
-  ctx.font = `${subFont}px Inter, sans-serif`;
-  ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
-  if(_mpdTextMode !== 'off') ctx.fillText(`FAR ${plot.far.toFixed(2)}`, 0, subFont * 0.75);
-  ctx.restore();
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.scale(1, -1);
+    ctx.fillStyle = isSel ? '#ffffff' : color.text;
+    ctx.font = `bold ${titleFont}px Inter, sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(plot.plot_id, 0, -titleFont * 0.55);
+
+    ctx.font = `${subFont}px Inter, sans-serif`;
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+    ctx.fillText(`FAR ${plot.far.toFixed(2)}`, 0, subFont * 0.75);
+    ctx.restore();
+  }
 
   // Alert badge for violations
   if (plot.status === 'violation') {

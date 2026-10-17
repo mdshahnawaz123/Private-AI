@@ -107,9 +107,15 @@ def user_from_request(request):
     hdr = request.headers.get("authorization") or request.headers.get("Authorization") or ""
     token = hdr[7:].strip() if hdr.lower().startswith("bearer ") else ""
     if not token:
-        # allow token via query param (EventSource / SSE cannot set headers)
+        # allow token via query param (EventSource / SSE / <img> tags cannot set headers)
         try:
             token = request.query_params.get("token", "")
+        except Exception:
+            token = ""
+    if not token:
+        # allow token via cookies for media/image asset loading
+        try:
+            token = request.cookies.get("expo_token") or request.cookies.get("token") or ""
         except Exception:
             token = ""
     if not token:

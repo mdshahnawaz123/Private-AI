@@ -49,6 +49,29 @@ let _pdfState = {
   measurements: []
 };
 
+function _getAuthToken() {
+  if (typeof authToken !== 'undefined' && authToken) return authToken;
+  try {
+    return localStorage.getItem('expo_token') || '';
+  } catch (e) {
+    return '';
+  }
+}
+
+function _buildPdfUrl(endpoint, params = {}) {
+  const q = new URLSearchParams();
+  for (const [k, v] of Object.entries(params)) {
+    if (v !== undefined && v !== null) {
+      q.set(k, String(v));
+    }
+  }
+  const token = _getAuthToken();
+  if (token && !q.has('token')) {
+    q.set('token', token);
+  }
+  return `${API}${endpoint}?${q.toString()}`;
+}
+
 /* ==========================================================================
    RENDER PDFCRAFT WORKSPACE UI
    ========================================================================== */
@@ -946,7 +969,11 @@ function _bindPdfEvents() {
   const exportBtn = document.getElementById('pdfExportBtn');
   if (exportBtn) exportBtn.onclick = () => {
     if (!_pdfState.docId) return;
-    window.open(`${API}/api/v1/pdf/export?doc_id=${encodeURIComponent(_pdfState.docId)}&filename=${encodeURIComponent(_pdfState.filename)}`, '_blank');
+    const url = _buildPdfUrl('/api/v1/pdf/export', {
+      doc_id: _pdfState.docId,
+      filename: _pdfState.filename
+    });
+    window.open(url, '_blank');
   };
 
   // Audit Redactions (storytold/pdfcraft crates/audit)
@@ -1130,7 +1157,12 @@ async function _renderCurrentPage() {
   let imgUrl = _pdfState.pageRenderCache.get(cacheKey);
 
   if (!imgUrl) {
-    imgUrl = `${API}/api/v1/pdf/render-page?doc_id=${encodeURIComponent(_pdfState.docId)}&page=${pNum}&zoom=${_pdfState.zoom.toFixed(2)}&v=${Date.now()}`;
+    imgUrl = _buildPdfUrl('/api/v1/pdf/render-page', {
+      doc_id: _pdfState.docId,
+      page: pNum,
+      zoom: _pdfState.zoom.toFixed(2),
+      v: Date.now()
+    });
     _pdfState.pageRenderCache.set(cacheKey, imgUrl);
   }
 
@@ -1138,6 +1170,20 @@ async function _renderCurrentPage() {
   imgEl.style.display = 'block';
   imgEl.onload = () => {
     _renderMarkupOverlay();
+  };
+  imgEl.onerror = () => {
+    // If standard image GET fails, use authenticated fetch to create local blob URL
+    fetch(imgUrl)
+      .then(res => {
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        return res.blob();
+      })
+      .then(blob => {
+        imgEl.src = URL.createObjectURL(blob);
+      })
+      .catch(err => {
+        console.error('PdfCraft: failed to load page render:', err);
+      });
   };
   _renderMarkupOverlay();
 
@@ -1169,15 +1215,22 @@ function _renderSidebarContent() {
       content.innerHTML = '<div style="color:var(--muted);font-size:12px;text-align:center;padding:30px">No pages available</div>';
       return;
     }
-    content.innerHTML = _pdfState.info.pages.map(p => `
+    content.innerHTML = _pdfState.info.pages.map(p => {
+      const thumbUrl = _buildPdfUrl('/api/v1/pdf/thumbnail', {
+        doc_id: _pdfState.docId,
+        page: p.page_number,
+        width: 220
+      });
+      return `
       <div class="pdf-thumb-card ${p.page_number === _pdfState.currentPage ? 'active' : ''}" data-page="${p.page_number}" onclick="_goToPage(${p.page_number})">
-        <img class="pdf-thumb-img" src="${API}/api/v1/pdf/thumbnail?doc_id=${encodeURIComponent(_pdfState.docId)}&page=${p.page_number}&width=220" loading="lazy">
+        <img class="pdf-thumb-img" src="${thumbUrl}" loading="lazy" alt="Page ${p.page_number}">
         <div class="pdf-thumb-footer">
           <span>Page ${p.page_number}</span>
           <span>${Math.round(p.width)}×${Math.round(p.height)}</span>
         </div>
       </div>
-    `).join('');
+    `;
+    }).join('');
   } else if (tab === 'outline') {
     const toc = _pdfState.info ? _pdfState.info.toc : [];
     if (!toc || !toc.length) {
@@ -2008,7 +2061,7 @@ function _renderOrganizerGrid() {
         <span style="color:var(--muted);font-size:10px">${Math.round(p.width)}×${Math.round(p.height)} pt</span>
       </div>
       <div class="pdf-org-thumb-wrap">
-        <img src="${API}/api/v1/pdf/thumbnail?doc_id=${encodeURIComponent(_pdfState.docId)}&page=${p.page_number}&width=240"
+        <img src="${_buildPdfUrl('/api/v1/pdf/thumbnail', { doc_id: _pdfState.docId, page: p.page_number, width: 240 })}"
              style="max-width:100%;height:auto;transform:rotate(${p.rotation || 0}deg)" loading="lazy">
       </div>
       <div class="pdf-org-card-actions">

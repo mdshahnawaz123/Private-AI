@@ -5702,8 +5702,21 @@ async def login(body: LoginReq, request: Request = None):
         db.audit("auth.login", target=u["username"], user=u, ip=_client_ip(request))
         projects = None if u["role"] == "admin" else db.user_projects(u["id"])
         must_change = auth.must_change_password(u)
-        return {"token": str(token), "user": u, "projects": projects,
-                "must_change_password": bool(must_change)}
+        resp = JSONResponse({
+            "token": str(token),
+            "user": u,
+            "projects": projects,
+            "must_change_password": bool(must_change)
+        })
+        resp.set_cookie(
+            key="expo_token",
+            value=str(token),
+            max_age=auth.TOKEN_TTL_HOURS * 3600,
+            httponly=False,
+            samesite="lax",
+            path="/"
+        )
+        return resp
     except HTTPException:
         raise
     except Exception as _le:

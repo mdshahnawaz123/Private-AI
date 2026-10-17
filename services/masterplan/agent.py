@@ -397,6 +397,93 @@ class MasterplanAIAgent:
                     highlight_plots=tool_res["plot_ids"]
                 )
 
+        # Check for Generic Plot List / Table request
+        if any(k in q for k in ("list of plots", "list plots", "show plots", "all plots", "table of plots", "plots table", "give me plots", "show all plots", "plot register", "list all plots")):
+            all_plots = db.get_plots(project_id)
+            lines = [
+                f"### 📋 Masterplan Plot Register ({len(all_plots)} parcels)",
+                f"Extracted directly from project CAD drawing and development register records:",
+                "",
+                "| Plot ID | Land Use | Sector | Footprint (m²) | Achieved GFA (m²) | FAR | Status |",
+                "| :--- | :--- | :--- | :--- | :--- | :--- | :--- |"
+            ]
+            for p in all_plots[:15]:
+                st_badge = "✅ Compliant" if p.status == 'compliant' else ("⚠️ Warning" if p.status == 'warning' else "❌ Violation")
+                lines.append(f"| **{p.plot_id}** | {p.land_use} | {p.sector} | {p.area_sqm:,.0f} | {p.achieved_gfa:,.0f} | {p.far:.2f} | {st_badge} |")
+            if len(all_plots) > 15:
+                lines.append(f"\n_...showing 15 of {len(all_plots)} parcels. Ask me to filter by land use (e.g. 'Show residential plots'), density (e.g. 'FAR >= 2.5'), or inspect any specific plot ID._")
+
+            return MasterplanAIQueryResponse(
+                answer="\n".join(lines),
+                intent="LIST_PLOTS",
+                tools_called=["query_plots"],
+                highlight_plots=[p.plot_id for p in all_plots[:15]]
+            )
+
+        # Check for Ranking / Largest / Smallest / Top plots query
+        if any(k in q for k in ("largest", "biggest", "highest far", "top plots", "highest gfa", "smallest")):
+            all_plots = db.get_plots(project_id)
+            if "far" in q:
+                sorted_plots = sorted(all_plots, key=lambda p: p.far, reverse=True)
+                metric = "FAR"
+            elif "gfa" in q:
+                sorted_plots = sorted(all_plots, key=lambda p: p.achieved_gfa, reverse=True)
+                metric = "Achieved GFA"
+            elif "smallest" in q:
+                sorted_plots = sorted(all_plots, key=lambda p: p.area_sqm)
+                metric = "Smallest Footprint Area"
+            else:
+                sorted_plots = sorted(all_plots, key=lambda p: p.area_sqm, reverse=True)
+                metric = "Footprint Area"
+
+            lines = [
+                f"### 🏆 Top Masterplan Parcels by {metric}",
+                "",
+                f"| Rank | Plot ID | Land Use | Sector | Footprint (m²) | Achieved GFA (m²) | FAR | Status |",
+                f"| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |"
+            ]
+            for idx, p in enumerate(sorted_plots[:6], 1):
+                st_badge = "✅ Compliant" if p.status == 'compliant' else ("⚠️ Warning" if p.status == 'warning' else "❌ Violation")
+                lines.append(f"| #{idx} | **{p.plot_id}** | {p.land_use} | {p.sector} | {p.area_sqm:,.0f} | {p.achieved_gfa:,.0f} | {p.far:.2f} | {st_badge} |")
+
+            return MasterplanAIQueryResponse(
+                answer="\n".join(lines),
+                intent="QUERY_RANKINGS",
+                tools_called=["query_plots"],
+                highlight_plots=[p.plot_id for p in sorted_plots[:6]]
+            )
+
+        # Check for Parking Deficit or Requirements
+        if any(k in q for k in ("parking", "parking deficit", "parking bay", "parking bays", "parking required")):
+            all_plots = db.get_plots(project_id)
+            tot_req = sum(p.parking_required for p in all_plots)
+            tot_prov = sum(p.parking_provided for p in all_plots)
+            diff = tot_prov - tot_req
+            deficit_plots = [p for p in all_plots if p.parking_provided < p.parking_required]
+
+            lines = [
+                f"### 🚗 Masterplan Parking Capacity & Deficit Analysis",
+                f"- **Total Parking Bays Required**: {tot_req:,} bays",
+                f"- **Total Parking Bays Provided**: {tot_prov:,} bays",
+                f"- **Net Balance**: {'+' if diff >= 0 else ''}{diff:,} bays ({'Surplus ✅' if diff >= 0 else 'Deficit ⚠️'})",
+                ""
+            ]
+            if deficit_plots:
+                lines.append("#### ⚠️ Parcels with Parking Deficit:")
+                lines.append("| Plot ID | Land Use | Required | Provided | Deficit |")
+                lines.append("| :--- | :--- | :--- | :--- | :--- |")
+                for dp in deficit_plots[:8]:
+                    lines.append(f"| **{dp.plot_id}** | {dp.land_use} | {dp.parking_required} | {dp.parking_provided} | **-{dp.parking_required - dp.parking_provided}** |")
+            else:
+                lines.append("✅ All plots currently satisfy minimum parking bay requirements.")
+
+            return MasterplanAIQueryResponse(
+                answer="\n".join(lines),
+                intent="QUERY_PARKING",
+                tools_called=["calculate_kpis", "query_plots"],
+                highlight_plots=[p.plot_id for p in deficit_plots]
+            )
+
         # Check for specific Plot ID query (e.g. PLOT-L, Plot L-2, PLOT-TOR, P-101, Plot 101, Plot no 5215039, 5215039)
         all_plots = db.get_plots(project_id)
         matched_plot = None
@@ -513,7 +600,7 @@ class MasterplanAIAgent:
             return MasterplanAIQueryResponse(answer='Drawing action requested.',intent='VIEW_ACTION',view_actions=[action],tools_called=['drawing_view_controller'])
         # Check deterministic plan first for high-precision specific queries (Plot Inspection, Linework Audit, Direct Filters)
         det_res = self._fallback_deterministic_plan(req.query, req.project_id)
-        if det_res.intent in ("INSPECT_PLOT", "AUDIT_LINEWORK", "QUERY_VIOLATIONS", "QUERY_LAND_USE", "QUERY_DENSITY", "CAD_AUDIT_UNVERIFIED"):
+        if det_res.intent in ("INSPECT_PLOT", "AUDIT_LINEWORK", "QUERY_VIOLATIONS", "QUERY_LAND_USE", "QUERY_DENSITY", "CAD_AUDIT_UNVERIFIED", "LIST_PLOTS", "QUERY_RANKINGS", "QUERY_PARKING"):
             colors = {'yellow':'#ffff00', 'red':'#ff0000', 'green':'#00ff00', 'blue':'#0080ff', 'orange':'#ffa500', 'purple':'#a855f7'}
             det_res.highlight_color = next((value for name,value in colors.items() if re.search(r'\b'+name+r'\b', req.query, re.I)), None)
             return det_res
@@ -521,13 +608,17 @@ class MasterplanAIAgent:
         # Try Ollama Qwen 3.5 9B with reasoning for open-ended or general questions
         try:
             summary = db.get_project_summary(req.project_id)
+            files = db.get_file_records(req.project_id)
+            cad_names = [f['filename'] for f in files if f.get('file_type') == 'cad']
+            exc_names = [f['filename'] for f in files if f.get('file_type') == 'excel']
             system_prompt = (
-                f"You are the Masterplan AI Copilot (MPD) operating offline on Windows during an architectural and urban design review meeting.\n"
-                f"Project: {req.project_id}.\n"
-                f"Total Plots: {summary.total_plots}, Total GFA: {summary.total_gfa_sqm} m2, Average FAR: {summary.average_far}.\n"
-                f"You analyze FAR, setbacks, zoning compliance, land use distribution, and parking ratios.\n"
-                f"Answer clearly and concisely in GitHub Markdown with bullet points or tables.\n"
-                f"If you identify specific plot IDs relevant to the question, list them at the end inside [HIGHLIGHT: P-101, P-5215039]."
+                f"You are the Design AI Copilot operating on project '{req.project_id}'.\n"
+                f"Ingested Project Documents: CAD Drawing: {', '.join(cad_names) or 'None registered'}, Excel Register: {', '.join(exc_names) or 'None registered'}.\n"
+                f"Project Overview: {summary.total_plots} parcels, {summary.total_area_sqm:,.0f} m² land area, {summary.total_gfa_sqm:,.0f} m² GFA, Average FAR {summary.average_far:.2f}.\n"
+                f"Compliance: {summary.compliant_plots} Compliant, {summary.warning_plots} Warnings, {summary.violation_plots} Violations.\n"
+                f"Like ChatGPT and Claude, reason over the masterplan drawings, schedules, and spatial parameters. Calculate exact numbers, explain zoning compliance, and answer any design or engineering question.\n"
+                f"Format answers clearly in GitHub Markdown with bullet points or tables.\n"
+                f"If you identify specific plot IDs relevant to the question, append them at the end inside [HIGHLIGHT: P-101, P-5215039]."
             )
 
             async with httpx.AsyncClient(timeout=8.0) as client:

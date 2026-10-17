@@ -94,9 +94,9 @@ async function renderMPDWorkspace(container) {
             <button class="mpd-canvas-ctrl" id="btnZoomOut" title="Zoom Out">-</button>
             <button class="mpd-canvas-ctrl" id="btnZoomFit" title="Fit Entire Masterplan">Fit</button>
             <div class="mpd-toolbar-sep"></div>
-            <button class="mpd-canvas-ctrl active" id="btnToggleSidePane" title="Toggle Side Register / Inspector Drawer">
-              <svg class="ico" style="width:12px;height:12px" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="15" y1="3" x2="15" y2="21"/></svg>
-              Side Drawer
+            <button class="mpd-canvas-ctrl" id="btnToggleSidePane" title="Toggle Property Inspector">
+              <svg class="ico" style="width:12px;height:12px" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              Inspector
             </button>
           </div>
         </div>
@@ -164,54 +164,18 @@ async function renderMPDWorkspace(container) {
           <div class="mpd-canvas-tooltip" id="mpdTooltip"></div>
         </div>
 
-        <div class="mpd-side-pane" id="mpdSidePane">
-          <div class="mpd-side-header">
-            <div class="mpd-tabs">
-              <button class="mpd-tab active" id="tabRegister" onclick="_switchMpdTab('register')">
-                📋 Plot Register (<span id="mpdPlotCountBadge">0</span>)
-              </button>
-              <button class="mpd-tab" id="tabInspector" onclick="_switchMpdTab('inspector')">
-                🔍 Property Inspector
-              </button>
+        <div class="mpd-side-pane collapsed" id="mpdSidePane">
+          <div class="mpd-side-header" style="padding:10px 14px">
+            <div style="display:flex;align-items:center;gap:8px;font-weight:700;font-size:12px;color:var(--text)">
+              <svg class="ico" style="width:14px;height:14px;color:var(--accent2)" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              <span>Property Inspector</span>
             </div>
-            <button id="btnCloseSidePane" title="Collapse Side Drawer" style="background:none;border:none;color:var(--muted);font-size:16px;cursor:pointer;padding:4px 8px;line-height:1">&times;</button>
+            <button id="btnCloseSidePane" title="Close Property Inspector" style="background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer;padding:2px 6px;line-height:1">&times;</button>
           </div>
 
           <div class="mpd-side-body">
-            <!-- Tab 1: Plot Register Table -->
-            <div class="mpd-pane" id="paneRegister">
-              <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
-                <input type="text" class="mpd-input" id="tblSearch" placeholder="Search Plot ID, Sector..." oninput="_filterPlots()">
-                <select class="mpd-input" id="tblLandUse" onchange="_filterPlots()">
-                  <option value="All">All Land Uses</option>
-                  <option value="Residential">Residential</option>
-                  <option value="Commercial">Commercial</option>
-                  <option value="Mixed Use">Mixed Use</option>
-                  <option value="Open Space / Park">Open Space / Park</option>
-                  <option value="Civic">Civic</option>
-                  <option value="Utilities">Utilities</option>
-                </select>
-              </div>
-
-              <div class="mpd-table-wrap">
-                <table class="mpd-table" id="mpdPlotTable">
-                  <thead>
-                    <tr>
-                      <th>Plot ID</th>
-                      <th>Land Use</th>
-                      <th>Area (m²)</th>
-                      <th>Ach. GFA</th>
-                      <th>FAR</th>
-                      <th>Status</th>
-                    </tr>
-                  </thead>
-                  <tbody id="mpdPlotTableBody"></tbody>
-                </table>
-              </div>
-            </div>
-
-            <!-- Tab 2: Property Inspector -->
-            <div class="mpd-pane" id="paneInspector" style="display:none">
+            <!-- Property Inspector -->
+            <div class="mpd-pane" id="paneInspector" style="display:flex">
               <div class="mpd-inspector" id="mpdInspector">
                 <div style="display:flex;justify-content:space-between;align-items:center">
                   <span style="font-weight:700;font-size:12px;color:var(--text)" id="inspPlotTitle">Plot Details Inspector</span>
@@ -299,15 +263,9 @@ async function renderMPDWorkspace(container) {
 }
 
 function _switchMpdTab(tab) {
-  _mpdActiveTab = tab;
-  const tabReg = _mpd$('tabRegister');
-  const tabInsp = _mpd$('tabInspector');
-  const paneReg = _mpd$('paneRegister');
+  _mpdActiveTab = 'inspector';
   const paneInsp = _mpd$('paneInspector');
-  if (tabReg) tabReg.classList.toggle('active', tab === 'register');
-  if (tabInsp) tabInsp.classList.toggle('active', tab === 'inspector');
-  if (paneReg) paneReg.style.display = tab === 'register' ? 'flex' : 'none';
-  if (paneInsp) paneInsp.style.display = tab === 'inspector' ? 'flex' : 'none';
+  if (paneInsp) paneInsp.style.display = 'flex';
 }
 
 function _toggleSidePane(forceOpen) {

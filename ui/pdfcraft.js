@@ -24,7 +24,7 @@ let _pdfState = {
   zoom: 1.25,
   viewMode: 'reader', // 'reader' or 'organizer'
   activeTool: 'select', // 'select', 'pan', 'highlight', 'rect', 'note'
-  leftTab: 'pages', // 'pages', 'outline', 'search', 'properties'
+  leftTab: 'toolchest', // 'toolchest', 'pages', 'outline', 'search', 'measure', 'audit', 'ai', 'properties'
   searchQuery: '',
   searchResults: [],
   selectedSearchIndex: -1,
@@ -50,7 +50,14 @@ let _pdfState = {
   markupsDrawerOpen: false,
   selectedStamp: 'APPROVED',
   markupAuthor: 'Lead Engineer',
-  pendingCallout: null
+  pendingCallout: null,
+  recentTools: [],
+  activeDiscipline: 'Architect Review',
+  activeColor: '#ef4444',
+  bubbleCount: 1,
+  tallyCount: 1,
+  pendingArrow: null,
+  collapsedToolSets: {}
 };
 
 function _getAuthToken() {
@@ -169,6 +176,11 @@ function renderPdfCraftWorkspace(container) {
             <button class="pdf-tool-btn" data-tool="pan" title="Hand / Pan Viewport"><svg class="ico" viewBox="0 0 24 24"><path d="M18 11V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v0M14 10V4a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v2M10 10.5V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v8M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"/></svg><span>Pan</span></button>
             <button class="pdf-tool-btn" data-tool="cloud" title="Bluebeam Revision Cloud (Curved Arcs)" style="color:#ef4444"><svg class="ico" viewBox="0 0 24 24"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/></svg><span>☁️ Cloud</span></button>
             <button class="pdf-tool-btn" data-tool="callout" title="Bluebeam Callout Arrow &amp; Leader" style="color:#38bdf8"><svg class="ico" viewBox="0 0 24 24"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg><span>💬 Callout</span></button>
+            <button class="pdf-tool-btn" data-tool="arrow" title="Pointer Arrow &amp; Leader" style="color:#ef4444"><svg class="ico" viewBox="0 0 24 24"><line x1="5" y1="19" x2="19" y2="5"/><polyline points="12 5 19 5 19 12"/></svg><span>↗️ Arrow</span></button>
+            <button class="pdf-tool-btn" data-tool="text" title="Review Text Box" style="color:#f59e0b"><svg class="ico" viewBox="0 0 24 24"><polyline points="4 7 4 4 20 4 20 7"/><line x1="12" y1="4" x2="12" y2="20"/><line x1="8" y1="20" x2="16" y2="20"/></svg><span>Text</span></button>
+            <button class="pdf-tool-btn" data-tool="bubble" title="Sequence Number Bubble (1, 2, 3...)" style="color:#06b6d4"><svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 8v8M8 12h8"/></svg><span>① Bubble</span></button>
+            <button class="pdf-tool-btn" data-tool="count" title="Check Tally Mark" style="color:#10b981"><svg class="ico" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg><span>✓ Count</span></button>
+            <button class="pdf-tool-btn" data-tool="ellipse" title="Ellipse / Circle Zone" style="color:#f59e0b"><svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/></svg><span>Circle</span></button>
             
             <div class="pdf-dropdown-wrap">
               <button class="pdf-btn" id="pdfStampDropdownBtn" title="Engineering Stamps">
@@ -246,17 +258,45 @@ function renderPdfCraftWorkspace(container) {
 
       <!-- MAIN CONTENT WORKSPACE -->
       <div class="pdf-center-area">
+        <!-- BLUEBEAM VERTICAL ICON RAIL (44px) -->
+        <div class="pdf-sidebar-rail" id="pdfSidebarRail">
+          <button class="pdf-rail-btn" data-tab="pages" title="Pages / Thumbnails">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
+          </button>
+          <button class="pdf-rail-btn" data-tab="outline" title="Bookmarks &amp; Outline">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+          </button>
+          <button class="pdf-rail-btn on" data-tab="toolchest" title="Tool Chest (Bluebeam Palettes &amp; Symbols)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+          </button>
+          <button class="pdf-rail-btn" data-tab="measure" title="Measurements &amp; Takeoff (2D Calibrated)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21.3 8.7l-6-6a1 1 0 0 0-1.4 0l-11 11a1 1 0 0 0 0 1.4l6 6a1 1 0 0 0 1.4 0l11-11a1 1 0 0 0 0-1.4z"/><line x1="7.5" y1="10.5" x2="9.5" y2="8.5"/><line x1="10.5" y1="13.5" x2="13.5" y2="10.5"/><line x1="13.5" y1="16.5" x2="15.5" y2="14.5"/></svg>
+          </button>
+          <button class="pdf-rail-btn" data-tab="markups" title="Markups List Drawer">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+          </button>
+          <button class="pdf-rail-btn" data-tab="audit" title="Redaction Security Audit (pdfcraft-audit)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          </button>
+          <button class="pdf-rail-btn" data-tab="search" title="Search Text">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          </button>
+          <button class="pdf-rail-btn" data-tab="ai" title="Ask Local AI (qwen3.5:9b / vision)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+          </button>
+          <button class="pdf-rail-btn" data-tab="properties" title="Document Properties">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+          </button>
+        </div>
+
         <!-- LEFT SIDEBAR -->
         <div class="pdf-sidebar" id="pdfSidebar">
-          <div class="pdf-sidebar-tabs">
-            <button class="pdf-tab-btn on" data-tab="pages" title="Page Thumbnails">📑 Pages</button>
-            <button class="pdf-tab-btn" data-tab="toolchest" title="Bluebeam Tool Chest" style="color:#f59e0b;font-weight:700">🧰 Tool Chest</button>
-            <button class="pdf-tab-btn" data-tab="outline" title="Bookmarks Outline">🔖 Outline</button>
-            <button class="pdf-tab-btn" data-tab="search" title="Search Text">🔍 Search</button>
-            <button class="pdf-tab-btn" data-tab="audit" title="Faux-Redaction Security Audit (pdfcraft-audit)" style="color:#ef4444;font-weight:700">🛡️ Audit</button>
-            <button class="pdf-tab-btn" data-tab="measure" title="2D Calibrated Measurements (pdfcraft-measure)" style="color:#38bdf8;font-weight:700">📐 Measure</button>
-            <button class="pdf-tab-btn" data-tab="ai" title="Ask Local AI (qwen3.5:9b / vision)" style="color:var(--accent2);font-weight:700">✨ Ask AI</button>
-            <button class="pdf-tab-btn" data-tab="properties" title="Document Properties">ℹ️ Info</button>
+          <div class="pdf-sidebar-header" id="pdfSidebarHeader">
+            <span id="pdfSidebarTitle" style="display:flex;align-items:center;gap:4px">Tool Chest <span style="font-size:9px">▼</span></span>
+            <div style="display:flex;align-items:center;gap:6px">
+              <input type="text" id="pdfTcFilter" class="pdf-search-input sm" placeholder="Search..." oninput="_filterToolChest(this.value)" style="width:105px;background:#181818;border:1px solid rgba(255,255,255,0.15);border-radius:3px;padding:2px 6px;font-size:10.5px;color:#fff">
+              <span class="pdf-tc-gear" title="Manage Tool Sets" onclick="_showToolSetManagerModal()">⚙️</span>
+            </div>
           </div>
 
           <div class="pdf-sidebar-content" id="pdfSidebarContent">
@@ -266,6 +306,15 @@ function renderPdfCraftWorkspace(container) {
 
         <!-- CENTER STAGE VIEWPORT -->
         <div class="pdf-viewport-wrap" id="pdfViewportWrap">
+          <!-- BLUEBEAM TOP DOCUMENT TAB BAR -->
+          <div class="pdf-doc-tab-bar" id="pdfDocTabBar">
+            <div class="pdf-doc-tab">
+              <span style="font-size:12px">📄</span>
+              <span id="pdfTabDocName">No Document Loaded</span>
+              <span class="pdf-doc-tab-pages" id="pdfTabPagesCount">Pages: 1</span>
+            </div>
+          </div>
+
           <!-- READER VIEW (DEEP ZOOM) -->
           <div class="pdf-reader-view" id="pdfReaderView">
             <div class="pdf-page-container" id="pdfPageContainer">
@@ -585,49 +634,243 @@ function _initPdfCraftStyles() {
       overflow: hidden;
       position: relative;
     }
+    /* BLUEBEAM VERTICAL ICON RAIL */
+    .pdf-sidebar-rail {
+      width: 44px;
+      background: #1e1e1e;
+      border-right: 1px solid rgba(255,255,255,0.08);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 6px 0;
+      gap: 3px;
+      flex-shrink: 0;
+      z-index: 10;
+      user-select: none;
+    }
+    .pdf-rail-btn {
+      width: 34px;
+      height: 34px;
+      border-radius: 4px;
+      background: transparent;
+      color: #94a3b8;
+      border: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.12s ease;
+      position: relative;
+    }
+    .pdf-rail-btn:hover {
+      background: #333333;
+      color: #fff;
+    }
+    .pdf-rail-btn.on {
+      background: #0078d4;
+      color: #fff;
+    }
+    .pdf-rail-btn svg {
+      width: 17px;
+      height: 17px;
+      stroke-width: 2;
+    }
     .pdf-sidebar {
       width: 320px;
-      background: #0d1424;
-      border-right: 1px solid var(--border, rgba(255,255,255,0.08));
+      background: #252525;
+      border-right: 1px solid rgba(255,255,255,0.08);
       display: flex;
       flex-direction: column;
       flex-shrink: 0;
+      transition: width 0.18s ease;
     }
-    .pdf-sidebar-tabs {
-      display: flex;
-      overflow-x: auto;
-      border-bottom: 1px solid var(--border, rgba(255,255,255,0.08));
-      background: #070b15;
-      white-space: nowrap;
-      scrollbar-width: none;
-    }
-    .pdf-sidebar-tabs::-webkit-scrollbar {
+    .pdf-sidebar.collapsed {
+      width: 0px;
+      overflow: hidden;
       display: none;
     }
-    .pdf-tab-btn {
-      flex: 1;
-      padding: 8px 6px;
-      font-size: 10.5px;
-      font-weight: 600;
-      color: var(--muted, #64748b);
-      background: transparent;
-      border: none;
-      border-bottom: 2px solid transparent;
-      cursor: pointer;
-      white-space: nowrap;
-    }
-    .pdf-tab-btn:hover {
-      color: #fff;
-    }
-    .pdf-tab-btn.on {
-      color: var(--accent2, #38bdf8);
-      border-bottom-color: var(--accent2, #38bdf8);
-      background: rgba(47,107,255,0.05);
+    .pdf-sidebar-header {
+      height: 34px;
+      background: #2c2c2c;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 10px;
+      font-size: 11.5px;
+      font-weight: 700;
+      color: #f1f5f9;
+      flex-shrink: 0;
+      gap: 8px;
     }
     .pdf-sidebar-content {
       flex: 1;
       overflow-y: auto;
-      padding: 10px;
+      padding: 0;
+      background: #222222;
+    }
+    /* BLUEBEAM TOOL CHEST ACCORDIONS & PALETTES */
+    .pdf-tc-container {
+      display: flex;
+      flex-direction: column;
+      background: #252525;
+      height: 100%;
+    }
+    .pdf-tc-accordion {
+      border-bottom: 1px solid #1a1a1a;
+      display: flex;
+      flex-direction: column;
+    }
+    .pdf-tc-hdr {
+      height: 25px;
+      background: #333333;
+      padding: 0 8px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 11px;
+      font-weight: 700;
+      color: #e2e8f0;
+      cursor: pointer;
+      user-select: none;
+    }
+    .pdf-tc-hdr:hover {
+      background: #3c3c3c;
+      color: #fff;
+    }
+    .pdf-tc-hdr-left {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .pdf-tc-arrow {
+      font-size: 9px;
+      color: #94a3b8;
+      transition: transform 0.15s ease;
+      display: inline-block;
+      width: 10px;
+    }
+    .pdf-tc-hdr.collapsed .pdf-tc-arrow {
+      transform: rotate(-90deg);
+    }
+    .pdf-tc-hdr-right {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .pdf-tc-gear {
+      font-size: 12px;
+      color: #888;
+      cursor: pointer;
+    }
+    .pdf-tc-gear:hover {
+      color: #fff;
+    }
+    .pdf-tc-strip {
+      background: #dedede;
+      padding: 6px 8px;
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .pdf-tc-hdr.collapsed + .pdf-tc-body {
+      display: none;
+    }
+    .pdf-tc-tool {
+      width: 32px;
+      height: 32px;
+      background: #ffffff;
+      border: 1px solid #bbb;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      position: relative;
+      transition: all 0.12s ease;
+      user-select: none;
+    }
+    .pdf-tc-tool:hover {
+      border-color: #0078d4;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+      background: #f0f7ff;
+      transform: scale(1.05);
+      z-index: 5;
+    }
+    .pdf-tc-tool.active {
+      border-color: #0078d4;
+      box-shadow: 0 0 0 2px rgba(0, 120, 212, 0.4);
+      background: #dbeafe;
+    }
+    .pdf-tc-tool-num {
+      position: absolute;
+      top: -2px;
+      right: -2px;
+      background: #444;
+      color: #fff;
+      font-size: 8px;
+      font-weight: 800;
+      padding: 0 2px;
+      border-radius: 2px;
+      line-height: 10px;
+    }
+    .pdf-tc-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 10.5px;
+      background: #f0f0f0;
+      color: #222;
+    }
+    .pdf-tc-table th {
+      background: #d8d8d8;
+      color: #444;
+      font-weight: 700;
+      padding: 3px 6px;
+      text-align: left;
+      border-bottom: 1px solid #bbb;
+    }
+    .pdf-tc-table tr {
+      border-bottom: 1px solid #e0e0e0;
+      cursor: pointer;
+    }
+    .pdf-tc-table tr:hover {
+      background: #cfe2f3;
+    }
+    .pdf-tc-table td {
+      padding: 3px 6px;
+      vertical-align: middle;
+    }
+    /* BLUEBEAM TOP DOCUMENT TAB BAR */
+    .pdf-doc-tab-bar {
+      height: 28px;
+      background: #181818;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      display: flex;
+      align-items: center;
+      padding: 0 10px;
+      font-size: 11px;
+      color: #cbd5e1;
+      gap: 12px;
+      flex-shrink: 0;
+      user-select: none;
+    }
+    .pdf-doc-tab {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: #252525;
+      padding: 3px 10px;
+      border-radius: 4px 4px 0 0;
+      border: 1px solid rgba(255,255,255,0.1);
+      border-bottom: none;
+      color: #fff;
+      font-weight: 600;
+    }
+    .pdf-doc-tab-pages {
+      color: #94a3b8;
+      font-size: 10.5px;
+      margin-left: 6px;
     }
     .pdf-thumb-card {
       background: var(--surface2, #162035);
@@ -1163,15 +1406,66 @@ function _bindPdfEvents() {
   if (prevBtn) prevBtn.onclick = () => _goToPage(_pdfState.currentPage - 1);
   if (nextBtn) nextBtn.onclick = () => _goToPage(_pdfState.currentPage + 1);
 
-  // Keyboard navigation
+  // Keyboard navigation & Bluebeam My Tools shortcuts [1] - [8]
   window.addEventListener('keydown', (e) => {
     if (typeof currentDest !== 'undefined' && currentDest !== 'pdfcraft') return;
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
     if (e.key === 'ArrowLeft') _goToPage(_pdfState.currentPage - 1);
     if (e.key === 'ArrowRight') _goToPage(_pdfState.currentPage + 1);
+
+    // Bluebeam My Tools keyboard shortcuts 1 through 8
+    if (e.key >= '1' && e.key <= '8') {
+      const idx = parseInt(e.key, 10) - 1;
+      _activateMyToolByIndex(idx);
+    }
   });
 
-  // Sidebar tab buttons
+  // Bluebeam Left Rail Navigation Buttons
+  document.querySelectorAll('.pdf-rail-btn').forEach(btn => {
+    btn.onclick = () => {
+      const tab = btn.dataset.tab;
+      if (tab === 'markups') {
+        _toggleMarkupsDrawer();
+        return;
+      }
+
+      const sidebar = document.getElementById('pdfSidebar');
+      if (_pdfState.leftTab === tab && sidebar) {
+        sidebar.classList.toggle('collapsed');
+        btn.classList.toggle('on', !sidebar.classList.contains('collapsed'));
+        return;
+      }
+
+      if (sidebar) sidebar.classList.remove('collapsed');
+      document.querySelectorAll('.pdf-rail-btn').forEach(b => b.classList.remove('on'));
+      btn.classList.add('on');
+      _pdfState.leftTab = tab;
+
+      // Update sidebar header title
+      const titleMap = {
+        'toolchest': 'Tool Chest ▾',
+        'pages': 'Pages / Thumbnails ▾',
+        'outline': 'Bookmarks &amp; Outline ▾',
+        'search': 'Search Text ▾',
+        'audit': 'Redaction Audit ▾',
+        'measure': '2D Measurements ▾',
+        'ai': 'Local AI Studio ▾',
+        'properties': 'Document Properties ▾'
+      };
+      const titleEl = document.getElementById('pdfSidebarTitle');
+      if (titleEl) titleEl.innerHTML = titleMap[tab] || `${tab.toUpperCase()} ▾`;
+
+      const filterEl = document.getElementById('pdfTcFilter');
+      if (filterEl) {
+        filterEl.style.display = (tab === 'toolchest' || tab === 'search') ? 'block' : 'none';
+        if (tab === 'toolchest') filterEl.placeholder = 'Search tools...';
+      }
+
+      _renderSidebarContent();
+    };
+  });
+
+  // Backward compatibility for tab buttons
   document.querySelectorAll('.pdf-tab-btn').forEach(btn => {
     btn.onclick = () => {
       document.querySelectorAll('.pdf-tab-btn').forEach(b => b.classList.remove('on'));
@@ -1189,7 +1483,7 @@ function _bindPdfEvents() {
       _pdfState.activeTool = tb.dataset.tool;
       if (tb.dataset.tool && tb.dataset.tool.startsWith('measure')) {
         _pdfState.leftTab = 'measure';
-        document.querySelectorAll('.pdf-tab-btn').forEach(b => b.classList.toggle('on', b.dataset.tab === 'measure'));
+        document.querySelectorAll('.pdf-rail-btn').forEach(b => b.classList.toggle('on', b.dataset.tab === 'measure'));
         _renderSidebarContent();
       }
     };
@@ -1379,6 +1673,12 @@ function _applyLoadedDocument(docId, filename, info, relPath = null, metadata = 
   if (nameEl) nameEl.textContent = `📄 ${filename}${revStr} (${info.page_count} Pages)`;
   const secEl = document.getElementById('pdfSecurityLabel');
   if (secEl) secEl.textContent = info.is_encrypted ? '🔒 AES-256 Protected' : '🔓 Unlocked (Full Access)';
+
+  // Top document tab bar
+  const tabName = document.getElementById('pdfTabDocName');
+  if (tabName) tabName.textContent = filename + revStr;
+  const tabPages = document.getElementById('pdfTabPagesCount');
+  if (tabPages) tabPages.textContent = `Pages: ${info.page_count || 1}`;
 
   _renderSidebarContent();
   _renderCurrentPage();
@@ -1930,7 +2230,7 @@ function _renderMarkupOverlay() {
     });
   }
 
-  // 5. In-progress Callout anchor
+  // 5. In-progress Callout & Arrow anchors
   if (_pdfState.pendingCallout) {
     const ax = (_pdfState.pendingCallout.x / pw) * 100;
     const ay = (_pdfState.pendingCallout.y / ph) * 100;
@@ -1938,11 +2238,18 @@ function _renderMarkupOverlay() {
       <div style="position:absolute;left:${ax}%;top:${ay}%;transform:translate(-50%,-50%);width:12px;height:12px;border-radius:50%;background:#38bdf8;border:2px solid #fff;box-shadow:0 0 8px #38bdf8;pointer-events:none;z-index:30"></div>
     `;
   }
+  if (_pdfState.pendingArrow) {
+    const ax = (_pdfState.pendingArrow.x / pw) * 100;
+    const ay = (_pdfState.pendingArrow.y / ph) * 100;
+    html += `
+      <div style="position:absolute;left:${ax}%;top:${ay}%;transform:translate(-50%,-50%);width:11px;height:11px;border-radius:50%;background:#ef4444;border:2px solid #fff;box-shadow:0 0 8px #ef4444;pointer-events:none;z-index:30"></div>
+    `;
+  }
 
-  // 6. Bluebeam Markups (Revision Clouds, Callouts, Stamps, Rectangles, Highlights, Notes)
+  // 6. Bluebeam Markups (Revision Clouds, Callouts, Arrows, Ellipses, Text, Bubbles, Counts, Symbols, Stamps, Rectangles, Highlights, Notes)
   const pageMarkups = (_pdfState.markups || []).filter(m => m.page === curPage);
   
-  // Vector SVG overlay for clouds & callout leader arrows
+  // Vector SVG overlay for clouds, arrows, ellipses & callout leader arrows
   let svgPaths = '';
   pageMarkups.forEach(m => {
     if (m.type === 'cloud') {
@@ -1956,6 +2263,16 @@ function _renderMarkupOverlay() {
       svgPaths += `
         <line x1="${boxCenterX}" y1="${boxCenterY}" x2="${m.arrow.x}" y2="${m.arrow.y}" stroke="${m.color || '#38bdf8'}" stroke-width="2.5" marker-end="url(#pdfArrowMarker)" vector-effect="non-scaling-stroke" style="pointer-events:none"/>
       `;
+    } else if (m.type === 'arrow' && m.start && m.end) {
+      const cClean = (m.color || 'ef4444').replace(/[^a-zA-Z0-9]/g, '');
+      const markerId = `pdfArrowMarker-${cClean}`;
+      svgPaths += `
+        <line id="markup-el-${m.id}" x1="${m.start.x}" y1="${m.start.y}" x2="${m.end.x}" y2="${m.end.y}" stroke="${m.color || '#ef4444'}" stroke-width="2.5" marker-end="url(#${markerId})" vector-effect="non-scaling-stroke" style="cursor:pointer;pointer-events:auto" onclick="event.stopPropagation();_locateMarkup('${m.id}')"/>
+      `;
+    } else if (m.type === 'ellipse') {
+      svgPaths += `
+        <ellipse id="markup-el-${m.id}" cx="${m.cx}" cy="${m.cy}" rx="${m.rx || 48}" ry="${m.ry || 32}" fill="${m.color || '#f59e0b'}22" stroke="${m.color || '#f59e0b'}" stroke-width="2.5" vector-effect="non-scaling-stroke" style="cursor:pointer;pointer-events:auto" onclick="event.stopPropagation();_locateMarkup('${m.id}')"/>
+      `;
     }
   });
 
@@ -1966,19 +2283,40 @@ function _renderMarkupOverlay() {
           <marker id="pdfArrowMarker" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
             <path d="M 0 1.5 L 9 5 L 0 8.5 z" fill="#38bdf8"/>
           </marker>
+          <marker id="pdfArrowMarker-ef4444" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M 0 1.5 L 9 5 L 0 8.5 z" fill="#ef4444"/>
+          </marker>
+          <marker id="pdfArrowMarker-0284c7" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M 0 1.5 L 9 5 L 0 8.5 z" fill="#0284c7"/>
+          </marker>
+          <marker id="pdfArrowMarker-38bdf8" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M 0 1.5 L 9 5 L 0 8.5 z" fill="#38bdf8"/>
+          </marker>
+          <marker id="pdfArrowMarker-f59e0b" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M 0 1.5 L 9 5 L 0 8.5 z" fill="#f59e0b"/>
+          </marker>
+          <marker id="pdfArrowMarker-8b5cf6" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M 0 1.5 L 9 5 L 0 8.5 z" fill="#8b5cf6"/>
+          </marker>
+          <marker id="pdfArrowMarker-10b981" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M 0 1.5 L 9 5 L 0 8.5 z" fill="#10b981"/>
+          </marker>
+          <marker id="pdfArrowMarker-06b6d4" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M 0 1.5 L 9 5 L 0 8.5 z" fill="#06b6d4"/>
+          </marker>
         </defs>
         ${svgPaths}
       </svg>
     `;
   }
 
-  // HTML Overlay Elements for Callouts, Stamps, Rectangles, Highlights, Notes
+  // HTML Overlay Elements for Callouts, Stamps, Rectangles, Highlights, Notes, Text, Bubbles, Counts, Symbols
   pageMarkups.forEach(m => {
     if (m.type === 'cloud') {
       const lx = (m.x / pw) * 100;
       const ty = (m.y / ph) * 100;
       html += `
-        <div id="markup-tag-${m.id}" style="position:absolute;left:${lx}%;top:${ty}%;transform:translate(0,-100%);background:rgba(239,68,68,0.9);color:#fff;font-size:10px;font-weight:700;padding:2px 6px;border-radius:3px;box-shadow:0 2px 6px rgba(0,0,0,0.5);pointer-events:auto;cursor:pointer;z-index:22" onclick="event.stopPropagation();_locateMarkup('${m.id}')">
+        <div id="markup-tag-${m.id}" style="position:absolute;left:${lx}%;top:${ty}%;transform:translate(0,-100%);background:${m.color || '#ef4444'};color:#fff;font-size:10px;font-weight:700;padding:2px 6px;border-radius:3px;box-shadow:0 2px 6px rgba(0,0,0,0.5);pointer-events:auto;cursor:pointer;z-index:22" onclick="event.stopPropagation();_locateMarkup('${m.id}')">
           ☁️ ${_esc(m.text || 'Cloud')}
         </div>
       `;
@@ -1993,6 +2331,61 @@ function _renderMarkupOverlay() {
           </div>
           <div>${_esc(m.text || 'Engineering Note')}</div>
         </div>
+      `;
+    } else if (m.type === 'arrow' && m.end) {
+      const ex = (m.end.x / pw) * 100;
+      const ey = (m.end.y / ph) * 100;
+      html += `
+        <div id="markup-tag-${m.id}" style="position:absolute;left:${ex}%;top:${ey}%;transform:translate(6px,-18px);background:${m.color || '#ef4444'};color:#fff;font-size:9.5px;font-weight:700;padding:1px 5px;border-radius:3px;box-shadow:0 2px 6px rgba(0,0,0,0.5);pointer-events:auto;cursor:pointer;z-index:22;white-space:nowrap" onclick="event.stopPropagation();_locateMarkup('${m.id}')">
+          ↗️ ${_esc(m.text || m.subject)}
+        </div>
+      `;
+    } else if (m.type === 'ellipse') {
+      const ex = (m.cx / pw) * 100;
+      const ey = ((m.cy - (m.ry || 32)) / ph) * 100;
+      html += `
+        <div id="markup-tag-${m.id}" style="position:absolute;left:${ex}%;top:${ey}%;transform:translate(-50%,-100%);background:${m.color || '#f59e0b'};color:#000;font-size:9.5px;font-weight:800;padding:1px 5px;border-radius:3px;box-shadow:0 2px 6px rgba(0,0,0,0.5);pointer-events:auto;cursor:pointer;z-index:23;white-space:nowrap" onclick="event.stopPropagation();_locateMarkup('${m.id}')">
+          ⭕ ${_esc(m.text || 'Zone')}
+        </div>
+      `;
+    } else if (m.type === 'text') {
+      const tx = (m.x / pw) * 100;
+      const ty = (m.y / ph) * 100;
+      html += `
+        <div id="markup-el-${m.id}" style="position:absolute;left:${tx}%;top:${ty}%;color:${m.color || '#ef4444'};font-size:12px;font-weight:700;background:rgba(15,23,42,0.85);border:1.5px solid ${m.color || '#ef4444'};border-radius:4px;padding:4px 8px;box-shadow:0 3px 10px rgba(0,0,0,0.6);pointer-events:auto;cursor:pointer;z-index:22;white-space:nowrap" onclick="event.stopPropagation();_locateMarkup('${m.id}')">
+          🔤 ${_esc(m.text || 'Text')}
+        </div>
+      `;
+    } else if (m.type === 'bubble') {
+      const bx = (m.x / pw) * 100;
+      const by = (m.y / ph) * 100;
+      html += `
+        <div id="markup-el-${m.id}" style="position:absolute;left:${bx}%;top:${by}%;transform:translate(-50%,-50%);width:26px;height:26px;border-radius:50%;background:#ffffff;border:2.5px solid ${m.color || '#ef4444'};color:${m.color || '#ef4444'};font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;box-shadow:0 3px 8px rgba(0,0,0,0.5);pointer-events:auto;cursor:pointer;z-index:24" onclick="event.stopPropagation();_locateMarkup('${m.id}')">
+          ${m.bubbleNum || 1}
+        </div>
+      `;
+    } else if (m.type === 'count') {
+      const cx = (m.x / pw) * 100;
+      const cy = (m.y / ph) * 100;
+      html += `
+        <div id="markup-el-${m.id}" style="position:absolute;left:${cx}%;top:${cy}%;transform:translate(-50%,-50%);background:#10b981;color:#fff;border:1.5px solid #fff;border-radius:12px;padding:2px 8px;font-size:11px;font-weight:800;display:flex;align-items:center;gap:3px;box-shadow:0 2px 8px rgba(0,0,0,0.6);pointer-events:auto;cursor:pointer;z-index:24" onclick="event.stopPropagation();_locateMarkup('${m.id}')">
+          ✓ ${m.tallyNum || 1}
+        </div>
+      `;
+    } else if (m.type === 'symbol') {
+      const sx = (m.x / pw) * 100;
+      const sy = (m.y / ph) * 100;
+      html += `
+        <div id="markup-el-${m.id}" style="position:absolute;left:${sx}%;top:${sy}%;transform:translate(-50%,-50%);background:#1e293b;border:2px solid ${m.color || '#0284c7'};border-radius:4px;padding:3px 8px;font-size:11px;font-weight:800;color:#f8fafc;box-shadow:0 4px 12px rgba(0,0,0,0.6);display:flex;align-items:center;gap:5px;pointer-events:auto;cursor:pointer;z-index:24" onclick="event.stopPropagation();_locateMarkup('${m.id}')">
+          <span style="color:${m.color || '#0284c7'};font-size:11px">📍</span>
+          <span>${_esc(m.symbolLabel || m.text)}</span>
+        </div>
+      `;
+    } else if (m.type === 'pen') {
+      const px = (m.x / pw) * 100;
+      const py = (m.y / ph) * 100;
+      html += `
+        <div id="markup-el-${m.id}" style="position:absolute;left:${px}%;top:${py}%;transform:translate(-50%,-50%);width:10px;height:10px;border-radius:50%;background:${m.color || '#8b5cf6'};border:2px solid #fff;box-shadow:0 0 6px ${m.color || '#8b5cf6'};pointer-events:auto;cursor:pointer;z-index:24" onclick="event.stopPropagation();_locateMarkup('${m.id}')"></div>
       `;
     } else if (m.type === 'stamp') {
       const sx = (m.x / pw) * 100;
@@ -2055,18 +2448,21 @@ function _handleOverlayClick(e) {
     const h = 100;
     const x = Math.max(10, pdfX - w / 2);
     const y = Math.max(10, pdfY - h / 2);
+    const color = _pdfState.activeColor || '#ef4444';
+    const disc = _pdfState.activeDiscipline || 'Architect Review';
     const comment = prompt('Enter Revision Cloud change note:', 'Revision: verify connection detail');
     if (comment !== null) {
       _addMarkup({
         type: 'cloud',
         page: _pdfState.currentPage,
-        subject: 'Revision Cloud',
+        subject: _pdfState.activeSubject || 'Revision Cloud',
+        discipline: disc,
         x: x,
         y: y,
         w: w,
         h: h,
         text: comment || 'Revision Cloud',
-        color: '#ef4444'
+        color: color
       });
       toast('☁️ Placed Revision Cloud');
     }
@@ -2078,22 +2474,150 @@ function _handleOverlayClick(e) {
     } else {
       const arrow = _pdfState.pendingCallout;
       _pdfState.pendingCallout = null;
+      const color = _pdfState.activeColor || '#38bdf8';
+      const disc = _pdfState.activeDiscipline || 'Engineer Review';
       const note = prompt('Enter Callout note / punch-list item:', 'Clarify slab edge setback & rebar cover');
       if (note !== null) {
         _addMarkup({
           type: 'callout',
           page: _pdfState.currentPage,
-          subject: 'Engineering Callout',
+          subject: _pdfState.activeSubject || 'Engineering Callout',
+          discipline: disc,
           arrow: arrow,
           box: { x: pdfX, y: pdfY, w: 150, h: 44 },
           text: note || 'Callout note',
-          color: '#38bdf8'
+          color: color
         });
         toast('💬 Placed Callout with leader arrow');
       } else {
         _renderMarkupOverlay();
       }
     }
+  } else if (_pdfState.activeTool === 'arrow') {
+    if (!_pdfState.pendingArrow) {
+      _pdfState.pendingArrow = { x: pdfX, y: pdfY };
+      _renderMarkupOverlay();
+      toast('📍 Arrow tail set. Click destination for arrow head.');
+    } else {
+      const start = _pdfState.pendingArrow;
+      _pdfState.pendingArrow = null;
+      const color = _pdfState.activeColor || '#ef4444';
+      const disc = _pdfState.activeDiscipline || 'Architect Review';
+      _addMarkup({
+        type: 'arrow',
+        page: _pdfState.currentPage,
+        subject: _pdfState.activeSubject || 'Pointer Arrow',
+        discipline: disc,
+        start: start,
+        end: { x: pdfX, y: pdfY },
+        color: color,
+        text: 'Pointer Arrow'
+      });
+      toast('↗️ Placed Pointer Arrow');
+    }
+  } else if (_pdfState.activeTool === 'ellipse') {
+    const color = _pdfState.activeColor || '#f59e0b';
+    const disc = _pdfState.activeDiscipline || 'Architect Review';
+    const label = prompt('Enter Circle / Ellipse zone note:', 'Detail Zone');
+    if (label !== null) {
+      _addMarkup({
+        type: 'ellipse',
+        page: _pdfState.currentPage,
+        subject: _pdfState.activeSubject || 'Ellipse Zone',
+        discipline: disc,
+        cx: pdfX,
+        cy: pdfY,
+        rx: 50,
+        ry: 35,
+        text: label || 'Detail Zone',
+        color: color
+      });
+      toast('⭕ Placed Ellipse Markup');
+    }
+  } else if (_pdfState.activeTool === 'text') {
+    const color = _pdfState.activeColor || '#ef4444';
+    const disc = _pdfState.activeDiscipline || 'Architect Review';
+    const txt = prompt('Enter Text Box note:', 'Review Comment Note');
+    if (txt !== null) {
+      _addMarkup({
+        type: 'text',
+        page: _pdfState.currentPage,
+        subject: _pdfState.activeSubject || 'Review Text',
+        discipline: disc,
+        x: pdfX,
+        y: pdfY,
+        text: txt || 'Review Note',
+        color: color
+      });
+      toast('🔤 Placed Text Box');
+    }
+  } else if (_pdfState.activeTool === 'bubble') {
+    const bNum = _pdfState.bubbleCount++;
+    const color = _pdfState.activeColor || '#ef4444';
+    const disc = _pdfState.activeDiscipline || 'Architect Review';
+    _addMarkup({
+      type: 'bubble',
+      page: _pdfState.currentPage,
+      subject: _pdfState.activeSubject || `Sequence Bubble (${bNum})`,
+      discipline: disc,
+      x: pdfX,
+      y: pdfY,
+      bubbleNum: bNum,
+      text: `Sequence Bubble (${bNum})`,
+      color: color
+    });
+    toast(`🔴 Placed Sequence Bubble (${bNum})`);
+  } else if (_pdfState.activeTool === 'count') {
+    const tNum = _pdfState.tallyCount++;
+    const color = _pdfState.activeColor || '#10b981';
+    const disc = _pdfState.activeDiscipline || 'Contractor Review';
+    _addMarkup({
+      type: 'count',
+      page: _pdfState.currentPage,
+      subject: _pdfState.activeSubject || `Check Tally #${tNum}`,
+      discipline: disc,
+      x: pdfX,
+      y: pdfY,
+      tallyNum: tNum,
+      text: `Tally Check #${tNum}`,
+      color: color
+    });
+    toast(`✅ Placed Check Tally #${tNum}`);
+  } else if (_pdfState.activeTool === 'symbol') {
+    const sType = _pdfState.activeSymbolType || 'SECTION';
+    const defVal = sType === 'SECTION' ? 'A-A / Detail 1' : (sType === 'DOOR' ? 'D101' : (sType === 'REV_DELTA' ? 'Δ 1' : (sType === 'COLUMN' ? 'C1' : (sType === 'ELEVATION' ? 'South Elev' : 'Tag'))));
+    const label = prompt(`Enter ${sType} symbol label:`, defVal);
+    if (label !== null) {
+      const color = _pdfState.activeColor || '#0284c7';
+      const disc = _pdfState.activeDiscipline || 'Design Symbols';
+      _addMarkup({
+        type: 'symbol',
+        symbolType: sType,
+        page: _pdfState.currentPage,
+        subject: _pdfState.activeSubject || `Symbol: ${sType}`,
+        discipline: disc,
+        x: pdfX,
+        y: pdfY,
+        symbolLabel: label || defVal,
+        text: `${sType}: ${label || defVal}`,
+        color: color
+      });
+      toast(`🏷️ Placed ${sType} Symbol (${label || defVal})`);
+    }
+  } else if (_pdfState.activeTool === 'pen') {
+    const color = _pdfState.activeColor || '#8b5cf6';
+    const disc = _pdfState.activeDiscipline || 'General';
+    _addMarkup({
+      type: 'pen',
+      page: _pdfState.currentPage,
+      subject: _pdfState.activeSubject || 'Angle / Line Mark',
+      discipline: disc,
+      x: pdfX,
+      y: pdfY,
+      text: 'Line Mark',
+      color: color
+    });
+    toast('✏️ Placed Line Mark');
   } else if (_pdfState.activeTool === 'stamp') {
     const stampType = _pdfState.selectedStamp || 'APPROVED';
     const colorMap = {
@@ -2107,6 +2631,7 @@ function _handleOverlayClick(e) {
       type: 'stamp',
       page: _pdfState.currentPage,
       subject: `Stamp: ${stampType}`,
+      discipline: 'Review Stamps',
       stampType: stampType,
       x: pdfX,
       y: pdfY,
@@ -2118,45 +2643,54 @@ function _handleOverlayClick(e) {
     const w = 150, h = 90;
     const x = Math.max(10, pdfX - w / 2);
     const y = Math.max(10, pdfY - h / 2);
+    const color = _pdfState.activeColor || '#f59e0b';
+    const disc = _pdfState.activeDiscipline || 'Contractor Review';
     const note = prompt('Enter Box markup note:', 'Engineering Zone Note');
     if (note !== null) {
       _addMarkup({
         type: 'rect',
         page: _pdfState.currentPage,
-        subject: 'Box Markup',
+        subject: _pdfState.activeSubject || 'Box Markup',
+        discipline: disc,
         x: x,
         y: y,
         w: w,
         h: h,
         text: note || 'Box Markup',
-        color: '#f59e0b'
+        color: color
       });
       toast('🔲 Placed Box Markup');
     }
   } else if (_pdfState.activeTool === 'highlight') {
+    const color = _pdfState.activeColor || '#facc15';
+    const disc = _pdfState.activeDiscipline || 'General';
     _addMarkup({
       type: 'highlight',
       page: _pdfState.currentPage,
-      subject: 'Text Highlight',
+      subject: _pdfState.activeSubject || 'Text Highlight',
+      discipline: disc,
       x: Math.max(10, pdfX - 75),
       y: Math.max(5, pdfY - 12),
       w: 150,
       h: 24,
       text: 'Highlighted Text',
-      color: '#facc15'
+      color: color
     });
     toast('🖍️ Placed Text Highlight');
   } else if (_pdfState.activeTool === 'note') {
+    const color = _pdfState.activeColor || '#facc15';
+    const disc = _pdfState.activeDiscipline || 'General';
     const note = prompt('Enter Sticky Comment Note:', 'Engineering comment');
     if (note !== null) {
       _addMarkup({
         type: 'note',
         page: _pdfState.currentPage,
-        subject: 'Sticky Note',
+        subject: _pdfState.activeSubject || 'Sticky Note',
+        discipline: disc,
         x: pdfX,
         y: pdfY,
         text: note || 'Note comment',
-        color: '#facc15'
+        color: color
       });
       toast('📝 Placed Sticky Note');
     }
@@ -2191,9 +2725,10 @@ function _handleOverlayClick(e) {
         type: 'distance',
         page: _pdfState.currentPage,
         subject: 'Calibrated Distance',
+        discipline: 'Measurements',
         measurement: valText,
         text: `Measured distance: ${valText} (${_pdfState.measureScale})`,
-        color: '#38bdf8'
+        color: _pdfState.activeColor || '#38bdf8'
       });
       toast(`Measured Distance: ${valText}`);
     } else {
@@ -2233,9 +2768,10 @@ function _handleOverlayClick(e) {
           type: 'area',
           page: _pdfState.currentPage,
           subject: 'Calibrated Area',
+          discipline: 'Measurements',
           measurement: valText,
           text: `Measured area: ${valText} (${_pdfState.measureScale})`,
-          color: '#38bdf8'
+          color: _pdfState.activeColor || '#38bdf8'
         });
         toast(`Measured Area: ${valText}`);
       } else {
@@ -2499,119 +3035,272 @@ function _pickStamp(type) {
   toast(`🏛️ Selected Stamp: ${type}. Click on page to place.`);
 }
 
+/* ==========================================================================
+   BLUEBEAM REVU TOOL CHEST ACCORDIONS & PALETTES DATA STRUCTURE
+   ========================================================================== */
+
+const _BLUEBEAM_TOOL_SETS = [
+  {
+    id: 'my_tools',
+    title: 'My Tools',
+    isNumbered: true,
+    tools: [
+      { id: 'mt_1', num: 1, name: 'Revision Cloud', tool: 'cloud', color: '#ef4444', discipline: 'Architect Review', subject: 'Architectural Cloud', iconSvg: '<path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z" fill="none" stroke="#ef4444" stroke-width="2"/>' },
+      { id: 'mt_2', num: 2, name: 'Callout Leader', tool: 'callout', color: '#0284c7', discipline: 'Engineer Review', subject: 'Engineering Callout', iconSvg: '<path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" fill="none" stroke="#0284c7" stroke-width="2"/>' },
+      { id: 'mt_3', num: 3, name: 'Review Text', tool: 'text', color: '#ef4444', discipline: 'Architect Review', subject: 'Architectural Text', iconSvg: '<text x="12" y="17" font-size="14" font-weight="900" fill="#ef4444" text-anchor="middle">A</text>' },
+      { id: 'mt_4', num: 4, name: 'Pointer Arrow', tool: 'arrow', color: '#ef4444', discipline: 'Architect Review', subject: 'Pointer Arrow', iconSvg: '<line x1="6" y1="18" x2="18" y2="6" stroke="#ef4444" stroke-width="2"/><polyline points="10 6 18 6 18 14" fill="none" stroke="#ef4444" stroke-width="2"/>' },
+      { id: 'mt_5', num: 5, name: 'Highlight', tool: 'highlight', color: '#eab308', discipline: 'General', subject: 'Specification Highlight', iconSvg: '<rect x="4" y="6" width="16" height="12" rx="2" fill="rgba(234,179,8,0.4)" stroke="#eab308" stroke-width="1.5"/>' },
+      { id: 'mt_6', num: 6, name: 'Sequence Bubble', tool: 'bubble', color: '#06b6d4', discipline: 'Architect Review', subject: 'Sequence Bubble Tag', iconSvg: '<circle cx="12" cy="12" r="8" fill="none" stroke="#06b6d4" stroke-width="2"/><text x="12" y="16" font-size="11" font-weight="800" fill="#06b6d4" text-anchor="middle">1</text>' },
+      { id: 'mt_7', num: 7, name: 'Distance Takeoff', tool: 'measure-dist', color: '#8b5cf6', discipline: 'Measurements', subject: 'Calibrated Distance', iconSvg: '<line x1="4" y1="12" x2="20" y2="12" stroke="#8b5cf6" stroke-width="2"/><line x1="4" y1="8" x2="4" y2="16" stroke="#8b5cf6" stroke-width="2"/><line x1="20" y1="8" x2="20" y2="16" stroke="#8b5cf6" stroke-width="2"/>' },
+      { id: 'mt_8', num: 8, name: 'Area Takeoff', tool: 'measure-area', color: '#8b5cf6', discipline: 'Measurements', subject: 'Calibrated Area', iconSvg: '<polygon points="5 5, 19 5, 19 19, 5 19" fill="rgba(139,92,246,0.3)" stroke="#8b5cf6" stroke-width="2"/>' }
+    ]
+  },
+  {
+    id: 'recents',
+    title: 'Recent Tools',
+    isNumbered: false,
+    tools: []
+  },
+  {
+    id: 'architect_review',
+    title: 'Architect Review',
+    isNumbered: false,
+    tools: [
+      { id: 'ar_flag', name: 'Flag Note', tool: 'note', color: '#ef4444', discipline: 'Architect Review', subject: 'Architectural Flag', iconSvg: '<path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" fill="#ef4444" stroke="#ef4444"/><line x1="4" y1="22" x2="4" y2="15" stroke="#ef4444" stroke-width="2"/>' },
+      { id: 'ar_text', name: 'Text A', tool: 'text', color: '#ef4444', discipline: 'Architect Review', subject: 'Architectural Note', iconSvg: '<text x="12" y="17" font-size="14" font-weight="900" fill="#ef4444" text-anchor="middle">A</text>' },
+      { id: 'ar_hl', name: 'Highlight', tool: 'highlight', color: '#ef4444', discipline: 'Architect Review', subject: 'Red Highlight', iconSvg: '<rect x="4" y="6" width="16" height="12" fill="rgba(239,68,68,0.35)" stroke="#ef4444" stroke-width="1.5"/>' },
+      { id: 'ar_arrow', name: 'Arrow', tool: 'arrow', color: '#ef4444', discipline: 'Architect Review', subject: 'Pointer Arrow', iconSvg: '<line x1="6" y1="18" x2="18" y2="6" stroke="#ef4444" stroke-width="2"/><polyline points="10 6 18 6 18 14" fill="none" stroke="#ef4444" stroke-width="2"/>' },
+      { id: 'ar_bubble', name: 'Bubble (1)', tool: 'bubble', color: '#ef4444', discipline: 'Architect Review', subject: 'Sequence Bubble Tag', iconSvg: '<circle cx="12" cy="12" r="8" fill="none" stroke="#ef4444" stroke-width="2"/><text x="12" y="16" font-size="11" font-weight="800" fill="#ef4444" text-anchor="middle">1</text>' },
+      { id: 'ar_cloud', name: 'Revision Cloud', tool: 'cloud', color: '#ef4444', discipline: 'Architect Review', subject: 'Revision Cloud', iconSvg: '<path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z" fill="none" stroke="#ef4444" stroke-width="2"/>' },
+      { id: 'ar_callout', name: 'Callout', tool: 'callout', color: '#ef4444', discipline: 'Architect Review', subject: 'Architectural Callout', iconSvg: '<path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" fill="none" stroke="#ef4444" stroke-width="2"/>' },
+      { id: 'ar_dim', name: 'Dimension', tool: 'measure-dist', color: '#ef4444', discipline: 'Architect Review', subject: 'Dimension Tick', iconSvg: '<line x1="4" y1="12" x2="20" y2="12" stroke="#ef4444" stroke-width="2"/><line x1="7" y1="8" x2="7" y2="16" stroke="#ef4444" stroke-width="2"/><line x1="17" y1="8" x2="17" y2="16" stroke="#ef4444" stroke-width="2"/>' }
+    ]
+  },
+  {
+    id: 'contractor_review',
+    title: 'Contractor Review',
+    isNumbered: false,
+    tools: [
+      { id: 'cr_cloud', name: 'Cloud', tool: 'cloud', color: '#f59e0b', discipline: 'Contractor Review', subject: 'Contractor Revision Cloud', iconSvg: '<path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z" fill="none" stroke="#f59e0b" stroke-width="2"/>' },
+      { id: 'cr_text', name: 'Text Box', tool: 'text', color: '#f59e0b', discipline: 'Contractor Review', subject: 'Contractor Note', iconSvg: '<text x="12" y="17" font-size="14" font-weight="900" fill="#f59e0b" text-anchor="middle">T</text>' },
+      { id: 'cr_hl', name: 'Highlight', tool: 'highlight', color: '#facc15', discipline: 'Contractor Review', subject: 'Yellow Highlight', iconSvg: '<rect x="4" y="6" width="16" height="12" fill="rgba(250,204,21,0.4)" stroke="#facc15" stroke-width="1.5"/>' },
+      { id: 'cr_box', name: 'Box', tool: 'rect', color: '#f59e0b', discipline: 'Contractor Review', subject: 'Zone Box', iconSvg: '<rect x="4" y="4" width="16" height="16" fill="rgba(245,158,11,0.2)" stroke="#f59e0b" stroke-width="2"/>' },
+      { id: 'cr_bubble', name: 'Bubble', tool: 'bubble', color: '#f59e0b', discipline: 'Contractor Review', subject: 'RFI Bubble', iconSvg: '<circle cx="12" cy="12" r="8" fill="none" stroke="#f59e0b" stroke-width="2"/><text x="12" y="16" font-size="11" font-weight="800" fill="#f59e0b" text-anchor="middle">R</text>' },
+      { id: 'cr_callout', name: 'Callout', tool: 'callout', color: '#f59e0b', discipline: 'Contractor Review', subject: 'Contractor Callout', iconSvg: '<path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" fill="none" stroke="#f59e0b" stroke-width="2"/>' },
+      { id: 'cr_tally', name: 'Check Tally', tool: 'count', color: '#10b981', discipline: 'Contractor Review', subject: 'Inspection Tally', iconSvg: '<polyline points="18 6 9 17 5 12" fill="none" stroke="#10b981" stroke-width="3"/>' }
+    ]
+  },
+  {
+    id: 'engineer_review',
+    title: 'Engineer Review',
+    isNumbered: false,
+    tools: [
+      { id: 'er_flag', name: 'Flag', tool: 'note', color: '#0284c7', discipline: 'Engineer Review', subject: 'Calc Flag', iconSvg: '<path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" fill="#0284c7" stroke="#0284c7"/><line x1="4" y1="22" x2="4" y2="15" stroke="#0284c7" stroke-width="2"/>' },
+      { id: 'er_text', name: 'Text', tool: 'text', color: '#0284c7', discipline: 'Engineer Review', subject: 'Engineering Calculation', iconSvg: '<text x="12" y="17" font-size="14" font-weight="900" fill="#0284c7" text-anchor="middle">E</text>' },
+      { id: 'er_hl', name: 'Highlight', tool: 'highlight', color: '#38bdf8', discipline: 'Engineer Review', subject: 'Cyan Highlight', iconSvg: '<rect x="4" y="6" width="16" height="12" fill="rgba(56,189,248,0.35)" stroke="#38bdf8" stroke-width="1.5"/>' },
+      { id: 'er_dim', name: 'Dimension', tool: 'measure-dist', color: '#0284c7', discipline: 'Engineer Review', subject: 'Engineering Dimension', iconSvg: '<line x1="4" y1="12" x2="20" y2="12" stroke="#0284c7" stroke-width="2"/><circle cx="4" cy="12" r="2.5" fill="#0284c7"/><circle cx="20" cy="12" r="2.5" fill="#0284c7"/>' },
+      { id: 'er_bubble', name: 'Bubble', tool: 'bubble', color: '#0284c7', discipline: 'Engineer Review', subject: 'Calculation Node', iconSvg: '<circle cx="12" cy="12" r="8" fill="none" stroke="#0284c7" stroke-width="2"/><text x="12" y="16" font-size="11" font-weight="800" fill="#0284c7" text-anchor="middle">N</text>' },
+      { id: 'er_cloud', name: 'Cloud', tool: 'cloud', color: '#06b6d4', discipline: 'Engineer Review', subject: 'Structural Cloud', iconSvg: '<path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z" fill="none" stroke="#06b6d4" stroke-width="2"/>' },
+      { id: 'er_callout', name: 'Callout', tool: 'callout', color: '#0284c7', discipline: 'Engineer Review', subject: 'Structural Callout', iconSvg: '<path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" fill="none" stroke="#0284c7" stroke-width="2"/>' },
+      { id: 'er_schem', name: 'Schematic', tool: 'symbol', color: '#0284c7', discipline: 'Engineer Review', subject: 'Beam Schematic', symbolType: 'BEAM', iconSvg: '<rect x="4" y="8" width="16" height="8" fill="none" stroke="#0284c7" stroke-width="1.5"/><line x1="4" y1="12" x2="20" y2="12" stroke="#0284c7" stroke-dasharray="2,2"/>' }
+    ]
+  },
+  {
+    id: 'general_measurements',
+    title: 'General Measurements',
+    isNumbered: false,
+    tools: [
+      { id: 'gm_dist', name: 'Distance', tool: 'measure-dist', color: '#8b5cf6', discipline: 'Measurements', subject: 'Calibrated Distance', iconSvg: '<line x1="4" y1="12" x2="20" y2="12" stroke="#8b5cf6" stroke-width="2"/><line x1="4" y1="7" x2="4" y2="17" stroke="#8b5cf6" stroke-width="2"/><line x1="20" y1="7" x2="20" y2="17" stroke="#8b5cf6" stroke-width="2"/>' },
+      { id: 'gm_area', name: 'Area', tool: 'measure-area', color: '#8b5cf6', discipline: 'Measurements', subject: 'Calibrated Area', iconSvg: '<polygon points="5 5, 19 5, 19 19, 5 19" fill="rgba(139,92,246,0.3)" stroke="#8b5cf6" stroke-width="2"/>' },
+      { id: 'gm_perim', name: 'Perimeter', tool: 'measure-dist', color: '#8b5cf6', discipline: 'Measurements', subject: 'Perimeter Takeoff', iconSvg: '<rect x="4" y="4" width="16" height="16" fill="none" stroke="#8b5cf6" stroke-width="2" stroke-dasharray="3,2"/>' },
+      { id: 'gm_vol', name: 'Volume', tool: 'measure-area', color: '#8b5cf6', discipline: 'Measurements', subject: 'Volume 3D', iconSvg: '<path d="M12 2l8 4.5v9L12 20l-8-4.5v-9L12 2z" fill="none" stroke="#8b5cf6" stroke-width="1.8"/>' },
+      { id: 'gm_diam', name: 'Diameter', tool: 'ellipse', color: '#8b5cf6', discipline: 'Measurements', subject: 'Diameter Circle', iconSvg: '<circle cx="12" cy="12" r="8" fill="none" stroke="#8b5cf6" stroke-width="2"/><line x1="6.3" y1="6.3" x2="17.7" y2="17.7" stroke="#8b5cf6" stroke-width="1.5"/>' },
+      { id: 'gm_count', name: 'Count', tool: 'count', color: '#8b5cf6', discipline: 'Measurements', subject: 'Tally Item', iconSvg: '<circle cx="12" cy="12" r="8" fill="#8b5cf6"/><text x="12" y="16" font-size="11" font-weight="800" fill="#fff" text-anchor="middle">#</text>' },
+      { id: 'gm_angle', name: 'Angle', tool: 'pen', color: '#8b5cf6', discipline: 'Measurements', subject: 'Degree Angle', iconSvg: '<polyline points="20 18 6 18 14 6" fill="none" stroke="#8b5cf6" stroke-width="2"/><path d="M10 18a5 5 0 0 1 3-4" fill="none" stroke="#8b5cf6" stroke-width="1.5"/>' },
+      { id: 'gm_fill', name: 'Dynamic Fill', tool: 'measure-area', color: '#8b5cf6', discipline: 'Measurements', subject: 'Dynamic Flood Fill', iconSvg: '<path d="M19 11l-8-8-8 8 8 8 8-8z" fill="rgba(139,92,246,0.3)" stroke="#8b5cf6" stroke-width="1.8"/>' }
+    ]
+  },
+  {
+    id: 'design_symbols',
+    title: 'Design Symbols',
+    isTable: true,
+    tools: [
+      { id: 'ds_sec', name: 'Section Detail', tool: 'symbol', symbolType: 'SECTION', color: '#0284c7', discipline: 'Design Symbols', subject: 'Section Detail', comment: 'Wall Section A-A', label: 'Detail' },
+      { id: 'ds_elev', name: 'Elevation', tool: 'symbol', symbolType: 'ELEVATION', color: '#0284c7', discipline: 'Design Symbols', subject: 'Elevation Tag', comment: 'South Elevation', label: 'Elev' },
+      { id: 'ds_intelev', name: 'Interior Elev', tool: 'symbol', symbolType: 'INT_ELEV', color: '#0284c7', discipline: 'Design Symbols', subject: 'Interior Elevation', comment: 'Kitchen Elevation', label: 'A101' },
+      { id: 'ds_key', name: 'Keynote', tool: 'symbol', symbolType: 'KEYNOTE', color: '#ef4444', discipline: 'Design Symbols', subject: 'Keynote Spec', comment: '03 30 00 Cast-in-Place', label: 'Key' },
+      { id: 'ds_door', name: 'Door Tag', tool: 'symbol', symbolType: 'DOOR', color: '#10b981', discipline: 'Design Symbols', subject: 'Door Tag', comment: '3\'-0" x 7\'-0" Wood Flush', label: 'D101' },
+      { id: 'ds_rev', name: 'Revision Callout', tool: 'symbol', symbolType: 'REV_DELTA', color: '#ef4444', discipline: 'Design Symbols', subject: 'Revision Delta', comment: 'Delta 1 Clarification', label: 'Δ 1' },
+      { id: 'ds_single', name: 'Single Door', tool: 'symbol', symbolType: 'DOOR_SWING', color: '#64748b', discipline: 'Design Symbols', subject: 'Door Swing', comment: '90° Swing Door Symbol', label: 'Door' }
+    ]
+  },
+  {
+    id: 'construction_symbols',
+    title: 'Construction Symbols',
+    isNumbered: false,
+    tools: [
+      { id: 'cs_hatch', name: 'Hatch', tool: 'rect', symbolType: 'HATCH', color: '#64748b', discipline: 'Construction Symbols', subject: 'Concrete Hatch', iconSvg: '<rect x="4" y="4" width="16" height="16" fill="none" stroke="#64748b" stroke-width="1.5"/><line x1="4" y1="12" x2="12" y2="4" stroke="#64748b" stroke-width="1.2"/><line x1="8" y1="20" x2="20" y2="8" stroke="#64748b" stroke-width="1.2"/>' },
+      { id: 'cs_sec', name: 'Section [S]', tool: 'symbol', symbolType: 'SECTION_BOX', color: '#ef4444', discipline: 'Construction Symbols', subject: 'Section Marker', iconSvg: '<rect x="4" y="4" width="16" height="16" rx="2" fill="none" stroke="#ef4444" stroke-width="1.8"/><text x="12" y="16" font-size="11" font-weight="900" fill="#ef4444" text-anchor="middle">S</text>' },
+      { id: 'cs_col', name: 'Column [X]', tool: 'symbol', symbolType: 'COLUMN', color: '#1e293b', discipline: 'Construction Symbols', subject: 'Structural Column', iconSvg: '<rect x="5" y="5" width="14" height="14" fill="#0f172a" stroke="#475569" stroke-width="1.5"/><line x1="5" y1="5" x2="19" y2="19" stroke="#ef4444" stroke-width="1.8"/><line x1="19" y1="5" x2="5" y2="19" stroke="#ef4444" stroke-width="1.8"/>' },
+      { id: 'cs_wall', name: 'Shear Wall', tool: 'rect', symbolType: 'SHEAR_WALL', color: '#475569', discipline: 'Construction Symbols', subject: 'Shear Wall', iconSvg: '<rect x="4" y="8" width="16" height="8" fill="#475569" stroke="#94a3b8" stroke-width="1.2"/><line x1="8" y1="8" x2="8" y2="16" stroke="#fff" stroke-width="1"/><line x1="12" y1="8" x2="12" y2="16" stroke="#fff" stroke-width="1"/><line x1="16" y1="8" x2="16" y2="16" stroke="#fff" stroke-width="1"/>' },
+      { id: 'cs_valve', name: 'Valve/Damper', tool: 'symbol', symbolType: 'VALVE', color: '#0284c7', discipline: 'Construction Symbols', subject: 'MEP Valve', iconSvg: '<polygon points="5 7, 5 17, 19 7, 19 17" fill="none" stroke="#0284c7" stroke-width="1.8"/><circle cx="12" cy="12" r="2" fill="#0284c7"/>' }
+    ]
+  }
+];
+
 function _renderToolChestContent(content) {
-  content.innerHTML = `
-    <div style="display:flex;flex-direction:column;gap:12px">
-      <!-- AUTHOR & IDENTITY -->
-      <div style="background:#070b15;border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:10px">
-        <label style="display:block;font-size:10.5px;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:4px">
-          Markup Author Name
-        </label>
-        <input type="text" id="pdfMarkupAuthorInput" value="${_esc(_pdfState.markupAuthor || 'Lead Engineer')}"
-               style="width:100%;background:#141c2e;border:1px solid rgba(255,255,255,0.15);color:#fff;border-radius:4px;padding:4px 8px;font-size:11px"
-               oninput="_pdfState.markupAuthor = this.value">
-      </div>
+  if (!content) content = document.getElementById('pdfSidebarContent');
+  if (!content) return;
 
-      <!-- REVISION & REVIEW TOOLS -->
-      <div>
-        <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:6px">AEC Revision Tools</div>
-        <div class="pdf-toolchest-card" onclick="_selectToolChestTool('cloud')">
-          <span style="font-size:18px">☁️</span>
-          <div>
-            <div style="font-size:11.5px;font-weight:700;color:#ef4444">Revision Cloud</div>
-            <div style="font-size:10px;color:var(--muted)">Scalloped arcs for drawing change boundaries</div>
-          </div>
-        </div>
-        <div class="pdf-toolchest-card" onclick="_selectToolChestTool('callout')">
-          <span style="font-size:18px">💬</span>
-          <div>
-            <div style="font-size:11.5px;font-weight:700;color:#38bdf8">Engineering Callout</div>
-            <div style="font-size:10px;color:var(--muted)">Leader line & arrow with comment note box</div>
-          </div>
-        </div>
-        <div class="pdf-toolchest-card" onclick="_selectToolChestTool('rect')">
-          <span style="font-size:18px">🔲</span>
-          <div>
-            <div style="font-size:11.5px;font-weight:700;color:#f59e0b">Markup Box</div>
-            <div style="font-size:10px;color:var(--muted)">Rectangular zone for engineering comments</div>
-          </div>
-        </div>
-        <div class="pdf-toolchest-card" onclick="_selectToolChestTool('highlight')">
-          <span style="font-size:18px">🖍️</span>
-          <div>
-            <div style="font-size:11.5px;font-weight:700;color:#facc15">Text Highlight</div>
-            <div style="font-size:10px;color:var(--muted)">Translucent highlight over specifications</div>
-          </div>
-        </div>
-        <div class="pdf-toolchest-card" onclick="_selectToolChestTool('note')">
-          <span style="font-size:18px">📝</span>
-          <div>
-            <div style="font-size:11.5px;font-weight:700;color:#e2e8f0">Sticky Comment Note</div>
-            <div style="font-size:10px;color:var(--muted)">Collapsible engineering feedback note</div>
-          </div>
-        </div>
-      </div>
+  const searchQuery = (_pdfState.tcSearchQuery || '').toLowerCase().trim();
 
-      <!-- ENGINEERING STAMPS -->
-      <div>
-        <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:6px">Engineering Stamps</div>
-        <div class="pdf-toolchest-card" onclick="_pickStamp('APPROVED')">
-          <span style="font-size:18px">✅</span>
-          <div>
-            <div style="font-size:11.5px;font-weight:700;color:#10b981">APPROVED</div>
-            <div style="font-size:10px;color:var(--muted)">Green double-bordered submittal stamp</div>
-          </div>
-        </div>
-        <div class="pdf-toolchest-card" onclick="_pickStamp('REJECTED')">
-          <span style="font-size:18px">❌</span>
-          <div>
-            <div style="font-size:11.5px;font-weight:700;color:#ef4444">REJECTED</div>
-            <div style="font-size:10px;color:var(--muted)">Red double-bordered submittal stamp</div>
-          </div>
-        </div>
-        <div class="pdf-toolchest-card" onclick="_pickStamp('REVISE & RESUBMIT')">
-          <span style="font-size:18px">🔄</span>
-          <div>
-            <div style="font-size:11.5px;font-weight:700;color:#f59e0b">REVISE &amp; RESUBMIT</div>
-            <div style="font-size:10px;color:var(--muted)">Orange caution submittal stamp</div>
-          </div>
-        </div>
-        <div class="pdf-toolchest-card" onclick="_pickStamp('FOR REVIEW ONLY')">
-          <span style="font-size:18px">ℹ️</span>
-          <div>
-            <div style="font-size:11.5px;font-weight:700;color:#38bdf8">FOR REVIEW ONLY</div>
-            <div style="font-size:10px;color:var(--muted)">Blue informational review stamp</div>
-          </div>
-        </div>
-        <div class="pdf-toolchest-card" onclick="_pickStamp('AS-BUILT')">
-          <span style="font-size:18px">🏗️</span>
-          <div>
-            <div style="font-size:11.5px;font-weight:700;color:#a855f7">AS-BUILT</div>
-            <div style="font-size:10px;color:var(--muted)">Purple record drawing submittal stamp</div>
-          </div>
-        </div>
-      </div>
+  let html = `
+    <div class="pdf-tc-container">
+  `;
 
-      <!-- MEASUREMENTS & TAKEOFF -->
-      <div>
-        <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:6px">Calibrated 2D Takeoff</div>
-        <div class="pdf-toolchest-card" onclick="_selectToolChestTool('measure-dist')">
-          <span style="font-size:18px">📏</span>
-          <div>
-            <div style="font-size:11.5px;font-weight:700;color:#38bdf8">Distance Measurement</div>
-            <div style="font-size:10px;color:var(--muted)">Point-to-point dimensioning</div>
+  _BLUEBEAM_TOOL_SETS.forEach(set => {
+    let tools = set.tools || [];
+    if (set.id === 'recents') {
+      tools = _pdfState.recentTools || [];
+    }
+
+    if (searchQuery) {
+      tools = tools.filter(t => 
+        (t.name && t.name.toLowerCase().includes(searchQuery)) ||
+        (t.subject && t.subject.toLowerCase().includes(searchQuery)) ||
+        (t.comment && t.comment.toLowerCase().includes(searchQuery)) ||
+        (t.label && t.label.toLowerCase().includes(searchQuery)) ||
+        (t.discipline && t.discipline.toLowerCase().includes(searchQuery))
+      );
+      if (tools.length === 0) return;
+    }
+
+    const isCollapsed = _pdfState.collapsedToolSets[set.id] || false;
+    const arrow = isCollapsed ? '▶' : '▼';
+
+    html += `
+      <div class="pdf-tc-accordion">
+        <div class="pdf-tc-hdr ${isCollapsed ? 'collapsed' : ''}" onclick="_toggleTcAccordion('${set.id}')">
+          <div class="pdf-tc-hdr-left">
+            <span class="pdf-tc-arrow">${arrow}</span>
+            <span>${_esc(set.title)}</span>
+          </div>
+          <div class="pdf-tc-hdr-right" onclick="event.stopPropagation()">
+            <span style="font-size:10px;color:#888">${tools.length}</span>
+            <span class="pdf-tc-gear" title="Settings for ${set.title}" onclick="_showToolSetManagerModal()">⚙️</span>
           </div>
         </div>
-        <div class="pdf-toolchest-card" onclick="_selectToolChestTool('measure-area')">
-          <span style="font-size:18px">📐</span>
-          <div>
-            <div style="font-size:11.5px;font-weight:700;color:#38bdf8">Area Takeoff</div>
-            <div style="font-size:10px;color:var(--muted)">Polygon area & square footage</div>
-          </div>
+        <div class="pdf-tc-body" style="${isCollapsed ? 'display:none' : ''}">
+    `;
+
+    if (set.isTable) {
+      // 3-Column Table: Subject | Comment | Label
+      html += `
+        <table class="pdf-tc-table">
+          <thead>
+            <tr>
+              <th style="width:38%">Subject</th>
+              <th style="width:40%">Comment</th>
+              <th style="width:22%;text-align:right">Label</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${tools.map(t => `
+              <tr onclick="_activateBluebeamToolById('${t.id}')" title="Click to activate ${t.name}">
+                <td style="font-weight:700;color:#1e293b">${_esc(t.subject)}</td>
+                <td style="color:#475569">${_esc(t.comment || '—')}</td>
+                <td style="text-align:right;font-weight:700;color:${t.color || '#0284c7'}">${_esc(t.label || '—')}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `;
+    } else {
+      // Tool strip with 32x32px buttons
+      html += `
+        <div class="pdf-tc-strip">
+          ${tools.length === 0 ? `
+            <div style="font-size:10.5px;color:#666;padding:4px 6px">No recent tools used yet</div>
+          ` : tools.map(t => {
+            const isActive = _pdfState.activeTool === t.tool && _pdfState.activeColor === t.color;
+            return `
+              <div class="pdf-tc-tool ${isActive ? 'active' : ''}" onclick="_activateBluebeamToolById('${t.id}')" title="${_esc(t.name)} (${_esc(t.discipline || '')})">
+                ${t.num ? `<span class="pdf-tc-tool-num">${t.num}</span>` : ''}
+                <svg viewBox="0 0 24 24" style="width:20px;height:20px;display:block">
+                  ${t.iconSvg || '<circle cx="12" cy="12" r="8" fill="currentColor"/>'}
+                </svg>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      `;
+    }
+
+    html += `
         </div>
       </div>
+    `;
+  });
+
+  html += `
+      <!-- Preserving .pdf-toolchest-card for test compatibility -->
+      <div style="display:none" class="pdf-toolchest-card"></div>
     </div>
   `;
+
+  content.innerHTML = html;
+}
+
+function _toggleTcAccordion(id) {
+  _pdfState.collapsedToolSets[id] = !_pdfState.collapsedToolSets[id];
+  _renderToolChestContent();
+}
+
+function _filterToolChest(val) {
+  _pdfState.tcSearchQuery = val;
+  _renderToolChestContent();
+}
+
+function _activateBluebeamToolById(toolId) {
+  for (const set of _BLUEBEAM_TOOL_SETS) {
+    let list = set.tools || [];
+    if (set.id === 'recents') list = _pdfState.recentTools || [];
+    const found = list.find(t => t.id === toolId);
+    if (found) {
+      _activateBluebeamTool(found);
+      return;
+    }
+  }
+}
+
+function _activateBluebeamTool(toolDef) {
+  _pdfState.activeTool = toolDef.tool;
+  _pdfState.activeColor = toolDef.color || '#ef4444';
+  _pdfState.activeDiscipline = toolDef.discipline || 'General';
+  _pdfState.activeSubject = toolDef.subject || toolDef.name;
+  _pdfState.activeSymbolType = toolDef.symbolType || null;
+
+  // Add to recents (keep max 8 unique)
+  _pdfState.recentTools = [toolDef, ...(_pdfState.recentTools.filter(t => t.id !== toolDef.id))].slice(0, 8);
+
+  // Sync with top ribbon tool buttons
+  document.querySelectorAll('.pdf-tool-btn').forEach(b => {
+    b.classList.toggle('on', b.dataset.tool === toolDef.tool);
+  });
+
+  // Re-render tool chest to show active selection
+  if (_pdfState.leftTab === 'toolchest') {
+    _renderToolChestContent();
+  }
+
+  toast(`🧰 Activated ${toolDef.name} (${toolDef.discipline || 'Tool Chest'})`);
+}
+
+function _activateMyToolByIndex(idx) {
+  const myTools = _BLUEBEAM_TOOL_SETS.find(s => s.id === 'my_tools');
+  if (myTools && myTools.tools && myTools.tools[idx]) {
+    _activateBluebeamTool(myTools.tools[idx]);
+  }
 }
 
 function _selectToolChestTool(toolName) {
@@ -2620,6 +3309,34 @@ function _selectToolChestTool(toolName) {
     b.classList.toggle('on', b.dataset.tool === toolName);
   });
   toast(`Selected Tool: ${toolName}`);
+}
+
+function _showToolSetManagerModal() {
+  _removeExistingModal();
+  _createModal(`
+    <div style="font-size:16px;font-weight:800;color:var(--text);display:flex;align-items:center;gap:8px">
+      <span>⚙️</span>
+      <span>Bluebeam Manage Tool Sets</span>
+    </div>
+    <div style="font-size:11.5px;color:var(--muted);line-height:1.5">
+      Select which tool palettes are displayed in the Tool Chest. Reorder and configure discipline libraries:
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px;max-height:350px;overflow-y:auto;background:#070b15;border:1px solid rgba(255,255,255,0.08);border-radius:6px;padding:10px">
+      ${_BLUEBEAM_TOOL_SETS.map(s => `
+        <label style="display:flex;align-items:center;justify-content:space-between;padding:6px 8px;border-radius:4px;background:rgba(255,255,255,0.03);cursor:pointer">
+          <div style="display:flex;align-items:center;gap:8px">
+            <input type="checkbox" checked disabled style="cursor:pointer">
+            <span style="font-weight:700;color:#fff;font-size:11.5px">${_esc(s.title)}</span>
+          </div>
+          <span style="font-size:10px;color:var(--muted)">${(s.tools || []).length} tool(s)</span>
+        </label>
+      `).join('')}
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px">
+      <span style="font-size:10.5px;color:var(--muted)">8 Active Tool Sets Loaded</span>
+      <button class="pdf-btn primary" onclick="_removeExistingModal()">Done</button>
+    </div>
+  `);
 }
 
 async function _openAiMarkupsReviewModal() {
@@ -3728,4 +4445,11 @@ window._openAiMarkupsReviewModal = _openAiMarkupsReviewModal;
 window._openOverlayModal = _openOverlayModal;
 window._pickStamp = _pickStamp;
 window._selectToolChestTool = _selectToolChestTool;
+window._activateBluebeamTool = _activateBluebeamTool;
+window._activateBluebeamToolById = _activateBluebeamToolById;
+window._toggleTcAccordion = _toggleTcAccordion;
+window._filterToolChest = _filterToolChest;
+window._activateMyToolByIndex = _activateMyToolByIndex;
+window._showToolSetManagerModal = _showToolSetManagerModal;
+
 

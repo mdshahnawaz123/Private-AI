@@ -17,8 +17,11 @@ import uuid
 import shutil
 import tempfile
 import time
+import asyncio
 from typing import Any, Dict, List, Optional
-from fastapi import APIRouter, File, Form, HTTPException, Query, Request, Response, UploadFile
+from fastapi import APIRouter, File, Form, HTTPException, Query, Request, Response, UploadFile, Depends
+from contextvars import ContextVar
+from pathlib import Path
 from fastapi.responses import FileResponse, JSONResponse, Response
 from starlette.concurrency import run_in_threadpool
 from pydantic import BaseModel, Field
@@ -28,27 +31,78 @@ import auth
 import db
 from services.pdf_service import PdfService
 
-pdf_router = APIRouter(prefix="/api/v1/pdf", tags=["pdfcraft"])
+_PDF_REQUEST = ContextVar('pdf_request',default=None)
+_PDF_LOCKS = {}
 
-_PDF_SESSION_CACHE: Dict[str, Dict[str, Any]] = {}
+async def _authorize_pdf_request(request: Request):
+    auth.require_user(request)
+    values=dict(request.query_params)
+    if request.method=='POST':
+        if 'application/json' in request.headers.get('content-type',''):
+            body=await request.json()
+            if isinstance(body,dict): values.update(body)
+        elif 'form' in request.headers.get('content-type',''):
+            values.update(dict(await request.form()))
+    if values.get('project'): auth.require_project(request,values['project'])
+    token=_PDF_REQUEST.set(request)
+    acquired=[]
+    try:
+        ids=[values.get(key) for key in ('doc_id','doc_a','doc_b','doc1','doc2')]
+        ids += values.get('doc_ids',[]) if isinstance(values.get('doc_ids'),list) else []
+        for identity in sorted(set(i for i in ids if isinstance(i,str))):
+            _get_doc_path(identity)
+            lock=_PDF_LOCKS.setdefault(identity,asyncio.Lock())
+            await lock.acquire();acquired.append(lock)
+        yield
+    except ValueError as exc:
+        raise HTTPException(400,str(exc)) from exc
+    finally:
+        for lock in reversed(acquired): lock.release()
+        _PDF_REQUEST.reset(token)
+
+pdf_router = APIRouter(prefix="/api/v1/pdf", tags=["pdfcraft"],dependencies=[Depends(_authorize_pdf_request)])
+
+class _SessionStore(dict):
+    def __setitem__(self,key,value):
+        if not isinstance(value,dict): raise ValueError('Invalid PDF session record')
+        request=_PDF_REQUEST.get()
+        if request is None: raise HTTPException(401,'PDF session requires authentication')
+        record=dict(value)
+        if key not in self and len(self)>=250: raise HTTPException(429,'PDF session limit reached; restart or close old sessions')
+        record.setdefault('owner_id',auth.require_user(request)['id'])
+        record.setdefault('updated_at',time.time())
+        super().__setitem__(key,record)
+
+_PDF_SESSION_CACHE: Dict[str, Dict[str, Any]] = _SessionStore()
 PDF_CACHE_DIR = os.path.join(db.DATA_DIR, "pdf_cache")
 os.makedirs(PDF_CACHE_DIR, exist_ok=True)
 
 
 def _get_doc_path(doc_id: str) -> str:
     """Resolves session doc_id to absolute path."""
-    if doc_id in _PDF_SESSION_CACHE:
-        return _PDF_SESSION_CACHE[doc_id]["path"]
-    
-    # Try looking in cache directory
-    cand = os.path.join(PDF_CACHE_DIR, f"{doc_id}.pdf")
-    if os.path.exists(cand):
-        return cand
-    cand2 = os.path.join(PDF_CACHE_DIR, doc_id)
-    if os.path.exists(cand2):
-        return cand2
-        
-    raise HTTPException(status_code=404, detail="PDF session expired or document not found. Please reopen the file.")
+    request=_PDF_REQUEST.get()
+    user=auth.require_user(request)
+    if not isinstance(doc_id,str) or not re.fullmatch(r'[A-Za-z0-9_]+',doc_id):
+        raise HTTPException(400,'Invalid PDF session ID')
+    record=_PDF_SESSION_CACHE.get(doc_id)
+    if not record: raise HTTPException(404,'PDF session expired. Reopen the document.')
+    if time.time()-record.get('updated_at',0)>8*3600: raise HTTPException(404,'PDF session expired. Reopen the document.')
+    if record.get('owner_id')!=user['id']: raise HTTPException(403,'PDF session belongs to another user')
+    if record.get('original_project'): auth.require_project(request,record['original_project'])
+    if record.get('original_path'): _check_project_file(record['original_project'],record['original_path'])
+    path=Path(record['path']).resolve()
+    if not path.is_relative_to(Path(PDF_CACHE_DIR).resolve()) or not path.is_file():
+        raise HTTPException(404,'PDF session artifact unavailable')
+    return str(path)
+
+def _check_project_file(project,path):
+    user=auth.require_project(_PDF_REQUEST.get(),project)
+    resolved=Path(path).resolve()
+    roots=[Path(db.DATA_DIR,'docs',project).resolve(),Path(db.DATA_DIR,'reports',project).resolve()]
+    if not any(resolved.is_relative_to(root) for root in roots): raise HTTPException(400,'PDF path escapes project')
+    allow_all,folder_ids=db.folder_access(user,project)
+    if not allow_all and db.document_folder_id_for_path(project,str(resolved)) not in folder_ids:
+        raise HTTPException(403,'PDF folder access denied')
 
 
 class OrganizeRequest(BaseModel):
@@ -78,6 +132,18 @@ class WatermarkRequest(BaseModel):
     font_size: int = Field(default=52, description="Font size in points")
     color: Optional[List[float]] = Field(default=None, description="RGB normalized color")
     pages: Optional[List[int]] = Field(default=None, description="Target pages or None for all")
+
+class MarkupSyncRequest(BaseModel):
+    doc_id:str
+    markups:List[Dict[str,Any]]=Field(default_factory=list,max_length=10000)
+
+@pdf_router.post('/markups')
+async def synchronize_markups(req:MarkupSyncRequest):
+    path=_get_doc_path(req.doc_id)
+    user=auth.require_user(_PDF_REQUEST.get())
+    password=_PDF_SESSION_CACHE[req.doc_id].get('password')
+    saved=await run_in_threadpool(PdfService.synchronize_markups,path,req.markups,user['username'],password)
+    return {'success':True,'markups':saved,'info':await run_in_threadpool(PdfService.inspect_pdf,path,password=password)}
 
 
 class SecurityRequest(BaseModel):
@@ -141,8 +207,10 @@ async def load_sample(sample_id: str):
     if sample_id not in samples:
         raise HTTPException(status_code=404, detail="Sample document not found.")
 
-    path = PdfService.load_or_create_sample(sample_id, PDF_CACHE_DIR)
+    template = PdfService.load_or_create_sample(sample_id, PDF_CACHE_DIR)
     session_id = f"sample_{sample_id}_{uuid.uuid4().hex[:6]}"
+    path=os.path.join(PDF_CACHE_DIR,session_id+'.pdf')
+    shutil.copyfile(template,path)
     _PDF_SESSION_CACHE[session_id] = {
         "path": path,
         "name": f"{sample_id}.pdf",
@@ -161,7 +229,7 @@ async def load_sample(sample_id: str):
 @pdf_router.get("/project-files")
 async def list_project_pdfs(project: str = Query(...)):
     """Lists all available PDF files in the specified project."""
-    docs = db.list_documents(project)
+    docs = db.list_documents(project,user=auth.require_user(_PDF_REQUEST.get()))
     pdf_docs = []
     for d in docs:
         fname = d.get("filename", "")
@@ -191,11 +259,14 @@ async def open_pdf(
     session_id = f"pdf_{uuid.uuid4().hex[:10]}"
     cached_path = os.path.join(PDF_CACHE_DIR, f"{session_id}.pdf")
     doc_title = ""
+    clean_name = filename or ''
+    detected_folder = 'Documents'
+    target_path = None
 
     if file:
         doc_title = file.filename
-        with open(cached_path, "wb") as f_out:
-            shutil.copyfileobj(file.file, f_out)
+        from services.ingestion import save_upload_capped
+        save_upload_capped(file.file,cached_path,100*1024*1024)
     elif (project or filename or rel):
         clean_name = filename or (os.path.basename(rel) if rel else "")
         doc_title = clean_name
@@ -208,6 +279,8 @@ async def open_pdf(
             if rel:
                 rel_clean = rel.replace("\\", "/").lstrip("/")
                 candidate = os.path.join(proj_dir, rel_clean)
+                if not Path(candidate).resolve().is_relative_to(Path(proj_dir).resolve()):
+                    raise HTTPException(400,'PDF path escapes project')
                 if os.path.exists(candidate) and os.path.isfile(candidate):
                     target_path = candidate
                     detected_folder = os.path.dirname(rel_clean) or "Documents"
@@ -229,8 +302,8 @@ async def open_pdf(
                             detected_folder = "Reports"
                             break
 
-        # 3. Search in knowledge base (__knowledge_base__)
-        if not target_path:
+        # Knowledge-base access must be explicitly scoped and authorized.
+        if not target_path and project == '__knowledge_base__':
             kb_dir = os.path.join(db.DATA_DIR, "docs", "__knowledge_base__")
             if os.path.exists(kb_dir):
                 for root, _, files in os.walk(kb_dir):
@@ -239,35 +312,33 @@ async def open_pdf(
                         detected_folder = "Codes & Standards"
                         break
 
-        # 4. Fallback search across all docs folders
-        if not target_path and clean_name:
-            all_docs_dir = os.path.join(db.DATA_DIR, "docs")
-            if os.path.exists(all_docs_dir):
-                for root, _, files in os.walk(all_docs_dir):
-                    if clean_name in files:
-                        target_path = os.path.join(root, clean_name)
-                        break
-
         if not target_path or not os.path.exists(target_path):
             raise HTTPException(
-                status_code=404, 
+                status_code=404,
                 detail=f"PDF document '{clean_name or rel}' could not be located in project storage, reports, or knowledge base."
             )
 
         # Copy to cache for non-destructive local editing
+        _check_project_file(project,target_path)
         shutil.copyfile(target_path, cached_path)
     else:
         raise HTTPException(status_code=400, detail="Must provide either an uploaded PDF file or project and filename.")
 
+    try:
+        info = await run_in_threadpool(PdfService.inspect_pdf,cached_path,password=password)
+    except Exception:
+        Path(cached_path).unlink(missing_ok=True)
+        raise
     _PDF_SESSION_CACHE[session_id] = {
         "path": cached_path,
         "name": doc_title,
         "original_project": project,
         "original_filename": clean_name or doc_title,
+        "original_path":target_path,
+        "password":password,
         "detected_folder": detected_folder
     }
 
-    info = PdfService.inspect_pdf(cached_path, password=password)
     return {
         "doc_id": session_id,
         "filename": doc_title,
@@ -283,19 +354,21 @@ async def render_page(
     page: int = Query(1),
     zoom: float = Query(1.5),
     password: Optional[str] = Query(None),
-    format_type: str = Query("png")
+    format_type: str = Query("png"),
+    editor_view: bool = Query(False)
 ):
     """
     Renders a single page with crisp subpixel typography at any deep zoom level.
     """
     path = _get_doc_path(doc_id)
     try:
-        img_bytes, w, h = PdfService.render_page(
+        img_bytes, w, h = await run_in_threadpool(PdfService.render_page,
             path,
             page_number=page,
             zoom=zoom,
-            password=password,
-            format_type=format_type
+            password=password or _PDF_SESSION_CACHE[doc_id].get('password'),
+            format_type=format_type,
+            editor_view=editor_view
         )
         media_type = f"image/{format_type.lower()}"
         return Response(
@@ -304,7 +377,7 @@ async def render_page(
             headers={
                 "X-Page-Width": str(w),
                 "X-Page-Height": str(h),
-                "Cache-Control": "public, max-age=3600"
+                "Cache-Control": "private, no-store"
             }
         )
     except Exception as exc:
@@ -322,7 +395,7 @@ async def get_thumbnail(
     """Returns lightweight thumbnail image for card-based organizer."""
     path = _get_doc_path(doc_id)
     try:
-        img_bytes = PdfService.render_thumbnail(path, page_number=page, max_width=width, password=password)
+        img_bytes = await run_in_threadpool(PdfService.render_thumbnail, path, page_number=page, max_width=width, password=password or _PDF_SESSION_CACHE[doc_id].get("password"))
         return Response(content=img_bytes, media_type="image/jpeg")
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc))
@@ -340,7 +413,7 @@ async def search_document(
     if not search_term:
         raise HTTPException(status_code=400, detail="Must provide 'query' or 'q' parameter.")
     path = _get_doc_path(doc_id)
-    results = PdfService.search_text(path, search_term, password=password)
+    results = await run_in_threadpool(PdfService.search_text, path, search_term, password=password or _PDF_SESSION_CACHE[doc_id].get("password"))
     return {"query": search_term, "total_matches": len(results), "matches": results}
 
 
@@ -364,8 +437,8 @@ async def organize_pages(req: OrganizeRequest):
         ops["insert_blank"] = req.insert_blank
 
     try:
-        res = PdfService.organize_pages(path, path, ops, password=req.password)
-        updated_info = PdfService.inspect_pdf(path, password=req.password)
+        res = await run_in_threadpool(PdfService.organize_pages, path, path, ops, password=req.password or _PDF_SESSION_CACHE[req.doc_id].get("password"))
+        updated_info = PdfService.inspect_pdf(path, password=req.password or _PDF_SESSION_CACHE[req.doc_id].get("password"))
         return {
             "status": "success",
             "message": res["message"],
@@ -383,7 +456,7 @@ async def merge_documents(req: MergeRequest):
     paths = []
     for item in req.doc_ids:
         if item in _PDF_SESSION_CACHE:
-            paths.append(_PDF_SESSION_CACHE[item]["path"])
+            paths.append(_get_doc_path(item))
         else:
             # Check if it's a project document
             if req.project:
@@ -399,7 +472,7 @@ async def merge_documents(req: MergeRequest):
     new_id = f"merged_{uuid.uuid4().hex[:10]}"
     out_path = os.path.join(PDF_CACHE_DIR, f"{new_id}.pdf")
 
-    res = PdfService.merge_pdfs(paths, out_path)
+    res = await run_in_threadpool(PdfService.merge_pdfs, paths, out_path)
     _PDF_SESSION_CACHE[new_id] = {
         "path": out_path,
         "name": req.output_filename,
@@ -448,14 +521,15 @@ async def add_annotation(req: AnnotateRequest):
     """Adds a vector markup or comment note onto a page."""
     path = _get_doc_path(req.doc_id)
     col = tuple(req.color) if req.color else None
-    res = PdfService.add_annotation(
+    res = await run_in_threadpool(PdfService.add_annotation,
         input_path=path,
         output_path=path,
         annot_type=req.annot_type,
         page_number=req.page_number,
         rect=req.rect,
         content=req.content,
-        color=col
+        color=col,
+        password=req.password or _PDF_SESSION_CACHE[req.doc_id].get('password')
     )
     return res
 
@@ -465,14 +539,15 @@ async def add_watermark(req: WatermarkRequest):
     """Stamps semi-transparent watermark across pages."""
     path = _get_doc_path(req.doc_id)
     col = tuple(req.color) if req.color else (0.7, 0.2, 0.2)
-    res = PdfService.add_watermark(
+    res = await run_in_threadpool(PdfService.add_watermark,
         input_path=path,
         output_path=path,
         text=req.text,
         opacity=req.opacity,
         font_size=req.font_size,
         color=col,
-        pages=req.pages
+        pages=req.pages,
+        password=_PDF_SESSION_CACHE[req.doc_id].get('password')
     )
     return res
 
@@ -481,7 +556,7 @@ async def add_watermark(req: WatermarkRequest):
 async def set_security(req: SecurityRequest):
     """Encrypts document with AES-256 standard security and permission flags."""
     path = _get_doc_path(req.doc_id)
-    res = PdfService.set_security(
+    res = await run_in_threadpool(PdfService.set_security,
         input_path=path,
         output_path=path,
         user_password=req.user_password,
@@ -491,6 +566,7 @@ async def set_security(req: SecurityRequest):
         can_modify=req.can_modify,
         can_annotate=req.can_annotate
     )
+    _PDF_SESSION_CACHE[req.doc_id]={**_PDF_SESSION_CACHE[req.doc_id],'password':req.user_password}
     return res
 
 
@@ -498,7 +574,7 @@ async def set_security(req: SecurityRequest):
 async def remove_security(doc_id: str = Form(...), password: str = Form(...)):
     """Decrypts document and removes password protection."""
     path = _get_doc_path(doc_id)
-    res = PdfService.remove_security(path, path, password=password)
+    res = await run_in_threadpool(PdfService.remove_security, path, path, password=password)
     return res
 
 
@@ -507,15 +583,33 @@ async def save_to_project(req: SaveToProjectRequest):
     """Atomically saves modified PDF back to project documents folder."""
     src_path = _get_doc_path(req.doc_id)
     folder_name = req.folder or "Documents"
-    proj_dir = os.path.join(db.DATA_DIR, "docs", req.project, folder_name)
-    os.makedirs(proj_dir, exist_ok=True)
-
-    dest_filename = os.path.basename(req.filename)
+    user=auth.require_project(_PDF_REQUEST.get(),req.project)
+    allow_all,folder_ids=db.folder_access(user,req.project)
+    if not allow_all:
+        folder=next((f for f in db.list_folders(req.project) if f['name']==folder_name),None)
+        if not folder or folder['id'] not in folder_ids: raise HTTPException(403,'Destination folder access denied')
+    from services.ingestion import contained_upload_path
+    dest_filename = req.filename
     if not dest_filename.lower().endswith(".pdf"):
         dest_filename += ".pdf"
 
-    dest_path = os.path.join(proj_dir, dest_filename)
-    shutil.copyfile(src_path, dest_path)
+    dest_path=contained_upload_path(os.path.join(db.DATA_DIR,'docs'),req.project,folder_name,dest_filename)
+    proj_dir=os.path.dirname(dest_path);os.makedirs(proj_dir,exist_ok=True)
+    if os.path.exists(dest_path):
+        dest_filename=Path(dest_filename).stem+'_review_'+uuid.uuid4().hex[:8]+'.pdf'
+        dest_path=contained_upload_path(os.path.join(db.DATA_DIR,'docs'),req.project,folder_name,dest_filename)
+    fd,temporary=tempfile.mkstemp(suffix='.pdf',dir=proj_dir);os.close(fd)
+    try:
+        shutil.copyfile(src_path,temporary)
+        PdfService.inspect_pdf(temporary,password=_PDF_SESSION_CACHE[req.doc_id].get("password"))
+        with open(dest_path,'xb'): pass
+        try:
+            os.replace(temporary,dest_path)
+        except Exception:
+            Path(dest_path).unlink(missing_ok=True)
+            raise
+    finally:
+        if os.path.exists(temporary): os.remove(temporary)
 
     # Resolve folder_id if exists
     folder_id = None
@@ -534,13 +628,14 @@ async def save_to_project(req: SaveToProjectRequest):
             project=req.project,
             filename=dest_filename,
             path=dest_path,
-            chunks=1,
+            chunks=0,
             discipline=None,
-            status="ready",
+            status="pending",
             folder_id=folder_id
         )
     except Exception as exc:
         logger.warning(f"Failed to record document in db: {exc}")
+        raise HTTPException(500,'PDF copy saved but document registration failed; contact admin') from exc
 
     return {
         "status": "success",
@@ -570,7 +665,7 @@ async def render_for_ai(req: RenderForAiRequest):
     Stores image under project generated_images and returns image path and web URL.
     """
     src_path = _get_doc_path(req.doc_id)
-    img = PdfService.render_for_ai(src_path, page_number=req.page_number, width=req.width, height=req.height)
+    img = await run_in_threadpool(PdfService.render_for_ai, src_path, page_number=req.page_number, width=req.width, height=req.height, password=_PDF_SESSION_CACHE[req.doc_id].get("password"))
 
     img_dir = os.path.join(db.DATA_DIR, "projects", req.project, "generated_images")
     os.makedirs(img_dir, exist_ok=True)
@@ -602,8 +697,23 @@ async def ask_pdf(req: AskPdfRequest):
             page_number=req.page_number,
             model=req.model or "qwen3.5:9b",
             vision_mode=bool(req.vision_mode),
-            password=req.password
+            password=req.password or _PDF_SESSION_CACHE[req.doc_id].get("password")
         )
+        if req.vision_mode:
+            return {**result,'answer':'Visual evidence requires manual review; unverified engineering values are withheld.','highlights':[],'cited_pages':[],'verification':'REVIEW_REQUIRED'}
+        from intelligence.answer_guard import guarded_answer
+        import pymupdf as fitz
+        filename=re.sub(r'[^\w .()\-]','_',_PDF_SESSION_CACHE[req.doc_id]['name'])
+        evidence=[];sources=[]
+        with fitz.open(path) as document:
+            if document.is_encrypted: document.authenticate(req.password or _PDF_SESSION_CACHE[req.doc_id].get('password') or '')
+            for index,page in enumerate(document):
+                sources.append({'source':filename,'page':index+1})
+                evidence.append(f'[SOURCE: {filename} | PAGE {index+1}]\n'+page.get_text())
+        candidate=re.sub(r'\[Page\s+(\d+)\]',lambda m:f'[SOURCE: {filename} | PAGE {m[1]}]',result.get('answer',''),flags=re.I)
+        published,issues=guarded_answer(candidate,'\n'.join(evidence),sources,question=req.question)
+        result={**result,'answer':published,'verification':'WITHHELD' if issues else 'PASSED'}
+        if issues: result.update(highlights=[],cited_pages=[])
         return result
     except Exception as exc:
         logger.error(f"Failed to answer question on PDF {req.doc_id}: {exc}")
@@ -633,15 +743,16 @@ async def apply_pdf_redactions(req: ApplyRedactionRequest):
     """
     path = _get_doc_path(req.doc_id)
     try:
-        temp_out = os.path.join(tempfile.gettempdir(), f"redacted_{req.doc_id}_{int(time.time())}.pdf")
+        temp_out = os.path.join(PDF_CACHE_DIR, f"redacted_{uuid.uuid4().hex}.pdf")
         result = await run_in_threadpool(
             PdfService.apply_permanent_redactions,
             path,
             temp_out,
-            req.redactions
+            req.redactions,
+            password=_PDF_SESSION_CACHE[req.doc_id].get("password")
         )
-        _PDF_SESSION_CACHE[req.doc_id] = temp_out
-        new_info = await run_in_threadpool(PdfService.inspect_pdf, temp_out)
+        _PDF_SESSION_CACHE[req.doc_id] = {**_PDF_SESSION_CACHE[req.doc_id],'path':temp_out}
+        new_info = await run_in_threadpool(PdfService.inspect_pdf, temp_out,password=_PDF_SESSION_CACHE[req.doc_id].get("password"))
         return {
             "success": True,
             "applied_count": result.get("applied_count", 0),
@@ -702,12 +813,12 @@ async def overlay_revisions(
         img_bytes, w, h = await run_in_threadpool(
             PdfService.compare_revisions_overlay,
             path_a, path_b, page_a=target_page_a, page_b=target_page_b, zoom=zoom,
-            password_a=password_a, password_b=password_b
+            password_a=password_a or _PDF_SESSION_CACHE[target_doc_a].get("password"), password_b=password_b or _PDF_SESSION_CACHE[target_doc_b].get("password")
         )
         return Response(
             content=img_bytes,
             media_type="image/png",
-            headers={"X-Page-Width": str(w), "X-Page-Height": str(h), "Cache-Control": "public, max-age=600"}
+            headers={"X-Page-Width": str(w), "X-Page-Height": str(h), "Cache-Control": "private, no-store"}
         )
     except Exception as exc:
         logger.error(f"Failed to overlay revisions {target_doc_a} and {target_doc_b}: {exc}")

@@ -48,9 +48,33 @@ class PdfService:
     _SAMPLES_CACHE: Dict[str, Dict[str, Any]] = {}
 
     @classmethod
+    def _save_atomic(cls, doc, output_path, **options):
+        """Publish a reopened valid working PDF; never save over an open input."""
+        directory=os.path.dirname(os.path.abspath(output_path))
+        os.makedirs(directory,exist_ok=True)
+        fd,temporary=tempfile.mkstemp(suffix='.pdf',dir=directory)
+        os.close(fd)
+        try:
+            doc.save(temporary,**options)
+            with fitz.open(temporary) as check:
+                if check.page_count < 1: raise ValueError('Cannot publish an empty PDF')
+            if not doc.is_closed: doc.close()
+            os.replace(temporary,output_path)
+        finally:
+            if not doc.is_closed: doc.close()
+            if os.path.exists(temporary): os.remove(temporary)
+
+    @classmethod
     def _require_fitz(cls):
         if fitz is None:
             raise RuntimeError("PyMuPDF (fitz) is not installed. Install with 'pip install pymupdf'.")
+
+    @classmethod
+    def _open_authenticated(cls,path,password=None):
+        document=fitz.open(path)
+        if document.is_encrypted and (not password or not document.authenticate(password)):
+            document.close();raise ValueError('A valid PDF password is required')
+        return document
 
     @classmethod
     def inspect_pdf(cls, file_path_or_bytes: Any, password: Optional[str] = None) -> Dict[str, Any]:
@@ -79,7 +103,7 @@ class PdfService:
             if password:
                 auth_ok = doc.authenticate(password)
                 if not auth_ok:
-                    doc.close()
+                    if not doc.is_closed: doc.close()
                     return {
                         "is_encrypted": True,
                         "authenticated": False,
@@ -90,7 +114,7 @@ class PdfService:
                     }
             else:
                 page_count = doc.page_count
-                doc.close()
+                if not doc.is_closed: doc.close()
                 return {
                     "is_encrypted": True,
                     "authenticated": False,
@@ -111,8 +135,8 @@ class PdfService:
                 rect = page.rect
                 rot = page.rotation
                 # If page is rotated 90 or 270, effective width/height switch
-                eff_w = rect.height if rot in (90, 270) else rect.width
-                eff_h = rect.width if rot in (90, 270) else rect.height
+                eff_w = rect.width
+                eff_h = rect.height
                 
                 # Fast text sample
                 sample_txt = page.get_text("text")[:120].strip().replace("\n", " ")
@@ -210,7 +234,9 @@ class PdfService:
             "pages": pages_info,
             "file_size": file_size
         }
-        doc.close()
+        from services.pdf_markups import read_markups
+        result['markups']=read_markups(doc)
+        if not doc.is_closed: doc.close()
         return result
 
     @classmethod
@@ -221,7 +247,8 @@ class PdfService:
         zoom: float = 1.5,
         password: Optional[str] = None,
         highlight_rects: Optional[List[List[float]]] = None,
-        format_type: str = "png"
+        format_type: str = "png",
+        editor_view: bool = False
     ) -> Tuple[bytes, int, int]:
         """
         Renders a single page with crisp subpixel typography at any deep zoom magnification.
@@ -241,6 +268,12 @@ class PdfService:
 
         page_idx = max(0, min(doc.page_count - 1, page_number - 1))
         page = doc.load_page(page_idx)
+        if editor_view:
+            from services.pdf_markups import read_markups
+            managed_ids={m['id'] for m in read_markups(doc)}
+            for annotation in list(page.annots()):
+                if (annotation.info.get('subject') or '').removeprefix('ExpoDesignMarkup:') in managed_ids:
+                    page.delete_annot(annotation)
 
         # Draw highlight rects if provided
         if highlight_rects:
@@ -253,12 +286,15 @@ class PdfService:
 
         # Matrix for deep zoom scaling: 1.0 = 72 dpi, 2.0 = 144 dpi, etc.
         safe_zoom = max(0.2, min(6.0, float(zoom)))
+        if page.rect.width*page.rect.height*safe_zoom*safe_zoom > 25_000_000:
+            if not doc.is_closed: doc.close()
+            raise ValueError('Requested render exceeds 25 million pixels; reduce zoom')
         mat = fitz.Matrix(safe_zoom, safe_zoom)
         pix = page.get_pixmap(matrix=mat, alpha=False)
 
         img_bytes = pix.tobytes(format_type.lower())
         w, h = pix.width, pix.height
-        doc.close()
+        if not doc.is_closed: doc.close()
         return img_bytes, w, h
 
     @classmethod
@@ -288,7 +324,7 @@ class PdfService:
         mat = fitz.Matrix(scale, scale)
         pix = page.get_pixmap(matrix=mat, alpha=False)
         img_bytes = pix.tobytes("jpeg")
-        doc.close()
+        if not doc.is_closed: doc.close()
         return img_bytes
 
     @classmethod
@@ -350,7 +386,7 @@ class PdfService:
             except Exception:
                 continue
 
-        doc.close()
+        if not doc.is_closed: doc.close()
         return results
 
     @classmethod
@@ -431,11 +467,45 @@ class PdfService:
                     curr_rot = new_doc[p_idx].rotation
                     new_doc[p_idx].set_rotation((curr_rot + angle) % 360)
 
-        # Copy original bookmarks/outline where possible
+        # Keep application markup identity and visual coordinates tied to pages.
+        from services.pdf_markups import read_markups, METADATA
+        page_map=list(order)
+        if operations.get('insert_blank'):
+            page_map.insert(at_p,None)
+        mapped=[]
+        for target,source_page in enumerate(page_map):
+            if source_page is None: continue
+            transform=src_doc[source_page-1].derotation_matrix * new_doc[target].rotation_matrix
+            for markup in read_markups(src_doc):
+                if markup['page']!=source_page: continue
+                m=json.loads(json.dumps(markup));m['page']=target+1;m['id']=m['id']+'_p'+str(target+1)
+                def point(value):
+                    p=fitz.Point(value['x'],value['y'])*transform
+                    return {**value,'x':p.x,'y':p.y}
+                if 'x' in m and 'y' in m:
+                    if 'w' in m and 'h' in m:
+                        r=fitz.Rect(m['x'],m['y'],m['x']+m['w'],m['y']+m['h'])*transform
+                        m.update(x=r.x0,y=r.y0,w=r.width,h=r.height)
+                    else: m.update(point(m))
+                if 'points' in m: m['points']=[point(p) for p in m['points']]
+                for key in ('start','end','arrow'):
+                    if m.get(key): m[key]=point(m[key])
+                if m.get('box'):
+                    box=m['box'];r=fitz.Rect(box['x'],box['y'],box['x']+box['w'],box['y']+box['h'])*transform
+                    m['box']={**box,'x':r.x0,'y':r.y0,'w':r.width,'h':r.height}
+                if 'cx' in m:
+                    r=fitz.Rect(m['cx']-m['rx'],m['cy']-m['ry'],m['cx']+m['rx'],m['cy']+m['ry'])*transform
+                    m.update(cx=(r.x0+r.x1)/2,cy=(r.y0+r.y1)/2,rx=r.width/2,ry=r.height/2)
+                mapped.append(m)
+        if mapped: new_doc.embfile_add(METADATA,json.dumps(mapped).encode(),filename=METADATA)
+        # Remap bookmark page destinations rather than retaining stale indices.
         try:
             toc = src_doc.get_toc()
-            if toc and len(order) == total_pages:
-                new_doc.set_toc(toc)
+            updated=[]
+            for level,title,destination in toc:
+                if destination in page_map:
+                    updated.append([min(level,updated[-1][0]+1 if updated else 1),title,page_map.index(destination)+1])
+            if updated: new_doc.set_toc(updated)
         except Exception:
             pass
 
@@ -496,7 +566,7 @@ class PdfService:
 
             merged_doc.insert_pdf(doc)
             current_page_offset += doc.page_count
-            doc.close()
+            if not doc.is_closed: doc.close()
 
         if merged_doc.page_count == 0:
             merged_doc.close()
@@ -575,7 +645,7 @@ class PdfService:
                 sub.close()
                 created_files.append(outp)
 
-        doc.close()
+        if not doc.is_closed: doc.close()
         return created_files
 
     @classmethod
@@ -587,7 +657,8 @@ class PdfService:
         page_number: int,
         rect: List[float],
         content: Optional[str] = None,
-        color: Optional[Tuple[float, float, float]] = None
+        color: Optional[Tuple[float, float, float]] = None,
+        password: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         Adds vector markup / annotation to a page:
@@ -597,7 +668,9 @@ class PdfService:
         - text: freeform text stamp
         """
         cls._require_fitz()
-        doc = fitz.open(input_path)
+        if annot_type not in ('highlight','rect','note','text'):
+            raise ValueError('Unsupported annotation type; use the markup synchronization endpoint')
+        doc = cls._open_authenticated(input_path,password)
         page_idx = max(0, min(doc.page_count - 1, page_number - 1))
         page = doc.load_page(page_idx)
 
@@ -628,9 +701,20 @@ class PdfService:
 
         out_dir = os.path.dirname(os.path.abspath(output_path))
         os.makedirs(out_dir, exist_ok=True)
-        doc.save(output_path, garbage=3, deflate=True)
-        doc.close()
+        cls._save_atomic(doc,output_path,garbage=3,deflate=True,encryption=fitz.PDF_ENCRYPT_KEEP)
+        if not doc.is_closed: doc.close()
         return {"status": "success", "annot_type": annot_type, "page": page_number}
+
+    @classmethod
+    def synchronize_markups(cls,path,markups,author,password=None):
+        from services.pdf_markups import synchronize
+        doc=cls._open_authenticated(path,password)
+        try:
+            saved=synchronize(doc,markups,author)
+            cls._save_atomic(doc,path,garbage=4,deflate=True,encryption=fitz.PDF_ENCRYPT_KEEP)
+            return saved
+        finally:
+            if not doc.is_closed: doc.close()
 
     @classmethod
     def add_watermark(
@@ -641,13 +725,14 @@ class PdfService:
         opacity: float = 0.22,
         font_size: int = 52,
         color: Tuple[float, float, float] = (0.7, 0.2, 0.2),
-        pages: Optional[List[int]] = None
+        pages: Optional[List[int]] = None,
+        password: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         Stamps a large, semi-transparent diagonal watermark across PDF pages.
         """
         cls._require_fitz()
-        doc = fitz.open(input_path)
+        doc = cls._open_authenticated(input_path,password)
         total = doc.page_count
         target_pages = set(pages) if pages else set(range(1, total + 1))
 
@@ -663,15 +748,16 @@ class PdfService:
                     text,
                     fontsize=font_size,
                     color=color,
-                    rotate=35,
+                    morph=(p,fitz.Matrix(35)),
+                    fill_opacity=max(0.0,min(1.0,float(opacity))),
                     fontname="helv",
                     render_mode=0
                 )
 
         out_dir = os.path.dirname(os.path.abspath(output_path))
         os.makedirs(out_dir, exist_ok=True)
-        doc.save(output_path, garbage=3, deflate=True)
-        doc.close()
+        cls._save_atomic(doc,output_path,garbage=3,deflate=True,encryption=fitz.PDF_ENCRYPT_KEEP)
+        if not doc.is_closed: doc.close()
         return {"status": "success", "watermark": text, "pages_stamped": len(target_pages)}
 
     @classmethod
@@ -707,14 +793,14 @@ class PdfService:
         out_dir = os.path.dirname(os.path.abspath(output_path))
         os.makedirs(out_dir, exist_ok=True)
 
-        doc.save(
-            output_path,
+        cls._save_atomic(
+            doc, output_path,
             encryption=fitz.PDF_ENCRYPT_AES_256,
             user_pw=user_password,
             owner_pw=owner_pw,
             permissions=perms
         )
-        doc.close()
+        if not doc.is_closed: doc.close()
         return {
             "status": "success",
             "message": "PDF encrypted with AES-256 standard security and permission controls.",
@@ -730,19 +816,19 @@ class PdfService:
         cls._require_fitz()
         doc = fitz.open(input_path)
         if not doc.is_encrypted:
-            doc.save(output_path)
-            doc.close()
+            cls._save_atomic(doc,output_path)
+            if not doc.is_closed: doc.close()
             return {"status": "success", "message": "Document was not encrypted."}
 
         auth_ok = doc.authenticate(password)
         if not auth_ok:
-            doc.close()
+            if not doc.is_closed: doc.close()
             raise ValueError("Incorrect password provided to unlock document.")
 
         out_dir = os.path.dirname(os.path.abspath(output_path))
         os.makedirs(out_dir, exist_ok=True)
-        doc.save(output_path, encryption=fitz.PDF_ENCRYPT_NONE)
-        doc.close()
+        cls._save_atomic(doc,output_path,encryption=fitz.PDF_ENCRYPT_NONE)
+        if not doc.is_closed: doc.close()
         return {"status": "success", "message": "Document security successfully removed."}
 
     @classmethod
@@ -919,7 +1005,7 @@ class PdfService:
             p2.insert_text((50, 145), "W1-WALL: 400 mm Shear Wall | Grade C60 | Max Shear Stress: 2.1 MPa | PASS", fontsize=9.5, fontname="courier")
 
         doc.save(target_path, garbage=3, deflate=True)
-        doc.close()
+        if not doc.is_closed: doc.close()
         return target_path
 
     @classmethod
@@ -1090,9 +1176,9 @@ class PdfService:
             logger.error(f"Error in ask_document: {exc}")
             raise
         finally:
-            if doc:
+            if doc is not None:
                 try:
-                    doc.close()
+                    if not doc.is_closed: doc.close()
                 except Exception:
                     pass
 
@@ -1220,9 +1306,9 @@ class PdfService:
             logger.error(f"Error auditing redactions: {exc}")
             raise
         finally:
-            if doc:
+            if doc is not None:
                 try:
-                    doc.close()
+                    if not doc.is_closed: doc.close()
                 except Exception:
                     pass
 
@@ -1231,7 +1317,8 @@ class PdfService:
         cls,
         input_path: str,
         output_path: str,
-        redactions: List[Dict[str, Any]]
+        redactions: List[Dict[str, Any]],
+        password: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         Permanently applies and burns redactions into the document, stripping underlying
@@ -1243,26 +1330,36 @@ class PdfService:
 
         doc = None
         try:
-            doc = fitz.open(input_path)
+            doc = cls._open_authenticated(input_path,password)
             applied_total = 0
 
             by_page: Dict[int, List[List[float]]] = {}
             for red in redactions:
                 p = int(red.get("page", 1))
                 r = red.get("rect")
-                if r and len(r) == 4:
-                    by_page.setdefault(p, []).append(r)
+                if not 1 <= p <= doc.page_count or not isinstance(r,list) or len(r)!=4:
+                    raise ValueError('Invalid redaction page or rectangle')
+                if not all(math.isfinite(float(v)) for v in r): raise ValueError('Invalid redaction coordinates')
+                rectangle=fitz.Rect(r)
+                if rectangle.is_empty or not doc[p-1].rect.contains(rectangle):
+                    raise ValueError('Redaction rectangle is outside the page')
+                by_page.setdefault(p, []).append(r)
 
             for p_num, rect_list in by_page.items():
                 if 1 <= p_num <= doc.page_count:
                     page = doc.load_page(p_num - 1)
                     for r in rect_list:
-                        page.add_redact_annot(fitz.Rect(r), fill=(0, 0, 0))
+                        page.add_redact_annot(fitz.Rect(r)*page.derotation_matrix, fill=(0, 0, 0))
                         applied_total += 1
                     page.apply_redactions(images=fitz.PDF_REDACT_IMAGE_PIXELS)
 
+            # A sanitized export must not retain markup JSON / attached originals.
+            for name in list(doc.embfile_names()): doc.embfile_del(name)
+            doc.set_metadata({})
+            if doc.get_xml_metadata(): doc.del_xml_metadata()
+
             os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
-            doc.save(output_path, garbage=4, deflate=True)
+            cls._save_atomic(doc,output_path,garbage=4,deflate=True,encryption=fitz.PDF_ENCRYPT_KEEP)
 
             return {
                 "success": True,
@@ -1273,9 +1370,9 @@ class PdfService:
             logger.error(f"Error applying permanent redactions: {exc}")
             raise
         finally:
-            if doc:
+            if doc is not None:
                 try:
-                    doc.close()
+                    if not doc.is_closed: doc.close()
                 except Exception:
                     pass
 
@@ -1343,9 +1440,9 @@ class PdfService:
             logger.error(f"Error computing document statistics: {exc}")
             raise
         finally:
-            if doc:
+            if doc is not None:
                 try:
-                    doc.close()
+                    if not doc.is_closed: doc.close()
                 except Exception:
                     pass
 

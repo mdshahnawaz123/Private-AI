@@ -980,13 +980,7 @@ function _openPreview(rel, html, openUrl, isPdf=false, page=null){
   document.getElementById('pvOpen').onclick = () => window.open(ou, '_blank');
   const pdfBtn = document.getElementById('pvPdfCraft');
   if(pdfBtn){
-    if(isPdf){
-      pdfBtn.style.display = 'inline-block';
-      const pageArg = (page!=null && page!=='') ? ('&page=' + page) : '';
-      pdfBtn.onclick = () => window.open('/app?open_pdf=' + encodeURIComponent(rel) + pageArg, '_blank');
-    } else {
-      pdfBtn.style.display = 'none';
-    }
+    pdfBtn.style.display = 'none';
   }
   document.getElementById('filePreview').classList.add('open');
 }

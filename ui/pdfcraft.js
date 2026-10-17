@@ -76,12 +76,30 @@ function _buildPdfUrl(endpoint, params = {}) {
       q.set(k, String(v));
     }
   }
-  const token = _getAuthToken();
-  if (token && !q.has('token')) {
-    q.set('token', token);
-  }
   return `${API}${endpoint}?${q.toString()}`;
 }
+
+async function _syncPdfMarkups(){
+  if(!_pdfState.docId) throw new Error('Open a PDF first');
+  const identity=_pdfState.docId;
+  const res=await fetch(`${API}/api/v1/pdf/markups`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({doc_id:identity,markups:_pdfState.markups})});
+  const data=await res.json();
+  if(!res.ok) throw new Error(data.detail || 'Markup save failed');
+  if(_pdfState.docId!==identity) throw new Error('Active document changed during save');
+  _pdfState.markups=data.markups;_pdfState.pageRenderCache.clear();
+  return data;
+}
+
+window._pdfImageFallback=async image=>{
+  if(image.dataset.authFetch) return;
+  image.dataset.authFetch='1';
+  try{
+    const response=await fetch(image.src);
+    if(!response.ok) throw new Error('PDF image unavailable');
+    const blob=URL.createObjectURL(await response.blob());
+    image.onload=()=>URL.revokeObjectURL(blob);image.src=blob;
+  }catch(error){image.alt=error.message;}
+};
 
 /* ==========================================================================
    RENDER PDFCRAFT WORKSPACE UI
@@ -1495,13 +1513,19 @@ function _bindPdfEvents() {
 
   // Export PDF
   const exportBtn = document.getElementById('pdfExportBtn');
-  if (exportBtn) exportBtn.onclick = () => {
+  if (exportBtn) exportBtn.onclick = async () => {
     if (!_pdfState.docId) return;
+    try {
+    await _syncPdfMarkups();
     const url = _buildPdfUrl('/api/v1/pdf/export', {
       doc_id: _pdfState.docId,
       filename: _pdfState.filename
     });
-    window.open(url, '_blank');
+    const response=await fetch(url);
+    if(!response.ok) throw new Error('Export failed');
+    const blob=URL.createObjectURL(await response.blob());
+    const link=document.createElement('a');link.href=blob;link.download=_pdfState.filename;link.click();setTimeout(()=>URL.revokeObjectURL(blob),30000);
+    }catch(error){toast('Export failed: '+error.message);}
   };
 
   // Audit Redactions (storytold/pdfcraft crates/audit)
@@ -1653,6 +1677,10 @@ function _applyLoadedDocument(docId, filename, info, relPath = null, metadata = 
   _pdfState.organizerPages = info.pages ? JSON.parse(JSON.stringify(info.pages)) : [];
   _pdfState.pageRenderCache.clear();
   _pdfState.aiChatHistory = []; // Reset local chat for newly opened document
+  _pdfState.markups = JSON.parse(JSON.stringify(info.markups || []));
+  _pdfState.measurements = _pdfState.markups.filter(m=>m.type==='distance'||m.type==='area').map(m=>({...m,valueText:m.measurement}));
+  _pdfState.measurePoints=[];_pdfState.pendingArrow=null;_pdfState.pendingCallout=null;
+  _pdfState.annotations=[];_pdfState.auditData=null;_pdfState.auditHighlights=[];
 
   // Sync with App Copilot context
   if (typeof setDocContext === 'function') {
@@ -1712,6 +1740,7 @@ async function _renderCurrentPage() {
       doc_id: _pdfState.docId,
       page: pNum,
       zoom: _pdfState.zoom.toFixed(2),
+      editor_view:true,
       v: Date.now()
     });
     _pdfState.pageRenderCache.set(cacheKey, imgUrl);
@@ -2019,7 +2048,7 @@ async function _sendAiQuestion(question) {
           type: 'highlight',
           rect: h.rect,
           content: h.term || 'AI Reference',
-          color: 'rgba(47, 107, 255, 0.35)'
+          id:'ai_'+Date.now()+'_'+Math.random().toString(36).slice(2),x:h.rect[0],y:h.rect[1],w:h.rect[2]-h.rect[0],h:h.rect[3]-h.rect[1],text:h.term || 'AI Reference',color:'#2f6bff'
         });
       });
       _renderCurrentPage();
@@ -2723,6 +2752,7 @@ function _handleOverlayClick(e) {
 
       _addMarkup({
         type: 'distance',
+        points: [p1,p2],
         page: _pdfState.currentPage,
         subject: 'Calibrated Distance',
         discipline: 'Measurements',
@@ -2752,7 +2782,7 @@ function _handleOverlayClick(e) {
         const scaleRatios = { '1:50': 50, '1:100': 100, '1:200': 200, '1:500': 500, '1:1': 1 };
         const ratio = scaleRatios[_pdfState.measureScale] || 100;
         const realSqMeters = area * Math.pow((0.352778 * ratio) / 1000, 2);
-        const valText = `${realSqMeters.toFixed(2)} m²`;
+        const valText = _pdfState.measureScale === '1:1' ? `${area.toFixed(2)} pt²` : `${realSqMeters.toFixed(2)} m²`;
 
         _pdfState.measurements.push({
           page: _pdfState.currentPage,
@@ -2766,6 +2796,7 @@ function _handleOverlayClick(e) {
 
         _addMarkup({
           type: 'area',
+          points: [...pts],
           page: _pdfState.currentPage,
           subject: 'Calibrated Area',
           discipline: 'Measurements',
@@ -2801,14 +2832,12 @@ window._removeMeasurement = _removeMeasurement;
    ========================================================================== */
 
 function _addMarkup(m) {
-  const author = _pdfState.markupAuthor || 'Lead Engineer';
+  const author = (typeof currentUser !== 'undefined' && currentUser?.username) || _pdfState.markupAuthor || 'Reviewer';
   const now = new Date();
   const dateStr = now.toISOString().slice(0, 16).replace('T', ' ');
   const id = 'mk_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
 
   let status = m.status || 'Pending';
-  if (m.stampType === 'APPROVED') status = 'Accepted';
-  if (m.stampType === 'REJECTED') status = 'Rejected';
 
   const fullMarkup = {
     id: id,
@@ -3507,7 +3536,7 @@ async function _openOverlayModal() {
 
   const runBtn = modal.querySelector('#pdfRunOverlayBtn');
   if (runBtn) {
-    runBtn.onclick = () => {
+    runBtn.onclick = async () => {
       const p1 = modal.querySelector('#pdfRev1Page').value;
       const p2 = modal.querySelector('#pdfRev2Page').value;
       const doc2 = modal.querySelector('#pdfRev2Doc').value;
@@ -3526,18 +3555,17 @@ async function _openOverlayModal() {
         v: Date.now()
       });
 
-      const img = new Image();
-      img.onload = () => {
-        resArea.innerHTML = `
-          <div style="width:100%;height:100%;overflow:auto;text-align:center">
-            <img src="${overlayUrl}" style="max-width:100%;height:auto;border-radius:4px;box-shadow:0 8px 30px rgba(0,0,0,0.7);background:#fff" alt="Overlay Comparison">
-          </div>
-        `;
-      };
-      img.onerror = () => {
-        resArea.innerHTML = `<div style="color:#ef4444;font-size:12px">Failed to render overlay. Ensure both pages are valid.</div>`;
-      };
-      img.src = overlayUrl;
+      try {
+        const response = await fetch(overlayUrl);
+        if (!response.ok) throw new Error('Comparison failed (' + response.status + ')');
+        const blobUrl = URL.createObjectURL(await response.blob());
+        resArea.innerHTML = `<div style="width:100%;height:100%;overflow:auto;text-align:center"><img style="max-width:100%;height:auto;border-radius:4px;background:#fff" alt="Overlay Comparison"></div>`;
+        const image = resArea.querySelector('img');
+        image.onload = image.onerror = () => URL.revokeObjectURL(blobUrl);
+        image.src = blobUrl;
+      } catch (error) {
+        resArea.textContent = 'Failed to render overlay. Ensure both pages are valid.';
+      }
     };
   }
 }
@@ -3671,7 +3699,8 @@ async function _applyRedactionsSanitize() {
     const data = await res.json();
     _pdfState.info = data.info;
     _pdfState.pageRenderCache.clear();
-    toast(`✅ Successfully sanitized document! ${data.applied_count} redaction(s) burned permanently.`);
+    _pdfState.markups=[];_pdfState.measurements=[];_pdfState.measurePoints=[];
+    toast(`Applied ${data.applied_count} redaction(s) to the working PDF. Review the exported result.`);
     await _runRedactionAudit();
   } catch (err) {
     toast(`Failed to apply redactions: ${err.message}`);
@@ -3864,7 +3893,7 @@ function _renderOrganizerGrid() {
         <span style="color:var(--muted);font-size:10px">${Math.round(p.width)}×${Math.round(p.height)} pt</span>
       </div>
       <div class="pdf-org-thumb-wrap">
-        <img src="${_buildPdfUrl('/api/v1/pdf/thumbnail', { doc_id: _pdfState.docId, page: p.page_number, width: 240 })}"
+        <img onerror="window._pdfImageFallback(this)" src="${_buildPdfUrl('/api/v1/pdf/thumbnail', { doc_id: _pdfState.docId, page: p.page_number, width: 240 })}"
              style="max-width:100%;height:auto;transform:rotate(${p.rotation || 0}deg)" loading="lazy">
       </div>
       <div class="pdf-org-card-actions">
@@ -3945,10 +3974,11 @@ async function _applyPageReorganization() {
   _showLoading('Reorganizing PDF pages...', 'Atomic save with incremental updates');
   const ops = {
     reorder: _pdfState.organizerPages.map(p => p.page_number),
-    rotate: _pdfState.organizerPages.map((p, idx) => ({ page: idx + 1, angle: p.rotation || 0 }))
+    rotate: _pdfState.organizerPages.map((p, idx) => ({ page: idx + 1, angle: ((p.rotation || 0)-(_pdfState.info.pages[p.page_number-1]?.rotation || 0)+360)%360 }))
   };
 
   try {
+    await _syncPdfMarkups();
     const res = await fetch(`${API}/api/v1/pdf/organize`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -3970,6 +4000,7 @@ async function _applyPageReorganization() {
 async function _rotateActivePage(angle = 90) {
   _showLoading(`Rotating page ${_pdfState.currentPage}...`, 'Applying lossless rotation');
   try {
+    await _syncPdfMarkups();
     const res = await fetch(`${API}/api/v1/pdf/organize`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -3982,6 +4013,8 @@ async function _rotateActivePage(angle = 90) {
     const data = await res.json();
     _pdfState.pageRenderCache.clear();
     _pdfState.info = data.info;
+    _pdfState.markups = data.info.markups || [];
+    _pdfState.measurements = _pdfState.markups.filter(m=>m.type==='distance'||m.type==='area').map(m=>({...m,valueText:m.measurement}));
     _renderCurrentPage();
     toast(`Rotated page ${_pdfState.currentPage} by 90°`);
   } catch (err) {
@@ -4311,6 +4344,7 @@ function _saveToProjectModal() {
       _removeExistingModal();
       _showLoading(`Saving ${fn}...`, 'Writing atomically to project storage');
       try {
+        await _syncPdfMarkups();
         const res = await fetch(`${API}/api/v1/pdf/save-to-project`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },

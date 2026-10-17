@@ -31,7 +31,7 @@ let _mpdHighlightColor = '#ffff00';
 let _mpdSelectedSource = '';
 let _mpdWorkingRevision = null;
 let _mpdEditBusy = false;
-let _mpdActiveTab = 'register'; // 'register' | 'inspector'
+let _mpdActiveTab = 'chat'; // 'chat' | 'register' | 'inspector'
 let _mpdFilterSector = 'All';
 let _mpdFilterLandUse = 'All';
 let _mpdFilterStatus = 'All';
@@ -162,19 +162,54 @@ async function renderMPDWorkspace(container) {
         <div class="mpd-side-pane" id="mpdSidePane">
           <div class="mpd-side-header">
             <div class="mpd-tabs">
-              <button class="mpd-tab active" id="tabRegister" onclick="_switchMpdTab('register')">
-                Plot Register (<span id="mpdPlotCountBadge">0</span>)
+              <button class="mpd-tab active" id="tabChat" onclick="_switchMpdTab('chat')">
+                🤖 AI Copilot
+              </button>
+              <button class="mpd-tab" id="tabRegister" onclick="_switchMpdTab('register')">
+                📋 Plot Register (<span id="mpdPlotCountBadge">0</span>)
               </button>
               <button class="mpd-tab" id="tabInspector" onclick="_switchMpdTab('inspector')">
-                Property Inspector
+                🔍 Property Inspector
               </button>
             </div>
             <button id="btnCloseSidePane" title="Collapse Side Drawer" style="background:none;border:none;color:var(--muted);font-size:16px;cursor:pointer;padding:4px 8px;line-height:1">&times;</button>
           </div>
 
           <div class="mpd-side-body">
-            <!-- Tab 1: Plot Register Table -->
-            <div class="mpd-pane" id="paneRegister">
+            <!-- Tab 1: AI Copilot -->
+            <div class="mpd-pane" id="paneChat" style="display:flex;flex-direction:column;height:100%;gap:8px">
+              <div class="mpd-chat-history" id="mpdChatHistory">
+                <div class="mpd-msg agent">
+                  <div style="font-weight:700;color:var(--accent2);display:flex;align-items:center;gap:6px">
+                    <span>🤖 Masterplan Agentic Copilot</span>
+                    <span class="mpd-badge" style="font-size:9.5px;padding:2px 6px">Qwen 3.5 9B / Spatial Engine</span>
+                  </div>
+                  <div style="font-size:12px;color:var(--text);line-height:1.5">
+                    Ask me any question regarding your masterplan, zoning regulations, or plot parameters. I will reason across CAD vector geometry, database records, and spatial constraints to provide detailed answers and highlight relevant plots.
+                  </div>
+                </div>
+              </div>
+
+              <!-- Quick Action Chips -->
+              <div class="mpd-chip-bar" id="mpdChipBar">
+                <div class="mpd-chip" onclick="_sendMpdChip(this)">Check FAR Violations</div>
+                <div class="mpd-chip" onclick="_sendMpdChip(this)">Audit Setback Encroachments</div>
+                <div class="mpd-chip" onclick="_sendMpdChip(this)">Summarize Residential vs Commercial GFA</div>
+                <div class="mpd-chip" onclick="_sendMpdChip(this)">High Density Plots (FAR ≥ 2.8)</div>
+                <div class="mpd-chip" onclick="_sendMpdChip(this)">Inspect Plot P-105</div>
+              </div>
+
+              <!-- Input bar -->
+              <div class="mpd-chat-input-bar">
+                <input type="text" class="mpd-chat-input" id="mpdChatInput" placeholder="Ask AI Copilot (e.g., 'Which plots violate FAR?' or 'Show residential plots')..." onkeydown="if(event.key==='Enter') _handleMpdChatSubmit()">
+                <button class="cad-btn" onclick="_handleMpdChatSubmit()" style="background:var(--accent);color:#fff;padding:0 12px" title="Send message">
+                  <svg class="ico" style="width:13px;height:13px" viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                </button>
+              </div>
+            </div>
+
+            <!-- Tab 2: Plot Register Table -->
+            <div class="mpd-pane" id="paneRegister" style="display:none">
               <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
                 <input type="text" class="mpd-input" id="tblSearch" placeholder="Search Plot ID, Sector..." oninput="_filterPlots()">
                 <select class="mpd-input" id="tblLandUse" onchange="_filterPlots()">
@@ -295,12 +330,16 @@ async function renderMPDWorkspace(container) {
 
 function _switchMpdTab(tab) {
   _mpdActiveTab = tab;
+  const tabChat = _mpd$('tabChat');
   const tabReg = _mpd$('tabRegister');
   const tabInsp = _mpd$('tabInspector');
+  const paneChat = _mpd$('paneChat');
   const paneReg = _mpd$('paneRegister');
   const paneInsp = _mpd$('paneInspector');
+  if (tabChat) tabChat.classList.toggle('active', tab === 'chat');
   if (tabReg) tabReg.classList.toggle('active', tab === 'register');
   if (tabInsp) tabInsp.classList.toggle('active', tab === 'inspector');
+  if (paneChat) paneChat.style.display = tab === 'chat' ? 'flex' : 'none';
   if (paneReg) paneReg.style.display = tab === 'register' ? 'flex' : 'none';
   if (paneInsp) paneInsp.style.display = tab === 'inspector' ? 'flex' : 'none';
 }
@@ -445,7 +484,7 @@ function _findPlot(plotId) {
   });
 }
 
-function _selectPlot(plotId, zoomTo = false) {
+function _selectPlot(plotId, zoomTo = false, switchTab = true) {
   const plot = _findPlot(plotId);
   if (!plot) {
     // If not in _mpdPlots list, check if matching text exists in CAD drawing entities to focus camera
@@ -466,9 +505,11 @@ function _selectPlot(plotId, zoomTo = false) {
   }
   _mpdSelectedPlotId = plot.plot_id;
 
-  // Ensure side drawer is open and inspector tab is active
+  // Ensure side drawer is open and inspector tab is active if requested
   _toggleSidePane(true);
-  _switchMpdTab('inspector');
+  if (switchTab && _mpdActiveTab !== 'chat') {
+    _switchMpdTab('inspector');
+  }
 
   // Update selection banner
   const selInfo = $('mpdSelectedInfo');
@@ -1576,9 +1617,9 @@ async function _handleMpdChatSubmit() {
       <div style="line-height:1.5;font-size:12px">${mdLite(data.answer)}</div>
     `;
 
-    // If highlights exist, select first one
+    // If highlights exist, select first one without disrupting active chat tab
     if (_mpdHighlightPlots.length > 0) {
-      _selectPlot(_mpdHighlightPlots[0], true);
+      _selectPlot(_mpdHighlightPlots[0], true, false);
     }
   } catch (err) {
     agentMsg.innerHTML = `<span style="color:var(--red)">Failed to reach reasoning model: ${_mpdEsc(err.message)}</span>`;

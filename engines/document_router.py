@@ -73,7 +73,8 @@ class DocumentRouter:
                             return DocumentType.ENGINEERING_DRAWING
 
                         if len(doc) <= 2:
-                            tabs = first_page.find_tables()
+                            from services.pdf_text_quality import safe_find_tables
+                            tabs = safe_find_tables(first_page)
                             if getattr(tabs, "tables", None) and len(tabs.tables) >= 4:
                                 return DocumentType.DENSE_TABLE_SHEET
 

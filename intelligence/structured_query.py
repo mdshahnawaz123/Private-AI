@@ -29,20 +29,6 @@ def classify_query(question):
     if m_score > 0: return "MODEL_QA"
     
     return "DOCUMENT_QA"
-        
-    model_keywords = [
-        "model", "element", "category", "categories", "storey", "level", "guid", "propert", "quantit",
-        "wall", "door", "window", "slab", "beam", "column", "stair", "roof", "furniture",
-        "count", "how many", "highlight", "isolate", "zoom", "select", "this", "cross check"
-    ]
-    
-    if "this" in q or "selected" in q: return "MODEL_QA"
-    if "find" in q or "search" in q or "show me" in q or "cross check" in q: return "MODEL_QA"
-    
-    m_score = sum(1 for k in model_keywords if k in q)
-    if m_score > 0: return "MODEL_QA"
-    
-    return "DOCUMENT_QA"
 
 def execute_model_qa(question, project_id, call_qwen_func, user_context={}):
     import services.bim_service as bs

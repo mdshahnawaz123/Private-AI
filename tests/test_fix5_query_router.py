@@ -45,7 +45,18 @@ class TestQueryRouter(unittest.TestCase):
             s.commit()
 
         # Record document metadata so db.list_documents finds it
-        db.record_document("Fix5_Project", "schedule.pdf", "data/docs/Fix5_Project/schedule.pdf", 6, user=cls.admin)
+        import os
+        doc_dir = os.path.join(db.DATA_DIR, "docs", "Fix5_Project")
+        os.makedirs(doc_dir, exist_ok=True)
+        doc_path = os.path.join(doc_dir, "schedule.pdf")
+        with open(doc_path, "w", encoding="utf-8") as f:
+            f.write("dummy")
+        with open(doc_path + ".index.json", "w", encoding="utf-8") as f:
+            json.dump({
+                "processing_complete": True,
+                "pages": [{"page": 6, "tables": "TOWER 7 LEVEL 02 | Floor GFA | 2,054 sqm"}]
+            }, f)
+        db.record_document("Fix5_Project", "schedule.pdf", doc_path, 6, user=cls.admin)
         with db.SessionLocal() as s:
             d = s.query(db.Document).filter_by(project_id=cls.pid, filename="schedule.pdf").first()
             if d:

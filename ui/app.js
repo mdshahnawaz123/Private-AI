@@ -31,7 +31,7 @@ let viewerLoaded=false, on3D=false;
 // the server (auth.require_roles) in addition to this client-side check.
 let coworkMode=false;
 
-try{ authToken=localStorage.getItem('expo_token')||null; }catch(e){}
+try{ localStorage.removeItem('expo_token'); authToken=null; }catch(e){}
 
 /* ---- inject Authorization on same-origin fetches (verbatim behavior) ---- */
 const _fetch=window.fetch.bind(window);
@@ -43,14 +43,22 @@ const $=id=>document.getElementById(id);
 window.$ = $;
 const el=(t,c,h)=>{const d=document.createElement(t); if(c)d.className=c; if(h!=null)d.innerHTML=h; return d;};
 const esc=s=>(s==null?'':String(s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const escAttr=s=>esc(s).replace(/'/g,'&#39;');
+window.esc = esc;
+window.escAttr = escAttr;
 const svg=(p,w)=>`<svg class="ico" viewBox="0 0 24 24" ${w?`style="width:${w}px;height:${w}px"`:''}>${p}</svg>`;
 function toast(t){ const e=$('toast'); e.textContent=t; e.classList.add('show'); clearTimeout(e._t); e._t=setTimeout(()=>e.classList.remove('show'),2200); }
 window.toast = toast;
 function mdLite(s){
-  // Escape before formatting: source text and model output are never HTML.
   const inline=t=>esc(t).replace(/`([^`]+)`/g,'<code>$1</code>').replace(/\*\*([^*]+)\*\*/g,'<strong>$1</strong>')
-    .replace(/\[SOURCE:\s*([^\]\n]+?)\s*\|\s*PAGE\s+(\d+|UNPAGINATED)\s*\]/gi,
-      (marker,name,page)=>'<details class="source-detail"><summary>Source · '+(page==='UNPAGINATED'?'unpaginated':'page '+page)+'</summary><div class="source-full">'+marker+'</div></details>')
+    .replace(/\[SOURCE:\s*([^\]\n]+?)\s*\|\s*PAGE\s+(\d+|UNPAGINATED)\s*\]/gi, (marker,name,page)=>{
+      const p = page === 'UNPAGINATED' ? 1 : parseInt(page, 10);
+      const cleanName = esc(name.trim());
+      const cleanAttr = escAttr(name.trim());
+      return `<button type="button" class="source-provenance-pill" onclick="window.openCitationSource('${cleanAttr}', ${p})" title="Open ${cleanAttr} at Page ${page}">` +
+             `<svg class="ico" style="width:12px;height:12px;margin-right:4px;vertical-align:-1px" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>` +
+             `<span>${cleanName} · Page ${page}</span><span style="opacity:0.65;font-size:10px;margin-left:2px">↗</span></button>`;
+    })
     .replace(/\[([^\]]+)\]\(cadcraft:([^)]+)\)/gi,
       (m,label,fname)=>'<div style="margin:8px 0"><button class="cad-action-btn" onclick="openCadDrawingFromProject(\''+esc(fname)+'\')"><svg class="ico" style="width:14px;height:14px;vertical-align:middle;margin-right:6px" viewBox="0 0 24 24"><path d="M3 3h18v18H3zM3 9h18M9 3v18"/><circle cx="15" cy="15" r="3"/></svg>'+esc(label)+'</button></div>')
     .replace(/\[([^\]]+)\]\(pdfcraft:([^)]+)\)/gi,
@@ -118,16 +126,27 @@ function parseRev(fn){ const s=String(fn||'');
    ============================================================ */
 async function boot(){
   buildNav(); wireTopbar(); wireCopilot(); buildDesignWorkspace();
-  if(!authToken){ showLogin(); return; }
   try{ const r=await fetch(`${API}/auth/me`); if(!r.ok){ showLogin(); return; } const d=await r.json(); currentUser=(d&&d.user)?d.user:d; mustChangePw=!!(d&&d.must_change_password); onAuthed(); }
   catch(e){ showLogin(); }
 }
-function showLogin(){ $('login').classList.add('show'); $('luser').focus(); }
+function showLogin(){ $('login').classList.add('show'); $('luser').focus(); _loadSsoButtons(); }
+// Company sign-in (SSO) buttons: shown only when the server has a provider configured (/auth/providers).
+async function _loadSsoButtons(){
+  const box=$('lsso'), sep=$('lssoSep'); if(!box) return;
+  try{
+    const qs=new URLSearchParams(location.search); const err=qs.get('sso_error');
+    if(err){ $('lerr').textContent=err; history.replaceState(null,'',location.pathname+location.hash); }
+    const r=await fetch(`${API}/auth/providers`); if(!r.ok) return; const d=await r.json(); const ps=(d&&d.providers)||[];
+    if(!ps.length){ box.style.display='none'; sep.style.display='none'; return; }
+    box.innerHTML=ps.map(p=>`<a class="lsso-btn" href="${API}/auth/sso/${encodeURIComponent(p.key)}/start" style="display:flex;align-items:center;justify-content:center;gap:8px;margin-top:8px;padding:10px 12px;border-radius:10px;border:1px solid var(--border,#2a3a58);background:var(--panel2,#16223a);color:var(--text,#e6edf7);text-decoration:none;font-weight:600">${p.key==='microsoft'?'<svg width="16" height="16" viewBox="0 0 21 21" aria-hidden="true"><rect x="1" y="1" width="9" height="9" fill="#f25022"/><rect x="11" y="1" width="9" height="9" fill="#7fba00"/><rect x="1" y="11" width="9" height="9" fill="#00a4ef"/><rect x="11" y="11" width="9" height="9" fill="#ffb900"/></svg>':'🔐'}<span>${esc(p.label)}</span></a>`).join('');
+    box.style.display=''; sep.style.display='';
+  }catch(e){ /* offline or SSO off: password login only */ }
+}
 async function doLogin(){ $('lerr').textContent=''; const u=$('luser').value.trim(),p=$('lpass').value;
   if(!u||!p){$('lerr').textContent='Enter username and password.';return;}
   try{ const r=await _fetch(`${API}/auth/login`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:u,password:p})}); const d=await r.json();
     if(!r.ok){$('lerr').textContent=d.detail||'Login failed.';return;}
-    authToken=d.token; try{localStorage.setItem('expo_token',d.token);}catch(e){} currentUser=d.user; mustChangePw=!!d.must_change_password; $('login').classList.remove('show'); onAuthed();
+    authToken=d.token; try{localStorage.removeItem('expo_token');}catch(e){} currentUser=d.user; mustChangePw=!!d.must_change_password; $('login').classList.remove('show'); onAuthed();
   }catch(e){ $('lerr').textContent='Could not reach the server.'; } }
 
 let mustChangePw=false;
@@ -157,7 +176,7 @@ async function doForcedPwChange(){
     const r=await fetch(`${API}/auth/change-password`,{method:'POST',headers:headers,body:JSON.stringify(payload)});
     const d=await r.json();
     if(!r.ok){ err.textContent=d.detail||'Password change failed.'; return; }
-    if(d.token){ authToken=d.token; try{localStorage.setItem('expo_token',d.token);}catch(e){} }
+    if(d.token){ authToken=d.token; try{localStorage.removeItem('expo_token');}catch(e){} }
     if(d.user){ currentUser=d.user; }
     mustChangePw=false; $('pwchange').classList.remove('show'); onAuthed();
     toast('Credentials updated successfully.');
@@ -226,7 +245,7 @@ async function saveAccountCredentials(){
     }
     if(d.token){
       authToken = d.token;
-      try{ localStorage.setItem('expo_token', d.token); }catch(e){}
+      try{ localStorage.removeItem('expo_token'); }catch(e){}
     }
     if(d.user){
       currentUser = d.user;
@@ -247,17 +266,18 @@ function onAuthed(){
   $('uname').textContent=(currentUser.full_name||nm);
   $('urole').textContent=((currentUser.role||'user').replace(/^\w/,c=>c.toUpperCase()));
   const isAdmin=!!(currentUser&&currentUser.role==='admin');
-  const navSettings=$('navSettingsLink'); if(navSettings) navSettings.style.display=isAdmin?'':'none';
+  const navSettings=$('navSettingsLink'); if(navSettings) navSettings.style.display=canUpload()?'':'none';
   const coworkBtn=$('aiCoworkToggle');
   if($('aiCoworkFolder')) $('aiCoworkFolder').hidden=!isAdmin;
   if($('aiCoworkFiles')) $('aiCoworkFiles').hidden=!isAdmin;
+  if($('aiTabCowork')) $('aiTabCowork').hidden=!isAdmin;
   if(coworkBtn){
     coworkBtn.hidden=!isAdmin;
     if(!isAdmin){ coworkMode=false; coworkBtn.classList.remove('on'); coworkBtn.textContent='Coding Agent'; }
   }
   loadProjects(); aiGreeting();
 }
-function logout(){ try{localStorage.removeItem('expo_token');}catch(e){} location.reload(); }
+async function logout(){ await _fetch(`${API}/auth/logout`,{method:'POST'}); authToken=null; try{localStorage.removeItem('expo_token');}catch(e){} location.reload(); }
 // Matches the backend's /upload role check (admin + lead). Keep this in sync
 // with classic.html's uploadBtn/docsUploadBtn gating and main.py's
 // auth.require_roles(request, "admin", "lead") on /upload.
@@ -312,6 +332,9 @@ async function loadProjects(){
 }
 function selectProject(p){ currentProject=p; currentRevision=''; viewerLoaded=false; lastSel=null; ctxDoc=null; $('ctxCard').hidden=true;
   currentAttachment=null; $('attachCard').hidden=true; $('attachMenu').hidden=true;
+  window.currentCoworkFolder=''; window.currentCoworkFocus=null;
+  if(typeof updateCoworkFocusBanner==='function') updateCoworkFocusBanner();
+  if(typeof loadCoworkWorkspace==='function' && $('pane-cowork') && !$('pane-cowork').hidden) loadCoworkWorkspace();
   $('pcName').textContent=p||'—';
   resetViewer();
   loadDocuments().then(()=>{
@@ -351,7 +374,7 @@ function buildRevSelect(){
   $('revSel').innerHTML=`<option value="">All revisions</option>`+revs.map(r=>`<option value="${esc(r)}">File Rev ${esc(r)}</option>`).join('');
   $('revSel').value=currentRevision||'';
 }
-function fileURL(rel){ return `${API}/projects/${encodeURIComponent(currentProject)}/file?rel=${encodeURIComponent(rel)}&token=${encodeURIComponent(authToken||'')}`; }
+function fileURL(rel){ return `${API}/projects/${encodeURIComponent(currentProject)}/file?rel=${encodeURIComponent(rel)}`; }
 function openRawFile(rel){ window.open(fileURL(rel),'_blank'); }
 window.openRawFile = openRawFile;
 
@@ -385,16 +408,132 @@ async function openProjectPdf(docOrRel, targetPage = 1, opts = {}) {
   // Preserve active project and document context for Copilot and UI
   setDocContext(metadata);
 
-  // Open PDF directly in new tab while PdfCraft Studio is disabled
+  // Open PDF directly in new tab with page anchor
   const targetRel = rel || (typeof filename === 'object' ? filename.rel : filename);
   if (targetRel) {
-    window.open(fileURL(targetRel), '_blank');
+    const pageHash = (pageNum && pageNum > 1) ? `#page=${pageNum}` : '';
+    window.open(fileURL(targetRel) + pageHash, '_blank');
   }
 }
 window.openProjectPdf = openProjectPdf;
 
+let _inspectorDoc = null;
+let _inspectorPage = 1;
+let _inspectorTotalPages = 1;
+let _inspectorSnippet = '';
+let _inspectorObjectUrl = null;
+
+async function showDocumentInspector(docName, pageNum = 1, snippet = null){
+  if (!docName) return;
+  const base = String(docName).replace(/\\/g, '/').split('/').pop();
+  const f = allDocs.find(x => x.rel === docName || x.filename === base || (x.rel && x.rel.endsWith('/' + base)));
+  const targetRel = (f && f.rel) ? f.rel : (docName.startsWith('Documents/') ? docName : 'Documents/' + docName);
+  const p = (Number.isInteger(Number(pageNum)) && Number(pageNum) > 0) ? Number(pageNum) : 1;
+
+  _inspectorDoc = f || { filename: base, rel: targetRel };
+  _inspectorPage = p;
+  _inspectorSnippet = snippet || '';
+
+  const modal = $('docInspectorModal');
+  if (!modal) {
+    window.open(fileURL(targetRel) + (p > 1 ? `#page=${p}` : ''), '_blank');
+    return;
+  }
+  modal.hidden = false;
+
+  $('inspectorDocTitle').textContent = base;
+  $('inspectorDocSubtitle').textContent = `Loading Page ${p}…`;
+  $('inspectorDocBody').innerHTML = state('Loading source evidence page…', 'load');
+
+  await _loadInspectorPage();
+}
+window.showDocumentInspector = showDocumentInspector;
+
+async function _loadInspectorPage(){
+  if (!_inspectorDoc) return;
+  const body = $('inspectorDocBody');
+  const targetRel = _inspectorDoc.rel || _inspectorDoc.filename;
+  const page = _inspectorPage;
+  const proj = currentProject;
+
+  try {
+    let url = `${API}/projects/${encodeURIComponent(proj)}/page-preview?rel=${encodeURIComponent(targetRel)}&page=${page}`;
+    if (_inspectorSnippet) {
+      url += `&highlight_snippet=${encodeURIComponent(_inspectorSnippet)}`;
+    }
+    const response = await fetch(url);
+    if (!response.ok) throw new Error((await response.json()).detail || 'Failed to load page');
+
+    const totalPages = Number(response.headers.get('X-PDF-Pages')) || 1;
+    const isHighlighted = response.headers.get('X-Evidence-Highlighted') === '1';
+    _inspectorTotalPages = totalPages;
+
+    const pixels = await response.blob();
+    if (_inspectorObjectUrl) URL.revokeObjectURL(_inspectorObjectUrl);
+    _inspectorObjectUrl = URL.createObjectURL(pixels);
+
+    $('inspectorPageInfo').textContent = `Page ${page} / ${totalPages}`;
+    $('inspectorPrevBtn').disabled = (page <= 1);
+    $('inspectorNextBtn').disabled = (page >= totalPages);
+    $('inspectorDocSubtitle').innerHTML = `Page ${page} of ${totalPages} ${isHighlighted ? '<span class="p-badge p-score" style="margin-left:6px">📍 Evidence Highlighted</span>' : ''}`;
+
+    body.innerHTML = `<img id="inspectorImg" class="doc-inspector-img" src="${_inspectorObjectUrl}" alt="Evidence page ${page}">`;
+
+    $('inspectorPrevBtn').onclick = () => { if (_inspectorPage > 1) { _inspectorPage--; _loadInspectorPage(); } };
+    $('inspectorNextBtn').onclick = () => { if (_inspectorPage < _inspectorTotalPages) { _inspectorPage++; _loadInspectorPage(); } };
+    $('inspectorZoomBtn').onclick = () => {
+      const img = $('inspectorImg');
+      if (img) {
+        const isZoomed = img.classList.toggle('zoomed');
+        $('inspectorZoomBtn').textContent = isZoomed ? 'Fit Width' : 'Zoom In';
+      }
+    };
+    $('inspectorOpenTabBtn').onclick = () => {
+      window.open(fileURL(targetRel) + `#page=${page}`, '_blank');
+    };
+  } catch(err) {
+    body.innerHTML = state(err.message || 'Evidence preview unavailable', 'err');
+  }
+}
+
+function closeDocumentInspector(){
+  const modal = $('docInspectorModal');
+  if (modal) modal.hidden = true;
+  if (_inspectorObjectUrl) {
+    URL.revokeObjectURL(_inspectorObjectUrl);
+    _inspectorObjectUrl = null;
+  }
+}
+window.closeDocumentInspector = closeDocumentInspector;
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    const modal = $('docInspectorModal');
+    if (modal && !modal.hidden) closeDocumentInspector();
+  }
+});
+
+function openCitationSource(docName, pageNum, mode = 'tab', snippet = null){
+  if (!docName) return;
+  const base = String(docName).replace(/\\/g, '/').split('/').pop();
+  const f = allDocs.find(x => x.rel === docName || x.filename === base || (x.rel && x.rel.endsWith('/' + base)));
+  const targetRel = (f && f.rel) ? f.rel : (docName.startsWith('Documents/') ? docName : 'Documents/' + docName);
+  const p = (Number.isInteger(Number(pageNum)) && Number(pageNum) > 0) ? Number(pageNum) : 1;
+  const pageHash = (p > 1) ? `#page=${p}` : '';
+
+  if (mode === 'viewer') {
+    showDocumentInspector(docName, p, snippet);
+    return;
+  }
+
+  window.open(fileURL(targetRel) + pageHash, '_blank');
+}
+window.openCitationSource = openCitationSource;
+
 function openFile(rel, page = 1){
-  window.open(fileURL(rel),'_blank');
+  const p = (Number.isInteger(Number(page)) && Number(page) > 0) ? Number(page) : (page ? parseInt(page, 10) : 1);
+  const hash = (p && p > 1) ? `#page=${p}` : '';
+  window.open(fileURL(rel) + hash, '_blank');
 }
 function docsBy(filter){ let list=allDocs.filter(filter); if(currentRevision) list=list.filter(f=>f._rev===currentRevision); return list; }
 
@@ -417,9 +556,26 @@ const DESTS=[
   ['reports','Reports','<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 17V9M12 17v-5M15 17v-3"/>'],
   ['video','AI Video Studio','<polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>'],
   ['mpd','MPD','<polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/>'],
+  ['early_design','Early Design','<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/><circle cx="15" cy="15" r="2"/>'],
 ];
+// Grouped sidebar (2026-10-22): same destinations, organised under three headings.
+const NAV_GROUPS=[
+  ['Project',['overview','design','models','drawings','documents']],
+  ['Data & Compliance',['schedules','specifications','codes','qa','reports']],
+  ['AI Studios',['studio','video','mpd','early_design']],
+];
+const NAV_LABELS={mpd:'Masterplan (MPD)',early_design:'Early Design'};
 function buildNav(){
-  $('navMain').innerHTML=DESTS.map(([k,l,p])=>`<a data-dest="${k}">${svg(p)}<span>${l}</span><span class="badge" data-badge="${k}" hidden></span></a>`).join('');
+  const byKey=Object.fromEntries(DESTS.map(d=>[d[0],d]));
+  const used=new Set();
+  const item=([k,l,p])=>{ used.add(k); return `<a data-dest="${k}">${svg(p)}<span>${NAV_LABELS[k]||l}</span><span class="badge" data-badge="${k}" hidden></span></a>`; };
+  let html=NAV_GROUPS.map(([title,keys])=>{
+    const items=keys.filter(k=>byKey[k]).map(k=>item(byKey[k])).join('');
+    return items?`<div class="nav-h">${title}</div>${items}`:'';
+  }).join('');
+  const rest=DESTS.filter(d=>!used.has(d[0]));
+  if(rest.length) html+=`<div class="nav-h">More</div>`+rest.map(item).join('');
+  $('navMain').innerHTML=html;
   document.querySelectorAll('#app .nav a[data-dest]').forEach(a=>a.onclick=()=>navigate(a.dataset.dest));
 }
 function refreshBadges(){
@@ -442,7 +598,7 @@ function navigate(dest){
   }
   if(currentDest==='studio' && dest!=='studio' && _studioPollTimer){ clearInterval(_studioPollTimer); _studioPollTimer=null; }
   if(currentDest==='video' && dest!=='video' && _videoPollTimer){ clearInterval(_videoPollTimer); _videoPollTimer=null; }
-  if(dest==='settings' && !(currentUser&&currentUser.role==='admin')){ dest='overview'; }
+  if(dest==='settings' && !canUpload()){ dest='overview'; }
   currentDest=dest; setActiveNav(dest);
   on3D=(dest==='design');
   const design=$('designWrap');
@@ -454,7 +610,7 @@ function navigate(dest){
   } else {
     design.style.display='none';
     $('genericWrap').style.display='block';
-    if(dest==='mpd' || dest==='cadcraft' || dest==='pdfcraft'){
+    if(dest==='mpd' || dest==='early_design' || dest==='cadcraft' || dest==='pdfcraft'){
       $('genericWrap').style.position='absolute';
       $('genericWrap').style.inset='0';
       $('genericWrap').style.overflow='hidden';
@@ -509,6 +665,11 @@ function renderPdfCraft(c){
     }, 50);
   }
 }
+function renderEarlyDesign(c){
+  const fn = (typeof renderEarlyDesignWorkspace === 'function') ? renderEarlyDesignWorkspace : (typeof window !== 'undefined' ? window.renderEarlyDesignWorkspace : null);
+  if(fn) fn(c);
+  else c.innerHTML = '<div class="ws-scroll" style="display:flex;align-items:center;justify-content:center;height:100%"><div class="state">Loading Early Design Feasibility Studio...</div></div>';
+}
 function renderMPD(c){
   const fn = (typeof renderMPDWorkspace === 'function') ? renderMPDWorkspace : (typeof window !== 'undefined' ? window.renderMPDWorkspace : null);
   if(fn) fn(c);
@@ -516,7 +677,7 @@ function renderMPD(c){
 }
 function renderGeneric(dest){
   const b=$('genericWrap');
-  const R={ overview:renderOverview, studio:renderStudio, video:renderVideoStudio, mpd:renderMPD, models:renderModels, drawings:renderDrawings,
+  const R={ overview:renderOverview, studio:renderStudio, video:renderVideoStudio, mpd:renderMPD, early_design:renderEarlyDesign, models:renderModels, drawings:renderDrawings,
     cadcraft:renderCadCraft,
     pdfcraft:renderPdfCraft,
     documents:renderDocuments, schedules:renderSchedules, specifications:renderSpecifications,
@@ -572,7 +733,7 @@ function loadModels(relList){
   if(chosen.length>8 && !confirm(`Open ${chosen.length} models together? Large federated sets can be slow to parse and memory-heavy. Continue?`)) return;
   loadedRels = new Set(chosen);
   const rels=chosen.map(r=>'rel='+encodeURIComponent(r)).join('&');
-  const url=`/ui/viewer.html?v=42&embed=1&project=${encodeURIComponent(currentProject)}&token=${encodeURIComponent(authToken||'')}&${rels}`;
+  const url=`/ui/viewer.html?v=42&embed=1&project=${encodeURIComponent(currentProject)}&${rels}`;
   $('vpEmpty').style.display='none'; $('viewerFrame').style.display='block'; $('viewerFrame').src=url; viewerLoaded=true;
 }
 // PRIMARY engine: the Fragments viewer (fast .frag loading + federation). This
@@ -585,7 +746,7 @@ function openFragments(relList){
   loadedRels = new Set(chosen);
   navigate('design');
   const rels=chosen.map(r=>'rel='+encodeURIComponent(r)).join('&');
-  const url=`/ui/viewer.html?v=42&embed=1&project=${encodeURIComponent(currentProject)}&token=${encodeURIComponent(authToken||'')}&${rels}`;
+  const url=`/ui/viewer.html?v=42&embed=1&project=${encodeURIComponent(currentProject)}&${rels}`;
   $('vpEmpty').style.display='none'; $('viewerFrame').style.display='block'; $('viewerFrame').src=url; viewerLoaded=true;
 }
 // Open exactly the models ticked in the Models table (Fragments engine).
@@ -680,6 +841,7 @@ function renderSplitDocs(b, list, kind, emptyMsg){
       <div class="doc-actions" style="flex:none;display:flex;align-items:center;gap:6px">
         ${isPdf ? `<button class="tb primary pdf-quick-open-btn" data-i="${i}" style="padding:3px 9px;font-size:11px;font-weight:600;display:inline-flex;align-items:center;gap:4px" title="Open file"><svg class="ico" style="width:12px;height:12px" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>Open</button>` : ''}
         ${isCad ? `<button class="tb primary cad-quick-open-btn" data-i="${i}" style="padding:3px 9px;font-size:11px;font-weight:600" title="Open file">Open</button>` : ''}
+        ${canUpload() ? `<button class="tb doc-del-btn" data-i="${i}" style="padding:3px 7px;font-size:11px;color:#ff8f8f" title="Delete (moves to Recycle Bin, restorable for 15 days)">✕</button>` : ''}
       </div>
     </div>`;
   }).join('');
@@ -689,6 +851,13 @@ function renderSplitDocs(b, list, kind, emptyMsg){
       e.stopPropagation();
       const f = list[+btn.dataset.i];
       openRawFile(f.rel);
+    };
+  });
+  lc.querySelectorAll('.doc-del-btn').forEach(btn => {
+    btn.onclick = async (e) => {
+      e.stopPropagation();
+      const f = list[+btn.dataset.i];
+      if(window.mgDeleteDoc){ await window.mgDeleteDoc(f.filename); navigate(currentDest); }
     };
   });
   lc.querySelectorAll('.cad-quick-open-btn').forEach(btn => {
@@ -1078,9 +1247,54 @@ async function showFinding(f){
 
 /* ---------- Reports ---------- */
 async function renderReports(b){
-  b.innerHTML=`<div class="ws-scroll" id="repBody">${state('Loading reports…','load')}</div>`;
+  b.innerHTML=`<div class="ws-scroll"><div id="dashBody"></div><div id="repBody">${state('Loading reports…','load')}</div></div>`;
+  loadDashboardsPanel();
   await loadReportsList();
   wireReportGen();
+}
+/* Interactive dashboards (2026-10-22): upload a PDF/Excel (kept private to the user) or pick a project
+   document; dashboard.html builds KPIs, charts and tables from the file, lets the user add/edit charts by
+   asking, and "Save to Reports" stores it here for project members. */
+async function loadDashboardsPanel(){
+  const host=$('dashBody'); if(!host) return;
+  const proj=currentProject; const P=`${API}/projects/${encodeURIComponent(proj)}`;
+  let saved=[], docs=[];
+  try{ const r=await fetch(`${P}/dashboards`); if(r.ok) saved=(await r.json()).dashboards||[]; }catch(e){}
+  try{ const r=await fetch(`${P}/documents`); if(r.ok){ const j=await r.json(); docs=(Array.isArray(j)?j:(j.documents||[])).filter(d=>/\.(xlsx|xlsm|xls|pdf)$/i.test(d.filename||'')); } }catch(e){}
+  const open=qs=>window.open(`/ui/dashboard.html?project=${encodeURIComponent(proj)}&${qs}`,'_blank');
+  host.innerHTML=`<div class="dt-toolbar"><b>Interactive dashboards</b>
+      <button class="primary" id="dashUp" title="Upload a PDF or Excel file - only you can see the file">⬆ Upload PDF / Excel → dashboard</button>
+      <select class="tb" id="dashDoc" style="max-width:340px"><option value="">…or build from a project file (${docs.length})</option>${docs.map(d=>`<option value="${escAttr(d.filename)}">${esc(d.filename)}</option>`).join('')}</select>
+      <button class="tb" id="dashOpen">Build</button></div>
+    <div class="muted" style="font-size:11.5px;margin:-4px 0 10px">KPIs, charts and tables are computed from the file itself. On the dashboard you can add a chart by asking ("cost by building as a pie"), change or remove charts, filter and sort tables, then <b>Save to Reports</b> to share it with the project.</div>
+    ${saved.length?`<table class="dt" style="margin-bottom:18px"><thead><tr><th>Saved dashboard</th><th>From file</th><th>Charts</th><th>Saved by</th><th style="text-align:right">Actions</th></tr></thead><tbody>${saved.map(s=>`<tr>
+      <td><span style="cursor:pointer;font-weight:600" data-dopen="${escAttr(s.id)}">📊 ${esc(s.title)}</span></td><td>${esc(s.source||'')}</td><td>${esc(s.charts)}</td>
+      <td>${esc(s.created_by||'')} <span class="muted">${esc(s.created_at||'')}</span></td>
+      <td style="text-align:right"><button class="tb primary" data-dopen="${escAttr(s.id)}">Open</button> <button class="tb ghost" data-ddel="${escAttr(s.id)}" title="Delete this saved dashboard">Delete</button></td></tr>`).join('')}</tbody></table>`:''}`;
+  $('dashOpen').onclick=()=>{ const f=$('dashDoc').value; if(!f){ toast('Choose a PDF or Excel file first'); return; } open('filename='+encodeURIComponent(f)); };
+  $('dashDoc').onchange=()=>{ if($('dashDoc').value) $('dashOpen').click(); };
+  host.querySelectorAll('[data-dopen]').forEach(el=>el.onclick=()=>open('saved='+encodeURIComponent(el.dataset.dopen)));
+  host.querySelectorAll('[data-ddel]').forEach(el=>el.onclick=async()=>{
+    if(!confirm('Delete this saved dashboard? (The source file is not affected.)')) return;
+    const r=await fetch(`${P}/dashboards/${encodeURIComponent(el.dataset.ddel)}`,{method:'DELETE'}); const j=await r.json().catch(()=>({}));
+    if(!r.ok) toast(j.detail||'Delete failed'); else { toast('Dashboard deleted'); loadDashboardsPanel(); }
+  });
+  $('dashUp').onclick=()=>{
+    const inp=document.createElement('input'); inp.type='file'; inp.accept='.pdf,.xlsx,.xlsm,.xls';
+    inp.onchange=async()=>{ const f=inp.files[0]; if(!f) return;
+      const w=window.open('about:blank','_blank'); // open now so the browser does not block the pop-up
+      if(w) w.document.write('<body style="background:#0a0f1a;color:#e8eef7;font:14px system-ui;padding:40px">Uploading '+esc(f.name)+' and building the dashboard…</body>');
+      toast('Uploading '+f.name+' …', true);
+      const fd=new FormData(); fd.append('file',f); fd.append('project',proj);
+      try{ const r=await fetch(`${API}/chat/attachments`,{method:'POST',body:fd}); const j=await r.json().catch(()=>({}));
+        if(!r.ok) throw new Error(j.detail||('HTTP '+r.status));
+        const url=`/ui/dashboard.html?project=${encodeURIComponent(proj)}&att=${encodeURIComponent(j.id)}`;
+        if(w) w.location=url; else window.open(url,'_blank');
+        toast(f.name+' uploaded - dashboard opened in a new tab (the file stays private to you).');
+      }catch(err){ if(w) w.close(); toast('Upload failed: '+(err.message||err)); }
+    };
+    inp.click();
+  };
 }
 async function loadReportsList(){
   let reports=[];
@@ -1140,11 +1354,11 @@ function renderSettings(b){
         <button class="ghost" id="settingsAccountBtn" style="padding:8px 14px;cursor:pointer">Change Username & Password</button>
       </div>
     </div>
-    <p class="muted" style="margin-top:18px">${esc(mgmtNote)}</p>
-    <button class="ghost" onclick="window.open('/ui/classic.html','_blank')">${esc(mgmtBtnLabel)}</button>
+    <div id="mgHost"></div>
   </div>`;
   const setAccBtn = $('settingsAccountBtn');
   if(setAccBtn) setAccBtn.onclick = openAccountModal;
+  if(window.renderManagement) window.renderManagement($('mgHost'));
 }
 
 /* ============================================================
@@ -1221,27 +1435,32 @@ async function renderStudio(b){
         </div>
 
         <div class="studio-field">
+          <div id="studioEditOnly">
           <label for="studioDesignMode">Design intent</label>
           <select class="studio-input" id="studioDesignMode"><option value="concept">New concept</option><option value="materials">Change finishes only</option><option value="enhancement">Improve render quality only</option><option value="creative_facade">Redesign facade screen — keep building shape</option></select>
           <div style="font-size:11px;color:var(--faint);margin-top:6px">Screen redesign changes the outer pattern and screen materials. Keep the building shape, floors, structure, openings and camera fixed. Review generated geometry before use.</div>
-          <label for="studioMaskFile">Protect area outside facade screen (optional)</label>
+          <label for="studioMaskFile">Edit only inside a mask (optional)</label>
           <input class="studio-input" type="file" id="studioMaskFile" accept="image/png">
           <div style="font-size:11px;color:var(--faint)">Upload an opaque black-and-white PNG matching the upright reference dimensions. White = replace screen area; black = retain original pixels. Include openings and structure in black. This composites the generated screen; inspect alignment and edges.</div>
           <button type="button" class="studio-enhance-btn" id="studioMaskClear">Remove mask</button>
           <label for="studioProtected">Keep unchanged</label>
           <input class="studio-input" id="studioProtected" maxlength="600" placeholder="Additional elements to protect, separated by commas">
+          </div>
+          <details class="studio-details" id="studioOverrides"><summary>Optional: lock materials or lighting (otherwise taken from your description)</summary>
           <label for="studioMaterials">Material palette</label>
           <input class="studio-input" id="studioMaterials" maxlength="600" placeholder="For example: warm limestone, bronze screens, clear glass">
           <label for="studioLighting">Lighting</label>
           <input class="studio-input" id="studioLighting" maxlength="300" placeholder="Keep the source lighting, or describe the requested change">
+          </details>
         </div>
         <!-- Prompt Field -->
         <div class="studio-field">
           <div style="display:flex;align-items:center;justify-content:space-between">
-            <label for="studioPrompt">Architectural Prompt</label>
+            <label for="studioPrompt">Describe the building</label>
             <button type="button" class="studio-enhance-btn" id="studioEnhanceBtn" title="Use AI reasoning (qwen3.5:9b) to enrich materials, lighting, and composition">
-              <span>Develop 3 options</span>
+              <span id="studioEnhanceLabel">Develop 3 options</span>
             </button>
+            <select id="studioOptionCount" title="How many design options (one render each)" style="margin-left:6px"><option>1</option><option>2</option><option selected>3</option><option>4</option><option>5</option><option>6</option></select>
           </div>
           <textarea class="studio-textarea" id="studioPrompt" placeholder="Describe architectural geometry, materials, facade, lighting, surrounding landscape..."></textarea>
           
@@ -1255,7 +1474,7 @@ async function renderStudio(b){
             <div id="studioDesignOptionsWrap" style="display:none">
               <div style="font-size:10px;font-weight:700;color:var(--accent2);letter-spacing:.3px;margin:8px 0 4px 0;text-transform:uppercase">Compare design proposals — select an option</div>
               <div id="studioDesignOptionsList" class="studio-design-options" style="grid-template-columns:1fr"></div>
-              <button type="button" class="studio-enhance-btn" id="studioRenderAlternatives">Generate all 3 previews</button>
+              <button type="button" class="studio-enhance-btn" id="studioRenderAlternatives">Generate all previews</button>
               <div style="font-size:11px;color:var(--muted);margin-top:6px">Uses the same reference and seed. Compare geometry manually; these previews are not validated drawings.</div>
             </div>
           </div>
@@ -1277,8 +1496,8 @@ async function renderStudio(b){
           </div>
         </div>
 
-        <!-- Negative Prompt -->
-        <details class="studio-details">
+        <!-- Negative Prompt (only for workflows that use it; FLUX 3 at cfg 1 ignores negatives) -->
+        <details class="studio-details" id="studioNegWrap">
           <summary>Negative Prompt</summary>
           <div style="margin-top:8px" class="studio-field">
             <input class="studio-input" id="studioNegPrompt" value="blurry, distorted geometry, low quality, deformed columns, unrealistic physics, oversaturated, watermarks, grainy, artifacts">
@@ -1300,12 +1519,12 @@ async function renderStudio(b){
           <summary>Advanced Sampling Settings</summary>
           <div style="margin-top:10px;display:flex;flex-direction:column;gap:10px">
             <div>
-              <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted)"><span>Steps</span><b id="studioStepsVal">25</b></div>
-              <input type="range" id="studioSteps" min="10" max="50" value="25" style="width:100%">
+              <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted)"><span>Steps</span><b id="studioStepsVal">16</b></div>
+              <input type="range" id="studioSteps" min="4" max="24" value="16" style="width:100%">
             </div>
-            <div>
-              <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted)"><span>CFG Scale</span><b id="studioCfgVal">7.0</b></div>
-              <input type="range" id="studioCfg" min="1" max="15" step="0.5" value="7.0" style="width:100%">
+            <div id="studioCfgWrap">
+              <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted)"><span>CFG Scale</span><b id="studioCfgVal">1.0</b></div>
+              <input type="range" id="studioCfg" min="1" max="2" step="0.1" value="1.0" style="width:100%">
             </div>
             <div>
               <div style="font-size:11px;color:var(--muted);margin-bottom:4px">Seed (Optional)</div>
@@ -1591,6 +1810,18 @@ function _updateActiveJobUI(){
   }
 }
 
+// Show only the controls the selected workflow / current input can use (2026-10-22).
+function _studioRefreshVisibility(){
+  const sel = $('studioWfSel');
+  const wf = sel ? _studioWorkflows.find(w => w.id === sel.value) : null;
+  const params = (wf && wf.parameters) || [];
+  const needsImg = params.some(p => p.type === 'image' && p.required);
+  const show = (id, on) => { const e = $(id); if(e) e.style.display = on ? '' : 'none'; };
+  show('studioEditOnly', !!_studioSelectedFile || needsImg);
+  show('studioNegWrap', params.some(p => p.name === 'negative_prompt'));
+  const cfg = params.find(p => p.name === 'cfg');
+  show('studioCfgWrap', !!cfg && cfg.min_value !== cfg.max_value);
+}
 function _wireStudioControls(){
   // Workflow dropdown change
   const wfSel = $('studioWfSel');
@@ -1609,10 +1840,11 @@ function _wireStudioControls(){
         }
         const desc = $('studioWfDesc');
         if(desc) desc.textContent = wf.description || '';
+        setTimeout(_studioRefreshVisibility, 0);
         const reqImg = (wf.parameters || []).some(p => p.type === 'image' && p.required);
         const auto = $('studioAutoEnhance'), enhance = $('studioEnhanceBtn');
         if(auto){ auto.disabled = reqImg; if(reqImg) auto.checked = false; }
-        if(enhance){ enhance.disabled = false; enhance.title = 'Develop three proposals from a structured written brief'; }
+        if(enhance){ enhance.disabled = false; enhance.title = 'Develop design proposals from a structured written brief (one render per option)'; }
         const mode = $('studioDesignMode');
         if(mode){ mode.value = reqImg ? (wf.category === 'enhancement' ? 'enhancement' : 'materials') : 'concept';
           Array.from(mode.options).forEach(option => option.disabled = reqImg ? option.value === 'concept' : option.value !== 'concept'); }
@@ -1642,7 +1874,7 @@ function _wireStudioControls(){
     if(!f) return;
     if(!f.type.startsWith('image/')){ toast('Only image files (PNG, JPG, WEBP) are supported'); return; }
     if(f.size > 25 * 1024 * 1024){ toast('Image file exceeds 25 MB limit'); return; }
-    _studioSelectedFile = f;
+    _studioSelectedFile = f; setTimeout(_studioRefreshVisibility, 0);
     _studioSelectedMask = null;
     if($('studioMaskFile')) $('studioMaskFile').value = '';
     const url = URL.createObjectURL(f);
@@ -1665,7 +1897,7 @@ function _wireStudioControls(){
   if(removeBtn){
     removeBtn.onclick = e => {
       e.stopPropagation();
-      _studioSelectedFile = null;
+      _studioSelectedFile = null; setTimeout(_studioRefreshVisibility, 0);
       _studioSelectedMask = null;
       if($('studioMaskFile')) $('studioMaskFile').value = '';
       if(fileInput) fileInput.value = '';
@@ -1714,6 +1946,8 @@ function _wireStudioControls(){
 
   const _escHtml = (s) => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
+  const _optSel = $('studioOptionCount');
+  if(_optSel) _optSel.onchange = () => { const n=_optSel.value; if($('studioEnhanceLabel')) $('studioEnhanceLabel').textContent = `Develop ${n} option${n>1?'s':''}`; };
   if(enhanceBtn && promptEl){
     enhanceBtn.onclick = async () => {
       const curPrompt = promptEl.value.trim();
@@ -1736,7 +1970,8 @@ function _wireStudioControls(){
             mode: $('studioDesignMode')?.value || 'concept',
             protected_elements: ($('studioProtected')?.value || '').split(',').map(s=>s.trim()).filter(Boolean),
             materials: $('studioMaterials')?.value || '',
-            lighting: $('studioLighting')?.value || ''
+            lighting: $('studioLighting')?.value || '',
+            option_count: Number($('studioOptionCount')?.value || 3)
           })
         });
         if(res.ok){
@@ -1744,7 +1979,7 @@ function _wireStudioControls(){
           if(data.success && data.enhanced_prompt){
             _preEnhancedPrompt = curPrompt;
             _proposalSnapshot = { project: currentProject, workflow: wfSel.value, reference: _studioSelectedFile, mask: _studioSelectedMask, options: data.design_options };
-            if($('studioRenderAlternatives')) $('studioRenderAlternatives').disabled = false;
+            if($('studioRenderAlternatives')){ $('studioRenderAlternatives').disabled = false; $('studioRenderAlternatives').textContent = `Render ${data.design_options.length} option${data.design_options.length>1?'s':''} (one image each)`; }
             promptEl.value = data.enhanced_prompt;
             if(data.error) toast(data.error);
 
@@ -1832,7 +2067,7 @@ function _wireStudioControls(){
   const renderAlternatives = $('studioRenderAlternatives');
   if(renderAlternatives) renderAlternatives.onclick = async () => {
     const snapshot = _proposalSnapshot;
-    if(!snapshot || snapshot.options.length !== 3){ toast('Develop three options first'); return; }
+    if(!snapshot || !snapshot.options.length){ toast('Develop the options first'); return; }
     if(snapshot.project !== currentProject || snapshot.workflow !== wfSel.value || snapshot.reference !== _studioSelectedFile || snapshot.mask !== _studioSelectedMask){ toast('Reference, mask or workflow changed. Develop the options again.'); return; }
     const wf = _studioWorkflows.find(w=>w.id===snapshot.workflow);
     const requiresImage = (wf.parameters || []).some(p=>p.type==='image' && p.required);
@@ -1841,7 +2076,7 @@ function _wireStudioControls(){
     const requestedSeed = $('studioSeed')?.value.trim();
     const seed = requestedSeed ? Number(requestedSeed) : randomSeed[0];
     if(!Number.isSafeInteger(seed) || seed<0){toast('Enter a valid seed');return;}
-    const settings = {width:_studioSelectedAspect.width,height:_studioSelectedAspect.height,steps:Number($('studioSteps')?.value||20),cfg:Number($('studioCfg')?.value||5),seed};
+    const settings = {width:_studioSelectedAspect.width,height:_studioSelectedAspect.height,steps:Number($('studioSteps')?.value||16),cfg:Number($('studioCfg')?.value||1),seed};
     renderAlternatives.disabled = true;
     let submitted = 0;
     try {
@@ -1876,6 +2111,8 @@ function _wireStudioControls(){
   });
 
   // Slider live indicators
+  // Apply the initially selected workflow's own steps/cfg defaults and limits (FLUX 3: 16 / 1.0).
+  try { const _wf0 = $('studioWfSel'); if(_wf0 && typeof _wf0.onchange === 'function') _wf0.onchange(); } catch(e) {}
   const stepsEl = $('studioSteps');
   if(stepsEl) stepsEl.oninput = () => { const v = $('studioStepsVal'); if(v) v.textContent = stepsEl.value; };
   const cfgEl = $('studioCfg');
@@ -2048,8 +2285,8 @@ function _renderStudioGallery(){
       ${items.map((it, idx) => {
         const out = it.output;
         const job = it.job;
-        const thumbUrl = `${API}/api/image-engine/outputs/${encodeURIComponent(out.output_id)}/thumb?token=${encodeURIComponent(authToken||'')}`;
-        const fileUrl = `${API}/api/image-engine/outputs/${encodeURIComponent(out.output_id)}/file?token=${encodeURIComponent(authToken||'')}`;
+        const thumbUrl = `${API}/api/image-engine/outputs/${encodeURIComponent(out.output_id)}/thumb`;
+        const fileUrl = `${API}/api/image-engine/outputs/${encodeURIComponent(out.output_id)}/file`;
         const downloadName = out.filename || `Architectural_Render_${out.width}x${out.height}.png`;
         const cat = job.workflow_id ? job.workflow_id.split('-')[0] : 'gen';
         const dateStr = (job.created_at || '').replace('T', ' ').slice(0, 16);
@@ -2093,7 +2330,7 @@ function _openStudioLightbox(out, job){
     document.body.appendChild(modal);
   }
 
-  const fileUrl = `${API}/api/image-engine/outputs/${encodeURIComponent(out.output_id)}/file?token=${encodeURIComponent(authToken||'')}`;
+  const fileUrl = `${API}/api/image-engine/outputs/${encodeURIComponent(out.output_id)}/file`;
   const dateStr = (job.created_at || '').replace('T', ' ').slice(0, 19);
   const downloadName = out.filename || `Architectural_Render_${out.width}x${out.height}.png`;
   const workflowName = job.workflow_id ? job.workflow_id.replace(/_/g, ' ') : 'Architecture Concept';
@@ -2239,12 +2476,19 @@ function _openStudioLightbox(out, job){
    3D VIEWER BRIDGE (protected contract)
    ============================================================ */
 function vcmd(c){ try{ $('viewerFrame').contentWindow.postMessage({type:'expo:cmd',cmd:c},'*'); }catch(e){} }
-window.addEventListener('message',ev=>{ const d=ev.data||{}; if(d.source!=='expo-viewer')return;
+window.addEventListener('message',ev=>{ const d=ev.data||{}; if(ev.origin!==location.origin||ev.source!==$('viewerFrame')?.contentWindow||d.source!=='expo-viewer')return;
   if(d.type==='selection'){ lastSel=d.payload; setElementContext(d.payload); }
   else if(d.type==='ready'){ refreshDesignEmpty(); }
   else if(d.type==='loaded'){ if(Array.isArray(d.rels)) loadedRels=new Set(d.rels); if(d.added) toast('Model linked into the view'); } });
-function getViewerCtx(){ return new Promise(res=>{ let done=false;
-  const h=e=>{const d=e.data||{}; if(d.source==='expo-viewer'&&d.type==='context'){done=true;window.removeEventListener('message',h);res({context:d.context,selection:d.selection});}};
+async function getViewerCtx(){
+  if(window.ExpoBimChat && currentDest==='design' && on3D && viewerLoaded){
+    try{
+      const data=await window.ExpoBimChat.request($('viewerFrame'),currentProject,'evidence');
+      return {context:JSON.stringify({models:data.models,categories:data.categories,counts:data.counts,counts_complete:data.counts_complete}),selection:JSON.stringify(data.selectionData||[])};
+    }catch(e){return {context:'Viewer context unavailable: '+e.message,selection:''};}
+  }
+  return new Promise(res=>{ let done=false;
+  const h=e=>{const d=e.data||{}; if(e.origin===location.origin&&e.source===$('viewerFrame')?.contentWindow&&d.source==='expo-viewer'&&d.type==='context'){done=true;window.removeEventListener('message',h);res({context:d.context,selection:d.selection});}};
   window.addEventListener('message',h);
   try{$('viewerFrame').contentWindow.postMessage({type:'expo:getContext'},'*');}catch(e){}
   setTimeout(()=>{if(!done){window.removeEventListener('message',h);res({context:'',selection:(lastSel&&lastSel.text)||''});}},1500); }); }
@@ -3059,6 +3303,10 @@ function wireCopilot(){
   $('attachClear').onclick=clearAttachment;
   const coworkBtn=$('aiCoworkToggle');
   if(coworkBtn) coworkBtn.onclick=toggleCoworkMode;
+  if($('coworkFocusClear')) $('coworkFocusClear').onclick=()=>{
+    window.currentCoworkFocus=null;
+    updateCoworkFocusBanner();
+  };
   $('aiCoworkFolder').onclick=()=>{
     if(!currentProject){ toast('Select a project first'); return; }
     $('aiCoworkFolderInput').click();
@@ -3075,58 +3323,438 @@ function wireCopilot(){
     hideAttachMenu();
   });
 }
-/* Admin-only Coding Agent mode: flips mode:'cowork' on for the next /ask_stream
-   call. The server still enforces admin-only (auth.require_roles) -- this is
-   just the UI side of that same gate, and the button is hidden entirely for
-   non-admins in onAuthed(). */
+
+window.currentCoworkFolder = '';
+window.currentCoworkFocus = null; // { path: string, type: 'folder'|'file' }
+window.lastCoworkTree = null;
+
+function formatBytes(bytes){
+  const n = Number(bytes)||0;
+  if(n < 1024) return n + ' B';
+  if(n < 1024*1024) return (n/1024).toFixed(1) + ' KB';
+  return (n/(1024*1024)).toFixed(2) + ' MB';
+}
+
+function updateCoworkFocusBanner(){
+  const card = $('coworkFocusCard');
+  const lbl = $('coworkFocusLabel');
+  if(!card || !lbl) return;
+  if(!coworkMode && !window.currentCoworkFocus){
+    card.hidden = true;
+    return;
+  }
+  card.hidden = false;
+  if(window.currentCoworkFocus && window.currentCoworkFocus.path){
+    const icon = window.currentCoworkFocus.type === 'folder' ? '📁' : '📄';
+    lbl.innerHTML = `⚡ Coding Agent · ${icon} <b>${esc(window.currentCoworkFocus.path)}</b>`;
+  } else if(window.currentCoworkFolder){
+    lbl.innerHTML = `⚡ Coding Agent · 📁 <b>${esc(window.currentCoworkFolder)}</b>`;
+  } else {
+    lbl.innerHTML = `⚡ Coding Agent · 📁 <b>Workspace Root (All Folders)</b>`;
+  }
+}
+
 async function importCoworkFiles(inputId,buttonId,label){
   const input=$(inputId);
   const files=Array.from(input.files||[]);
   const project=currentProject;
   if(!project||!isAdminUser()||!files.length) return;
-  const button=$(buttonId);button.disabled=true;
+  const button=$(buttonId); if(button) button.disabled=true;
+  const targetFolder = window.currentCoworkFolder || '';
   let imported=0,failed=0;const errors=[];
   try{
     for(const file of files){
-      button.textContent=`Adding ${imported+failed+1}/${files.length}`;
-      const body=new FormData();body.append('file',file);
+      if(button) button.textContent=`Adding ${imported+failed+1}/${files.length}`;
+      const body=new FormData();
+      body.append('file',file);
       body.append('relative_path',file.webkitRelativePath||file.name);
+      body.append('target_folder',targetFolder);
+      body.append('overwrite','true');
       try{
         const response=await fetch(`${API}/projects/${encodeURIComponent(project)}/agent/workspace-file`,{method:'POST',body});
         if(!response.ok){const data=await response.json();throw new Error(data.detail||`HTTP ${response.status}`);}
         imported++;
       }catch(error){failed++;if(errors.length<5)errors.push(`${file.webkitRelativePath||file.name}: ${error.message}`);}
     }
-    addMsg('a',`Copied ${imported} files into the Cowork workspace for <b>${esc(project)}</b>. ${failed} failed. Original files are unchanged.${errors.length?'<br>'+errors.map(esc).join('<br>'):''}<br>Enable Coding Agent and ask it to list the workspace. These copies are separate from uploaded document evidence.`);
-  }finally{button.disabled=false;button.textContent=label;input.value='';}
+    if(!coworkMode) toggleCoworkMode(true);
+    await loadCoworkWorkspace();
+    if(typeof window.cwsRefresh === 'function') await window.cwsRefresh();
+    toast(`Uploaded ${imported} file(s) to ${targetFolder || 'Workspace Root'}`);
+    const destLabel = targetFolder ? `folder <b>${esc(targetFolder)}</b>` : `the <b>Cowork workspace</b>`;
+    addMsg('a',`Copied <b>${imported}</b> file(s) into ${destLabel} for <b>${esc(project)}</b>.${failed?` (${failed} failed)`:''}${errors.length?'<br>'+errors.map(esc).join('<br>'):''}<br><div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap"><button type="button" class="cw-mini-btn primary" onclick="window.openCoworkStudio(${escAttr(JSON.stringify(targetFolder))})">⛶ Open Full Cowork Studio</button><button type="button" class="cw-mini-btn" onclick="window.setAiTab('cowork')">📁 View in Sidebar</button><button type="button" class="cw-mini-btn" onclick="window.askAiOnCoworkItem(${esc(JSON.stringify(targetFolder))},'folder')">💬 Ask AI About These Files</button></div>`);
+  }finally{
+    if(button){button.disabled=false;button.textContent=label;}
+    input.value='';
+  }
 }
 
-function toggleCoworkMode(){
+function toggleCoworkMode(forceState){
   if(!isAdminUser()){ coworkMode=false; return; }
-  coworkMode=!coworkMode;
+  coworkMode = (typeof forceState === 'boolean') ? forceState : !coworkMode;
   const btn=$('aiCoworkToggle');
   if(btn){
     btn.classList.toggle('on',coworkMode);
     btn.textContent=coworkMode?'Coding Agent: ON':'Coding Agent';
     btn.title=coworkMode
-      ? 'Coding Agent mode is ON — the AI can read/write this project\'s sandboxed workspace and propose shell commands, which you must approve before anything runs.'
+      ? 'Coding Agent mode is ON — the AI can read/write files, execute Python in your sandboxed folders, and generate reports/spreadsheets.'
       : 'Turn on Coding Agent mode (admin only)';
   }
-  if(coworkMode){
-    addMsg('a','<b>Coding Agent mode enabled.</b> I can read and write files in this project’s sandboxed workspace, and propose shell commands — but nothing runs until you click <b>Approve &amp; Run</b> on the card I show you.');
+  updateCoworkFocusBanner();
+  if(coworkMode && typeof forceState !== 'boolean'){
+    addMsg('a','<b>Coding Agent &amp; Cowork Sandbox enabled.</b> You can create custom folders in the <b>Cowork</b> tab, upload files into them, and ask me to analyze documents, run Python calculations, or generate new Excel/Markdown/HTML/code files directly in your folders.');
   }
 }
+
 function setAiTab(tab){
   document.body.classList.remove('ai-collapsed');
   if(document.body.clientWidth<=1200)document.body.classList.add('show-ai');
   $('aiTabs').querySelectorAll('.ai-tab').forEach(t=>t.classList.toggle('on',t.dataset.tab===tab));
-  ['chat','references','compliance','insights'].forEach(k=>{ const p=$('pane-'+k); if(p)p.hidden=(k!==tab); });
+  ['chat','cowork','references','compliance','insights'].forEach(k=>{ const p=$('pane-'+k); if(p)p.hidden=(k!==tab); });
+  if(tab==='cowork') loadCoworkWorkspace();
   if(tab==='compliance') renderCompliancePane();
   if(tab==='insights') renderInsightsPane();
   if(tab==='references') renderReferencesPane();
 }
+window.setAiTab = setAiTab;
+
+async function loadCoworkWorkspace(){
+  const body = $('coworkBody');
+  if(!currentProject || !isAdminUser()){
+    if(body) body.innerHTML = '<div class="state"><div class="muted">Select a project as an admin to manage Cowork folders and files.</div></div>';
+    return;
+  }
+  try{
+    const r = await fetch(`${API}/projects/${encodeURIComponent(currentProject)}/agent/workspace`);
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    const tree = await r.json();
+    window.lastCoworkTree = tree;
+    renderCoworkWorkspace(tree);
+  }catch(e){
+    if(body) body.innerHTML = `<div class="state"><div class="muted">Failed to load Cowork workspace: ${esc(e.message||e)}</div></div>`;
+  }
+}
+window.loadCoworkWorkspace = loadCoworkWorkspace;
+
+function selectCoworkFolder(folderPath){
+  window.currentCoworkFolder = String(folderPath || '');
+  const sel = $('cwActiveFolderSel');
+  if(sel && sel.value !== window.currentCoworkFolder) sel.value = window.currentCoworkFolder;
+  if(window.currentCoworkFolder){
+    window.currentCoworkFocus = { path: window.currentCoworkFolder, type: 'folder' };
+  }
+  updateCoworkFocusBanner();
+  if(window.lastCoworkTree) renderCoworkWorkspace(window.lastCoworkTree);
+}
+window.selectCoworkFolder = selectCoworkFolder;
+
+function renderCoworkWorkspace(tree){
+  const body = $('coworkBody');
+  const sel = $('cwActiveFolderSel');
+  if(!body) return;
+  const folders = (tree && tree.folders) || [];
+  const files = (tree && tree.files) || [];
+
+  if(sel){
+    const cur = window.currentCoworkFolder || '';
+    sel.innerHTML = `<option value="">Workspace Root (/)</option>` + folders.map(f =>
+      `<option value="${escAttr(f.path)}" ${f.path===cur?'selected':''}>📁 ${esc(f.path)} (${f.file_count||0})</option>`
+    ).join('');
+  }
+
+  const activeFolder = window.currentCoworkFolder || '';
+  const visibleFolders = folders.filter(f => (f.parent || '') === activeFolder);
+  const visibleFiles = files.filter(f => (f.folder || '') === activeFolder);
+
+  let html = '';
+
+  // Breadcrumb / Back button when inside a subfolder
+  if(activeFolder){
+    const parts = activeFolder.split('/');
+    const parentPath = parts.slice(0, -1).join('/');
+    html += `<div class="cw-item-card active-folder" style="margin-bottom:8px">
+      <div class="cw-item-left" onclick="window.selectCoworkFolder(${escAttr(JSON.stringify(parentPath))})">
+        <span class="cw-item-ico">⬅️</span>
+        <div class="cw-item-info">
+          <div class="cw-item-name">Folder: ${esc(activeFolder)}</div>
+          <div class="cw-item-sub">Click to go back to ${parentPath ? esc(parentPath) : 'Workspace Root (/)'}</div>
+        </div>
+      </div>
+      <div class="cw-item-actions">
+        <button type="button" class="cw-act-btn ask" onclick="window.askAiOnCoworkItem(${escAttr(JSON.stringify(activeFolder))},'folder')">💬 Ask AI</button>
+      </div>
+    </div>`;
+  }
+
+  // Folders Section
+  html += `<div class="cw-sec-title">
+    <span>${activeFolder ? 'Subfolders' : 'Your Custom Folders'} (${visibleFolders.length})</span>
+    <button type="button" class="cw-act-btn" onclick="window.promptNewCoworkFolder()">+ New Folder</button>
+  </div>`;
+
+  if(!visibleFolders.length){
+    html += `<div style="padding:10px;border:1px dashed var(--border);border-radius:var(--r-sm);font-size:11.5px;color:var(--muted);margin-bottom:10px">
+      No custom folders ${activeFolder ? 'inside this folder' : 'created yet'}. Click <b>+ New Folder</b> to create your own folder (like Claude Projects / ChatGPT Cowork), upload files into it, and ask the AI to work on it.
+    </div>`;
+  } else {
+    html += `<div class="cw-folder-grid" style="margin-bottom:12px">` + visibleFolders.map(f => `
+      <div class="cw-item-card">
+        <div class="cw-item-left" onclick="window.selectCoworkFolder(${escAttr(JSON.stringify(f.path))})" title="Click to open folder ${escAttr(f.path)}">
+          <span class="cw-item-ico">📁</span>
+          <div class="cw-item-info">
+            <div class="cw-item-name">${esc(f.name)}</div>
+            <div class="cw-item-sub">${f.file_count||0} file${(f.file_count||0)===1?'':'s'} · ${esc(f.path)}</div>
+          </div>
+        </div>
+        <div class="cw-item-actions">
+          <button type="button" class="cw-act-btn" onclick="window.selectCoworkFolder(${escAttr(JSON.stringify(f.path))})" title="Open folder">Open</button>
+          <button type="button" class="cw-act-btn ask" onclick="window.askAiOnCoworkItem(${escAttr(JSON.stringify(f.path))},'folder')" title="Ask AI to work on this folder">💬 Ask AI</button>
+          <button type="button" class="cw-act-btn del" onclick="window.deleteCoworkItem(${escAttr(JSON.stringify(f.path))},true)" title="Delete folder">🗑️</button>
+        </div>
+      </div>
+    `).join('') + `</div>`;
+  }
+
+  // Files Section
+  html += `<div class="cw-sec-title">
+    <span>Files in ${activeFolder ? esc(activeFolder) : 'Workspace Root'} (${visibleFiles.length})</span>
+    <div style="display:flex;gap:4px">
+      <button type="button" class="cw-act-btn" onclick="window.openCoworkNewFileModal()">+ New File</button>
+      <button type="button" class="cw-act-btn" onclick="document.getElementById('aiCoworkFilesInput').click()">⬆️ Upload</button>
+    </div>
+  </div>`;
+
+  if(!visibleFiles.length){
+    html += `<div style="padding:14px;border:1px dashed var(--border);border-radius:var(--r-sm);font-size:11.5px;color:var(--muted);text-align:center">
+      This folder is empty.<br>Click <b>⬆️ Upload</b> to add PDFs, Excel sheets, Word docs, CAD drawings, or CSVs, or ask the AI to generate files here.
+    </div>`;
+  } else {
+    html += `<div class="cw-folder-grid">` + visibleFiles.map(f => `
+      <div class="cw-item-card">
+        <div class="cw-item-left" onclick="window.openCoworkFileModal(${escAttr(JSON.stringify(f.path))})" title="Click to preview or edit ${escAttr(f.name)}">
+          <span class="cw-item-ico">${fileTypeIcon(f.ext)}</span>
+          <div class="cw-item-info">
+            <div class="cw-item-name">${esc(f.name)}</div>
+            <div class="cw-item-sub">${formatBytes(f.size)} · ${(f.ext||'file').toUpperCase()}</div>
+          </div>
+        </div>
+        <div class="cw-item-actions">
+          <button type="button" class="cw-act-btn ask" onclick="window.askAiOnCoworkItem(${escAttr(JSON.stringify(f.path))},'file')" title="Ask AI to analyze or work on this file">💬 Ask AI</button>
+          <button type="button" class="cw-act-btn" onclick="window.openCoworkFileModal(${escAttr(JSON.stringify(f.path))})" title="Preview or edit file">👁️</button>
+          <button type="button" class="cw-act-btn" onclick="window.downloadCoworkFile(${escAttr(JSON.stringify(f.path))})" title="Download file">⬇️</button>
+          <button type="button" class="cw-act-btn del" onclick="window.deleteCoworkItem(${escAttr(JSON.stringify(f.path))},false)" title="Delete file">🗑️</button>
+        </div>
+      </div>
+    `).join('') + `</div>`;
+  }
+
+  body.innerHTML = html;
+}
+
+async function promptNewCoworkFolder(){
+  if(!currentProject || !isAdminUser()){ toast('Select a project first'); return; }
+  const prefix = window.currentCoworkFolder ? (window.currentCoworkFolder + '/') : '';
+  const raw = window.prompt('Enter a name for your new Cowork folder:', prefix + 'My Analysis');
+  if(!raw || !raw.trim()) return;
+  try{
+    const r = await fetch(`${API}/projects/${encodeURIComponent(currentProject)}/agent/workspace-folder`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ path: raw.trim() })
+    });
+    const d = await r.json().catch(()=>({}));
+    if(!r.ok) throw new Error(d.detail || ('HTTP '+r.status));
+    window.currentCoworkFolder = d.path;
+    window.currentCoworkFocus = { path: d.path, type: 'folder' };
+    if(!coworkMode) toggleCoworkMode(true);
+    await loadCoworkWorkspace();
+    setAiTab('cowork');
+    toast(`Created folder "${d.path}"`);
+  }catch(e){
+    toast('Failed to create folder: ' + (e.message||e));
+  }
+}
+window.promptNewCoworkFolder = promptNewCoworkFolder;
+
+function askAiOnCoworkItem(path, type){
+  if(!isAdminUser()) return;
+  const cleanPath = String(path || '').trim();
+  window.currentCoworkFocus = cleanPath ? { path: cleanPath, type: type || 'file' } : null;
+  if(type === 'folder'){
+    window.currentCoworkFolder = cleanPath;
+  }
+  if(!coworkMode) toggleCoworkMode(true);
+  else updateCoworkFocusBanner();
+  closeCoworkFileModal();
+  setAiTab('chat');
+  const input = $('aiIn');
+  if(input){
+    input.placeholder = cleanPath
+      ? `Ask Coding Agent to analyze, calculate, or create files in "${cleanPath}"…`
+      : `Ask Coding Agent to work across your Cowork workspace…`;
+    input.focus();
+  }
+}
+window.askAiOnCoworkItem = askAiOnCoworkItem;
+
+async function openCoworkFileModal(path){
+  if(!currentProject || !path) return;
+  const modal = $('coworkFileModal');
+  const title = $('cwModalTitle');
+  const sub = $('cwModalSub');
+  const editor = $('cwModalEditor');
+  const saveBtn = $('cwModalSaveBtn');
+  const newPathWrap = $('cwModalNewPathWrap');
+  const askBtn = $('cwModalAskBtn');
+  const dlBtn = $('cwModalDownloadBtn');
+  if(!modal || !editor) return;
+
+  modal.hidden = false;
+  newPathWrap.hidden = true;
+  title.textContent = path.split('/').pop();
+  sub.textContent = `Loading ${path}…`;
+  editor.value = 'Loading file content…';
+  editor.readOnly = true;
+  saveBtn.hidden = true;
+  if(askBtn) askBtn.onclick = () => askAiOnCoworkItem(path, 'file');
+  if(dlBtn){ dlBtn.hidden = false; dlBtn.onclick = () => downloadCoworkFile(path); }
+
+  try{
+    const r = await fetch(`${API}/projects/${encodeURIComponent(currentProject)}/agent/workspace-file?path=${encodeURIComponent(path)}&limit=12000`);
+    const d = await r.json().catch(()=>({}));
+    if(!r.ok) throw new Error(d.detail || ('HTTP '+r.status));
+    editor.value = d.content || '';
+    const isEditable = !!d.editable;
+    editor.readOnly = !isEditable;
+    saveBtn.hidden = !isEditable;
+    sub.textContent = `${path} · ${formatBytes(d.size||0)}${isEditable ? ' · Editable' : ' · Extracted Preview (Read-only)'}${d.eof===false ? ' · Showing first 12,000 chars' : ''}`;
+    saveBtn.onclick = async () => {
+      saveBtn.disabled = true;
+      saveBtn.textContent = 'Saving…';
+      try{
+        const sr = await fetch(`${API}/projects/${encodeURIComponent(currentProject)}/agent/workspace-file`, {
+          method: 'PUT',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ path, content: editor.value })
+        });
+        const sd = await sr.json().catch(()=>({}));
+        if(!sr.ok) throw new Error(sd.detail || ('HTTP '+sr.status));
+        path=sd.path;
+        toast(`Saved separate copy: ${sd.path}`);
+        await loadCoworkWorkspace();
+      }catch(err){
+        toast('Save failed: ' + (err.message||err));
+      }finally{
+        saveBtn.disabled = false;
+        saveBtn.textContent = '💾 Save File';
+      }
+    };
+  }catch(e){
+    editor.value = 'Failed to load file: ' + (e.message||e);
+  }
+}
+window.openCoworkFileModal = openCoworkFileModal;
+
+function openCoworkNewFileModal(){
+  if(!currentProject || !isAdminUser()) return;
+  const modal = $('coworkFileModal');
+  const title = $('cwModalTitle');
+  const sub = $('cwModalSub');
+  const editor = $('cwModalEditor');
+  const saveBtn = $('cwModalSaveBtn');
+  const newPathWrap = $('cwModalNewPathWrap');
+  const newPathInput = $('cwModalNewPathInput');
+  const dlBtn = $('cwModalDownloadBtn');
+  if(!modal || !editor) return;
+
+  const prefix = window.currentCoworkFolder ? (window.currentCoworkFolder + '/') : '';
+  modal.hidden = false;
+  newPathWrap.hidden = false;
+  newPathInput.value = prefix + 'notes.md';
+  title.textContent = 'Create New Workspace File';
+  sub.textContent = 'Write Markdown, Python (.py), CSV (.csv), JSON, or text directly into your Cowork folder.';
+  editor.value = '';
+  editor.readOnly = false;
+  if(dlBtn) dlBtn.hidden = true;
+  saveBtn.hidden = false;
+  saveBtn.onclick = async () => {
+    const targetPath = (newPathInput.value || '').trim();
+    if(!targetPath){ toast('Enter a file path'); return; }
+    saveBtn.disabled = true;
+    saveBtn.textContent = 'Saving…';
+    try{
+      const sr = await fetch(`${API}/projects/${encodeURIComponent(currentProject)}/agent/workspace-file`, {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ path: targetPath, content: editor.value })
+      });
+      const sd = await sr.json().catch(()=>({}));
+      if(!sr.ok) throw new Error(sd.detail || ('HTTP '+sr.status));
+      toast(`Created ${sd.path}`);
+      closeCoworkFileModal();
+      await loadCoworkWorkspace();
+    }catch(err){
+      toast('Failed to create file: ' + (err.message||err));
+    }finally{
+      saveBtn.disabled = false;
+      saveBtn.textContent = '💾 Save File';
+    }
+  };
+  setTimeout(()=>newPathInput.focus(), 50);
+}
+window.openCoworkNewFileModal = openCoworkNewFileModal;
+
+function closeCoworkFileModal(){
+  const modal = $('coworkFileModal');
+  if(modal) modal.hidden = true;
+}
+window.closeCoworkFileModal = closeCoworkFileModal;
+
+async function downloadCoworkFile(path){
+  if(!currentProject || !path) return;
+  try{
+    const url = `${API}/projects/${encodeURIComponent(currentProject)}/agent/workspace-file?path=${encodeURIComponent(path)}&download=1`;
+    const r = await fetch(url);
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    const blob = await r.blob();
+    const blobUrl = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = blobUrl;
+    a.download = path.split('/').pop();
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(()=>URL.revokeObjectURL(blobUrl), 10000);
+  }catch(e){
+    toast('Download failed: ' + (e.message||e));
+  }
+}
+window.downloadCoworkFile = downloadCoworkFile;
+
+async function deleteCoworkItem(path, isFolder){
+  if(!currentProject || !path) return;
+  if(!window.confirm(`Delete ${isFolder ? 'folder and all its contents' : 'file'} "${path}" from the Cowork workspace?`)) return;
+  try{
+    const r = await fetch(`${API}/projects/${encodeURIComponent(currentProject)}/agent/workspace-file?path=${encodeURIComponent(path)}`, { method: 'DELETE' });
+    const d = await r.json().catch(()=>({}));
+    if(!r.ok) throw new Error(d.detail || ('HTTP '+r.status));
+    if(window.currentCoworkFolder === path || window.currentCoworkFolder.startsWith(path + '/')){
+      window.currentCoworkFolder = '';
+    }
+    if(window.currentCoworkFocus && (window.currentCoworkFocus.path === path || window.currentCoworkFocus.path.startsWith(path + '/'))){
+      window.currentCoworkFocus = null;
+      updateCoworkFocusBanner();
+    }
+    toast(`Deleted ${path}`);
+    await loadCoworkWorkspace();
+  }catch(e){
+    toast('Delete failed: ' + (e.message||e));
+  }
+}
+window.deleteCoworkItem = deleteCoworkItem;
 function aiGreeting(){ const nm=(currentUser&&(currentUser.full_name||currentUser.username))||'';
   $('aiMsgs').innerHTML=''; aiHist=[];
+  lastUsedSources = []; lastSources = [];
+  if (typeof updateReferencesBadge === 'function') updateReferencesBadge(0);
   addMsg('a','Hi '+esc(nm.split(' ')[0]||'there')+' — I\'m your Design AI Copilot. Pick a workspace on the left, then ask me about the active model, drawing, document, schedule or code. In the 3D model, click an element for a grounded, source-cited answer.');
 }
 function setChatExpanded(expanded){
@@ -3279,6 +3907,14 @@ function updateCtxActions(){
   } else if(currentDest==='drawings'){
     A('Ask about this drawing','<circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>',()=>{ setAiTab('chat'); $('aiIn').focus(); });
     A('Find a requirement in drawings','<path d="M9 12l2 2 4-4"/>',()=>{ setAiTab('chat'); askAbout('Find the requirement or note in this drawing about: '); });
+    // CAD quick questions for the selected DWG/DXF (2026-10-22). Answers come from the CAD reader's
+    // extraction (layers, title block, text, dimensions); a drawing still being read says so.
+    if(ctxDoc && /\.(dwg|dxf)$/i.test(ctxDoc.filename||'')){
+      const _cadAsk=q=>{ if(ctxDoc.status && !['ready','ready_with_warnings','verified','published'].includes(ctxDoc.status)){ toast('This drawing is still being read by the AI ('+ctxDoc.status+'). Try again in a minute.'); return; } setAiTab('chat'); $('aiIn').value=q; sendAi(); };
+      A('Title block & revisions','<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 15h18M12 15v6"/>',()=>_cadAsk('What are the drawing number, title, scale and revisions in the title block of this drawing?'));
+      A('Layers in this drawing','<path d="M12 2l10 5-10 5L2 7z"/><path d="M2 17l10 5 10-5M2 12l10 5 10-5"/>',()=>_cadAsk('List the layers in this drawing and what each one contains.'));
+      A('Rooms, areas & dimensions','<path d="M3 21V3h18v18z"/><path d="M3 12h9v9"/>',()=>_cadAsk('List the room names and areas, the main dimensions, and any notes written on this drawing.'));
+    }
   } else if(currentDest==='documents'||currentDest==='specifications'||currentDest==='pdfcraft'){
     A('Summarize this PDF','<path d="M4 6h16M4 12h16M4 18h10"/>',()=>{ if(ctxDoc) askAbout(`Summarize the document "${ctxDoc.filename}".`); else toast('Open a document first'); });
     A('Find key numbers & tables','<path d="M9 12l2 2 4-4"/>',()=>{ setAiTab('chat'); askAbout('Extract key dimensions, numbers, and tables from this PDF: '); });
@@ -3366,7 +4002,7 @@ function updateAiCtx(){
 }
 
 /* --- streaming client (protected: reuse SSE contract verbatim) --- */
-async function stream(display,endpoint,body){ const bub=addMsg('a','<div class="ai-working" role="status"><span class="ai-working-dot"></span><div><strong>Checking project evidence</strong><small>Reading sources and checking the answer. Complex questions may take a minute.</small></div></div>'); let ans=''; let structured=null;
+async function stream(display,endpoint,body){ const bub=addMsg('a','<div class="ai-working" role="status"><span class="ai-working-dot"></span><div><strong>Checking project evidence</strong><small>Reading sources and checking the answer. Complex questions may take a minute.</small></div></div>'); let ans=''; let structured=null; const coworkChanged=new Set();
   try{ const r=await fetch(endpoint,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
     if(!r.ok){
       let message='Error '+r.status;
@@ -3387,6 +4023,10 @@ async function stream(display,endpoint,body){ const bub=addMsg('a','<div class="
         else if(d.type==='error'){ ans+='\n[error] '+d.message; bub.innerHTML=mdLite(ans); }
         else if(d.type==='structured'){ structured=d.data||null; }
         else if(d.type==='status'){ if(!ans) bub.innerHTML='<span style="color:var(--muted)">'+esc(d.message||'Working')+'…</span>'; }
+        else if(d.type==='cowork_workspace_updated'){
+          (d.files||[]).forEach(f=>{ if(f) coworkChanged.add(String(f)); });
+          if(typeof window.loadCoworkWorkspace === 'function') window.loadCoworkWorkspace();
+        }
         else if(d.type==='command_pending'){
           // Cowork mode's run_command proposal. Nothing has executed -- this is
           // purely a notice that the server queued it under d.pending_id. Render
@@ -3394,28 +4034,22 @@ async function stream(display,endpoint,body){ const bub=addMsg('a','<div class="
           // Approve & Run on THIS card (see addCommandCard).
           addCommandCard(d);
         }
+        else if(d.type==='viewer_action'){
+          const receipt = typeof window._executeMpdChatActions === 'function'
+            ? await window._executeMpdChatActions([d.action], body.project)
+            : 'Action not applied: open MPD to use drawing controls.';
+          ans += receipt;
+          bub.innerHTML=mdLite(ans);
+        }
       } }
-    // Handle 3D Viewer AI Commands
-      let displayAns = ans;
-      const cmdRegex = /\[COMMAND:([A-Z_]+):([^\]]+)\]/gi;
-      let match;
-      while ((match = cmdRegex.exec(displayAns)) !== null) {
-          const cmdType = match[1].toLowerCase();
-          const cmdArg = match[2].trim();
-          displayAns = displayAns.replace(match[0], '').trim();
-          
-          if (cmdType === 'isolate' && window.currentDest === 'design') {
-              const vf = document.querySelector('.viewer iframe');
-              if (vf && vf.contentWindow) {
-                  vf.contentWindow.postMessage({ type: 'viewer_command', command: 'isolate', category: cmdArg }, '*');
-              }
-          }
-      }
+    // Model-generated command markers never execute. Viewer actions use the validated bridge.
+      let displayAns = ans.replace(/\[COMMAND:[^\]]+\]/gi,'').trim();
 
       // Show only the sources the answer actually cited
       { const hasCites=/\[SOURCE:/i.test(displayAns); const cited=citedSources(displayAns,lastSources);
         const showSrc = hasCites ? cited : lastSources;
         lastUsedSources = showSrc;
+        if (typeof updateReferencesBadge === 'function') updateReferencesBadge(showSrc.length);
         bub._ev = evHTML(showSrc);
         bub.innerHTML = mdLite(displayAns)+bub._ev; }
     if(!ans&&!bub._ev) bub.innerHTML='<span class="faint">(no answer)</span>';
@@ -3429,6 +4063,20 @@ async function stream(display,endpoint,body){ const bub=addMsg('a','<div class="
         if(card){ bub.innerHTML=''; bub.appendChild(card); $('aiMsgs').scrollTop=$('aiMsgs').scrollHeight; }
       }
     }catch(e){ /* never let the renderer break the plain answer that already rendered */ }
+    if(coworkChanged.size > 0){
+      const filesArr = Array.from(coworkChanged);
+      const genDiv = document.createElement('div');
+      genDiv.className = 'cw-gen-box';
+      genDiv.innerHTML = `<div class="cw-gen-title">✅ Cowork Output Saved (${filesArr.length} item${filesArr.length===1?'':'s'})</div>
+        <div class="cw-gen-list">${filesArr.map(fp => `
+          <span style="display:inline-flex;align-items:center;gap:4px;background:var(--card);border:1px solid var(--border);border-radius:5px;padding:3px 7px;font-size:11px">
+            <b>${esc(fp)}</b>
+            <button type="button" class="cw-act-btn" onclick="window.openCoworkFileModal(${escAttr(JSON.stringify(fp))})">👁️ View</button>
+            <button type="button" class="cw-act-btn" onclick="window.downloadCoworkFile(${escAttr(JSON.stringify(fp))})">⬇️ Download</button>
+          </span>
+        `).join('')}</div>`;
+      bub.appendChild(genDiv);
+    }
     addAnswerActions(bub,displayAns);
     try{ if(window.ExpoMotion && /```mermaid/i.test(ans)) window.ExpoMotion.renderMermaidIn(bub, ans); }catch(e){}
     $('aiMsgs').scrollTop=$('aiMsgs').scrollHeight;
@@ -3570,11 +4218,29 @@ async function sendAi(standards){ const t=$('aiIn'); const q=t.value.trim();
   const useCowork=coworkMode&&isAdminUser();
   const revNote=currentRevision?` (revision ${currentRevision})`:'';
   const documentQuestion=/\b(pdf|document|schedule|specification|uploaded|gfa|nsa|nisa|bua|area schedule)\b/i.test(q);
-  if(!useCowork&&currentDest==='design'&&on3D&&viewerLoaded&&!documentQuestion&&!standards&&!currentAttachment){ const ctx=await getViewerCtx();
+  const isExcelExportRequest = /\b(send|export|download|give|save)\b.*\b(excel|xlsx|spreadsheet)\b|\b(in|to|as)\s+excel\b/i.test(q);
+  if(!useCowork&&currentDest==='design'&&on3D&&viewerLoaded&&!documentQuestion&&!isExcelExportRequest&&!standards&&!currentAttachment){
+    if(window.ExpoBimChat && window.ExpoBimChat.candidate(q)){
+      const actionProject=currentProject, frame=$('viewerFrame');
+      const bubble=addMsg('a','<span class="muted">Checking the loaded model and preparing a view action…</span>');
+      const result=await window.ExpoBimChat.run({question:q,project:actionProject,frame,
+        isCurrent:()=>currentProject===actionProject&&currentDest==='design'&&on3D});
+      if(result.handled){
+        bubble.innerHTML=mdLite(result.message||'No viewer action was applied.');
+        aiHist.push({role:'user',content:q},{role:'assistant',content:result.message||''});
+        addAnswerActions(bubble,result.message||'');
+        return;
+      }
+      bubble.closest('.m').remove();
+    }
+    const ctx=await getViewerCtx();
     await stream(q,`${API}/ask_model`,{project:currentProject,query:q+revNote,context:ctx.context||'',selection:ctx.selection||(lastSel&&lastSel.text)||'',messages:aiHist.slice(-6)}); }
-  else if(!useCowork&&currentDest==='mpd'&&!standards){
+  else if(!useCowork&&(currentDest==='mpd'||isExcelExportRequest)&&!standards){
     const actionProject = currentProject;
     const selPlot = (typeof window._getMpdSelectedPlotId === 'function') ? window._getMpdSelectedPlotId() : null;
+    const activeLu = (typeof window._getMpdIsolatedLandUse === 'function') ? window._getMpdIsolatedLandUse() : null;
+    const activeSec = (typeof window._getMpdIsolatedSector === 'function') ? window._getMpdIsolatedSector() : null;
+    const activePlotIds = (typeof window._getMpdIsolatedPlotIds === 'function') ? window._getMpdIsolatedPlotIds() : null;
     const bub = addMsg('a', '<div class="ai-working" role="status"><span class="ai-working-dot"></span><div><strong>Masterplan Spatial Reasoning</strong><small>Evaluating zoning, FAR and parcel parameters with Qwen 3.5 9B…</small></div></div>');
     try {
       const res = await fetch(`${API}/api/v1/masterplan/projects/${encodeURIComponent(currentProject)}/ai-query`, {
@@ -3583,7 +4249,10 @@ async function sendAi(standards){ const t=$('aiIn'); const q=t.value.trim();
         body: JSON.stringify({
           query: q,
           project_id: currentProject,
-          selected_plot_id: selPlot
+          selected_plot_id: selPlot,
+          active_land_use: activeLu,
+          active_sector: activeSec,
+          active_plot_ids: activePlotIds
         })
       });
       if(!res.ok){
@@ -3594,24 +4263,28 @@ async function sendAi(standards){ const t=$('aiIn'); const q=t.value.trim();
       const data = await res.json();
       let toolBadges = '';
       if(data.view_actions && data.view_actions.length){
-        data.answer = data.view_actions[0].type === 'edit_hatches' && typeof window._performMpdCadAction === 'function'
-          ? await window._performMpdCadAction(data.view_actions[0],actionProject)
-          : typeof window._applyMpdViewActions === 'function'
-          ? window._applyMpdViewActions(data.view_actions, actionProject)
-          : 'Drawing controls are unavailable. Open MPD and try again.';
+        data.answer = typeof window._executeMpdChatActions === 'function'
+          ? await window._executeMpdChatActions(data.view_actions, actionProject)
+          : 'Action not applied: open MPD to use drawing controls.';
       }
       if(data.tools_called && data.tools_called.length){
         toolBadges = '<div style="margin-top:8px;display:flex;gap:4px;flex-wrap:wrap">' + data.tools_called.map(t => `<span class="mpd-badge" style="font-size:9.5px;padding:2px 6px">Tool: ${esc(t)}</span>`).join('') + '</div>';
       }
       if (data.html) {
-        bub.innerHTML = `<div>${data.html}</div>${toolBadges}`;
+        bub.innerHTML = `<div>${data.html}</div>${data.answer ? ('<div style="margin-top:10px">' + mdLite(data.answer) + '</div>') : ''}${toolBadges}`;
       } else {
         bub.innerHTML = `<div>${mdLite(data.answer)}</div>${toolBadges}`;
+      }
+      if (window.ExpoMotion && /```mermaid/i.test(data.answer || '')) {
+        try { window.ExpoMotion.renderMermaidIn(bub, data.answer); } catch(e){}
+      }
+      if (data.intent === 'EXPORT_EXCEL' && typeof window._downloadMpdExcel === 'function') {
+        window._downloadMpdExcel(actionProject, data.export_land_use || '', data.export_sector || '', data.export_plots || null);
       }
       aiHist.push({role:'user',content:q});
       aiHist.push({role:'assistant',content:data.answer});
 
-      if(data.highlight_plots && data.highlight_plots.length && typeof window._highlightMpdPlots === 'function'){
+      if((!data.view_actions || !data.view_actions.length) && data.highlight_plots && data.highlight_plots.length && typeof window._highlightMpdPlots === 'function'){
         window._highlightMpdPlots(data.highlight_plots, data.highlight_color);
       }
     } catch(err){
@@ -3622,12 +4295,18 @@ async function sendAi(standards){ const t=$('aiIn'); const q=t.value.trim();
   }
   else { const prefix=(standards||currentDest==='codes')?'Using the codes/standards knowledge base, ':'';
     let scoped=q+revNote;
+    if(useCowork){
+      if(window.currentCoworkFocus && window.currentCoworkFocus.path){
+        scoped = `[Active Cowork ${window.currentCoworkFocus.type}: "${window.currentCoworkFocus.path}"] ${scoped}`;
+      } else if(window.currentCoworkFolder){
+        scoped = `[Active Cowork folder: "${window.currentCoworkFolder}"] ${scoped}`;
+      }
+    }
     const _focus=(ctxDoc&&!useCowork&&['documents','specifications','drawings','schedules','pdfcraft'].includes(currentDest))?(ctxDoc.rel||''):'';
     if(_focus) scoped=`Regarding "${ctxDoc.filename}": `+scoped;
-    window.__expoVizQ=false; const _attId=useCowork?null:((currentAttachment&&currentAttachment.id)||null);
-    const askBody={project:currentProject,query:prefix+scoped,messages:aiHist.slice(-8),k:8,model:'qwen3.5:9b',focus_doc:_focus,attachment_id:_attId};
-    if(useCowork) askBody.mode='cowork';
-    window.__expoLastQuestion=q; window.__expoVizQ=/\b(chart|graph|plot|visuali[sz]\w*|dashboard|pie|donut|histogram|infographic)\b/i.test(q)&&!/flow\s*chart/i.test(q);
+    window.__expoVizQ=false; const _attId=(currentAttachment&&currentAttachment.id)||null;
+    const askBody={project:currentProject,query:prefix+scoped,messages:aiHist.slice(-8),k:8,model:'qwen3.5:9b',focus_doc:_focus,attachment_id:_attId,mode:useCowork?'cowork':'agent'};
+    window.__expoLastQuestion=q; window.__expoVizQ=!useCowork&&/\b(chart|graph|plot|visuali[sz]\w*|dashboard|pie|donut|histogram|infographic)\b/i.test(q)&&!/flow\s*chart/i.test(q);
     if(!useCowork&&window.ExpoChartChat&&window.ExpoChartChat.last){ try{ const ed=await window.ExpoChartChat.tryEdit(q,currentProject);
       if(ed){ const b=addMsg('a',esc(ed.reply||'Updated the chart.')); window.ExpoChartChat.render(b,ed); $('aiMsgs').scrollTop=$('aiMsgs').scrollHeight;
         aiHist.push({role:'user',content:q}); aiHist.push({role:'assistant',content:ed.reply||''}); return; } }catch(e){ console.warn('chart edit',e); } }
@@ -3635,17 +4314,76 @@ async function sendAi(standards){ const t=$('aiIn'); const q=t.value.trim();
 }
 
 /* --- References pane --- */
+function updateReferencesBadge(count){
+  try {
+    const tab = $('aiTabs') ? $('aiTabs').querySelector('[data-tab="references"]') : null;
+    if (tab) {
+      tab.innerHTML = count > 0 ? `References <span class="tab-count">${count}</span>` : 'References';
+    }
+  } catch(e) {}
+}
+window.updateReferencesBadge = updateReferencesBadge;
+
 function renderReferencesPane(){
   const b=$('refBody');
+  if(!b) return;
   const refs=(lastUsedSources&&lastUsedSources.length)?lastUsedSources:lastSources;
-  if(!refs.length){ b.innerHTML=`<div class="state"><div class="muted">Ask a question — the sources behind the answer appear here with page and revision.</div></div>`; return; }
-  b.innerHTML=`<div class="dt-toolbar"><b>Sources used in the last answer</b></div>`+refs.map(s=>{
-    const name=s.filename||s.source||s.rel||'source'; const rel=s.rel||s.source||'';
-    const isPdf = /\.pdf$/i.test(name) || /\.pdf$/i.test(rel);
-    const clickHandler = isPdf ? `openProjectPdf('${esc(rel||name)}', ${s.page||1})` : `openFile('${esc(rel)}')`;
-    return `<div class="li" onclick="${clickHandler}" title="Open file"><div class="fi">${fileTypeIcon(fileExt(name))}</div>
-      <div class="fn"><b>${esc(name)}</b><span>${s.page!=null?('Page '+s.page):''}${s.revision?(' · Rev '+esc(s.revision)):''}</span></div>
-    </div>`; }).join('');
+  if(!refs || !refs.length){
+    b.innerHTML=`<div class="state"><div class="muted">Ask a question — the ground-truth sources behind each answer appear here with page numbers, revisions, and clickable provenance.</div></div>`;
+    return;
+  }
+  const cardsHtml = refs.map((s, idx) => {
+    const rawName = s.filename || s.source || s.rel || 'Source Document';
+    const baseName = String(rawName).replace(/\\/g, '/').split('/').pop();
+    const rel = s.rel || s.source || (baseName.startsWith('Documents/') ? baseName : 'Documents/' + baseName);
+    const pageNum = (Number.isInteger(Number(s.page)) && Number(s.page) > 0) ? Number(s.page) : (s.page ? parseInt(s.page, 10) : 1);
+    const isPdf = /\.pdf$/i.test(baseName) || /\.pdf$/i.test(rel);
+    const ext = fileExt(baseName);
+    const snippet = (s.snippet || s.text_snippet || '').trim();
+    const cleanAttr = escAttr(baseName);
+
+    return `
+      <div class="provenance-ref-card">
+        <div class="p-card-header">
+          <div class="p-card-left">
+            <span class="p-icon">${fileTypeIcon(ext)}</span>
+            <div class="p-meta">
+              <div class="p-title" title="${esc(baseName)}">${esc(baseName)}</div>
+              <div class="p-badges">
+                <span class="p-badge p-page">Page ${pageNum}</span>
+                ${s.revision ? `<span class="p-badge p-rev">Rev ${esc(s.revision)}</span>` : ''}
+                ${s.score != null ? `<span class="p-badge p-score">${Math.round(s.score * 100)}% match</span>` : ''}
+              </div>
+            </div>
+          </div>
+          <div class="p-actions">
+            <button class="tb primary p-btn" onclick="window.openCitationSource('${cleanAttr}', ${pageNum})" title="Open in new browser tab at Page ${pageNum}">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+              <span>Page ${pageNum}</span>
+            </button>
+            ${isPdf ? `<button class="tb p-btn" onclick="window.openCitationSource('${cleanAttr}', ${pageNum}, 'viewer', ${esc(JSON.stringify(snippet))})" title="Inspect evidence page in overlay without leaving workspace">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              <span>Inspect</span>
+            </button>` : ''}
+          </div>
+        </div>
+        ${snippet ? `<div class="p-snippet"><blockquote>${esc(snippet.slice(0, 320))}${snippet.length > 320 ? '…' : ''}</blockquote></div>` : ''}
+      </div>
+    `;
+  }).join('');
+
+  b.innerHTML = `
+    <div class="dt-toolbar" style="padding:10px 14px;background:rgba(255,255,255,0.02);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+      <div style="font-size:12px;font-weight:600;display:flex;align-items:center;gap:6px">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+        <span>Audit Provenance (${refs.length} ${refs.length === 1 ? 'source' : 'sources'})</span>
+      </div>
+      <span style="font-size:11px;color:var(--muted)">Ground-Truth Citations</span>
+    </div>
+    <div style="padding:10px 12px;display:flex;flex-direction:column;gap:10px">
+      ${cardsHtml}
+    </div>
+  `;
 }
 
 /* --- Compliance pane (deterministic engine, not the LLM) --- */

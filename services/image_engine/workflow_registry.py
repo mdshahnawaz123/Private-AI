@@ -26,6 +26,11 @@ class WorkflowValidationError(ValueError):
     pass
 
 
+class WorkflowUIFormatSkipped(WorkflowValidationError):
+    """Raised when a workflow file is a ComfyUI Web UI graph rather than an API prompt."""
+    pass
+
+
 class WorkflowNotFoundError(KeyError):
     """Raised when an unknown workflow ID is requested."""
     pass
@@ -61,6 +66,8 @@ class WorkflowRegistry:
                 self._metadata_cache[wf_id] = meta
                 loaded += 1
                 logger.info(f"Loaded valid ComfyUI workflow: {wf_id} ({meta.name})")
+            except WorkflowUIFormatSkipped as ui_exc:
+                logger.info(f"Skipping ComfyUI Web UI template (not an API graph): {json_path.name}")
             except Exception as exc:
                 logger.error(f"Failed to load workflow from {json_path.name}: {exc}")
 
@@ -80,7 +87,7 @@ class WorkflowRegistry:
 
         # Distinguish between ComfyUI Web UI Graph format vs API Prompt format
         if "nodes" in data and isinstance(data["nodes"], list):
-            raise WorkflowValidationError(
+            raise WorkflowUIFormatSkipped(
                 f"{path.name} is in ComfyUI Web UI format ('nodes' list). "
                 "Must be exported in ComfyUI Prompt API format (dict of node_id -> class_type/inputs)."
             )

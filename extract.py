@@ -97,6 +97,21 @@ def extract_tables_geometry(page):
     import fitz
     blocks = []
     try:
+        # Safeguard against massive vector CAD sheets:
+        # A normal PDF page with tables has an uncompressed vector stream < 1.5MB.
+        # Architectural floor plans, sections, and CAD sheets can contain 10MB-300MB
+        # of raw vector instructions (millions of line segments). Calling find_tables()
+        # triggers combinatorial line-intersection analysis in PyMuPDF that hangs indefinitely.
+        doc = getattr(page, "doc", None) or getattr(page, "parent", None)
+        if doc:
+            try:
+                xrefs = page.get_contents()
+                stream_sz = sum(len(doc.xref_stream(x)) for x in xrefs)
+                if stream_sz > 1_500_000:
+                    return "", 0
+            except Exception:
+                pass
+
         finders = []
         try:
             finders.append(page.find_tables())
@@ -111,6 +126,7 @@ def extract_tables_geometry(page):
             except Exception:
                 pass
         seen_bbox = []
+        textpage = None
         for finder in finders:
             for t in (getattr(finder, "tables", None) or []):
                 try:
@@ -131,7 +147,9 @@ def extract_tables_geometry(page):
                 try:
                     if bbox:
                         band = fitz.Rect(bbox[0] - 2, max(0, bbox[1] - 38), bbox[2] + 2, bbox[1] - 1)
-                        title = " ".join(page.get_textbox(band).split())[:70]
+                        if textpage is None:
+                            textpage = page.get_textpage()
+                        title = " ".join(page.get_textbox(band, textpage=textpage).split())[:70]
                 except Exception:
                     title = ""
                 blocks.append((title + "\n" + md) if title else md)

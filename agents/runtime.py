@@ -123,12 +123,24 @@ class ComplianceAgent(Agent):
             "description": "Get project evidence",
         })
 
+        rule_id = "DOOR-MIN-WIDTH"
+        q_low = query.lower()
+        if "corridor" in q_low: rule_id = "CORRIDOR-MIN-WIDTH"
+        elif "ceiling" in q_low or "height" in q_low: rule_id = "CEILING-MIN-HEIGHT"
+        elif "travel" in q_low or "distance" in q_low: rule_id = "TRAVEL-MAX-DISTANCE"
+        elif "room" in q_low: rule_id = "ROOM-MIN-AREA"
+        elif "fire" in q_low: rule_id = "FIRE-RATING-MIN"
+        elif "stair" in q_low: rule_id = "STAIR-MIN-WIDTH"
+        elif "riser" in q_low: rule_id = "RISER-MAX-HEIGHT"
+        elif "tread" in q_low: rule_id = "TREAD-MIN-DEPTH"
+        elif "headroom" in q_low: rule_id = "HEADROOM-MIN"
+
         # Step 3: Run compliance rules
         steps.append({
             "action": "tool_call",
             "tool_name": "run_rule",
-            "params": {"rule_id": "DOOR-MIN-WIDTH", "actual_value": 0},
-            "description": "Run compliance rules",
+            "params": {"rule_id": rule_id, "actual_value": context.get("actual_value", 0)},
+            "description": f"Run compliance rule for {rule_id}",
         })
 
         return steps

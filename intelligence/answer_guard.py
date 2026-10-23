@@ -9,7 +9,9 @@ from decimal import Decimal, InvalidOperation
 
 
 MARKER=re.compile(r'\[SOURCE:\s*(.*?)\s*\\?\|\s*PAGE\s+(\d+|UNPAGINATED|[^\]|\n]{1,80}?)\s*\]',re.I)
-NUMBER=re.compile(r'(?<![\w])[-+]?\d[\d,]*(?:\.\d+)?(?![\w])')
+# A unit may follow a value with no space ('V=47m/sec', '12m', '20OC'); only a further
+# digit or decimal point means the number is longer.
+NUMBER=re.compile(r'(?<![\w])[-+]?\d[\d,]*(?:\.\d+)?(?!\d|\.\d)')
 
 
 def numbers(text):
@@ -34,6 +36,7 @@ def _normalize_unit(unit):
     # Case-sensitive SI prefixes must not collapse milli into mega.
     if unit in ('mPa','mW'):return 'milli'+unit[1:].lower()
     unit=re.sub(r'\s+',' ',unit).lower().strip()
+    unit=unit.replace('²','2').replace('³','3')
     return _UNIT_ALIASES.get(unit,unit)
 
 
@@ -111,9 +114,12 @@ def _numeric_text(answer,sources):
     so they'd otherwise pollute numbers()/quantity_pairs() scanning. Shared
     by publication_issues and auto_cite so both agree on exactly which
     numbers an answer is actually asserting."""
-    numeric_text=answer
+    numeric_text=MARKER.sub('',answer)
     for source in sources:
         if not isinstance(source,dict): continue
+        page = source.get('page')
+        if str(page).isdigit():
+            numeric_text=re.sub(r'\bpage\s+'+re.escape(str(page))+r'\b','',numeric_text,flags=re.I)
         identifier=str(source.get('filename') or source.get('source') or '')
         for name in (identifier,identifier.replace('\\','/').split('/')[-1]):
             if re.search(r'\.[a-z0-9]{1,10}$',name,re.I):
@@ -185,6 +191,18 @@ def publication_issues(answer,evidence,sources,question=""):
         supported.update(numbers(excerpts.get(key,'')))
     if numeric-supported:issues.append('Numeric values absent from cited page excerpts')
     cited_text='\n'.join(excerpts.get(key,'') for key in citations)
+    # Deadlines are requirements too: even spelled-out durations must be
+    # supported by the cited evidence, not added as workflow advice.
+    duration = r'\b(?:within\s+)?(?:\d+|one|two|three|four|five|six|seven|eight|nine|ten|fifteen|thirty)[\s-]+(?:business[\s-]+|working[\s-]+|calendar[\s-]+)?(?:days?|weeks?|months?|years?)\b'
+    def duration_key(value):
+        value=re.sub(r'^within\s+', '', value, flags=re.I).casefold()
+        value=re.sub(r'[\s-]+', ' ', value)
+        return re.sub(r'\b(days|weeks|months|years)\b',lambda m:m[0][:-1],value)
+    source_durations={duration_key(m[0]) for m in re.finditer(duration,cited_text,re.I)}
+    for match in re.finditer(duration, MARKER.sub('', numeric_text), re.I):
+        if duration_key(match[0]) not in source_durations:
+            issues.append('Deadline or duration absent from cited page excerpts')
+            break
     # Only treat "approved" as a document/drawing/submission approval-status
     # assertion -- not generic technical usage like "approved equipment",
     # "code-approved design", or "approved for use" (e.g. a sprinkler system
@@ -266,8 +284,43 @@ def publication_issues(answer,evidence,sources,question=""):
 _ABSTAIN=re.compile(r"^\W*(?:I (?:could|can)\s*not find|I did not find|(?:The|These) (?:uploaded |provided |available )?(?:documents?|context|evidence|report) do(?:es)?\s*n[o']t (?:contain|specify|mention|include|state)|(?:This|That) information is not (?:in|available|provided))",re.I)
 
 
+_NAME_Q=re.compile(r"\bwho\b|\b(?:contractor|sub-?contractor|consultant|company|firm|manufacturer|supplier|vendor|client|developer|architect|engineer of record|owner)\b",re.I)
+_CORP=r"(?:LLC|L\.L\.C\.|Ltd\.?|Limited|Inc\.?|Corp\.?|Co\.|PLC|GmbH|LLP|Group|Contracting|Contractors?|Consultants?|Engineering|Associates)"
+_NAME_RUN=re.compile(r"\b[A-Z][A-Za-z&'-]+(?:\s+(?:&\s+|of\s+|and\s+)?[A-Z][A-Za-z&'.-]+)+")
+
+
+def name_issues(answer,evidence,sources,question=""):
+    """Names (companies/people) must come from the evidence (2026-10-21).
+    Checked for corporate-suffix names always, and for every multi-word proper
+    name when the question asks who/which contractor, consultant, etc."""
+    text=re.sub(r"[*_`#>|]+"," ",MARKER.sub(" ",answer or ""))
+    hay=" ".join([evidence or "",question or ""]+[str(s.get('source') or s.get('filename') or '') for s in (sources or []) if isinstance(s,dict)])
+    hay=re.sub(r"\s+"," ",hay).casefold()
+    ask_name=bool(_NAME_Q.search(question or ""))
+    bad=[]
+    for line in text.splitlines():
+        if line.strip().endswith(':'):
+            continue
+        for m in _NAME_RUN.finditer(line):
+            name=m.group().strip(" .")
+            if not (ask_name or re.search(_CORP+r"$",name)):
+                continue
+            words=name.split()
+            if words[0].casefold() in {"the","this","that","based","according","however","these","there","in","on","for","a","an"}:
+                name=" ".join(words[1:]); words=words[1:]
+            if len(words)<2:
+                continue
+            if re.sub(r"\s+"," ",name).casefold() not in hay:
+                bad.append(name)
+    return ["Name not found in the cited evidence: "+", ".join(dict.fromkeys(bad))] if bad else []
+
+
 def guarded_answer(answer,evidence,sources,question=""):
     issues=publication_issues(answer,evidence,sources,question=question)
+    try:
+        issues=list(issues)+name_issues(answer,evidence,sources,question)
+    except Exception:
+        pass
     if issues and _ABSTAIN.match(answer or ''):
         # The model correctly said the answer is not in the documents, but then
         # mentioned nearby numbers/terms, which tripped the citation checks and
@@ -316,3 +369,68 @@ def guarded_answer_with_repair(answer,evidence,sources,repair,question=""):
     except Exception:
         pass
     return published,issues
+
+
+def salvage(answer, evidence, sources):
+    """Line-level recovery of a withheld answer (2026-10-21).
+
+    Keeps each statement only if one retrieved page excerpt contains all of its
+    numbers, and makes that statement cite that page. Statements whose numbers
+    no single page supports are dropped. Returns (rebuilt answer or None, number of dropped statements).
+    The result must still pass guarded_answer(); this never bypasses checks."""
+    excerpts = _excerpts_by_page(evidence)
+    allowed = {(str(s.get('source') or s.get('filename') or ''), str(s.get('page') if s.get('page') is not None else 'UNPAGINATED').upper())
+               for s in sources if isinstance(s, dict)}
+    page_nums = {k: numbers(v) for k, v in excerpts.items() if k in allowed}
+    kept, dropped, any_numeric = [], 0, False
+    for line in (answer or '').splitlines():
+        bare = MARKER.sub('', line).rstrip()
+        need = numbers(_numeric_text(bare, sources))
+        if not need:
+            if bare.strip() or not line.strip():
+                kept.append(bare)
+            continue
+        cited = [(m.group(1).strip(), m.group(2).upper()) for m in MARKER.finditer(line)]
+        pages = [k for k in cited if k in page_nums and need <= page_nums[k]]
+        if not pages:
+            pages = [k for k in page_nums if need <= page_nums[k]]
+        if not pages:
+            dropped += 1
+            continue
+        any_numeric = True
+        f, pg = pages[0]
+        m_end = re.search(r'([.;:!?]*)\s*$', bare)
+        core, tail = bare[:m_end.start()].rstrip(), m_end.group(1)
+        kept.append(core + f' [SOURCE: {f} | PAGE {pg}]' + tail)
+    if not any_numeric:
+        return None, 0
+    return '\n'.join(kept).strip(), dropped
+
+
+SALVAGE_NOTE = "\n\n_Note: some statements in the draft could not be matched to one cited page, so they are not shown._"
+
+
+def guarded_or_salvaged(answer, evidence, sources, question=""):
+    """guarded_answer(); if it withholds, try salvage() and re-check the result."""
+    published, issues = guarded_answer(answer, evidence, sources, question=question)
+    if not issues or _ABSTAIN.match(answer or ''):
+        return published, issues
+    try:
+        text, dropped = salvage(answer, evidence, sources)
+    except Exception:
+        return published, issues
+    if text:
+        pub2, issues2 = guarded_answer(text, evidence, sources, question=question)
+        if not issues2:
+            return pub2 + (SALVAGE_NOTE if dropped else ""), []
+    # A "not in the document" answer: publish just the abstention sentence(s).
+    try:
+        from intelligence.claim_support import _ABSTENTION_RE
+        keep = [ln for ln in (answer or '').splitlines() if _ABSTENTION_RE.search(ln) and not MARKER.search(ln)]
+        if keep and not numbers(MARKER.sub('', answer.split(keep[0])[0])):
+            # Only the model's own "not in the documents" conclusion is published;
+            # its unverifiable supporting remarks are dropped.
+            return 'I could not find this in the uploaded documents.', []
+    except Exception:
+        pass
+    return published, issues

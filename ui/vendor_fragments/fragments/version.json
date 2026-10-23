@@ -1,0 +1,19 @@
+{
+  "package": "@thatopen/fragments",
+  "version": "3.4.8",
+  "source": "https://github.com/ThatOpen/engine_fragment/releases/tag/v3.4.8",
+  "files": {
+    "index.mjs": {
+      "bytes": 640334,
+      "sha256": "0d9bcf38b9178d7fea4c85b77496ae1da192c410e47083b36bc65fb50ead1ee3"
+    },
+    "index.debug.mjs": {
+      "bytes": 1410011,
+      "sha256": "098e51420ca2e6282e1100bc13430329b217f88a91c8a069a2aec7a301e3d387"
+    },
+    "Worker/worker.mjs": {
+      "bytes": 1300170,
+      "sha256": "cc923d9f01c359f53f6183c69ee02bc93afda2d12a6abdb293ec9b568f1863f9"
+    }
+  }
+}

@@ -11,7 +11,7 @@
     if (!last || !text || text.length > 220 || !HINT.test(text)) return null;
     if (project && last.project && project !== last.project) return null;
     if (/\b(from\s+the|from\s+sheet|from\s+table|new\s+chart|another\s+chart|regarding|budget|zoning|population|land use)\b/i.test(text)) return null;
-    let token = null; try { token = localStorage.getItem('expo_token'); } catch (e) {}
+    let token = null; try { token = null; } catch (e) {}
     const r = await fetch('/api/visualize/edit', { method: 'POST',
       headers: Object.assign({ 'Content-Type': 'application/json' }, token ? { Authorization: 'Bearer ' + token } : {}),
       body: JSON.stringify({ spec: last.spec, instruction: text, question: last.question, project: project || last.project }) });

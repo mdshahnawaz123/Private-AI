@@ -1,9 +1,0 @@
-test_killed_queue_owner_replays_once_and_keeps_hash (test_process_interruption.ProcessInterruptionTests.test_killed_queue_owner_replays_once_and_keeps_hash) ... ok
-test_real_faiss_directory_swap_kill_recovers_previous_generation (test_process_interruption.ProcessInterruptionTests.test_real_faiss_directory_swap_kill_recovers_previous_generation) ... ok
-test_sqlite_kill_before_commit_never_publishes_ready (test_process_interruption.ProcessInterruptionTests.test_sqlite_kill_before_commit_never_publishes_ready) ... ok
-test_upload_process_kill_preserves_original_and_quarantines_partial (test_process_interruption.ProcessInterruptionTests.test_upload_process_kill_preserves_original_and_quarantines_partial) ... ok
-
-----------------------------------------------------------------------
-Ran 4 tests in 6.128s
-
-OK

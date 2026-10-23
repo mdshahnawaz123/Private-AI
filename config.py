@@ -17,9 +17,15 @@ class Settings(BaseSettings):
     host: str = "127.0.0.1"
     port: int = 8090
     cors_origins: Annotated[List[str], NoDecode] = []
+    environment: str = "development"  # 'development' | 'production' | 'staging'
 
     # Database
     database_url: str = ""
+    db_pool_size: int = 20
+    db_max_overflow: int = 10
+    db_pool_timeout: int = 30
+    db_pool_recycle: int = 1800
+    db_pool_pre_ping: bool = True
 
     # Data directory
     data_dir: str = "data"
@@ -30,7 +36,7 @@ class Settings(BaseSettings):
     admin_password: str = "admin"
 
     # AI models
-    vision_model: str = "qwen2.5vl:7b"
+    vision_model: str = "paddleocr"
     embed_model: str = "bge-m3"
     fast_llm: str = "qwen2.5:7b"
     fast_llm_enabled: bool = False
@@ -51,8 +57,8 @@ class Settings(BaseSettings):
     reranker_enabled: bool = True
 
     # Wave 1: Model tiering
-    worker_model: str = "qwen2.5vl:7b"
-    author_model: str = "qwen2.5vl:7b"
+    worker_model: str = "qwen3.5:9b"
+    author_model: str = "qwen3.5:9b"
     chat_model: str = "qwen3.5:9b"  # Installed text model; vision uses vision_model separately.
     enable_model_tiering: bool = False
     rerank_candidates: int = 20
@@ -105,7 +111,7 @@ class Settings(BaseSettings):
     chat_retries: int = 3
 
     # 3D Render & Diffusion Model (Configurable: Qwen-Image-2.1-Turbo, FLUX.2-klein-4B, etc.)
-    render_model: str = "FLUX.2-klein-4B"
+    render_model: str = "FLUX-3-Image-Klein"
     render_provider: str = "local"  # 'local' (offline ComfyUI / Diffusers / Ollama endpoint) or 'cloud'
     render_host: str = "http://127.0.0.1:8188"  # local endpoint (e.g. ComfyUI / Diffusers / SD-WebUI)
     render_api_key: str = ""  # optional cloud API key if using cloud provider (e.g. DashScope, Replicate, BFL)
@@ -158,8 +164,8 @@ class Settings(BaseSettings):
     @field_validator('chat_model','vision_model','worker_model','author_model','fast_llm')
     @classmethod
     def permitted_model(cls,value):
-        if value not in {'qwen2.5:7b','qwen2.5vl:7b','qwen3.5:9b'}:
-            raise ValueError('Only Qwen 2.5 7B and Qwen 3.5 9B are enabled')
+        if value not in {'qwen2.5:7b','paddleocr','qwen3.5:9b'}:
+            raise ValueError('Only Qwen 2.5 7B, Qwen 3.5 9B, and PaddleOCR are enabled')
         return value
 
     def __init__(self, **kwargs):
@@ -184,6 +190,14 @@ def get_settings() -> Settings:
     if _settings is None:
         _settings = Settings()
     return _settings
+
+
+def is_production() -> bool:
+    """Check if application is running in production mode."""
+    s = get_settings()
+    env = getattr(s, "environment", "development") or "development"
+    return env.strip().lower() in ("production", "prod")
+
 
 
 # -- Model-serving role resolution (Pilot architecture blueprint Sec 6.1) --
@@ -217,6 +231,8 @@ def resolve_role(role: str) -> dict:
         "author": s.author_model,
         "embed": s.embed_model,
     }[role]
+    if role == "vision" and s.vision_model == "paddleocr":
+        return {"model": "paddleocr", "provider": "paddleocr", "base_url": "local"}
     if role == "vision":
         base_url = s.vision_ollama_host or s.ollama_host
     elif role in ("chat", "worker", "author"):

@@ -20,7 +20,7 @@ class MaskedWorkerTests(unittest.IsolatedAsyncioTestCase):
         self.mock_client.upload_image.return_value = {'name':'source.png'}
         generated = io.BytesIO(); Image.new('RGB',(128,128),'red').save(generated,'PNG')
         self.mock_client.get_image_bytes.return_value = generated.getvalue()
-        return JobSubmissionRequest(project=self.project_name, workflow_id='render_enhancement', prompt='Redesign only screen', input_image_path=str(source), edit_mask_path=str(path), steps=20, cfg=5)
+        return JobSubmissionRequest(project=self.project_name, workflow_id='render_enhancement', prompt='Redesign only screen', input_image_path=str(source), edit_mask_path=str(path), steps=16, cfg=1)
 
     async def test_worker_publishes_composite_and_provenance(self):
         request = self.request()

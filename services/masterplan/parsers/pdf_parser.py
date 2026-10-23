@@ -113,4 +113,7 @@ class MasterplanPdfParser:
 
         plots = list(plot_map.values())
         logger.info(f"MasterplanPdfParser extracted {len(plots)} plots from {file_path}")
+        for plot in plots:
+            if not plot.provenance:
+                plot.provenance=[{"filename":os.path.basename(file_path),"kind":"pdf"}]
         return plots

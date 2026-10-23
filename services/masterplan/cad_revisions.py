@@ -8,7 +8,7 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
-COLORS={'yellow':0xffff00,'red':0xff0000,'green':0x00ff00,'blue':0x0080ff,'orange':0xffa500,'purple':0xa855f7}
+COLORS={'yellow':0xffff00,'red':0xff0000,'green':0x00ff00,'blue':0x0080ff,'orange':0xffa500,'purple':0xa855f7,'cyan':0x00ffff,'pink':0xffc0cb,'teal':0x008080,'magenta':0xff00ff,'gold':0xffd700,'white':0xffffff}
 
 
 def digest(path):

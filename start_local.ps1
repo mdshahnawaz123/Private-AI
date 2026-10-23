@@ -81,23 +81,14 @@ if (Get-NetTCPConnection -LocalPort $settings.port -State Listen -ErrorAction Si
     $isOurs = $false
     try {
         $live = Invoke-RestMethod -Uri "$serviceUrl/health/live" -TimeoutSec 5
-        if ($live.service -eq 'expo-design-ai') {
+        if ($live.service -eq 'expo-design-ai' -and $live.pid -and $ownerPids -contains [int]$live.pid) {
             $isOurs = $true
+            $ownerPids = @([int]$live.pid)
         }
     } catch { }
 
-    # If HTTP check did not reply (e.g. server was busy, hung, or reloading), verify if the listening process is our python server
-    if (-not $isOurs) {
-        foreach ($procId in $ownerPids) {
-            $proc = Get-CimInstance Win32_Process -Filter "ProcessId=$procId" -ErrorAction SilentlyContinue
-            if ($proc -and $proc.Name -eq 'python.exe') {
-                if (-not $proc.CommandLine -or $proc.CommandLine -match 'main\.py' -or $proc.CommandLine -match 'ExpoDesignAI') {
-                    $isOurs = $true
-                    break
-                }
-            }
-        }
-    }
+    # Missing metadata and a generic Python/main.py command are not identity.
+    # A failed health identity check must never authorize process termination.
 
     if ($isOurs -and -not $Restart) {
         Write-Host 'Expo Design AI is already running.'
@@ -143,6 +134,7 @@ if ($LASTEXITCODE -ne 0) { throw 'Required Python dependencies are missing. Prov
 $hostsToModels = @{}
 foreach ($roleName in $settings.roles.PSObject.Properties.Name) {
     $role = $settings.roles.$roleName
+    if ($role.model -eq 'paddleocr' -or $role.base_url -eq 'local' -or $role.provider -eq 'paddleocr') { continue }
     $exactTag = if ($role.model.Contains(':')) { $role.model } else { $role.model + ':latest' }
     if (-not $hostsToModels.ContainsKey($role.base_url)) { $hostsToModels[$role.base_url] = @() }
     $hostsToModels[$role.base_url] += $exactTag

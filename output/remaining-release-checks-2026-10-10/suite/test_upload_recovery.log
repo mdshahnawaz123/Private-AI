@@ -1,8 +1,0 @@
-test_active_staging_is_preserved_then_abandoned_bytes_quarantined (test_upload_recovery.UploadRecoveryTests.test_active_staging_is_preserved_then_abandoned_bytes_quarantined) ... ok
-test_child_process_exit_releases_lease_for_safe_quarantine (test_upload_recovery.UploadRecoveryTests.test_child_process_exit_releases_lease_for_safe_quarantine) ... ok
-test_unleased_and_unrecognized_files_are_not_moved (test_upload_recovery.UploadRecoveryTests.test_unleased_and_unrecognized_files_are_not_moved) ... ok
-
-----------------------------------------------------------------------
-Ran 3 tests in 0.196s
-
-OK

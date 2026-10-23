@@ -11,8 +11,18 @@ from pathlib import Path
 
 
 def root():
-    default = Path(__file__).resolve().parents[1]/'data'/'blender_jobs'
+    from db import DATA_DIR
+    default = Path(DATA_DIR)/'blender_jobs'
     return Path(os.getenv('EXPO_BLENDER_DATA', str(default))).resolve()
+
+
+@contextmanager
+def project_operation(project):
+    """Share the purge lock across create/analyze/review/build operations."""
+    import db
+    from services.project_cleanup import active_project_operation
+    with active_project_operation(db.DATA_DIR, project):
+        yield
 
 
 def job_dir(job_id):
@@ -41,6 +51,13 @@ def digest(data):
 
 @contextmanager
 def locked(folder):
+    project = read(folder/'job.json')['project']
+    with project_operation(project), _job_locked(folder):
+        yield
+
+
+@contextmanager
+def _job_locked(folder):
     path = folder/'operation.lock'
     try: fd = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
     except FileExistsError: raise ValueError('Job is busy; if interrupted, see recovery instructions')
@@ -58,6 +75,11 @@ def event(folder, state, message):
 
 
 def create(stream, project, owner, filename):
+    with project_operation(project):
+        return _create(stream, project, owner, filename)
+
+
+def _create(stream, project, owner, filename):
     if Path(filename).suffix.lower() != '.pdf': raise ValueError('Upload a PDF drawing')
     job_id=uuid.uuid4().hex; folder=job_dir(job_id); folder.mkdir(parents=True)
     total=0

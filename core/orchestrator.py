@@ -263,7 +263,7 @@ class BasicOrchestrator(OrchestratorInterface):
             return config.name
 
         # Fallback to default
-        return "qwen2.5vl:7b"
+        return "qwen3.5:9b"
 
     def verify_citations(self, answer: str, evidence: List[Evidence]) -> bool:
         """

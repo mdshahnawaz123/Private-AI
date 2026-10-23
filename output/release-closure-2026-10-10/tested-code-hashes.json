@@ -1,9 +1,0 @@
-{
-  "main.py": "b56a1aa5262ec85727b8ea39a44c6ae74866ad0da06ab062a31fe03a2e36d1fd",
-  "services/jobs.py": "6ef11a92711b43d1713ec49627e9be3418109e637895d85907ef8801fed8d2e0",
-  "intelligence/answer_guard.py": "d2a82e8544cc18579fb7fa2b3dc49644a17603be04c044d28aa0765e1ab9ee45",
-  "intelligence/citation_identity.py": "cf7490f78bf437f718ab86cdaad30dd8ef280e2d92aff4922d33926092502bb4",
-  "intelligence/source_excerpt.py": "e1b4302fdf8a702179f57702945ad3df645b0fb3c409ac1a9ce22910e730729a",
-  "intelligence/source_semantics.py": "b08e18a81f77566abff5407aee69d9205bf4ded657496b98ba0d65d72b3dbec7",
-  "synthetic_expected_key_sha256": "96764d63f21f72c7846c45777417c139f51ba87f4943cf5b2674ee2302de0643"
-}

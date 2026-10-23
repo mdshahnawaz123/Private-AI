@@ -1,7 +1,0 @@
-test_electrical_flow_thermal_and_prefix_conflicts_are_not_laundered (test_release_units.ReleaseUnitGate.test_electrical_flow_thermal_and_prefix_conflicts_are_not_laundered) ... ok
-test_same_number_with_incompatible_unit_is_rejected (test_release_units.ReleaseUnitGate.test_same_number_with_incompatible_unit_is_rejected) ... ok
-
-----------------------------------------------------------------------
-Ran 2 tests in 0.007s
-
-OK

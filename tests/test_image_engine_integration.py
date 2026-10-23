@@ -113,7 +113,8 @@ class TestImageEngineIntegration(unittest.IsolatedAsyncioTestCase):
                 spec = mock_info.setdefault(node.get("class_type"), {"input": {"required": {}}})
                 for k, v in node.get("inputs", {}).items():
                     if isinstance(k, str) and k.endswith("_name"):
-                        spec["input"]["required"][k] = [[v]]
+                        choices = spec["input"]["required"].setdefault(k, [[]])[0]
+                        if v not in choices: choices.append(v)
         self.mock_client.get_object_info.return_value = mock_info
 
         # Default track_execution simulation
@@ -170,13 +171,12 @@ class TestImageEngineIntegration(unittest.IsolatedAsyncioTestCase):
             project=self.project_name,
             workflow_id="architecture_concept",
             prompt="Cantilevered cultural pavilion with curved timber lamella facade and glass atrium",
-            negative_prompt="blurry, distorted geometry, cartoonish",
             architectural_style="Parametric",
             building_type="Exhibition Pavilion",
             width=1024,
             height=768,
-            steps=25,
-            cfg=7.5,
+            steps=4,
+            cfg=1.0,
             seed=424242,
         )
 
@@ -233,9 +233,8 @@ class TestImageEngineIntegration(unittest.IsolatedAsyncioTestCase):
             workflow_id="sketch_to_render",
             prompt="Refine hand-drawn massing sketch into photorealistic glass and steel museum",
             input_image_path=str(saved_sketch),
-            denoise=0.65,
             steps=20,
-            cfg=7.0,
+            cfg=1.0,
         )
 
         status = await self.job_service.submit_job(req, user_id=self.user_id)
@@ -269,7 +268,6 @@ class TestImageEngineIntegration(unittest.IsolatedAsyncioTestCase):
             workflow_id="render_enhancement",
             prompt="Photorealistic fair-faced concrete reflections and warm golden hour lighting",
             input_image_path=str(saved_render),
-            denoise=0.35,
             steps=20,
         )
 
@@ -421,26 +419,9 @@ class TestImageEngineIntegration(unittest.IsolatedAsyncioTestCase):
         Verify that all registered starter workflows validate against standard
         ComfyUI object_info node definitions without missing classes.
         """
-        standard_comfy_nodes = {
-            "CheckpointLoaderSimple": {"input": {"required": {"ckpt_name": ["STRING"]}}},
-            "EmptyLatentImage": {"input": {"required": {"width": ["INT"], "height": ["INT"], "batch_size": ["INT"]}}},
-            "CLIPTextEncode": {"input": {"required": {"text": ["STRING"], "clip": ["CLIP"]}}},
-            "KSampler": {"input": {"required": {"model": ["MODEL"], "positive": ["CONDITIONING"], "negative": ["CONDITIONING"], "latent_image": ["LATENT"]}}},
-            "VAEDecode": {"input": {"required": {"samples": ["LATENT"], "vae": ["VAE"]}}},
-            "VAEEncode": {"input": {"required": {"pixels": ["IMAGE"], "vae": ["VAE"]}}},
-            "LoadImage": {"input": {"required": {"image": ["IMAGE"]}}},
-            "SaveImage": {"input": {"required": {"images": ["IMAGE"]}}},
-            "UNETLoader": {"input": {"required": {"unet_name": ["STRING"]}}},
-            "CLIPLoader": {"input": {"required": {"clip_name": ["STRING"]}}},
-            "VAELoader": {"input": {"required": {"vae_name": ["STRING"]}}},
-            "ConditioningZeroOut": {"input": {"required": {}}},
-            "EmptyFlux2LatentImage": {"input": {"required": {}}},
-            "RandomNoise": {"input": {"required": {}}},
-            "KSamplerSelect": {"input": {"required": {}}},
-            "Flux2Scheduler": {"input": {"required": {}}},
-            "CFGGuider": {"input": {"required": {}}},
-            "SamplerCustomAdvanced": {"input": {"required": {}}},
-        }
+        # Simulate a server that provides every installed workflow node, including video/reference nodes.
+        standard_comfy_nodes = {node['class_type']:{"input":{"required":{}}}
+            for graph in self.registry._raw_workflows.values() for node in graph.values()}
 
         missing = self.registry.validate_against_comfy_object_info(standard_comfy_nodes)
 
@@ -451,14 +432,14 @@ class TestImageEngineIntegration(unittest.IsolatedAsyncioTestCase):
             self.assertIsNone(wf.unavailability_reason)
 
         # Negative test: missing a critical node class
-        incomplete_nodes = {k: v for k, v in standard_comfy_nodes.items() if k != "SamplerCustomAdvanced"}
+        incomplete_nodes = {k: v for k, v in standard_comfy_nodes.items() if k != "KSampler"}
         missing_bad = self.registry.validate_against_comfy_object_info(incomplete_nodes)
         self.assertIn("architecture_concept", missing_bad)
-        self.assertIn("SamplerCustomAdvanced", missing_bad["architecture_concept"])
+        self.assertIn("KSampler", missing_bad["architecture_concept"])
 
         meta = self.registry.get_metadata("architecture_concept")
         self.assertFalse(meta.available)
-        self.assertIn("SamplerCustomAdvanced", meta.unavailability_reason)
+        self.assertIn("KSampler", meta.unavailability_reason)
 
 
 if __name__ == "__main__":

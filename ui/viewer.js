@@ -11,13 +11,13 @@ function setLoading(t){ if(t===null){ loadingEl.style.display="none"; } else { l
 // ---- query params ----
 const q = new URLSearchParams(location.search);
 const project = q.get("project") || "";
-const token = q.get("token") || "";
+const token = null || "";
 const rels = q.getAll("rel");
 const EXPO_EMBED = q.get("embed")==="1";
 if(EXPO_EMBED){ const s=document.createElement("style");
   s.textContent="#right{display:none!important}#aiFab{display:none!important}#wrap{grid-template-columns:220px 1fr 0!important}";
   (document.head||document.documentElement).appendChild(s); }
-function fileURL(rel){ return `${location.origin}/projects/${encodeURIComponent(project)}/file?rel=${encodeURIComponent(rel)}&token=${encodeURIComponent(token)}`; }
+function fileURL(rel){ return `${location.origin}/projects/${encodeURIComponent(project)}/file?rel=${encodeURIComponent(rel)}`; }
 
 // ---- three scene (Y-up, matching web-ifc geometry output) ----
 const scene = new THREE.Scene();

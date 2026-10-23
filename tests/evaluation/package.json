@@ -12,7 +12,7 @@
   "type": "commonjs",
   "dependencies": {
     "@thatopen/components": "^3.4.8",
-    "@thatopen/fragments": "^3.4.7",
+    "@thatopen/fragments": "3.4.8",
     "three": "^0.186.1",
     "web-ifc": "^0.0.77"
   }

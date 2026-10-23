@@ -1,0 +1,2146 @@
+{
+  "project_id": "C3085 - 3EH -Expo Hills",
+  "total_questions": 122,
+  "passed": 113,
+  "failed": 9,
+  "pass_rate_pct": 92.62,
+  "latency": {
+    "avg_ms": 373.9,
+    "min_ms": 0.01,
+    "max_ms": 38470.14
+  },
+  "category_metrics": {
+    "Footprint Area": {
+      "total": 12,
+      "passed": 12,
+      "failed": 0,
+      "latencies": [
+        48.969299998134375,
+        87.75979999336414,
+        41.1630000162404,
+        88.4403999953065,
+        40.00940002151765,
+        87.04099999158643,
+        41.68350002146326,
+        93.0023999826517,
+        41.250300011597574,
+        90.99470000364818,
+        39.75940000964329,
+        94.3855999794323
+      ]
+    },
+    "GFA Capacity": {
+      "total": 12,
+      "passed": 12,
+      "failed": 0,
+      "latencies": [
+        41.89880000194535,
+        93.57349999481812,
+        38.90259997569956,
+        90.76130000175908,
+        39.86210000584833,
+        91.35969998897053,
+        40.96610000124201,
+        89.24969998770393,
+        40.63020000467077,
+        92.28909999364987,
+        40.22830000030808,
+        93.7215999874752
+      ]
+    },
+    "FAR Density": {
+      "total": 12,
+      "passed": 10,
+      "failed": 2,
+      "latencies": [
+        38.05460000876337,
+        88.92969999578781,
+        39.66700000455603,
+        91.02960000745952,
+        39.01459998451173,
+        95.50369999487884,
+        37.597799993818626,
+        88.03189999889582,
+        40.78690000460483,
+        89.46670001023449,
+        41.83440000633709,
+        89.36819998780265
+      ]
+    },
+    "Infrastructure & RoW": {
+      "total": 12,
+      "passed": 12,
+      "failed": 0,
+      "latencies": [
+        39.45319997728802,
+        129.81480002054013,
+        74.40660000429489,
+        121.42340000718832,
+        67.79539998387918,
+        130.26189999072812,
+        79.53170000109822,
+        95.90449999086559,
+        38.66729998844676,
+        84.64799998910166,
+        41.18170001311228,
+        92.173199984245
+      ]
+    },
+    "Sectors & Zoning": {
+      "total": 12,
+      "passed": 12,
+      "failed": 0,
+      "latencies": [
+        27.905399998417124,
+        28.39050002512522,
+        25.62410000246018,
+        86.96740001323633,
+        29.673000011825934,
+        27.97120000468567,
+        68.26259999070317,
+        37.90579998167232,
+        28.19179999642074,
+        76.67929999297485,
+        28.2438000140246,
+        25.9193999809213
+      ]
+    },
+    "Land Use Mix": {
+      "total": 12,
+      "passed": 12,
+      "failed": 0,
+      "latencies": [
+        27.704799984348938,
+        73.86239999323152,
+        28.851700015366077,
+        33.82680000504479,
+        29.114500008290634,
+        71.74030001624487,
+        25.57709999382496,
+        26.970100007019937,
+        20.901799987768754,
+        80.05140000022948,
+        29.362800007220358,
+        29.08559999195859
+      ]
+    },
+    "Reconciliation": {
+      "total": 12,
+      "passed": 12,
+      "failed": 0,
+      "latencies": [
+        38470.14180000406,
+        6.316200015135109,
+        5.302300007315353,
+        5.2143000066280365,
+        4.8445000138599426,
+        5.110700003569946,
+        5.121599999256432,
+        149.94499998283572,
+        226.2590000173077,
+        152.43370001553558,
+        5.7459000090602785,
+        5.101799994008616
+      ]
+    },
+    "Parking Capacity": {
+      "total": 8,
+      "passed": 8,
+      "failed": 0,
+      "latencies": [
+        40.86120001738891,
+        93.73550000600517,
+        44.05950001091696,
+        93.8902999914717,
+        42.447399988304824,
+        94.31129999575205,
+        42.83610000857152,
+        95.1088999863714
+      ]
+    },
+    "Heights & Setbacks": {
+      "total": 10,
+      "passed": 3,
+      "failed": 7,
+      "latencies": [
+        162.26569999707863,
+        212.571600015508,
+        163.83229999337345,
+        212.92520000133663,
+        0.05539998528547585,
+        0.023900007363408804,
+        0.01960000372491777,
+        160.51439999137074,
+        183.87130001792684,
+        140.06610002252273
+      ]
+    },
+    "Plot Inspection": {
+      "total": 10,
+      "passed": 10,
+      "failed": 0,
+      "latencies": [
+        58.438299980480224,
+        17.17630002531223,
+        13.349399989238009,
+        16.93199999863282,
+        74.11580000189133,
+        39.161099994089454,
+        90.18299999297597,
+        38.70800000731833,
+        93.93099998123944,
+        17.166600009659305
+      ]
+    },
+    "CAD Visual Actions": {
+      "total": 10,
+      "passed": 10,
+      "failed": 0,
+      "latencies": [
+        0.03759999526664615,
+        0.015400000847876072,
+        0.011399999493733048,
+        0.009599985787644982,
+        0.00969998654909432,
+        0.007100024959072471,
+        0.006099988240748644,
+        0.006999995093792677,
+        0.0052000104915350676,
+        0.006200018106028438
+      ]
+    }
+  },
+  "audit_trail": [
+    {
+      "id": "Q001",
+      "category": "Footprint Area",
+      "query": "show me only plots area more then 10000",
+      "passed": true,
+      "latency_ms": 48.97,
+      "intent": "QUERY_AREA_THRESHOLD",
+      "tools_called": [
+        "query_plots"
+      ],
+      "highlight_count": 94,
+      "view_actions": [],
+      "failure_reasons": [],
+      "answer_excerpt": "### \ud83d\udcd0 Masterplan Parcel Area Analysis (Footprint \u2265 10,000 m\u00b2) Found **94** plots matching this criteria:  | Plot ID | La"
+    },
+    {
+      "id": "Q002",
+      "category": "Footprint Area",
+      "query": "show plots with area less than 5000 sqm",
+      "passed": true,
+      "latency_ms": 87.76,
+      "intent": "QUERY_AREA_THRESHOLD",
+      "tools_called": [
+        "query_plots"
+      ],
+      "highlight_count": 278,
+      "view_actions": [],
+      "failure_reasons": [],
+      "answer_excerpt": "### \ud83d\udcd0 Masterplan Parcel Area Analysis (Footprint \u2264 5,000 m\u00b2) Found **278** plots matching this criteria:  | Plot ID | La"
+    },
+    {
+      "id": "Q003",
+      "category": "Footprint Area",
+      "query": "plots where footprint area is greater than 15000",
+      "passed": true,
+      "latency_ms": 41.16,
+      "intent": "QUERY_AREA_THRESHOLD",
+      "tools_called": [
+        "query_plots"
+      ],
+      "highlight_count": 56,
+      "view_actions": [],
+      "failure_reasons": [],
+      "answer_excerpt": "### \ud83d\udcd0 Masterplan Parcel Area Analysis (Footprint \u2265 15,000 m\u00b2) Found **56** plots matching this criteria:  | Plot ID | La"
+    },
+    {
+      "id": "Q004",
+      "category": "Footprint Area",
+      "query": "which parcels have area exceeding 25,000 sqm?",
+      "passed": true,
+      "latency_ms": 88.44,
+      "intent": "QUERY_AREA_THRESHOLD",
+      "tools_called": [
+        "query_plots"
+      ],
+      "highlight_count": 33,
+      "view_actions": [],
+      "failure_reasons": [],
+      "answer_excerpt": "### \ud83d\udcd0 Masterplan Parcel Area Analysis (Footprint \u2265 25,000 m\u00b2) Found **33** plots matching this criteria:  | Plot ID | La"
+    },
+    {
+      "id": "Q005",
+      "category": "Footprint Area",
+      "query": "filter plots with area below 3000 m2",
+      "passed": true,
+      "latency_ms": 40.01,
+      "intent": "QUERY_AREA_THRESHOLD",
+      "tools_called": [
+        "query_plots"
+      ],
+      "highlight_count": 221,
+      "view_actions": [],
+      "failure_reasons": [],
+      "answer_excerpt": "### \ud83d\udcd0 Masterplan Parcel Area Analysis (Footprint \u2264 3,000 m\u00b2) Found **221** plots matching this criteria:  | Plot ID | La"
+    },
+    {
+      "id": "Q006",
+      "category": "Footprint Area",
+      "query": "show me plots with area <= 2000",
+      "passed": true,
+      "latency_ms": 87.04,
+      "intent": "QUERY_AREA_THRESHOLD",
+      "tools_called": [
+        "query_plots"
+      ],
+      "highlight_count": 164,
+      "view_actions": [],
+      "failure_reasons": [],
+      "answer_excerpt": "### \ud83d\udcd0 Masterplan Parcel Area Analysis (Footprint \u2264 2,000 m\u00b2) Found **164** plots matching this criteria:  | Plot ID | La"
+    },
+    {
+      "id": "Q007",
+      "category": "Footprint Area",
+      "query": "show me plots with area >= 30000",
+      "passed": true,
+      "latency_ms": 41.68,
+      "intent": "QUERY_AREA_THRESHOLD",
+      "tools_called": [
+        "query_plots"
+      ],
+      "highlight_count": 28,
+      "view_actions": [],
+      "failure_reasons": [],
+      "answer_excerpt": "### \ud83d\udcd0 Masterplan Parcel Area Analysis (Footprint \u2265 30,000 m\u00b2) Found **28** plots matching this criteria:  | Plot ID | La"
+    },
+    {
+      "id": "Q008",
+      "category": "Footprint Area",
+      "query": "which plots have footprint under 2,500 sqm?",
+      "passed": true,
+      "latency_ms": 93.0,
+      "intent": "QUERY_AREA_THRESHOLD",
+      "tools_called": [
+        "query_plots"
+      ],
+      "highlight_count": 185,
+      "view_actions": [],
+      "failure_reasons": [],
+      "answer_excerpt": "### \ud83d\udcd0 Masterplan Parcel Area Analysis (Footprint \u2264 2,500 m\u00b2) Found **185** plots matching this criteria:  | Plot ID | La"
+    },
+    {
+      "id": "Q009",
+      "category": "Footprint Area",
+      "query": "plots with area between 5000 and 15000",
+      "passed": true,
+      "latency_ms": 41.25,
+      "intent": "QUERY_AREA_THRESHOLD",
+      "tools_called": [
+        "query_plots"
+      ],
+      "highlight_count": 100,
+      "view_actions": [],
+      "failure_reasons": [],
+      "answer_excerpt": "### \ud83d\udcd0 Masterplan Parcel Area Analysis (Footprint 5,000 m\u00b2 \u2013 15,000 m\u00b2) Found **100** plots within this footprint range: "
+    },
+    {
+      "id": "Q010",
+      "category": "Footprint Area",
+      "query": "parcels with area from 10000 to 20000",
+      "passed": true,
+      "latency_ms": 90.99,
+      "intent": "QUERY_AREA_THRESHOLD",
+      "tools_called": [
+        "query_plots"
+      ],
+      "highlight_count": 54,
+      "view_actions": [],
+      "failure_reasons": [],
+      "answer_excerpt": "### \ud83d\udcd0 Masterplan Parcel Area Analysis (Footprint 10,000 m\u00b2 \u2013 20,000 m\u00b2) Found **54** plots within this footprint range: "
+    },
+    {
+      "id": "Q011",
+      "category": "Footprint Area",
+      "query": "show residential plots with area more than 8000",
+      "passed": true,
+      "latency_ms": 39.76,
+      "intent": "QUERY_AREA_THRESHOLD",
+      "tools_called": [
+        "query_plots"
+      ],
+      "highlight_count": 7,
+      "view_actions": [],
+      "failure_reasons": [],
+      "answer_excerpt": "### \ud83d\udcd0 Masterplan Parcel Area Analysis (Footprint \u2265 8,000 m\u00b2) Found **7** plots matching this criteria:  | Plot ID | Land"
+    },
+    {
+      "id": "Q012",
+      "category": "Footprint Area",
+      "query": "show commercial plots with area > 15000",
+      "passed": true,
+      "latency_ms": 94.39,
+      "intent": "QUERY_AREA_THRESHOLD",
+      "tools_called": [
+        "query_plots"
+      ],
+      "highlight_count": 4,
+      "view_actions": [],
+      "failure_reasons": [],
+      "answer_excerpt": "### \ud83d\udcd0 Masterplan Parcel Area Analysis (Footprint \u2265 15,000 m\u00b2) Found **4** plots matching this criteria:  | Plot ID | Lan"
+    },
+    {
+      "id": "Q013",
+      "category": "GFA Capacity",
+      "query": "show plots with GFA less than 20000",
+      "passed": true,
+      "latency_ms": 41.9,
+      "intent": "QUERY_GFA_THRESHOLD",
+      "tools_called": [
+        "query_plots"
+      ],
+      "highlight_count": 382,
+      "view_actions": [],
+      "failure_reasons": [],
+      "answer_excerpt": "### \ud83c\udfd7\ufe0f Masterplan Achieved GFA Analysis (GFA \u2264 20,000 m\u00b2) Found **382** plots matching this GFA threshold:  | Plot ID | "
+    },
+    {
+      "id": "Q014",
+      "category": "GFA Capacity",
+      "query": "show plots with GFA more than 50000",
+      "passed": true,
+      "latency_ms": 93.57,
+      "intent": "QUERY_GFA_THRESHOLD",
+      "tools_called": [
+        "query_plots"
+      ],
+      "highlight_count": 20,
+      "view_actions": [],
+      "failure_reasons": [],
+      "answer_excerpt": "### \ud83c\udfd7\ufe0f Masterplan Achieved GFA Analysis (GFA \u2265 50,000 m\u00b2) Found **20** plots matching this GFA threshold:  | Plot ID | L"
+    },
+    {
+      "id": "Q015",
+      "category": "GFA Capacity",
+      "query": "parcels where achieved GFA is greater than 30,000 sqm",
+      "passed": true,
+      "latency_ms": 38.9,
+      "intent": "QUERY_GFA_THRESHOLD",
+      "tools_called": [
+        "query_plots"
+      ],
+      "highlight_count": 33,
+      "view_actions": [],
+      "failure_reasons": [],
+      "answer_excerpt": "### \ud83c\udfd7\ufe0f Masterplan Achieved GFA Analysis (GFA \u2265 30,000 m\u00b2) Found **33** plots matching this GFA threshold:  | Plot ID | L"
+    },
+    {
+      "id": "Q016",
+      "category": "GFA Capacity",
+      "query": "plots with GFA below 10,000",
+      "passed": true,
+      "latency_ms": 90.76,
+      "intent": "QUERY_GFA_THRESHOLD",
+      "tools_called": [
+        "query_plots"
+      ],
+      "highlight_count": 316,
+      "view_actions": [],
+      "failure_reasons": [],
+      "answer_excerpt": "### \ud83c\udfd7\ufe0f Masterplan Achieved GFA Analysis (GFA \u2264 10,000 m\u00b2) Found **316** plots matching this GFA threshold:  | Plot ID | "
+    },
+    {
+      "id": "Q017",
+      "category": "GFA Capacity",
+      "query": "highlight plots with GFA exceeding 75,000 sqm",
+      "passed": true,
+      "latency_ms": 39.86,
+      "intent": "QUERY_GFA_THRESHOLD",
+      "tools_called": [
+        "query_plots"
+      ],
+      "highlight_count": 8,
+      "view_actions": [],
+      "failure_reasons": [],
+      "answer_excerpt": "### \ud83c\udfd7\ufe0f Masterplan Achieved GFA Analysis (GFA \u2265 75,000 m\u00b2) Found **8** plots matching this GFA threshold:  | Plot ID | La"
+    },
+    {
+      "id": "Q018",
+      "category": "GFA Capacity",
+      "query": "parcels with achieved GFA >= 60000",
+      "passed": true,
+      "latency_ms": 91.36,
+      "intent": "QUERY_GFA_THRESHOLD",
+      "tools_called": [
+        "query_plots"
+      ],
+      "highlight_count": 19,
+      "view_actions": [],
+      "failure_reasons": [],
+      "answer_excerpt": "### \ud83c\udfd7\ufe0f Masterplan Achieved GFA Analysis (GFA \u2265 60,000 m\u00b2) Found **19** plots matching this GFA threshold:  | Plot ID | L"
+    },
+    {
+      "id": "Q019",
+      "category": "GFA Capacity",
+      "query": "plots with GFA <= 5000",
+      "passed": true,
+      "latency_ms": 40.97,
+      "intent": "QUERY_GFA_THRESHOLD",
+      "tools_called": [
+        "query_plots"
+      ],
+      "highlight_count": 274,
+      "view_actions": [],
+      "failure_reasons": [],
+      "answer_excerpt": "### \ud83c\udfd7\ufe0f Masterplan Achieved GFA Analysis (GFA \u2264 5,000 m\u00b2) Found **274** plots matching this GFA threshold:  | Plot ID | L"
+    },
+    {
+      "id": "Q020",
+      "category": "GFA Capacity",
+      "query": "show residential plots with GFA more than 20000",
+      "passed": true,
+      "latency_ms": 89.25,
+      "intent": "QUERY_GFA_THRESHOLD",
+      "tools_called": [
+        "query_plots"
+      ],
+      "highlight_count": 2,
+      "view_actions": [],
+      "failure_reasons": [],
+      "answer_excerpt": "### \ud83c\udfd7\ufe0f Masterplan Achieved GFA Analysis (GFA \u2265 20,000 m\u00b2) Found **2** plots matching this GFA threshold:  | Plot ID | La"
+    },
+    {
+      "id": "Q021",
+      "category": "GFA Capacity",
+      "query": "show commercial plots with GFA < 30000",
+      "passed": true,
+      "latency_ms": 40.63,
+      "intent": "QUERY_GFA_THRESHOLD",
+      "tools_called": [
+        "query_plots"
+      ],
+      "highlight_count": 17,
+      "view_actions": [],
+      "failure_reasons": [],
+      "answer_excerpt": "### \ud83c\udfd7\ufe0f Masterplan Achieved GFA Analysis (GFA \u2264 30,000 m\u00b2) Found **17** plots matching this GFA threshold:  | Plot ID | L"
+    },
+    {
+      "id": "Q022",
+      "category": "GFA Capacity",
+      "query": "parcels with achieved GFA between 20000 and 50000",
+      "passed": true,
+      "latency_ms": 92.29,
+      "intent": "QUERY_GFA_THRESHOLD",
+      "tools_called": [
+        "query_plots"
+      ],
+      "highlight_count": 32,
+      "view_actions": [],
+      "failure_reasons": [],
+      "answer_excerpt": "### \ud83c\udfd7\ufe0f Masterplan Achieved GFA Analysis (GFA 20,000 m\u00b2 \u2013 50,000 m\u00b2) Found **32** plots within this GFA capacity range:  "
+    },
+    {
+      "id": "Q023",
+      "category": "GFA Capacity",
+      "query": "plots with GFA from 10000 to 40000",
+      "passed": true,
+      "latency_ms": 40.23,
+      "intent": "QUERY_GFA_THRESHOLD",
+      "tools_called": [
+        "query_plots"
+      ],
+      "highlight_count": 94,
+      "view_actions": [],
+      "failure_reasons": [],
+      "answer_excerpt": "### \ud83c\udfd7\ufe0f Masterplan Achieved GFA Analysis (GFA 10,000 m\u00b2 \u2013 40,000 m\u00b2) Found **94** plots within this GFA capacity range:  "
+    },
+    {
+      "id": "Q024",
+      "category": "GFA Capacity",
+      "query": "which mixed use plots have GFA exceeding 40,000?",
+      "passed": true,
+      "latency_ms": 93.72,
+      "intent": "QUERY_GFA_THRESHOLD",
+      "tools_called": [
+        "query_plots"
+      ],
+      "highlight_count": 16,
+      "view_actions": [],
+      "failure_reasons": [],
+      "answer_excerpt": "### \ud83c\udfd7\ufe0f Masterplan Achieved GFA Analysis (GFA \u2265 40,000 m\u00b2) Found **16** plots matching this GFA threshold:  | Plot ID | L"
+    },
+    {
+      "id": "Q025",
+      "category": "FAR Density",
+      "query": "which plots have FAR greater than 3.0?",
+      "passed": true,
+      "latency_ms": 38.05,
+      "intent": "QUERY_DENSITY",
+      "tools_called": [
+        "query_plots"
+      ],
+      "highlight_count": 61,
+      "view_actions": [],
+      "failure_reasons": [],
+      "answer_excerpt": "### \ud83c\udfe2 High Density FAR Analysis (FAR \u2265 3.0) Found **61** plots meeting this density threshold in the masterplan:  | Plot"
+    },
+    {
+      "id": "Q026",
+      "category": "FAR Density",
+      "query": "show plots exceeding max FAR",
+      "passed": false,
+      "latency_ms": 88.93,
+      "intent": "QUERY_DENSITY",
+      "tools_called": [
+        "query_plots"
+      ],
+      "highlight_count": 0,
+      "view_actions": [],
+      "failure_reasons": [
+        "Highlight plots count 0 < min required 1"
+      ],
+      "answer_excerpt": "### \ud83d\udea8 Over-Development Analysis: Parcels Exceeding Max FAR Identified **0** parcels violating permissible FAR limits:  |"
+    },
+    {
+      "id": "Q027",
+      "category": "FAR Density",
+      "query": "plots with FAR > 2.5",
+      "passed": true,
+      "latency_ms": 39.67,
+      "intent": "QUERY_DENSITY",
+      "tools_called": [
+        "query_plots"
+      ],
+      "highlight_count": 71,
+      "view_actions": [],
+      "failure_reasons": [],
+      "answer_excerpt": "### \ud83c\udfe2 High Density FAR Analysis (FAR \u2265 2.5) Found **71** plots meeting this density threshold in the masterplan:  | Plot"
+    },
+    {
+      "id": "Q028",
+      "category": "FAR Density",
+      "query": "identify high density parcels with FAR > 3.5",
+      "passed": true,
+      "latency_ms": 91.03,
+      "intent": "QUERY_DENSITY",
+      "tools_called": [
+        "query_plots"
+      ],
+      "highlight_count": 59,
+      "view_actions": [],
+      "failure_reasons": [],
+      "answer_excerpt": "### \ud83c\udfe2 High Density FAR Analysis (FAR \u2265 3.5) Found **59** plots meeting this density threshold in the masterplan:  | Plot"
+    },
+    {
+      "id": "Q029",
+      "category": "FAR Density",
+      "query": "parcels where FAR is above 4.0",
+      "passed": true,
+      "latency_ms": 39.01,
+      "intent": "QUERY_DENSITY",
+      "tools_called": [
+        "query_plots"
+      ],
+      "highlight_count": 56,
+      "view_actions": [],
+      "failure_reasons": [],
+      "answer_excerpt": "### \ud83c\udfe2 High Density FAR Analysis (FAR \u2265 4.0) Found **56** plots meeting this density threshold in the masterplan:  | Plot"
+    },
+    {
+      "id": "Q030",
+      "category": "FAR Density",
+      "query": "parcels with FAR greater than 5.0",
+      "passed": true,
+      "latency_ms": 95.5,
+      "intent": "QUERY_DENSITY",
+      "tools_called": [
+        "query_plots"
+      ],
+      "highlight_count": 42,
+      "view_actions": [],
+      "failure_reasons": [],
+      "answer_excerpt": "### \ud83c\udfe2 High Density FAR Analysis (FAR \u2265 5.0) Found **42** plots meeting this density threshold in the masterplan:  | Plot"
+    },
+    {
+      "id": "Q031",
+      "category": "FAR Density",
+      "query": "show parcels with FAR exceeding 6.0",
+      "passed": true,
+      "latency_ms": 37.6,
+      "intent": "QUERY_DENSITY",
+      "tools_called": [
+        "query_plots"
+      ],
+      "highlight_count": 26,
+      "view_actions": [],
+      "failure_reasons": [],
+      "answer_excerpt": "### \ud83c\udfe2 High Density FAR Analysis (FAR \u2265 6.0) Found **26** plots meeting this density threshold in the masterplan:  | Plot"
+    },
+    {
+      "id": "Q032",
+      "category": "FAR Density",
+      "query": "which parcels exceed permissible FAR limits?",
+      "passed": false,
+      "latency_ms": 88.03,
+      "intent": "QUERY_DENSITY",
+      "tools_called": [
+        "query_plots"
+      ],
+      "highlight_count": 0,
+      "view_actions": [],
+      "failure_reasons": [
+        "Highlight plots count 0 < min required 1"
+      ],
+      "answer_excerpt": "### \ud83d\udea8 Over-Development Analysis: Parcels Exceeding Max FAR Identified **0** parcels violating permissible FAR limits:  |"
+    },
+    {
+      "id": "Q033",
+      "category": "FAR Density",
+      "query": "show me plots with highest FAR",
+      "passed": true,
+      "latency_ms": 40.79,
+      "intent": "QUERY_RANKINGS",
+      "tools_called": [
+        "query_plots"
+      ],
+      "highlight_count": 6,
+      "view_actions": [],
+      "failure_reasons": [],
+      "answer_excerpt": "### \ud83c\udfc6 Top Masterplan Parcels by FAR  | Rank | Plot ID | Land Use | Sector | Footprint (m\u00b2) | Achieved GFA (m\u00b2) | FAR | S"
+    },
+    {
+      "id": "Q034",
+      "category": "FAR Density",
+      "query": "show me top plots by FAR",
+      "passed": true,
+      "latency_ms": 89.47,
+      "intent": "QUERY_RANKINGS",
+      "tools_called": [
+        "query_plots"
+      ],
+      "highlight_count": 6,
+      "view_actions": [],
+      "failure_reasons": [],
+      "answer_excerpt": "### \ud83c\udfc6 Top Masterplan Parcels by FAR  | Rank | Plot ID | Land Use | Sector | Footprint (m\u00b2) | Achieved GFA (m\u00b2) | FAR | S"
+    },
+    {
+      "id": "Q035",
+      "category": "FAR Density",
+      "query": "parcels with FAR > 1.5",
+      "passed": true,
+      "latency_ms": 41.83,
+      "intent": "QUERY_DENSITY",
+      "tools_called": [
+        "query_plots"
+      ],
+      "highlight_count": 95,
+      "view_actions": [],
+      "failure_reasons": [],
+      "answer_excerpt": "### \ud83c\udfe2 High Density FAR Analysis (FAR \u2265 1.5) Found **95** plots meeting this density threshold in the masterplan:  | Plot"
+    },
+    {
+      "id": "Q036",
+      "category": "FAR Density",
+      "query": "list all high density development plots",
+      "passed": true,
+      "latency_ms": 89.37,
+      "intent": "QUERY_DENSITY",
+      "tools_called": [
+        "query_plots"
+      ],
+      "highlight_count": 61,
+      "view_actions": [],
+      "failure_reasons": [],
+      "answer_excerpt": "### \ud83c\udfe2 High Density FAR Analysis (FAR \u2265 3.0) Found **61** plots meeting this density threshold in the masterplan:  | Plot"
+    },
+    {
+      "id": "Q037",
+      "category": "Infrastructure & RoW",
+      "query": "show only plots that are RoW",
+      "passed": true,
+      "latency_ms": 39.45,
+      "intent": "QUERY_ROW_INFRASTRUCTURE",
+      "tools_called": [
+        "query_plots"
+      ],
+      "highlight_count": 112,
+      "view_actions": [],
+      "failure_reasons": [],
+      "answer_excerpt": "### \ud83d\udee3\ufe0f Right-of-Way (RoW) & Road Infrastructure Parcels - **Total RoW & Infrastructure Plots**: 112 - **Total Dedicated "
+    },
+    {
+      "id": "Q038",
+      "category": "Infrastructure & RoW",
+      "query": "show only plots that are RoW of left",
+      "passed": true,
+      "latency_ms": 129.81,
+      "intent": "SPATIAL_ROW_DIRECTIONAL",
+      "tools_called": [
+        "spatial_topology_engine",
+        "query_plots"
+      ],
+      "highlight_count": 105,
+      "view_actions": [],
+      "failure_reasons": [],
+      "answer_excerpt": "### \ud83e\udded Masterplan Parcels West (Left) of Central RoW Corridor Identified **105** development parcels situated to the left"
+    },
+    {
+      "id": "Q039",
+      "category": "Infrastructure & RoW",
+      "query": "show only plots that are RoW of right",
+      "passed": true,
+      "latency_ms": 74.41,
+      "intent": "SPATIAL_ROW_DIRECTIONAL",
+      "tools_called": [
+        "spatial_topology_engine",
+        "query_plots"
+      ],
+      "highlight_count": 142,
+      "view_actions": [],
+      "failure_reasons": [],
+      "answer_excerpt": "### \ud83e\udded Masterplan Parcels East (Right) of Central RoW Corridor Identified **142** development parcels situated to the rig"
+    },
+    {
+      "id": "Q040",
+      "category": "Infrastructure & RoW",
+      "query": "parcels to the west of the central RoW corridor",
+      "passed": true,
+      "latency_ms": 121.42,
+      "intent": "SPATIAL_ROW_DIRECTIONAL",
+      "tools_called": [
+        "spatial_topology_engine",
+        "query_plots"
+      ],
+      "highlight_count": 105,
+      "view_actions": [],
+      "failure_reasons": [],
+      "answer_excerpt": "### \ud83e\udded Masterplan Parcels West (Left) of Central RoW Corridor Identified **105** development parcels situated to the left"
+    },
+    {
+      "id": "Q041",
+      "category": "Infrastructure & RoW",
+      "query": "parcels to the east of the central RoW corridor",
+      "passed": true,
+      "latency_ms": 67.8,
+      "intent": "SPATIAL_ROW_DIRECTIONAL",
+      "tools_called": [
+        "spatial_topology_engine",
+        "query_plots"
+      ],
+      "highlight_count": 142,
+      "view_actions": [],
+      "failure_reasons": [],
+      "answer_excerpt": "### \ud83e\udded Masterplan Parcels East (Right) of Central RoW Corridor Identified **142** development parcels situated to the rig"
+    },
+    {
+      "id": "Q042",
+      "category": "Infrastructure & RoW",
+      "query": "which development plots are situated left of the road network?",
+      "passed": true,
+      "latency_ms": 130.26,
+      "intent": "SPATIAL_ROW_DIRECTIONAL",
+      "tools_called": [
+        "spatial_topology_engine",
+        "query_plots"
+      ],
+      "highlight_count": 105,
+      "view_actions": [],
+      "failure_reasons": [],
+      "answer_excerpt": "### \ud83e\udded Masterplan Parcels West (Left) of Central RoW Corridor Identified **105** development parcels situated to the left"
+    },
+    {
+      "id": "Q043",
+      "category": "Infrastructure & RoW",
+      "query": "which development plots are situated right of the road network?",
+      "passed": true,
+      "latency_ms": 79.53,
+      "intent": "SPATIAL_ROW_DIRECTIONAL",
+      "tools_called": [
+        "spatial_topology_engine",
+        "query_plots"
+      ],
+      "highlight_count": 142,
+      "view_actions": [],
+      "failure_reasons": [],
+      "answer_excerpt": "### \ud83e\udded Masterplan Parcels East (Right) of Central RoW Corridor Identified **142** development parcels situated to the rig"
+    },
+    {
+      "id": "Q044",
+      "category": "Infrastructure & RoW",
+      "query": "show road network parcels",
+      "passed": true,
+      "latency_ms": 95.9,
+      "intent": "QUERY_ROW_INFRASTRUCTURE",
+      "tools_called": [
+        "query_plots"
+      ],
+      "highlight_count": 112,
+      "view_actions": [],
+      "failure_reasons": [],
+      "answer_excerpt": "### \ud83d\udee3\ufe0f Right-of-Way (RoW) & Road Infrastructure Parcels - **Total RoW & Infrastructure Plots**: 112 - **Total Dedicated "
+    },
+    {
+      "id": "Q045",
+      "category": "Infrastructure & RoW",
+      "query": "how many plots are dedicated to roads and parking?",
+      "passed": true,
+      "latency_ms": 38.67,
+      "intent": "QUERY_ROW_INFRASTRUCTURE",
+      "tools_called": [
+        "query_plots"
+      ],
+      "highlight_count": 112,
+      "view_actions": [],
+      "failure_reasons": [],
+      "answer_excerpt": "### \ud83d\udee3\ufe0f Right-of-Way (RoW) & Road Infrastructure Parcels - **Total RoW & Infrastructure Plots**: 112 - **Total Dedicated "
+    },
+    {
+      "id": "Q046",
+      "category": "Infrastructure & RoW",
+      "query": "what is the total area of Right-of-Way in the masterplan?",
+      "passed": true,
+      "latency_ms": 84.65,
+      "intent": "QUERY_ROW_INFRASTRUCTURE",
+      "tools_called": [
+        "query_plots"
+      ],
+      "highlight_count": 112,
+      "view_actions": [],
+      "failure_reasons": [],
+      "answer_excerpt": "### \ud83d\udee3\ufe0f Right-of-Way (RoW) & Road Infrastructure Parcels - **Total RoW & Infrastructure Plots**: 112 - **Total Dedicated "
+    },
+    {
+      "id": "Q047",
+      "category": "Infrastructure & RoW",
+      "query": "show roads and parking plots",
+      "passed": true,
+      "latency_ms": 41.18,
+      "intent": "QUERY_ROW_INFRASTRUCTURE",
+      "tools_called": [
+        "query_plots"
+      ],
+      "highlight_count": 112,
+      "view_actions": [],
+      "failure_reasons": [],
+      "answer_excerpt": "### \ud83d\udee3\ufe0f Right-of-Way (RoW) & Road Infrastructure Parcels - **Total RoW & Infrastructure Plots**: 112 - **Total Dedicated "
+    },
+    {
+      "id": "Q048",
+      "category": "Infrastructure & RoW",
+      "query": "list all dedicated infrastructure and RoW parcels",
+      "passed": true,
+      "latency_ms": 92.17,
+      "intent": "QUERY_ROW_INFRASTRUCTURE",
+      "tools_called": [
+        "query_plots"
+      ],
+      "highlight_count": 112,
+      "view_actions": [],
+      "failure_reasons": [],
+      "answer_excerpt": "### \ud83d\udee3\ufe0f Right-of-Way (RoW) & Road Infrastructure Parcels - **Total RoW & Infrastructure Plots**: 112 - **Total Dedicated "
+    },
+    {
+      "id": "Q049",
+      "category": "Sectors & Zoning",
+      "query": "show all plots in Expo Business sector",
+      "passed": true,
+      "latency_ms": 27.91,
+      "intent": "QUERY_SECTOR",
+      "tools_called": [
+        "query_plots"
+      ],
+      "highlight_count": 10,
+      "view_actions": [],
+      "failure_reasons": [],
+      "answer_excerpt": "### \ud83d\udccd Sector 'Expo Business' Masterplan Parcels - **Total Parcels**: 10 - **Total Land Footprint**: 20,815.0 m\u00b2 - **Tota"
+    },
+    {
+      "id": "Q050",
+      "category": "Sectors & Zoning",
+      "query": "list plots in Expo Downtown",
+      "passed": true,
+      "latency_ms": 28.39,
+      "intent": "QUERY_SECTOR",
+      "tools_called": [
+        "query_plots"
+      ],
+      "highlight_count": 31,
+      "view_actions": [],
+      "failure_reasons": [],
+      "answer_excerpt": "### \ud83d\udccd Sector 'Expo Downtown' Masterplan Parcels - **Total Parcels**: 31 - **Total Land Footprint**: 163,900.1 m\u00b2 - **Tot"
+    },
+    {
+      "id": "Q051",
+      "category": "Sectors & Zoning",
+      "query": "show plots in Expo Fields",
+      "passed": true,
+      "latency_ms": 25.62,
+      "intent": "QUERY_SECTOR",
+      "tools_called": [
+        "query_plots"
+      ],
+      "highlight_count": 22,
+      "view_actions": [],
+      "failure_reasons": [],
+      "answer_excerpt": "### \ud83d\udccd Sector 'Expo Fields' Masterplan Parcels - **Total Parcels**: 22 - **Total Land Footprint**: 67,577.4 m\u00b2 - **Total "
+    },
+    {
+      "id": "Q052",
+      "category": "Sectors & Zoning",
+      "query": "plots in Expo Hills sector",
+      "passed": true,
+      "latency_ms": 86.97,
+      "intent": "QUERY_SECTOR",
+      "tools_called": [
+        "query_plots"
+      ],
+      "highlight_count": 330,
+      "view_actions": [],
+      "failure_reasons": [],
+      "answer_excerpt": "### \ud83d\udccd Sector 'Expo Hills' Masterplan Parcels - **Total Parcels**: 330 - **Total Land Footprint**: 2,566,619.2 m\u00b2 - **Tot"
+    },
+    {
+      "id": "Q053",
+      "category": "Sectors & Zoning",
+      "query": "how many parcels are in Expo Business?",
+      "passed": true,
+      "latency_ms": 29.67,
+      "intent": "QUERY_SECTOR",
+      "tools_called": [
+        "query_plots"
+      ],
+      "highlight_count": 10,
+      "view_actions": [],
+      "failure_reasons": [],
+      "answer_excerpt": "### \ud83d\udccd Sector 'Expo Business' Masterplan Parcels - **Total Parcels**: 10 - **Total Land Footprint**: 20,815.0 m\u00b2 - **Tota"
+    },
+    {
+      "id": "Q054",
+      "category": "Sectors & Zoning",
+      "query": "breakdown of parcels in Expo Downtown",
+      "passed": true,
+      "latency_ms": 27.97,
+      "intent": "QUERY_SECTOR",
+      "tools_called": [
+        "query_plots"
+      ],
+      "highlight_count": 31,
+      "view_actions": [],
+      "failure_reasons": [],
+      "answer_excerpt": "### \ud83d\udccd Sector 'Expo Downtown' Masterplan Parcels - **Total Parcels**: 31 - **Total Land Footprint**: 163,900.1 m\u00b2 - **Tot"
+    },
+    {
+      "id": "Q055",
+      "category": "Sectors & Zoning",
+      "query": "what is the total area of Expo Fields sector?",
+      "passed": true,
+      "latency_ms": 68.26,
+      "intent": "QUERY_SECTOR",
+      "tools_called": [
+        "query_plots"
+      ],
+      "highlight_count": 22,
+      "view_actions": [],
+      "failure_reasons": [],
+      "answer_excerpt": "### \ud83d\udccd Sector 'Expo Fields' Masterplan Parcels - **Total Parcels**: 22 - **Total Land Footprint**: 67,577.4 m\u00b2 - **Total "
+    },
+    {
+      "id": "Q056",
+      "category": "Sectors & Zoning",
+      "query": "expo hills sector development parcels",
+      "passed": true,
+      "latency_ms": 37.91,
+      "intent": "QUERY_SECTOR",
+      "tools_called": [
+        "query_plots"
+      ],
+      "highlight_count": 330,
+      "view_actions": [],
+      "failure_reasons": [],
+      "answer_excerpt": "### \ud83d\udccd Sector 'Expo Hills' Masterplan Parcels - **Total Parcels**: 330 - **Total Land Footprint**: 2,566,619.2 m\u00b2 - **Tot"
+    },
+    {
+      "id": "Q057",
+      "category": "Sectors & Zoning",
+      "query": "show commercial parcels in Expo Hills",
+      "passed": true,
+      "latency_ms": 28.19,
+      "intent": "QUERY_LAND_USE",
+      "tools_called": [
+        "query_plots"
+      ],
+      "highlight_count": 18,
+      "view_actions": [],
+      "failure_reasons": [],
+      "answer_excerpt": "### \ud83d\udccd Commercial Parcels Breakdown - **Total Parcels**: 18 - **Total Land Footprint**: 173,954.3 m\u00b2 - **Total Achieved G"
+    },
+    {
+      "id": "Q058",
+      "category": "Sectors & Zoning",
+      "query": "show mixed use plots in Expo Downtown",
+      "passed": true,
+      "latency_ms": 76.68,
+      "intent": "QUERY_LAND_USE",
+      "tools_called": [
+        "query_plots"
+      ],
+      "highlight_count": 78,
+      "view_actions": [],
+      "failure_reasons": [],
+      "answer_excerpt": "### \ud83d\udccd Mixed Use Parcels Breakdown - **Total Parcels**: 78 - **Total Land Footprint**: 808,933.1 m\u00b2 - **Total Achieved GF"
+    },
+    {
+      "id": "Q059",
+      "category": "Sectors & Zoning",
+      "query": "show residential plots in Expo Fields",
+      "passed": true,
+      "latency_ms": 28.24,
+      "intent": "QUERY_LAND_USE",
+      "tools_called": [
+        "query_plots"
+      ],
+      "highlight_count": 22,
+      "view_actions": [],
+      "failure_reasons": [],
+      "answer_excerpt": "### \ud83d\udccd Residential Parcels Breakdown - **Total Parcels**: 22 - **Total Land Footprint**: 274,266.3 m\u00b2 - **Total Achieved "
+    },
+    {
+      "id": "Q060",
+      "category": "Sectors & Zoning",
+      "query": "list development parcels in Sector Expo Business",
+      "passed": true,
+      "latency_ms": 25.92,
+      "intent": "QUERY_SECTOR",
+      "tools_called": [
+        "query_plots"
+      ],
+      "highlight_count": 10,
+      "view_actions": [],
+      "failure_reasons": [],
+      "answer_excerpt": "### \ud83d\udccd Sector 'Expo Business' Masterplan Parcels - **Total Parcels**: 10 - **Total Land Footprint**: 20,815.0 m\u00b2 - **Tota"
+    },
+    {
+      "id": "Q061",
+      "category": "Land Use Mix",
+      "query": "show residential plots",
+      "passed": true,
+      "latency_ms": 27.7,
+      "intent": "QUERY_LAND_USE",
+      "tools_called": [
+        "query_plots"
+      ],
+      "highlight_count": 22,
+      "view_actions": [],
+      "failure_reasons": [],
+      "answer_excerpt": "### \ud83d\udccd Residential Parcels Breakdown - **Total Parcels**: 22 - **Total Land Footprint**: 274,266.3 m\u00b2 - **Total Achieved "
+    },
+    {
+      "id": "Q062",
+      "category": "Land Use Mix",
+      "query": "show commercial plots",
+      "passed": true,
+      "latency_ms": 73.86,
+      "intent": "QUERY_LAND_USE",
+      "tools_called": [
+        "query_plots"
+      ],
+      "highlight_count": 18,
+      "view_actions": [],
+      "failure_reasons": [],
+      "answer_excerpt": "### \ud83d\udccd Commercial Parcels Breakdown - **Total Parcels**: 18 - **Total Land Footprint**: 173,954.3 m\u00b2 - **Total Achieved G"
+    },
+    {
+      "id": "Q063",
+      "category": "Land Use Mix",
+      "query": "show mixed use plots",
+      "passed": true,
+      "latency_ms": 28.85,
+      "intent": "QUERY_LAND_USE",
+      "tools_called": [
+        "query_plots"
+      ],
+      "highlight_count": 78,
+      "view_actions": [],
+      "failure_reasons": [],
+      "answer_excerpt": "### \ud83d\udccd Mixed Use Parcels Breakdown - **Total Parcels**: 78 - **Total Land Footprint**: 808,933.1 m\u00b2 - **Total Achieved GF"
+    },
+    {
+      "id": "Q064",
+      "category": "Land Use Mix",
+      "query": "show open space and park plots",
+      "passed": true,
+      "latency_ms": 33.83,
+      "intent": "QUERY_LAND_USE",
+      "tools_called": [
+        "query_plots"
+      ],
+      "highlight_count": 49,
+      "view_actions": [],
+      "failure_reasons": [],
+      "answer_excerpt": "### \ud83d\udccd Open Space / Park Parcels Breakdown - **Total Parcels**: 49 - **Total Land Footprint**: 346,247.0 m\u00b2 - **Total Ach"
+    },
+    {
+      "id": "Q065",
+      "category": "Land Use Mix",
+      "query": "show civic plots",
+      "passed": true,
+      "latency_ms": 29.11,
+      "intent": "QUERY_LAND_USE",
+      "tools_called": [
+        "query_plots"
+      ],
+      "highlight_count": 8,
+      "view_actions": [],
+      "failure_reasons": [],
+      "answer_excerpt": "### \ud83d\udccd Civic Parcels Breakdown - **Total Parcels**: 8 - **Total Land Footprint**: 76,091.5 m\u00b2 - **Total Achieved GFA**: 6"
+    },
+    {
+      "id": "Q066",
+      "category": "Land Use Mix",
+      "query": "show utilities parcels",
+      "passed": true,
+      "latency_ms": 71.74,
+      "intent": "QUERY_LAND_USE",
+      "tools_called": [
+        "query_plots"
+      ],
+      "highlight_count": 92,
+      "view_actions": [],
+      "failure_reasons": [],
+      "answer_excerpt": "### \ud83d\udccd Utilities Parcels Breakdown - **Total Parcels**: 92 - **Total Land Footprint**: 107,175.6 m\u00b2 - **Total Achieved GF"
+    },
+    {
+      "id": "Q067",
+      "category": "Land Use Mix",
+      "query": "show hospitality plots",
+      "passed": true,
+      "latency_ms": 25.58,
+      "intent": "QUERY_LAND_USE",
+      "tools_called": [
+        "query_plots"
+      ],
+      "highlight_count": 4,
+      "view_actions": [],
+      "failure_reasons": [],
+      "answer_excerpt": "### \ud83d\udccd Hospitality Parcels Breakdown - **Total Parcels**: 4 - **Total Land Footprint**: 18,751.9 m\u00b2 - **Total Achieved GF"
+    },
+    {
+      "id": "Q068",
+      "category": "Land Use Mix",
+      "query": "show public facilities plots",
+      "passed": true,
+      "latency_ms": 26.97,
+      "intent": "QUERY_LAND_USE",
+      "tools_called": [
+        "query_plots"
+      ],
+      "highlight_count": 1,
+      "view_actions": [],
+      "failure_reasons": [],
+      "answer_excerpt": "### \ud83d\udccd Public Facilities Parcels Breakdown - **Total Parcels**: 1 - **Total Land Footprint**: 4,100.1 m\u00b2 - **Total Achiev"
+    },
+    {
+      "id": "Q069",
+      "category": "Land Use Mix",
+      "query": "what is the total residential GFA in Expo Hills?",
+      "passed": true,
+      "latency_ms": 20.9,
+      "intent": "QUERY_LAND_USE",
+      "tools_called": [
+        "query_plots"
+      ],
+      "highlight_count": 22,
+      "view_actions": [],
+      "failure_reasons": [],
+      "answer_excerpt": "### \ud83d\udccd Residential Parcels Breakdown - **Total Parcels**: 22 - **Total Land Footprint**: 274,266.3 m\u00b2 - **Total Achieved "
+    },
+    {
+      "id": "Q070",
+      "category": "Land Use Mix",
+      "query": "what percentage of masterplan area is dedicated to open space?",
+      "passed": true,
+      "latency_ms": 80.05,
+      "intent": "QUERY_LAND_USE",
+      "tools_called": [
+        "query_plots"
+      ],
+      "highlight_count": 49,
+      "view_actions": [],
+      "failure_reasons": [],
+      "answer_excerpt": "### \ud83d\udccd Open Space / Park Parcels Breakdown - **Total Parcels**: 49 - **Total Land Footprint**: 346,247.0 m\u00b2 - **Total Ach"
+    },
+    {
+      "id": "Q071",
+      "category": "Land Use Mix",
+      "query": "show open space parcels",
+      "passed": true,
+      "latency_ms": 29.36,
+      "intent": "QUERY_LAND_USE",
+      "tools_called": [
+        "query_plots"
+      ],
+      "highlight_count": 49,
+      "view_actions": [],
+      "failure_reasons": [],
+      "answer_excerpt": "### \ud83d\udccd Open Space / Park Parcels Breakdown - **Total Parcels**: 49 - **Total Land Footprint**: 346,247.0 m\u00b2 - **Total Ach"
+    },
+    {
+      "id": "Q072",
+      "category": "Land Use Mix",
+      "query": "list all utility plots and substations",
+      "passed": true,
+      "latency_ms": 29.09,
+      "intent": "QUERY_LAND_USE",
+      "tools_called": [
+        "query_plots"
+      ],
+      "highlight_count": 92,
+      "view_actions": [],
+      "failure_reasons": [],
+      "answer_excerpt": "### \ud83d\udccd Utilities Parcels Breakdown - **Total Parcels**: 92 - **Total Land Footprint**: 107,175.6 m\u00b2 - **Total Achieved GF"
+    },
+    {
+      "id": "Q073",
+      "category": "Reconciliation",
+      "query": "check files and stabilize the relation",
+      "passed": true,
+      "latency_ms": 38470.14,
+      "intent": "RECONCILE_DISCREPANCIES",
+      "tools_called": [
+        "analyze_correlation"
+      ],
+      "highlight_count": 3,
+      "view_actions": [],
+      "failure_reasons": [],
+      "answer_excerpt": "\u26a0\ufe0f Found 3 parameter conflicts between CAD (25-6963_Expo City-REV.02 Masterplan ECD Layout_WIP.dwg) and Excel (25-6963_D"
+    },
+    {
+      "id": "Q074",
+      "category": "Reconciliation",
+      "query": "what is the relation between CAD and Excel?",
+      "passed": true,
+      "latency_ms": 6.32,
+      "intent": "QUERY_RELATION",
+      "tools_called": [
+        "get_file_records",
+        "get_latest_file_relation"
+      ],
+      "highlight_count": 0,
+      "view_actions": [],
+      "failure_reasons": [],
+      "answer_excerpt": "### \ud83d\udd17 Masterplan Multi-Source Linkage & Ground Truth Status - **Project**: `C3085 - 3EH -Expo Hills` - **Registered Sour"
+    },
+    {
+      "id": "Q075",
+      "category": "Reconciliation",
+      "query": "show file status",
+      "passed": true,
+      "latency_ms": 5.3,
+      "intent": "QUERY_RELATION",
+      "tools_called": [
+        "get_file_records",
+        "get_latest_file_relation"
+      ],
+      "highlight_count": 0,
+      "view_actions": [],
+      "failure_reasons": [],
+      "answer_excerpt": "### \ud83d\udd17 Masterplan Multi-Source Linkage & Ground Truth Status - **Project**: `C3085 - 3EH -Expo Hills` - **Registered Sour"
+    },
+    {
+      "id": "Q076",
+      "category": "Reconciliation",
+      "query": "show files",
+      "passed": true,
+      "latency_ms": 5.21,
+      "intent": "QUERY_RELATION",
+      "tools_called": [
+        "get_file_records",
+        "get_latest_file_relation"
+      ],
+      "highlight_count": 0,
+      "view_actions": [],
+      "failure_reasons": [],
+      "answer_excerpt": "### \ud83d\udd17 Masterplan Multi-Source Linkage & Ground Truth Status - **Project**: `C3085 - 3EH -Expo Hills` - **Registered Sour"
+    },
+    {
+      "id": "Q077",
+      "category": "Reconciliation",
+      "query": "list files",
+      "passed": true,
+      "latency_ms": 4.84,
+      "intent": "QUERY_RELATION",
+      "tools_called": [
+        "get_file_records",
+        "get_latest_file_relation"
+      ],
+      "highlight_count": 0,
+      "view_actions": [],
+      "failure_reasons": [],
+      "answer_excerpt": "### \ud83d\udd17 Masterplan Multi-Source Linkage & Ground Truth Status - **Project**: `C3085 - 3EH -Expo Hills` - **Registered Sour"
+    },
+    {
+      "id": "Q078",
+      "category": "Reconciliation",
+      "query": "reconcile discrepancies between CAD and Excel register",
+      "passed": true,
+      "latency_ms": 5.11,
+      "intent": "RECONCILE_DISCREPANCIES",
+      "tools_called": [
+        "analyze_correlation"
+      ],
+      "highlight_count": 3,
+      "view_actions": [],
+      "failure_reasons": [],
+      "answer_excerpt": "\u26a0\ufe0f Found 3 parameter conflicts between CAD (25-6963_Expo City-REV.02 Masterplan ECD Layout_WIP.dwg) and Excel (25-6963_D"
+    },
+    {
+      "id": "Q079",
+      "category": "Reconciliation",
+      "query": "are there any discrepancies in plot area between CAD hatch and Excel schedule?",
+      "passed": true,
+      "latency_ms": 5.12,
+      "intent": "RECONCILE_DISCREPANCIES",
+      "tools_called": [
+        "analyze_correlation"
+      ],
+      "highlight_count": 3,
+      "view_actions": [],
+      "failure_reasons": [],
+      "answer_excerpt": "\u26a0\ufe0f Found 3 parameter conflicts between CAD (25-6963_Expo City-REV.02 Masterplan ECD Layout_WIP.dwg) and Excel (25-6963_D"
+    },
+    {
+      "id": "Q080",
+      "category": "Reconciliation",
+      "query": "adopt cad for plot P-5210747",
+      "passed": true,
+      "latency_ms": 149.94,
+      "intent": "STABILIZE_RELATION",
+      "tools_called": [
+        "stabilize_relation"
+      ],
+      "highlight_count": 1,
+      "view_actions": [],
+      "failure_reasons": [],
+      "answer_excerpt": "\u2705 **Stabilized Ground Truth for Plot P-5210747**: Confirmed adoption of **CAD** as the certified ground truth. Spatial c"
+    },
+    {
+      "id": "Q081",
+      "category": "Reconciliation",
+      "query": "adopt excel for plot P-5210753",
+      "passed": true,
+      "latency_ms": 226.26,
+      "intent": "STABILIZE_RELATION",
+      "tools_called": [
+        "stabilize_relation"
+      ],
+      "highlight_count": 1,
+      "view_actions": [],
+      "failure_reasons": [],
+      "answer_excerpt": "\u2705 **Stabilized Ground Truth for Plot P-5210753**: Confirmed adoption of **EXCEL** as the certified ground truth. Spatial"
+    },
+    {
+      "id": "Q082",
+      "category": "Reconciliation",
+      "query": "adopt cad for plot 5210754",
+      "passed": true,
+      "latency_ms": 152.43,
+      "intent": "STABILIZE_RELATION",
+      "tools_called": [
+        "stabilize_relation"
+      ],
+      "highlight_count": 1,
+      "view_actions": [],
+      "failure_reasons": [],
+      "answer_excerpt": "\u2705 **Stabilized Ground Truth for Plot P-5210754**: Confirmed adoption of **CAD** as the certified ground truth. Spatial c"
+    },
+    {
+      "id": "Q083",
+      "category": "Reconciliation",
+      "query": "show stabilized ground truth",
+      "passed": true,
+      "latency_ms": 5.75,
+      "intent": "QUERY_RELATION",
+      "tools_called": [
+        "get_file_records",
+        "get_latest_file_relation"
+      ],
+      "highlight_count": 0,
+      "view_actions": [],
+      "failure_reasons": [],
+      "answer_excerpt": "### \ud83d\udd17 Masterplan Multi-Source Linkage & Ground Truth Status - **Project**: `C3085 - 3EH -Expo Hills` - **Registered Sour"
+    },
+    {
+      "id": "Q084",
+      "category": "Reconciliation",
+      "query": "cross reference CAD drawing with Excel schedule",
+      "passed": true,
+      "latency_ms": 5.1,
+      "intent": "RECONCILE_DISCREPANCIES",
+      "tools_called": [
+        "analyze_correlation"
+      ],
+      "highlight_count": 3,
+      "view_actions": [],
+      "failure_reasons": [],
+      "answer_excerpt": "\u26a0\ufe0f Found 3 parameter conflicts between CAD (25-6963_Expo City-REV.02 Masterplan ECD Layout_WIP.dwg) and Excel (25-6963_D"
+    },
+    {
+      "id": "Q085",
+      "category": "Parking Capacity",
+      "query": "show parcels with parking deficit",
+      "passed": true,
+      "latency_ms": 40.86,
+      "intent": "QUERY_PARKING",
+      "tools_called": [
+        "calculate_kpis",
+        "query_plots"
+      ],
+      "highlight_count": 0,
+      "view_actions": [],
+      "failure_reasons": [],
+      "answer_excerpt": "### \ud83d\ude97 Masterplan Parking Capacity & Deficit Analysis - **Total Parking Bays Required**: 66,315 bays - **Total Parking Ba"
+    },
+    {
+      "id": "Q086",
+      "category": "Parking Capacity",
+      "query": "what is the total parking required vs provided?",
+      "passed": true,
+      "latency_ms": 93.74,
+      "intent": "QUERY_PARKING",
+      "tools_called": [
+        "calculate_kpis",
+        "query_plots"
+      ],
+      "highlight_count": 0,
+      "view_actions": [],
+      "failure_reasons": [],
+      "answer_excerpt": "### \ud83d\ude97 Masterplan Parking Capacity & Deficit Analysis - **Total Parking Bays Required**: 66,315 bays - **Total Parking Ba"
+    },
+    {
+      "id": "Q087",
+      "category": "Parking Capacity",
+      "query": "which plots fail to meet minimum parking requirements?",
+      "passed": true,
+      "latency_ms": 44.06,
+      "intent": "QUERY_PARKING",
+      "tools_called": [
+        "calculate_kpis",
+        "query_plots"
+      ],
+      "highlight_count": 0,
+      "view_actions": [],
+      "failure_reasons": [],
+      "answer_excerpt": "### \ud83d\ude97 Masterplan Parking Capacity & Deficit Analysis - **Total Parking Bays Required**: 66,315 bays - **Total Parking Ba"
+    },
+    {
+      "id": "Q088",
+      "category": "Parking Capacity",
+      "query": "calculate total parking capacity across Expo Hills",
+      "passed": true,
+      "latency_ms": 93.89,
+      "intent": "QUERY_PARKING",
+      "tools_called": [
+        "calculate_kpis",
+        "query_plots"
+      ],
+      "highlight_count": 0,
+      "view_actions": [],
+      "failure_reasons": [],
+      "answer_excerpt": "### \ud83d\ude97 Masterplan Parking Capacity & Deficit Analysis - **Total Parking Bays Required**: 66,315 bays - **Total Parking Ba"
+    },
+    {
+      "id": "Q089",
+      "category": "Parking Capacity",
+      "query": "are there any parking deficit plots in the masterplan?",
+      "passed": true,
+      "latency_ms": 42.45,
+      "intent": "QUERY_PARKING",
+      "tools_called": [
+        "calculate_kpis",
+        "query_plots"
+      ],
+      "highlight_count": 0,
+      "view_actions": [],
+      "failure_reasons": [],
+      "answer_excerpt": "### \ud83d\ude97 Masterplan Parking Capacity & Deficit Analysis - **Total Parking Bays Required**: 66,315 bays - **Total Parking Ba"
+    },
+    {
+      "id": "Q090",
+      "category": "Parking Capacity",
+      "query": "parking bay demand and supply balance",
+      "passed": true,
+      "latency_ms": 94.31,
+      "intent": "QUERY_PARKING",
+      "tools_called": [
+        "calculate_kpis",
+        "query_plots"
+      ],
+      "highlight_count": 0,
+      "view_actions": [],
+      "failure_reasons": [],
+      "answer_excerpt": "### \ud83d\ude97 Masterplan Parking Capacity & Deficit Analysis - **Total Parking Bays Required**: 66,315 bays - **Total Parking Ba"
+    },
+    {
+      "id": "Q091",
+      "category": "Parking Capacity",
+      "query": "how many total parking bays are required?",
+      "passed": true,
+      "latency_ms": 42.84,
+      "intent": "QUERY_PARKING",
+      "tools_called": [
+        "calculate_kpis",
+        "query_plots"
+      ],
+      "highlight_count": 0,
+      "view_actions": [],
+      "failure_reasons": [],
+      "answer_excerpt": "### \ud83d\ude97 Masterplan Parking Capacity & Deficit Analysis - **Total Parking Bays Required**: 66,315 bays - **Total Parking Ba"
+    },
+    {
+      "id": "Q092",
+      "category": "Parking Capacity",
+      "query": "parking requirements analysis",
+      "passed": true,
+      "latency_ms": 95.11,
+      "intent": "QUERY_PARKING",
+      "tools_called": [
+        "calculate_kpis",
+        "query_plots"
+      ],
+      "highlight_count": 0,
+      "view_actions": [],
+      "failure_reasons": [],
+      "answer_excerpt": "### \ud83d\ude97 Masterplan Parking Capacity & Deficit Analysis - **Total Parking Bays Required**: 66,315 bays - **Total Parking Ba"
+    },
+    {
+      "id": "Q093",
+      "category": "Heights & Setbacks",
+      "query": "run spatial compliance audit",
+      "passed": false,
+      "latency_ms": 162.27,
+      "intent": "SPATIAL_AUDIT",
+      "tools_called": [
+        "run_spatial_audit"
+      ],
+      "highlight_count": 0,
+      "view_actions": [],
+      "failure_reasons": [
+        "Highlight plots count 0 < min required 1"
+      ],
+      "answer_excerpt": "### \ud83d\udccb Masterplan Spatial Compliance Audit Complete - **Total Plots**: 434 - **Compliant**: 434 \u2705 - **Warnings**: 0 \u26a0\ufe0f - "
+    },
+    {
+      "id": "Q094",
+      "category": "Heights & Setbacks",
+      "query": "check compliance",
+      "passed": false,
+      "latency_ms": 212.57,
+      "intent": "SPATIAL_AUDIT",
+      "tools_called": [
+        "run_spatial_audit"
+      ],
+      "highlight_count": 0,
+      "view_actions": [],
+      "failure_reasons": [
+        "Highlight plots count 0 < min required 1"
+      ],
+      "answer_excerpt": "### \ud83d\udccb Masterplan Spatial Compliance Audit Complete - **Total Plots**: 434 - **Compliant**: 434 \u2705 - **Warnings**: 0 \u26a0\ufe0f - "
+    },
+    {
+      "id": "Q095",
+      "category": "Heights & Setbacks",
+      "query": "list all plots with violations",
+      "passed": false,
+      "latency_ms": 163.83,
+      "intent": "SPATIAL_AUDIT",
+      "tools_called": [
+        "run_spatial_audit"
+      ],
+      "highlight_count": 0,
+      "view_actions": [],
+      "failure_reasons": [
+        "Highlight plots count 0 < min required 1"
+      ],
+      "answer_excerpt": "### \ud83d\udccb Masterplan Spatial Compliance Audit Complete - **Total Plots**: 434 - **Compliant**: 434 \u2705 - **Warnings**: 0 \u26a0\ufe0f - "
+    },
+    {
+      "id": "Q096",
+      "category": "Heights & Setbacks",
+      "query": "show parcels with setback buffer non-compliance",
+      "passed": false,
+      "latency_ms": 212.93,
+      "intent": "SPATIAL_AUDIT",
+      "tools_called": [
+        "run_spatial_audit"
+      ],
+      "highlight_count": 0,
+      "view_actions": [],
+      "failure_reasons": [
+        "Highlight plots count 0 < min required 1"
+      ],
+      "answer_excerpt": "### \ud83d\udccb Masterplan Spatial Compliance Audit Complete - **Total Plots**: 434 - **Compliant**: 434 \u2705 - **Warnings**: 0 \u26a0\ufe0f - "
+    },
+    {
+      "id": "Q097",
+      "category": "Heights & Setbacks",
+      "query": "what are the standard setback requirements in Expo Hills?",
+      "passed": true,
+      "latency_ms": 0.06,
+      "intent": "QUERY_REGULATIONS",
+      "tools_called": [
+        "spatial_reasoning_engine"
+      ],
+      "highlight_count": 0,
+      "view_actions": [],
+      "failure_reasons": [],
+      "answer_excerpt": "### \ud83d\udcd0 Expo Hills Standard Setback Regulations & Envelopes - **Front Setback**: 6.0 m buffer from primary road Right-of-W"
+    },
+    {
+      "id": "Q098",
+      "category": "Heights & Setbacks",
+      "query": "show standard setback buffers",
+      "passed": true,
+      "latency_ms": 0.02,
+      "intent": "QUERY_REGULATIONS",
+      "tools_called": [
+        "spatial_reasoning_engine"
+      ],
+      "highlight_count": 0,
+      "view_actions": [],
+      "failure_reasons": [],
+      "answer_excerpt": "### \ud83d\udcd0 Expo Hills Standard Setback Regulations & Envelopes - **Front Setback**: 6.0 m buffer from primary road Right-of-W"
+    },
+    {
+      "id": "Q099",
+      "category": "Heights & Setbacks",
+      "query": "building height envelope regulations",
+      "passed": true,
+      "latency_ms": 0.02,
+      "intent": "QUERY_REGULATIONS",
+      "tools_called": [
+        "spatial_reasoning_engine"
+      ],
+      "highlight_count": 0,
+      "view_actions": [],
+      "failure_reasons": [],
+      "answer_excerpt": "### \ud83d\udcd0 Expo Hills Standard Setback Regulations & Envelopes - **Front Setback**: 6.0 m buffer from primary road Right-of-W"
+    },
+    {
+      "id": "Q100",
+      "category": "Heights & Setbacks",
+      "query": "check masterplan setback compliance",
+      "passed": false,
+      "latency_ms": 160.51,
+      "intent": "SPATIAL_AUDIT",
+      "tools_called": [
+        "run_spatial_audit"
+      ],
+      "highlight_count": 0,
+      "view_actions": [],
+      "failure_reasons": [
+        "Highlight plots count 0 < min required 1"
+      ],
+      "answer_excerpt": "### \ud83d\udccb Masterplan Spatial Compliance Audit Complete - **Total Plots**: 434 - **Compliant**: 434 \u2705 - **Warnings**: 0 \u26a0\ufe0f - "
+    },
+    {
+      "id": "Q101",
+      "category": "Heights & Setbacks",
+      "query": "identify encroaching parcels",
+      "passed": false,
+      "latency_ms": 183.87,
+      "intent": "SPATIAL_AUDIT",
+      "tools_called": [
+        "run_spatial_audit"
+      ],
+      "highlight_count": 0,
+      "view_actions": [],
+      "failure_reasons": [
+        "Highlight plots count 0 < min required 1"
+      ],
+      "answer_excerpt": "### \ud83d\udccb Masterplan Spatial Compliance Audit Complete - **Total Plots**: 434 - **Compliant**: 434 \u2705 - **Warnings**: 0 \u26a0\ufe0f - "
+    },
+    {
+      "id": "Q102",
+      "category": "Heights & Setbacks",
+      "query": "audit plot setbacks and site coverage",
+      "passed": false,
+      "latency_ms": 140.07,
+      "intent": "SPATIAL_AUDIT",
+      "tools_called": [
+        "run_spatial_audit"
+      ],
+      "highlight_count": 0,
+      "view_actions": [],
+      "failure_reasons": [
+        "Highlight plots count 0 < min required 1"
+      ],
+      "answer_excerpt": "### \ud83d\udccb Masterplan Spatial Compliance Audit Complete - **Total Plots**: 434 - **Compliant**: 434 \u2705 - **Warnings**: 0 \u26a0\ufe0f - "
+    },
+    {
+      "id": "Q103",
+      "category": "Plot Inspection",
+      "query": "inspect plot P-5210747",
+      "passed": true,
+      "latency_ms": 58.44,
+      "intent": "INSPECT_PLOT",
+      "tools_called": [
+        "get_plot_details"
+      ],
+      "highlight_count": 1,
+      "view_actions": [],
+      "failure_reasons": [],
+      "answer_excerpt": "### \ud83c\udfaf Detailed Inspection: Plot P-5210747 - **Land Use**: Utilities - **Sector**: Expo Hills - **Plot Footprint**: 13,48"
+    },
+    {
+      "id": "Q104",
+      "category": "Plot Inspection",
+      "query": "details of plot P-5210753",
+      "passed": true,
+      "latency_ms": 17.18,
+      "intent": "INSPECT_PLOT",
+      "tools_called": [
+        "get_plot_details"
+      ],
+      "highlight_count": 1,
+      "view_actions": [],
+      "failure_reasons": [],
+      "answer_excerpt": "### \ud83c\udfaf Detailed Inspection: Plot P-5210753 - **Land Use**: Mixed Use - **Sector**: Expo Fields - **Plot Footprint**: 11,1"
+    },
+    {
+      "id": "Q105",
+      "category": "Plot Inspection",
+      "query": "what is the FAR and GFA of plot 5210754?",
+      "passed": true,
+      "latency_ms": 13.35,
+      "intent": "INSPECT_PLOT",
+      "tools_called": [
+        "get_plot_details"
+      ],
+      "highlight_count": 1,
+      "view_actions": [],
+      "failure_reasons": [],
+      "answer_excerpt": "### \ud83c\udfaf Plot P-5210754 \u2014 Technical Query - **Achieved FAR**: **5.93** (Maximum Permitted FAR: 5.93) - **Achieved GFA**: **"
+    },
+    {
+      "id": "Q106",
+      "category": "Plot Inspection",
+      "query": "inspect plot 5210766",
+      "passed": true,
+      "latency_ms": 16.93,
+      "intent": "INSPECT_PLOT",
+      "tools_called": [
+        "get_plot_details"
+      ],
+      "highlight_count": 1,
+      "view_actions": [],
+      "failure_reasons": [],
+      "answer_excerpt": "### \ud83c\udfaf Detailed Inspection: Plot P-5210766 - **Land Use**: Commercial - **Sector**: Expo Hills - **Plot Footprint**: 18,0"
+    },
+    {
+      "id": "Q107",
+      "category": "Plot Inspection",
+      "query": "show details for Plot P-5211026",
+      "passed": true,
+      "latency_ms": 74.12,
+      "intent": "INSPECT_PLOT",
+      "tools_called": [
+        "get_plot_details"
+      ],
+      "highlight_count": 1,
+      "view_actions": [],
+      "failure_reasons": [],
+      "answer_excerpt": "### \ud83c\udfaf Detailed Inspection: Plot P-5211026 - **Land Use**: Mixed Use - **Sector**: Expo Downtown - **Plot Footprint**: 54"
+    },
+    {
+      "id": "Q108",
+      "category": "Plot Inspection",
+      "query": "show me the top 5 largest plots",
+      "passed": true,
+      "latency_ms": 39.16,
+      "intent": "QUERY_RANKINGS",
+      "tools_called": [
+        "query_plots"
+      ],
+      "highlight_count": 6,
+      "view_actions": [],
+      "failure_reasons": [],
+      "answer_excerpt": "### \ud83c\udfc6 Top Masterplan Parcels by Footprint Area  | Rank | Plot ID | Land Use | Sector | Footprint (m\u00b2) | Achieved GFA (m\u00b2"
+    },
+    {
+      "id": "Q109",
+      "category": "Plot Inspection",
+      "query": "which plot has the smallest footprint?",
+      "passed": true,
+      "latency_ms": 90.18,
+      "intent": "QUERY_RANKINGS",
+      "tools_called": [
+        "query_plots"
+      ],
+      "highlight_count": 6,
+      "view_actions": [],
+      "failure_reasons": [],
+      "answer_excerpt": "### \ud83c\udfc6 Top Masterplan Parcels by Smallest Footprint Area  | Rank | Plot ID | Land Use | Sector | Footprint (m\u00b2) | Achieve"
+    },
+    {
+      "id": "Q110",
+      "category": "Plot Inspection",
+      "query": "show me the largest parcels",
+      "passed": true,
+      "latency_ms": 38.71,
+      "intent": "QUERY_RANKINGS",
+      "tools_called": [
+        "query_plots"
+      ],
+      "highlight_count": 6,
+      "view_actions": [],
+      "failure_reasons": [],
+      "answer_excerpt": "### \ud83c\udfc6 Top Masterplan Parcels by Footprint Area  | Rank | Plot ID | Land Use | Sector | Footprint (m\u00b2) | Achieved GFA (m\u00b2"
+    },
+    {
+      "id": "Q111",
+      "category": "Plot Inspection",
+      "query": "show all plots",
+      "passed": true,
+      "latency_ms": 93.93,
+      "intent": "LIST_PLOTS",
+      "tools_called": [
+        "query_plots"
+      ],
+      "highlight_count": 15,
+      "view_actions": [],
+      "failure_reasons": [],
+      "answer_excerpt": "### \ud83d\udccb Masterplan Plot Register (434 parcels) Extracted directly from project CAD drawing and development register record"
+    },
+    {
+      "id": "Q112",
+      "category": "Plot Inspection",
+      "query": "undo last action",
+      "passed": true,
+      "latency_ms": 17.17,
+      "intent": "UNDO_ACTION",
+      "tools_called": [
+        "undo_last_action"
+      ],
+      "highlight_count": 1,
+      "view_actions": [],
+      "failure_reasons": [],
+      "answer_excerpt": "\ud83d\udd04 **Audit Rollback**: Successfully reverted action: Updated parameters for Plot P-5211027 (Mixed Use, FAR: 1.68)"
+    },
+    {
+      "id": "Q113",
+      "category": "CAD Visual Actions",
+      "query": "change the ccolor of plots for GFA less then 20000 to blue",
+      "passed": true,
+      "latency_ms": 0.04,
+      "intent": "VIEW_ACTION",
+      "tools_called": [
+        "drawing_view_controller"
+      ],
+      "highlight_count": 0,
+      "view_actions": [
+        {
+          "type": "edit_hatches",
+          "filter_field": "gfa",
+          "operator": "<",
+          "value": 20000.0,
+          "color": "blue"
+        }
+      ],
+      "failure_reasons": [],
+      "answer_excerpt": "Drawing action requested."
+    },
+    {
+      "id": "Q114",
+      "category": "CAD Visual Actions",
+      "query": "change the color of plots for GFA less than 20000 to blue",
+      "passed": true,
+      "latency_ms": 0.02,
+      "intent": "VIEW_ACTION",
+      "tools_called": [
+        "drawing_view_controller"
+      ],
+      "highlight_count": 0,
+      "view_actions": [
+        {
+          "type": "edit_hatches",
+          "filter_field": "gfa",
+          "operator": "<",
+          "value": 20000.0,
+          "color": "blue"
+        }
+      ],
+      "failure_reasons": [],
+      "answer_excerpt": "Drawing action requested."
+    },
+    {
+      "id": "Q115",
+      "category": "CAD Visual Actions",
+      "query": "color plots with area more than 15000 to red",
+      "passed": true,
+      "latency_ms": 0.01,
+      "intent": "VIEW_ACTION",
+      "tools_called": [
+        "drawing_view_controller"
+      ],
+      "highlight_count": 0,
+      "view_actions": [
+        {
+          "type": "edit_hatches",
+          "filter_field": "area",
+          "operator": ">",
+          "value": 15000.0,
+          "color": "red"
+        }
+      ],
+      "failure_reasons": [],
+      "answer_excerpt": "Drawing action requested."
+    },
+    {
+      "id": "Q116",
+      "category": "CAD Visual Actions",
+      "query": "make plots where far is greater than 3.0 orange",
+      "passed": true,
+      "latency_ms": 0.01,
+      "intent": "VIEW_ACTION",
+      "tools_called": [
+        "drawing_view_controller"
+      ],
+      "highlight_count": 0,
+      "view_actions": [
+        {
+          "type": "edit_hatches",
+          "filter_field": "far",
+          "operator": ">",
+          "value": 3.0,
+          "color": "orange"
+        }
+      ],
+      "failure_reasons": [],
+      "answer_excerpt": "Drawing action requested."
+    },
+    {
+      "id": "Q117",
+      "category": "CAD Visual Actions",
+      "query": "change the color of residential plots to green",
+      "passed": true,
+      "latency_ms": 0.01,
+      "intent": "VIEW_ACTION",
+      "tools_called": [
+        "drawing_view_controller"
+      ],
+      "highlight_count": 0,
+      "view_actions": [
+        {
+          "type": "edit_hatches",
+          "land_use": "Residential",
+          "color": "green"
+        }
+      ],
+      "failure_reasons": [],
+      "answer_excerpt": "Drawing action requested."
+    },
+    {
+      "id": "Q118",
+      "category": "CAD Visual Actions",
+      "query": "change the color of commercial plots to yellow",
+      "passed": true,
+      "latency_ms": 0.01,
+      "intent": "VIEW_ACTION",
+      "tools_called": [
+        "drawing_view_controller"
+      ],
+      "highlight_count": 0,
+      "view_actions": [
+        {
+          "type": "edit_hatches",
+          "land_use": "Commercial",
+          "color": "yellow"
+        }
+      ],
+      "failure_reasons": [],
+      "answer_excerpt": "Drawing action requested."
+    },
+    {
+      "id": "Q119",
+      "category": "CAD Visual Actions",
+      "query": "color open space plots green",
+      "passed": true,
+      "latency_ms": 0.01,
+      "intent": "VIEW_ACTION",
+      "tools_called": [
+        "drawing_view_controller"
+      ],
+      "highlight_count": 0,
+      "view_actions": [
+        {
+          "type": "edit_hatches",
+          "land_use": "Open Space / Park",
+          "color": "green"
+        }
+      ],
+      "failure_reasons": [],
+      "answer_excerpt": "Drawing action requested."
+    },
+    {
+      "id": "Q120",
+      "category": "CAD Visual Actions",
+      "query": "hide plot labels",
+      "passed": true,
+      "latency_ms": 0.01,
+      "intent": "VIEW_ACTION",
+      "tools_called": [
+        "drawing_view_controller"
+      ],
+      "highlight_count": 0,
+      "view_actions": [
+        {
+          "type": "set_text_mode",
+          "mode": "off"
+        }
+      ],
+      "failure_reasons": [],
+      "answer_excerpt": "Drawing action requested."
+    },
+    {
+      "id": "Q121",
+      "category": "CAD Visual Actions",
+      "query": "show cad text",
+      "passed": true,
+      "latency_ms": 0.01,
+      "intent": "VIEW_ACTION",
+      "tools_called": [
+        "drawing_view_controller"
+      ],
+      "highlight_count": 0,
+      "view_actions": [
+        {
+          "type": "set_text_mode",
+          "mode": "all"
+        }
+      ],
+      "failure_reasons": [],
+      "answer_excerpt": "Drawing action requested."
+    },
+    {
+      "id": "Q122",
+      "category": "CAD Visual Actions",
+      "query": "zoom to fit",
+      "passed": true,
+      "latency_ms": 0.01,
+      "intent": "VIEW_ACTION",
+      "tools_called": [
+        "drawing_view_controller"
+      ],
+      "highlight_count": 0,
+      "view_actions": [
+        {
+          "type": "fit_view"
+        }
+      ],
+      "failure_reasons": [],
+      "answer_excerpt": "Drawing action requested."
+    }
+  ]
+}

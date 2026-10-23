@@ -5,10 +5,15 @@ parsers, graphics engine, audit logs, and Qwen 3.5 9B Copilot.
 """
 import os
 import shutil
+import json
 from typing import List, Dict, Any, Optional
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Query, Request
 from fastapi.responses import FileResponse, JSONResponse
 from loguru import logger
+
+import auth
+from config import get_settings
+from services.ingestion import contained_upload_path, save_upload_capped, UploadTooLargeError
 
 from services.masterplan.models import (
     MasterplanPlot, MasterplanProject, AuditLogEntry,
@@ -52,13 +57,24 @@ async def edit_cad_revision(project_id: str, request: Request, payload: Dict[str
     if source_id: files=[f for f in files if f['id']==source_id]
     if not files: raise HTTPException(404,'Selected CAD source not found')
     source=files[0]['file_path']
-    expected=os.path.realpath(os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))),'data','projects',project_id,'masterplan'))
+    expected=os.path.realpath(os.path.join(get_settings().data_dir,'projects',project_id,'masterplan'))
     from pathlib import Path
     if not Path(source).resolve().is_relative_to(Path(expected).resolve()):
         raise HTTPException(400,'Source is outside its project drawing folder')
     ids=payload.get('plot_ids')
     if payload.get('land_use'):
         ids=[p.plot_id for p in db.get_plots(project_id,land_use=payload['land_use'])]
+    elif payload.get('filter_field'):
+        field = payload['filter_field']
+        op = payload.get('operator', '<')
+        val = float(payload.get('value', 0))
+        all_p = db.get_plots(project_id)
+        import operator
+        compare = {'<':operator.lt, '>':operator.gt, '<=':operator.le, '>=':operator.ge, '==':operator.eq}.get(op)
+        attribute = {'gfa':'achieved_gfa', 'area':'area_sqm', 'far':'far'}.get(field)
+        if compare is None or attribute is None:
+            raise HTTPException(400,'Unsupported plot filter')
+        ids = [p.plot_id for p in all_p if compare(getattr(p, attribute), val)]
     if not isinstance(ids,list) or not ids or len(ids)>1000 or any(not isinstance(p,str) for p in ids):
         raise HTTPException(400,'Specify 1–1000 matched plot IDs')
     import cad
@@ -116,33 +132,57 @@ async def list_cad_revisions(project_id: str, request: Request):
 
 
 @mpd_router.get("/projects", response_model=List[Dict[str, Any]])
-async def list_masterplan_projects():
-    """Returns available masterplan projects."""
-    summary = db.get_project_summary("C3085 - 3EH -Expo Hills")
-    return [{"project_id": summary.project_id, "name": summary.name, "total_plots": summary.total_plots, "total_area_sqm": summary.total_area_sqm}]
+async def list_masterplan_projects(request: Request):
+    """Returns available masterplan projects that the authenticated user is permitted to access."""
+    user = auth.require_user(request)
+    registered = db.list_projects()
+    authorized = []
+    for item in registered:
+        pid = item.get("project_id")
+        if pid and auth.user_has_project(user, pid):
+            try:
+                summary = db.get_project_summary(pid)
+                authorized.append({
+                    "project_id": summary.project_id,
+                    "name": summary.name,
+                    "total_plots": summary.total_plots,
+                    "total_area_sqm": summary.total_area_sqm
+                })
+            except Exception:
+                continue
+    if user.get("role") != "admin" and not authorized:
+        raise HTTPException(403, "You do not have access to any masterplan projects")
+    return authorized
 
 
 @mpd_router.get("/projects/{project_id}", response_model=MasterplanProject)
-async def get_project_details(project_id: str):
+async def get_project_details(project_id: str, request: Request = None):
     """Returns overall project statistics, land use breakdown, and compliance KPIs."""
+    if request is not None:
+        auth.require_project(request, project_id)
     return db.get_project_summary(project_id)
 
 
 @mpd_router.get("/projects/{project_id}/plots", response_model=List[MasterplanPlot])
 async def list_plots(
     project_id: str,
+    request: Request = None,
     land_use: Optional[str] = Query(None),
     sector: Optional[str] = Query(None),
     status: Optional[str] = Query(None),
     search: Optional[str] = Query(None)
 ):
     """Retrieves plot records with optional filtering."""
+    if request is not None:
+        auth.require_project(request, project_id)
     return db.get_plots(project_id, land_use=land_use, sector=sector, status=status, search=search)
 
 
 @mpd_router.get("/projects/{project_id}/plots/{plot_id}", response_model=MasterplanPlot)
-async def get_plot(project_id: str, plot_id: str):
+async def get_plot(project_id: str, plot_id: str, request: Request = None):
     """Retrieves details of a single plot."""
+    if request is not None:
+        auth.require_project(request, project_id)
     p = db.get_plot(project_id, plot_id)
     if not p:
         raise HTTPException(status_code=404, detail=f"Plot {plot_id} not found")
@@ -150,8 +190,11 @@ async def get_plot(project_id: str, plot_id: str):
 
 
 @mpd_router.post("/projects/{project_id}/plots/{plot_id}", response_model=MasterplanPlot)
-async def update_plot(project_id: str, plot_id: str, plot: MasterplanPlot):
+async def update_plot(project_id: str, plot_id: str, plot: MasterplanPlot, request: Request = None):
     """Updates plot parameters, recalculates spatial compliance, and logs audit trail."""
+    if request is not None:
+        auth.require_project(request, project_id)
+        auth.require_roles(request, "admin", "lead")
     plot.plot_id = plot_id
     plot.project_id = project_id
     # Recalculate compliance
@@ -163,39 +206,57 @@ async def update_plot(project_id: str, plot_id: str, plot: MasterplanPlot):
 
 
 @mpd_router.post("/projects/{project_id}/audit")
-async def run_spatial_audit(project_id: str):
+async def run_spatial_audit(project_id: str, request: Request = None):
     """Executes full automated spatial and zoning audit."""
+    if request is not None:
+        auth.require_project(request, project_id)
     res = spatial_engine.run_project_audit(project_id)
     return res
 
 
 @mpd_router.post("/projects/{project_id}/ai-query", response_model=MasterplanAIQueryResponse)
-async def ai_query(project_id: str, req: MasterplanAIQueryRequest):
+async def ai_query(project_id: str, req: MasterplanAIQueryRequest, request: Request = None):
     """Interacts with Local Agentic AI Qwen 3.5 9B for intent parsing and masterplan reasoning."""
+    if request is not None:
+        auth.require_project(request, project_id)
     req.project_id = project_id
     res = await agent.process_query(req)
     return res
 
 
 @mpd_router.post("/projects/{project_id}/import-file")
-async def import_file(project_id: str, file: UploadFile = File(...)):
+async def import_file(project_id: str, file: UploadFile = File(...), request: Request = None):
     """
     Ingests DWG/DXF, Excel, or PDF masterplan files,
     stores them permanently under the project, records metadata,
     parses plot entities, runs correlation analysis, and updates spatial audit.
     """
-    ext = os.path.splitext(file.filename)[1].lower()
-    proj_mp_dir = os.path.join(
-        os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
-        "data", "projects", project_id, "masterplan"
-    )
-    os.makedirs(proj_mp_dir, exist_ok=True)
-    saved_path = os.path.join(proj_mp_dir, file.filename)
+    if request is not None:
+        auth.require_project(request, project_id)
+        auth.require_roles(request, "admin", "lead")
 
-    with open(saved_path, "wb") as f:
-        shutil.copyfileobj(file.file, f)
+    clean_filename = os.path.basename(file.filename or "")
+    if not clean_filename:
+        raise HTTPException(status_code=400, detail="Filename required")
 
-    file_size = os.path.getsize(saved_path)
+    ext = os.path.splitext(clean_filename)[1].lower()
+    if ext not in (".dxf", ".dwg", ".xlsx", ".xls", ".pdf"):
+        raise HTTPException(status_code=400, detail=f"Unsupported format: {ext}. Upload .dxf, .xlsx, or .pdf")
+
+    data_root = get_settings().data_dir
+    projects_root = os.path.join(data_root, "projects")
+    try:
+        saved_path = contained_upload_path(projects_root, project_id, "masterplan", clean_filename)
+    except ValueError as err:
+        raise HTTPException(status_code=400, detail=str(err))
+
+    os.makedirs(os.path.dirname(saved_path), exist_ok=True)
+    max_bytes = get_settings().max_upload_size_mb * 1024 * 1024
+    try:
+        file_size = save_upload_capped(file.file, saved_path, max_bytes)
+    except UploadTooLargeError as e:
+        raise HTTPException(status_code=413, detail=str(e))
+
     parsed_plots: List[MasterplanPlot] = []
     parser_type = ""
     file_type = "cad" if ext in (".dxf", ".dwg") else ("excel" if ext in (".xlsx", ".xls") else "pdf")
@@ -210,13 +271,11 @@ async def import_file(project_id: str, file: UploadFile = File(...)):
         elif ext == ".pdf":
             parser_type = "PDF Parser"
             parsed_plots = pdf_parser.parse_pdf(saved_path, project_id)
-        else:
-            raise HTTPException(status_code=400, detail=f"Unsupported format: {ext}. Upload .dxf, .xlsx, or .pdf")
 
         # Save record in database
         db.save_file_record(
             project_id=project_id,
-            filename=file.filename,
+            filename=clean_filename,
             file_type=file_type,
             file_size=file_size,
             file_path=saved_path,
@@ -225,7 +284,7 @@ async def import_file(project_id: str, file: UploadFile = File(...)):
         )
 
         if not parsed_plots:
-            return {"status": "warning", "message": f"No plots extracted from {file.filename}.", "count": 0}
+            return {"status": "warning", "message": f"No plots extracted from {clean_filename}.", "count": 0}
 
         # Check existing files to see if both CAD and Excel are now present
         all_files = db.get_file_records(project_id)
@@ -239,21 +298,25 @@ async def import_file(project_id: str, file: UploadFile = File(...)):
 
         return {
             "status": "success",
-            "message": f"Successfully imported {file.filename} ({len(parsed_plots)} plots). File registered under MPD.",
+            "message": f"Successfully imported {clean_filename} ({len(parsed_plots)} plots). File registered under MPD.",
             "count": len(parsed_plots),
-            "filename": file.filename,
+            "filename": clean_filename,
             "file_type": file_type,
             "has_cad_and_excel": bool(cad_files and excel_files),
             "reconciliation": None
         }
+    except HTTPException:
+        raise
     except Exception as exc:
-        logger.error(f"Failed to process masterplan file {file.filename}: {exc}")
+        logger.error(f"Failed to process masterplan file {clean_filename}: {exc}")
         raise HTTPException(status_code=500, detail=str(exc))
 
 
 @mpd_router.get("/projects/{project_id}/files")
-async def list_masterplan_files(project_id: str):
+async def list_masterplan_files(project_id: str, request: Request = None):
     """Retrieves all uploaded masterplan source files and their linkage status."""
+    if request is not None:
+        auth.require_project(request, project_id)
     files = db.get_file_records(project_id)
     relation = db.get_latest_file_relation(project_id)
     return {
@@ -264,8 +327,11 @@ async def list_masterplan_files(project_id: str):
 
 
 @mpd_router.delete("/projects/{project_id}/files/{file_id}")
-async def delete_masterplan_file(project_id: str, file_id: str):
+async def delete_masterplan_file(project_id: str, file_id: str, request: Request = None):
     """Deletes an uploaded masterplan source file."""
+    if request is not None:
+        auth.require_project(request, project_id)
+        auth.require_roles(request, "admin", "lead")
     deleted = db.delete_file_record(project_id, file_id)
     if not deleted:
         raise HTTPException(status_code=404, detail="File not found")
@@ -278,11 +344,13 @@ async def delete_masterplan_file(project_id: str, file_id: str):
 _CAD_DRAWING_CACHE = {}
 
 @mpd_router.get("/projects/{project_id}/cad-drawing")
-async def get_project_cad_drawing(project_id: str, file_id: Optional[str] = Query(None)):
+async def get_project_cad_drawing(project_id: str, request: Request = None, file_id: Optional[str] = Query(None)):
     """
     Returns full CAD vector drawing linework (lines, polylines, arcs, circles, texts, layers)
     for rendering the full architectural CAD background in the MPD canvas.
     """
+    if request is not None:
+        auth.require_project(request, project_id)
     all_files = db.get_file_records(project_id)
     cad_files = [f for f in all_files if f.get("file_type") == "cad"]
     if not cad_files:
@@ -454,11 +522,14 @@ async def get_project_cad_drawing(project_id: str, file_id: Optional[str] = Quer
 
 
 @mpd_router.post("/projects/{project_id}/reconcile")
-async def reconcile_files(project_id: str):
+async def reconcile_files(project_id: str, request: Request = None):
     """
     Correlates uploaded CAD drawing geometry with Excel development schedules,
     identifying exact parcel matches and discrepancies requiring confirmation.
     """
+    if request is not None:
+        auth.require_project(request, project_id)
+        auth.require_roles(request, "admin", "lead")
     all_files = db.get_file_records(project_id)
     cad_files = [f for f in all_files if f["file_type"] == "cad"]
     excel_files = [f for f in all_files if f["file_type"] == "excel"]
@@ -489,11 +560,14 @@ async def reconcile_files(project_id: str):
 
 
 @mpd_router.post("/projects/{project_id}/stabilize-relation")
-async def stabilize_relation(project_id: str, payload: Dict[str, Any]):
+async def stabilize_relation(project_id: str, payload: Dict[str, Any], request: Request = None):
     """
     Stabilizes the relation between CAD geometry and Excel development schedules
     based on user-confirmed resolutions, and updates the AI reasoning ground truth.
     """
+    if request is not None:
+        auth.require_project(request, project_id)
+        auth.require_roles(request, "admin", "lead")
     resolutions = payload.get("resolutions", {})
     author = payload.get("author", "Design Review Admin")
 
@@ -573,8 +647,10 @@ async def stabilize_relation(project_id: str, payload: Dict[str, Any]):
 
 
 @mpd_router.get("/projects/{project_id}/export-cad")
-async def export_cad(project_id: str, highlights: Optional[str] = Query(None)):
+async def export_cad(project_id: str, request: Request = None, highlights: Optional[str] = Query(None)):
     """Generates and serves a highlighted CAD copy (DXF)."""
+    if request is not None:
+        auth.require_project(request, project_id)
     hl_list = [h.strip().upper() for h in highlights.split(",") if h.strip()] if highlights else None
     dxf_path = graphics_engine.generate_highlighted_dxf(project_id, hl_list)
     return FileResponse(
@@ -584,15 +660,205 @@ async def export_cad(project_id: str, highlights: Optional[str] = Query(None)):
     )
 
 
+@mpd_router.get("/projects/{project_id}/export-excel")
+async def export_excel(
+    project_id: str,
+    request: Request = None,
+    land_use: Optional[str] = Query(None),
+    sector: Optional[str] = Query(None),
+    status: Optional[str] = Query(None),
+    plots: Optional[str] = Query(None),
+):
+    """Generates and serves a formatted Excel (.xlsx) workbook of masterplan parcels."""
+    if request is not None:
+        auth.require_project(request, project_id)
+    import re as _re
+    import openpyxl
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+
+    records = db.get_plots(project_id, land_use=land_use, sector=sector, status=status)
+    if plots:
+        hl_set = {h.strip().upper() for h in plots.split(",") if h.strip()}
+        if hl_set:
+            records = [p for p in records if p.plot_id.upper() in hl_set]
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Masterplan Schedule"
+
+    title_font = Font(name="Calibri", size=13, bold=True, color="FFFFFF")
+    title_fill = PatternFill(start_color="0F172A", end_color="0F172A", fill_type="solid")
+    sub_font = Font(name="Calibri", size=10, bold=True, color="1E293B")
+    sub_fill = PatternFill(start_color="E2E8F0", end_color="E2E8F0", fill_type="solid")
+    hdr_font = Font(name="Calibri", size=10, bold=True, color="FFFFFF")
+    hdr_fill = PatternFill(start_color="1D4ED8", end_color="1D4ED8", fill_type="solid")
+    tot_font = Font(name="Calibri", size=10, bold=True, color="0F172A")
+    tot_fill = PatternFill(start_color="DBEAFE", end_color="DBEAFE", fill_type="solid")
+    thin_border = Border(
+        left=Side(style="thin", color="CBD5E1"),
+        right=Side(style="thin", color="CBD5E1"),
+        top=Side(style="thin", color="CBD5E1"),
+        bottom=Side(style="thin", color="CBD5E1"),
+    )
+
+    scope_label = land_use or sector or ("Filtered Selection" if plots else "All Masterplan Parcels")
+    total_area = sum(p.area_sqm for p in records)
+    total_perm_gfa = sum(p.permitted_gfa for p in records)
+    total_ach_gfa = sum(p.achieved_gfa for p in records)
+    eff_far = (total_ach_gfa / total_area) if total_area > 0 else 0.0
+
+    ws.merge_cells("A1:P1")
+    ws["A1"] = f"{project_id} — Masterplan Development Schedule ({scope_label})"
+    ws["A1"].font = title_font
+    ws["A1"].fill = title_fill
+    ws["A1"].alignment = Alignment(horizontal="left", vertical="center")
+    ws.row_dimensions[1].height = 26
+
+    ws.merge_cells("A2:P2")
+    ws["A2"] = (
+        f"Total Parcels: {len(records)}   |   Total Footprint Area: {total_area:,.1f} m²   |   "
+        f"Total Achieved GFA: {total_ach_gfa:,.1f} m²   |   Effective FAR: {eff_far:.2f}"
+    )
+    ws["A2"].font = sub_font
+    ws["A2"].fill = sub_fill
+    ws["A2"].alignment = Alignment(horizontal="left", vertical="center")
+    ws.row_dimensions[2].height = 20
+
+    headers = [
+        "Plot ID", "Sector", "Land Use", "Footprint Area (m²)",
+        "Permitted GFA (m²)", "Achieved GFA (m²)", "Achieved FAR", "Max FAR",
+        "Max Height", "Coverage (%)", "Front Setback (m)", "Side Setback (m)",
+        "Rear Setback (m)", "Parking Req.", "Parking Prov.", "Compliance Status",
+    ]
+    ws.append([])
+    ws.append(headers)
+    hdr_row = 4
+    ws.row_dimensions[hdr_row].height = 22
+    for col_idx in range(1, len(headers) + 1):
+        c = ws.cell(row=hdr_row, column=col_idx)
+        c.font = hdr_font
+        c.fill = hdr_fill
+        c.alignment = Alignment(horizontal="center" if col_idx > 3 else "left", vertical="center")
+        c.border = thin_border
+
+    for p in records:
+        row_vals = [
+            p.plot_id,
+            p.sector,
+            p.land_use,
+            round(p.area_sqm, 2),
+            round(p.permitted_gfa, 2),
+            round(p.achieved_gfa, 2),
+            round(p.far, 2),
+            round(p.max_far, 2),
+            p.max_height,
+            round(p.max_coverage_pct, 1),
+            round(p.front_setback_m, 2),
+            round(p.side_setback_m, 2),
+            round(p.rear_setback_m, 2),
+            int(p.parking_required or 0),
+            int(p.parking_provided or 0),
+            (p.status or "compliant").upper(),
+        ]
+        ws.append(row_vals)
+        r_idx = ws.max_row
+        for c_idx in range(1, len(headers) + 1):
+            cell = ws.cell(row=r_idx, column=c_idx)
+            cell.border = thin_border
+            if c_idx in (4, 5, 6):
+                cell.number_format = "#,##0.00"
+            elif c_idx in (7, 8):
+                cell.number_format = "0.00"
+
+    # Summary Totals Row
+    tot_row_vals = [
+        "TOTAL / EFFECTIVE",
+        f"{len(records)} Plots",
+        scope_label,
+        round(total_area, 2),
+        round(total_perm_gfa, 2),
+        round(total_ach_gfa, 2),
+        round(eff_far, 2),
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        sum(int(p.parking_required or 0) for p in records),
+        sum(int(p.parking_provided or 0) for p in records),
+        "100% COMPLIANT" if all(p.status == "compliant" for p in records) else "REVIEW",
+    ]
+    ws.append(tot_row_vals)
+    tot_r = ws.max_row
+    ws.row_dimensions[tot_r].height = 22
+    for c_idx in range(1, len(headers) + 1):
+        cell = ws.cell(row=tot_r, column=c_idx)
+        cell.font = tot_font
+        cell.fill = tot_fill
+        cell.border = thin_border
+        if c_idx in (4, 5, 6):
+            cell.number_format = "#,##0.00"
+        elif c_idx == 7:
+            cell.number_format = "0.00"
+
+    col_widths = [14, 18, 20, 18, 18, 18, 13, 12, 13, 13, 16, 16, 16, 14, 14, 18]
+    for idx, w in enumerate(col_widths, 1):
+        ws.column_dimensions[openpyxl.utils.get_column_letter(idx)].width = w
+
+    # Sheet 2: Land Use Summary
+    ws2 = wb.create_sheet(title="Land Use Summary")
+    ws2.append(["Land Use Category", "Plot Count", "Total Footprint Area (m²)", "% of Area", "Total Achieved GFA (m²)", "Effective FAR"])
+    for c_idx in range(1, 7):
+        c = ws2.cell(row=1, column=c_idx)
+        c.font = hdr_font
+        c.fill = hdr_fill
+        c.border = thin_border
+
+    lu_groups: Dict[str, List[MasterplanPlot]] = {}
+    for p in records:
+        lu_groups.setdefault(p.land_use or "Other", []).append(p)
+    for lu_name, plist in sorted(lu_groups.items(), key=lambda kv: sum(x.area_sqm for x in kv[1]), reverse=True):
+        a_sum = sum(x.area_sqm for x in plist)
+        g_sum = sum(x.achieved_gfa for x in plist)
+        f_avg = (g_sum / a_sum) if a_sum > 0 else 0.0
+        pct = (a_sum / total_area * 100.0) if total_area > 0 else 0.0
+        ws2.append([lu_name, len(plist), round(a_sum, 2), round(pct, 2), round(g_sum, 2), round(f_avg, 2)])
+        r_i = ws2.max_row
+        for c_i in range(1, 7):
+            ws2.cell(row=r_i, column=c_i).border = thin_border
+    for idx, w in enumerate([24, 14, 24, 14, 24, 15], 1):
+        ws2.column_dimensions[openpyxl.utils.get_column_letter(idx)].width = w
+
+    export_dir = os.path.join(get_settings().data_dir, "exports")
+    os.makedirs(export_dir, exist_ok=True)
+    safe_proj = _re.sub(r"[^A-Za-z0-9_-]+", "_", project_id).strip("_")
+    safe_scope = _re.sub(r"[^A-Za-z0-9_-]+", "_", scope_label).strip("_")
+    fname = f"{safe_proj}_{safe_scope}_Schedule.xlsx"
+    out_path = os.path.join(export_dir, fname)
+    wb.save(out_path)
+
+    return FileResponse(
+        out_path,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        filename=fname,
+    )
+
+
 @mpd_router.get("/projects/{project_id}/audit-log", response_model=List[AuditLogEntry])
-async def get_audit_log(project_id: str, limit: int = Query(50)):
+async def get_audit_log(project_id: str, request: Request = None, limit: int = Query(50)):
     """Retrieves design review audit log."""
+    if request is not None:
+        auth.require_project(request, project_id)
     return db.get_audit_log(project_id, limit=limit)
 
 
 @mpd_router.post("/projects/{project_id}/undo")
-async def undo_action(project_id: str):
+async def undo_action(project_id: str, request: Request = None):
     """Reverts the last action performed in the review meeting."""
+    if request is not None:
+        auth.require_project(request, project_id)
+        auth.require_roles(request, "admin", "lead")
     res = db.undo_last_audit(project_id)
     if not res:
         raise HTTPException(status_code=400, detail="No prior state found to undo")
@@ -600,8 +866,11 @@ async def undo_action(project_id: str):
 
 
 @mpd_router.post("/projects/{project_id}/reset-sample")
-async def reset_sample(project_id: str):
+async def reset_sample(project_id: str, request: Request = None):
     """Clears all masterplan plots for this project."""
+    if request is not None:
+        auth.require_project(request, project_id)
+        auth.require_roles(request, "admin")
     conn = db.get_connection()
     try:
         with conn:
@@ -609,3 +878,55 @@ async def reset_sample(project_id: str):
     finally:
         conn.close()
     return {"status": "success", "message": f"Cleared plots for {project_id}"}
+
+
+@mpd_router.post("/projects/{project_id}/resolve-clashes")
+async def resolve_clashes(
+    project_id: str,
+    request: Request = None,
+    far_strategy: str = Query("smart_urban", description="smart_urban, harmonize_zoning, or cap_gfa")
+):
+    """
+    Automated Local AI resolution of 90 masterplan clashes:
+    - Prunes duplicate CAD polyline layers
+    - Carves utility kiosks and substations from host polygons using Shapely seam buffers
+    - Clips perimeter slivers with infrastructure priority
+    - Harmonizes or caps FAR density violations
+    - Re-audits the project and guarantees 100% compliance
+    """
+    if request is not None:
+        auth.require_project(request, project_id)
+        auth.require_roles(request, "admin", "lead")
+    from services.masterplan.clash_resolver import MasterplanClashResolver
+    resolver = MasterplanClashResolver()
+    res = resolver.resolve_all_clashes(project_id, far_strategy=far_strategy)
+    return res
+
+
+@mpd_router.get("/projects/{project_id}/snapshots")
+async def list_snapshots(project_id: str, request: Request = None):
+    """Lists available database snapshots for this project."""
+    if request is not None:
+        auth.require_project(request, project_id)
+    from services.masterplan.clash_resolver import MasterplanClashResolver
+    resolver = MasterplanClashResolver()
+    return resolver.list_snapshots(project_id)
+
+
+@mpd_router.post("/projects/{project_id}/snapshots/restore")
+async def restore_snapshot(
+    project_id: str,
+    snapshot_name: str = Query("baseline"),
+    request: Request = None
+):
+    """Restores the masterplan to a named snapshot."""
+    if request is not None:
+        auth.require_project(request, project_id)
+        auth.require_roles(request, "admin", "lead")
+    from services.masterplan.clash_resolver import MasterplanClashResolver
+    resolver = MasterplanClashResolver()
+    ok = resolver.restore_snapshot(project_id, snapshot_name=snapshot_name)
+    if not ok:
+        raise HTTPException(status_code=404, detail=f"Snapshot '{snapshot_name}' not found")
+    return {"status": "success", "message": f"Restored project to snapshot '{snapshot_name}'"}
+

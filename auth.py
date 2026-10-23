@@ -107,12 +107,6 @@ def user_from_request(request):
     hdr = request.headers.get("authorization") or request.headers.get("Authorization") or ""
     token = hdr[7:].strip() if hdr.lower().startswith("bearer ") else ""
     if not token:
-        # allow token via query param (EventSource / SSE / <img> tags cannot set headers)
-        try:
-            token = request.query_params.get("token", "")
-        except Exception:
-            token = ""
-    if not token:
         # allow token via cookies for media/image asset loading
         try:
             token = request.cookies.get("expo_token") or request.cookies.get("token") or ""
@@ -177,6 +171,20 @@ def can_manage_project(user, project):
         return db.user_can_access(user, project)
     return False
 
+def user_has_project(user: dict, project: str) -> bool:
+    """Returns True if the project exists (not soft-deleted) and user has access permission."""
+    if not user or not project:
+        return False
+    with db.SessionLocal() as session:
+        proj = (session.query(db.Project).filter_by(name=project)
+                .filter(db.Project.deleted_at.is_(None)).first())
+        if not proj:
+            return False
+    if user.get("role") == "admin":
+        return True
+    return db.user_can_access(user, project)
+
+
 # ── first-run admin seed ───────────────────────────────────
 def ensure_admin():
     try:
@@ -184,10 +192,22 @@ def ensure_admin():
     except Exception as e:
         db.logger.error("ensure_admin: cannot list users: {}", e)
         return
-    real_admins = [u for u in users if u["role"] == "admin" and u["username"] != "system"]
+    # list_users() never returns password hashes; it exposes has_password instead. (Before this fix the
+    # check was always empty, so every startup re-ran the seeding and wrote a "user.role" audit entry.)
+    real_admins = [u for u in users if u["role"] == "admin" and u["username"] != "system" and u.get("is_active")
+                   and (u.get("has_password") or u.get("auth_provider", "local") != "local")]
     if real_admins:
         return
     pw = os.getenv("EXPO_ADMIN_PASSWORD", "admin")
+    try:
+        from config import is_production
+        if is_production() and pw == "admin":
+            db.logger.warning(
+                "[SECURITY ALERT] Running in PRODUCTION mode with default admin password ('admin')! "
+                "Set EXPO_ADMIN_PASSWORD in environment or change the admin password immediately."
+            )
+    except Exception:
+        pass
     try:
         existing = db.get_user_by_username("admin")
         if existing:

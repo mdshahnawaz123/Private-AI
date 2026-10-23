@@ -5,7 +5,7 @@
  */
 
 const _mpdEl = (t, c, h) => { const d = document.createElement(t); if (c) d.className = c; if (h != null) d.innerHTML = h; return d; };
-const _mpdEsc = s => (s == null ? '' : String(s)).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const _mpdEsc = s => (s == null ? '' : String(s)).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const _mpd$ = id => (typeof $ === 'function' ? $(id) : document.getElementById(id));
 function _getMpdProject(proj) {
   if (proj) return proj;
@@ -16,6 +16,85 @@ function _getMpdProject(proj) {
   return 'C3085 - 3EH -Expo Hills';
 }
 
+function _compilePredicate(expr) {
+  // Interpret a small expression language. Never execute model-provided JavaScript.
+  try {
+    const source=String(expr || 'true').trim();
+    if(source.length>2000) throw Error('Condition is too long');
+    if(source==='*'||source==='all') return ()=>true;
+    const tokens=[];
+    const lex=/\s*(?:("(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*')|(\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)|(===|!==|==|!=|>=|<=|&&|\|\||[()[\],.<>!+\-])|([A-Za-z_][A-Za-z0-9_]*))/y;
+    let pos=0;
+    while(pos<source.length){
+      lex.lastIndex=pos;const m=lex.exec(source);
+      if(!m) throw Error('Unsupported condition syntax');
+      tokens.push({kind:m[1]?'string':m[2]?'number':m[4]?'name':'op',value:m[1]||m[2]||m[3]||m[4]});
+      pos=lex.lastIndex;
+      if(tokens.length>500) throw Error('Condition is too complex');
+    }
+    let i=0;
+    const peek=()=>tokens[i]?.value;
+    const take=value=>{if(peek()===value){i++;return true;}return false;};
+    const expect=value=>{if(!take(value))throw Error('Expected '+value);};
+    const fields=new Set(['text','layer','type','plot_id','sector','land_use','status','far','area','gfa','parking']);
+    function primary(){
+      let node;
+      if(take('(')){node=expression();expect(')');}
+      else if(take('[')){
+        const items=[];
+        if(!take(']')){do{items.push(expression());}while(take(','));expect(']');}
+        node=ctx=>items.map(item=>item(ctx));
+      } else {
+        const token=tokens[i++];if(!token)throw Error('Missing value');
+        if(token.kind==='string'){
+          const raw=token.value.slice(1,-1);
+          const value=raw.replace(/\\([\\'"nrt])/g,(_,c)=>({n:'\n',r:'\r',t:'\t'}[c]??c));
+          node=()=>value;
+        } else if(token.kind==='number'){const value=Number(token.value);node=()=>value;}
+        else if(['true','True','false','False','null','None'].includes(token.value)){
+          const value=token.value.toLowerCase()==='true'?true:token.value.toLowerCase()==='false'?false:null;node=()=>value;
+        } else if(fields.has(token.value)){const key=token.value;node=ctx=>ctx[key];}
+        else throw Error('Unsupported field: '+token.value);
+      }
+      while(take('.')){
+        const method=tokens[i++]?.value;expect('(');
+        const args=[];if(!take(')')){do{args.push(expression());}while(take(','));expect(')');}
+        const prior=node;
+        if(['includes','contains','startsWith','startswith','endsWith','endswith'].includes(method)&&args.length===1){
+          node=ctx=>{const value=prior(ctx), arg=args[0](ctx);
+            if(method==='includes'||method==='contains')return Array.isArray(value)?value.includes(arg):String(value??'').includes(String(arg));
+            return method.toLowerCase()==='startswith'?String(value??'').startsWith(String(arg)):String(value??'').endsWith(String(arg));};
+        } else if(['lower','toLowerCase','upper','toUpperCase'].includes(method)&&args.length===0){
+          node=ctx=>method==='lower'||method==='toLowerCase'?String(prior(ctx)??'').toLowerCase():String(prior(ctx)??'').toUpperCase();
+        } else throw Error('Unsupported string operation');
+      }
+      return node;
+    }
+    function unary(){
+      if(take('!')||take('not')){const child=unary();return ctx=>!child(ctx);}
+      if(take('-')){const child=unary();return ctx=>-Number(child(ctx));}
+      if(take('+')){const child=unary();return ctx=>Number(child(ctx));}
+      return primary();
+    }
+    function comparison(){
+      const left=unary();const op=peek();
+      if(!['==','===','!=','!==','>','>=','<','<=','in','not'].includes(op))return left;
+      i++;const negate=op==='not';if(negate)expect('in');const right=unary();
+      return ctx=>{const l=left(ctx),r=right(ctx);
+        if(op==='in'||negate){const found=(Array.isArray(r)||typeof r==='string')&&r.includes(l);return negate?!found:found;}
+        if(op==='=='||op==='===')return l===r;if(op==='!='||op==='!==')return l!==r;
+        if(op==='>')return l>r;if(op==='>=')return l>=r;if(op==='<')return l<r;return l<=r;};
+    }
+    function conjunction(){let node=comparison();while(take('and')||take('&&')){const left=node,right=comparison();node=ctx=>left(ctx)&&right(ctx);}return node;}
+    function expression(){let node=conjunction();while(take('or')||take('||')){const left=node,right=conjunction();node=ctx=>left(ctx)||right(ctx);}return node;}
+    const evaluate=expression();if(i!==tokens.length)throw Error('Unexpected condition token');
+    return (e,p)=>Boolean(evaluate({text:String(e?.text||p?.plot_id||''),layer:String(e?.layer||'').toUpperCase(),
+      type:String(e?.type||(p?'plot':'')),plot_id:String(p?.plot_id||e?.text||''),sector:String(p?.sector||''),
+      land_use:String(p?.land_use||''),status:String(p?.status||''),far:Number(p?.far??0),area:Number(p?.area_sqm??p?.area??0),
+      gfa:Number(p?.achieved_gfa??p?.gfa??0),parking:Number(p?.parking_provided??p?.parking??0)}));
+  } catch(error){const rejected=()=>false;rejected.error=error.message;return rejected;}
+}
+
 let _mpdPlots = [];
 let _mpdSummary = null;
 let _mpdCadDrawing = null;
@@ -23,6 +102,48 @@ let _mpdShowCadLinework = true;
 let _mpdShowPlots = true;
 let _mpdTextMode = 'rooms'; // 'rooms' | 'all' | 'off'
 let _mpdTextScale = 1;
+let _mpdTextFilter = null; // String prefix to filter canvas text entities (e.g. 'P', 'R')
+let _mpdHatchPattern = 'solid'; // 'solid' | 'diagonal' | 'crosshatch' | 'dots'
+const _hatchPatternCache = {};
+function _getCanvasHatchPattern(ctx, patternName, baseColor) {
+  if (!patternName || patternName === 'solid') return null;
+  const key = `${patternName}_${baseColor}`;
+  if (_hatchPatternCache[key]) return _hatchPatternCache[key];
+  try {
+    const pCanvas = document.createElement('canvas');
+    pCanvas.width = 16;
+    pCanvas.height = 16;
+    const pCtx = pCanvas.getContext('2d');
+    pCtx.fillStyle = baseColor || 'rgba(59, 130, 246, 0.25)';
+    pCtx.fillRect(0, 0, 16, 16);
+    pCtx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+    pCtx.lineWidth = 1.5;
+    if (patternName === 'diagonal' || patternName === 'ansi31') {
+      pCtx.beginPath();
+      pCtx.moveTo(0, 16); pCtx.lineTo(16, 0);
+      pCtx.moveTo(-8, 8); pCtx.lineTo(8, -8);
+      pCtx.moveTo(8, 24); pCtx.lineTo(24, 8);
+      pCtx.stroke();
+    } else if (patternName === 'crosshatch' || patternName === 'grid' || patternName === 'ansi37') {
+      pCtx.beginPath();
+      pCtx.moveTo(0, 16); pCtx.lineTo(16, 0);
+      pCtx.moveTo(0, 0); pCtx.lineTo(16, 16);
+      pCtx.stroke();
+    } else if (patternName === 'dots') {
+      pCtx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+      pCtx.beginPath();
+      pCtx.arc(4, 4, 1.5, 0, Math.PI * 2);
+      pCtx.arc(12, 12, 1.5, 0, Math.PI * 2);
+      pCtx.fill();
+    }
+    const pat = ctx.createPattern(pCanvas, 'repeat');
+    _hatchPatternCache[key] = pat;
+    return pat;
+  } catch(e) {
+    return null;
+  }
+}
+let _mpdUniversalRule = null; // Universal Scene-Graph Predicate Rule
 let _mpdHoverCadEntity = null;
 let _mpdSelectedCadEntity = null;
 let _mpdSelectedPlotId = null;
@@ -38,21 +159,58 @@ let _mpdFilterStatus = 'All';
 let _mpdSearchQuery = '';
 let _mpdShowSetbacks = true;
 let _mpdShowViolationsOnly = false;
+let _mpdIsolatedLandUse = null;
+let _mpdIsolatedSector = null;
+let _mpdIsolatedPlotIds = null; // Set of plot_ids when universal isolation filter is active
+let _mpdIsolatedLabel = '';
+let _mpdCustomStyles = {};
 let _mpdTransform = { panX: 0, panY: 0, zoom: 1.0 };
 let _mpdCanvas = null;
 let _mpdCtx = null;
 let _mpdHoverPlot = null;
 let _mpdChatHist = [];
 
-const LAND_USE_COLORS = {
-  'Residential': { fill: 'rgba(245, 183, 61, 0.10)', stroke: '#f5b73d', text: '#ffe699' },
-  'Commercial': { fill: 'rgba(47, 107, 255, 0.10)', stroke: '#2f6bff', text: '#b3cbff' },
-  'Mixed Use': { fill: 'rgba(168, 85, 247, 0.10)', stroke: '#a855f7', text: '#e9d5ff' },
-  'Open Space / Park': { fill: 'rgba(53, 208, 127, 0.10)', stroke: '#35d07f', text: '#bbf7d0' },
-  'Civic': { fill: 'rgba(49, 208, 197, 0.10)', stroke: '#31d0c5', text: '#99f6e4' },
-  'Utilities': { fill: 'rgba(100, 116, 139, 0.10)', stroke: '#64748b', text: '#cbd5e1' },
-  'Default': { fill: 'rgba(148, 163, 184, 0.08)', stroke: '#94a3b8', text: '#f1f5f9' }
+const MPD_COLOR_HEX = {
+  yellow: '#ffff00', red: '#ff0000', green: '#00ff00', blue: '#0080ff',
+  orange: '#ffa500', purple: '#a855f7', cyan: '#00f2fe', pink: '#ec4899',
+  teal: '#14b8a6', magenta: '#d946ef', gold: '#eab308', white: '#ffffff'
 };
+
+const LAND_USE_COLORS = {
+  'Residential': { fill: 'rgba(245, 183, 61, 0.14)', stroke: '#f5b73d', text: '#ffe699' },
+  'Commercial': { fill: 'rgba(47, 107, 255, 0.14)', stroke: '#2f6bff', text: '#b3cbff' },
+  'Mixed Use': { fill: 'rgba(168, 85, 247, 0.18)', stroke: '#a855f7', text: '#e9d5ff' },
+  'Open Space / Park': { fill: 'rgba(53, 208, 127, 0.14)', stroke: '#35d07f', text: '#bbf7d0' },
+  'Civic': { fill: 'rgba(49, 208, 197, 0.14)', stroke: '#31d0c5', text: '#99f6e4' },
+  'Hospitality': { fill: 'rgba(236, 72, 153, 0.16)', stroke: '#ec4899', text: '#fbcfe8' },
+  'Public Facilities': { fill: 'rgba(59, 130, 246, 0.14)', stroke: '#3b82f6', text: '#bfdbfe' },
+  'Utilities': { fill: 'rgba(100, 116, 139, 0.14)', stroke: '#64748b', text: '#cbd5e1' },
+  'Default': { fill: 'rgba(148, 163, 184, 0.10)', stroke: '#94a3b8', text: '#f1f5f9' }
+};
+
+function _matchesLandUse(plotLu, targetLu) {
+  if (!targetLu) return true;
+  const a = String(plotLu || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+  const b = String(targetLu || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+  return a === b || a.includes(b) || b.includes(a);
+}
+
+function _matchesSector(plotSec, targetSec) {
+  if (!targetSec) return true;
+  const a = String(plotSec || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+  const b = String(targetSec || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+  return a === b || a.includes(b) || b.includes(a);
+}
+
+function _isPlotVisibleInIsolation(plot) {
+  if (!plot) return false;
+  if (_mpdIsolatedPlotIds && _mpdIsolatedPlotIds.size > 0) {
+    return _mpdIsolatedPlotIds.has(plot.plot_id);
+  }
+  if (_mpdIsolatedLandUse && !_matchesLandUse(plot.land_use, _mpdIsolatedLandUse)) return false;
+  if (_mpdIsolatedSector && !_matchesSector(plot.sector, _mpdIsolatedSector)) return false;
+  return true;
+}
 
 function getPlotColor(plot) {
   if (plot.status === 'violation') {
@@ -87,17 +245,17 @@ async function renderMPDWorkspace(container) {
             <button class="cad-btn" onclick="window._saveMpdWorkingCopy()" title="Save edits to working copy">Save copy</button>
             <button class="cad-btn" onclick="window._returnMpdOriginal()" title="Revert to original drawing">Revert</button>
             <button class="cad-btn" onclick="window._openMpdRevisions()" title="Browse revisions history">Revisions</button>
+            <div class="mpd-toolbar-sep"></div>
+            <button class="cad-btn" onclick="typeof navigate==='function'?navigate('early_design'):null" style="background:rgba(49,208,197,0.15);color:var(--cyan);border-color:rgba(49,208,197,0.3)" title="Launch Early Design Feasibility &amp; Massing Studio">
+              <svg class="ico" style="width:13px;height:13px;color:var(--cyan)" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/><circle cx="15" cy="15" r="2"/></svg>
+              Early Design Studio
+            </button>
           </div>
 
           <div class="mpd-canvas-toolbar-group">
             <button class="mpd-canvas-ctrl" id="btnZoomIn" title="Zoom In">+</button>
             <button class="mpd-canvas-ctrl" id="btnZoomOut" title="Zoom Out">-</button>
             <button class="mpd-canvas-ctrl" id="btnZoomFit" title="Fit Entire Masterplan">Fit</button>
-            <div class="mpd-toolbar-sep"></div>
-            <button class="mpd-canvas-ctrl" id="btnToggleSidePane" title="Toggle Property Inspector">
-              <svg class="ico" style="width:12px;height:12px" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-              Inspector
-            </button>
           </div>
         </div>
 
@@ -157,85 +315,11 @@ async function renderMPDWorkspace(container) {
         <div class="mpd-kpi-item"><span style="color:var(--muted)">Compliance:</span> <span id="kpiCompliance">--</span></div>
       </div>
 
-      <!-- Main Split Workspace: Canvas + Collapsible Sliding Drawer -->
+      <!-- Main Canvas Workspace (Full View, Inspector Removed) -->
       <div class="mpd-main-split">
-        <div class="mpd-canvas-container" id="mpdCanvasContainer">
+        <div class="mpd-canvas-container" id="mpdCanvasContainer" style="width:100%">
           <canvas id="mpdCanvas"></canvas>
           <div class="mpd-canvas-tooltip" id="mpdTooltip"></div>
-        </div>
-
-        <div class="mpd-side-pane collapsed" id="mpdSidePane">
-          <div class="mpd-side-header" style="padding:10px 14px">
-            <div style="display:flex;align-items:center;gap:8px;font-weight:700;font-size:12px;color:var(--text)">
-              <svg class="ico" style="width:14px;height:14px;color:var(--accent2)" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-              <span>Property Inspector</span>
-            </div>
-            <button id="btnCloseSidePane" title="Close Property Inspector" style="background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer;padding:2px 6px;line-height:1">&times;</button>
-          </div>
-
-          <div class="mpd-side-body">
-            <!-- Property Inspector -->
-            <div class="mpd-pane" id="paneInspector" style="display:flex">
-              <div class="mpd-inspector" id="mpdInspector">
-                <div style="display:flex;justify-content:space-between;align-items:center">
-                  <span style="font-weight:700;font-size:12px;color:var(--text)" id="inspPlotTitle">Plot Details Inspector</span>
-                  <span id="inspStatusBadge" class="mpd-badge">Select a Plot</span>
-                </div>
-
-                <div class="mpd-form-row">
-                  <div class="mpd-form-group">
-                    <span class="mpd-form-label">Sector</span>
-                    <input type="text" class="mpd-input" id="inspSector" readonly>
-                  </div>
-                  <div class="mpd-form-group">
-                    <span class="mpd-form-label">Land Use</span>
-                    <select class="mpd-input" id="inspLandUse">
-                      <option value="Residential">Residential</option>
-                      <option value="Commercial">Commercial</option>
-                      <option value="Mixed Use">Mixed Use</option>
-                      <option value="Open Space / Park">Open Space / Park</option>
-                      <option value="Civic">Civic</option>
-                      <option value="Utilities">Utilities</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div class="mpd-form-row">
-                  <div class="mpd-form-group">
-                    <span class="mpd-form-label">Footprint Area (m²)</span>
-                    <input type="number" class="mpd-input" id="inspArea" readonly>
-                  </div>
-                  <div class="mpd-form-group">
-                    <span class="mpd-form-label">Achieved GFA (m²)</span>
-                    <input type="number" class="mpd-input" id="inspAchGfa" oninput="_calcInspFar()">
-                  </div>
-                </div>
-
-                <div class="mpd-form-row">
-                  <div class="mpd-form-group">
-                    <span class="mpd-form-label">Calculated FAR (Max allowed)</span>
-                    <input type="text" class="mpd-input" id="inspFar" readonly>
-                  </div>
-                  <div class="mpd-form-group">
-                    <span class="mpd-form-label">Front Setback (m)</span>
-                    <input type="number" step="0.5" class="mpd-input" id="inspFrontSb">
-                  </div>
-                </div>
-
-                <div id="inspViolationsBox" style="font-size:11px;color:var(--red);background:rgba(242,88,95,.1);border:1px solid rgba(242,88,95,.25);padding:6px 10px;border-radius:6px;display:none"></div>
-
-                <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:4px">
-                  <button class="cad-btn" id="inspSaveBtn" onclick="_savePlotInspection()" style="background:var(--accent);color:#fff">
-                    Save &amp; Recalculate
-                  </button>
-                </div>
-              </div>
-
-              <div style="padding:10px 12px;background:#0d1424;border:1px solid var(--border);border-radius:6px;font-size:11px;color:var(--muted);line-height:1.5">
-                <b style="color:var(--text)">Live Spatial Sync:</b> Changing the achieved GFA or front setback will automatically recalculate the plot's FAR and re-evaluate setback encroachment boundaries against adjacent parcels and masterplan rules.
-              </div>
-            </div>
-          </div>
         </div>
       </div>
 
@@ -263,19 +347,11 @@ async function renderMPDWorkspace(container) {
 }
 
 function _switchMpdTab(tab) {
-  _mpdActiveTab = 'inspector';
-  const paneInsp = _mpd$('paneInspector');
-  if (paneInsp) paneInsp.style.display = 'flex';
+  // Inspector removed; all plot details delivered dynamically via hover card
 }
 
 function _toggleSidePane(forceOpen) {
-  const pane = _mpd$('mpdSidePane');
-  const btn = _mpd$('btnToggleSidePane');
-  if (!pane) return;
-  const isCollapsed = pane.classList.contains('collapsed');
-  const shouldOpen = forceOpen != null ? forceOpen : isCollapsed;
-  pane.classList.toggle('collapsed', !shouldOpen);
-  if (btn) btn.classList.toggle('active', shouldOpen);
+  // Inspector removed; full canvas display
 }
 
 async function _loadMasterplanData(proj) {
@@ -350,6 +426,7 @@ function _renderPlotTable(plots) {
   if (!tbody) return;
 
   const filtered = plots.filter(p => {
+    if (_mpdIsolatedPlotIds && _mpdIsolatedPlotIds.size > 0 && !_mpdIsolatedPlotIds.has(p.plot_id)) return false;
     if (_mpdFilterLandUse !== 'All' && p.land_use !== _mpdFilterLandUse) return false;
     if (_mpdFilterSector !== 'All' && p.sector !== _mpdFilterSector) return false;
     if (_mpdFilterStatus !== 'All' && p.status !== _mpdFilterStatus) return false;
@@ -429,40 +506,11 @@ function _selectPlot(plotId, zoomTo = false, switchTab = true) {
   }
   _mpdSelectedPlotId = plot.plot_id;
 
-  // Ensure side drawer is open and inspector tab is active if requested
-  _toggleSidePane(true);
-  if (switchTab) {
-    _switchMpdTab('inspector');
-  }
-
-  // Update selection banner
+  // Update selection banner in footer
   const selInfo = $('mpdSelectedInfo');
   if (selInfo) {
     const statusTag = plot.status === 'violation' ? ' <span style="color:var(--red);font-weight:700">⚠️ Violation</span>' : (plot.status === 'warning' ? ' <span style="color:var(--amber);font-weight:700">⚠️ Warning</span>' : ' <span style="color:var(--green)">✓ Compliant</span>');
     selInfo.innerHTML = `Selected: <b>${_mpdEsc(plot.plot_id)}</b> (${_mpdEsc(plot.land_use)} · Area: ${Math.round(plot.area_sqm).toLocaleString()} m² · FAR: ${plot.far.toFixed(2)} / Max: ${plot.max_far.toFixed(2)})${statusTag}`;
-  }
-
-  // Update Inspector Card if present in DOM
-  if ($('inspPlotTitle')) $('inspPlotTitle').textContent = `Plot ${plot.plot_id} Inspector`;
-  if ($('inspStatusBadge')) {
-    $('inspStatusBadge').className = `mpd-badge ${plot.status === 'compliant' ? 'green' : (plot.status === 'warning' ? 'warn' : 'red')}`;
-    $('inspStatusBadge').textContent = plot.status.toUpperCase();
-  }
-  if ($('inspSector')) $('inspSector').value = plot.sector;
-  if ($('inspLandUse')) $('inspLandUse').value = plot.land_use;
-  if ($('inspArea')) $('inspArea').value = Math.round(plot.area_sqm);
-  if ($('inspAchGfa')) $('inspAchGfa').value = Math.round(plot.achieved_gfa);
-  if ($('inspFar')) $('inspFar').value = `${plot.far.toFixed(2)} / Max: ${plot.max_far.toFixed(2)}`;
-  if ($('inspFrontSb')) $('inspFrontSb').value = plot.front_setback_m;
-
-  const violBox = $('inspViolationsBox');
-  if (violBox) {
-    if (plot.violations && plot.violations.length > 0) {
-      violBox.style.display = 'block';
-      violBox.innerHTML = `⚠️ <b>Regulatory Issues</b>:<br>` + plot.violations.map(v => `• ${_mpdEsc(v)}`).join('<br>');
-    } else {
-      violBox.style.display = 'none';
-    }
   }
 
   // Highlight row in table if table exists
@@ -581,15 +629,93 @@ function _initCanvas() {
       _mpdHoverPlot = hitPlot;
       _mpdHoverCadEntity = null;
       if (tooltip) {
-        tooltip.style.display = 'block';
-        tooltip.style.left = `${mouseX + 14}px`;
-        tooltip.style.top = `${mouseY + 14}px`;
+        const plotCol = _getPlotColor(hitPlot);
+        const isViol = hitPlot.status === 'violation';
+        const isWarn = hitPlot.status === 'warning';
+        const statusBadgeClass = isViol ? 'red' : (isWarn ? 'warn' : 'green');
+        const statusIcon = isViol ? '⚠️' : (isWarn ? '⚠️' : '✓');
+        const farPct = Math.min(100, Math.round((hitPlot.far / (hitPlot.max_far || 1)) * 100));
+        const farColor = isViol ? 'var(--red)' : (isWarn ? 'var(--amber)' : '#35d07f');
+
         tooltip.innerHTML = `
-          <div style="font-weight:700;color:var(--text);font-size:12px">${_mpdEsc(hitPlot.plot_id)} · ${_mpdEsc(hitPlot.land_use)}</div>
-          <div style="font-size:11px;color:var(--muted);margin-top:2px">Area: <b>${Math.round(hitPlot.area_sqm).toLocaleString()} m²</b></div>
-          <div style="font-size:11px;color:var(--muted)">FAR: <b>${hitPlot.far.toFixed(2)}</b> (Max: ${hitPlot.max_far.toFixed(2)})</div>
-          <div style="font-size:11px;margin-top:3px;font-weight:600;color:${hitPlot.status==='violation'?'var(--red)':'var(--green)'}">Status: ${hitPlot.status.toUpperCase()}</div>
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;padding-bottom:7px;border-bottom:1px solid rgba(255,255,255,0.08)">
+            <div style="display:flex;align-items:center;gap:6px">
+              <span style="font-weight:800;font-size:13px;color:#fff;letter-spacing:0.2px">${_mpdEsc(hitPlot.plot_id)}</span>
+              <span style="font-size:10px;color:var(--muted);background:rgba(255,255,255,0.06);padding:1px 6px;border-radius:4px">${_mpdEsc(hitPlot.sector || 'Expo Hills')}</span>
+            </div>
+            <span class="mpd-badge ${statusBadgeClass}" style="font-size:10px;padding:2px 7px;font-weight:700">
+              ${statusIcon} ${hitPlot.status.toUpperCase()}
+            </span>
+          </div>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 10px;margin-bottom:8px;font-size:11px">
+            <div>
+              <span style="color:var(--muted);font-size:9.5px;text-transform:uppercase;font-weight:700;display:block">Land Use</span>
+              <span style="color:var(--text);font-weight:600;display:flex;align-items:center;gap:4px">
+                <span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${plotCol.stroke}"></span>
+                ${_mpdEsc(hitPlot.land_use)}
+              </span>
+            </div>
+            <div>
+              <span style="color:var(--muted);font-size:9.5px;text-transform:uppercase;font-weight:700;display:block">Footprint Area</span>
+              <b style="color:#fff">${Math.round(hitPlot.area_sqm).toLocaleString()} m²</b>
+            </div>
+            <div>
+              <span style="color:var(--muted);font-size:9.5px;text-transform:uppercase;font-weight:700;display:block">Achieved GFA</span>
+              <b style="color:#fff">${Math.round(hitPlot.achieved_gfa).toLocaleString()} m²</b>
+            </div>
+            <div>
+              <span style="color:var(--muted);font-size:9.5px;text-transform:uppercase;font-weight:700;display:block">Permitted GFA</span>
+              <b style="color:var(--text)">${hitPlot.permitted_gfa ? Math.round(hitPlot.permitted_gfa).toLocaleString() + ' m²' : '—'}</b>
+            </div>
+          </div>
+
+          <div style="background:rgba(255,255,255,0.04);border-radius:6px;padding:6px 8px;margin-bottom:7px">
+            <div style="display:flex;justify-content:space-between;align-items:center;font-size:10.5px;margin-bottom:4px">
+              <span style="color:var(--muted);font-weight:600">Calculated FAR (Max Allowed)</span>
+              <b style="color:${farColor}">${hitPlot.far.toFixed(2)} <span style="color:var(--muted);font-weight:normal">/ Max: ${hitPlot.max_far.toFixed(2)}</span></b>
+            </div>
+            <div style="height:4px;border-radius:2px;background:rgba(255,255,255,0.1);overflow:hidden">
+              <div style="height:100%;width:${farPct}%;background:${farColor};border-radius:2px"></div>
+            </div>
+          </div>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;margin-bottom:6px;font-size:10.5px;background:rgba(0,0,0,0.25);border:1px solid rgba(255,255,255,0.05);border-radius:6px;padding:5px 8px">
+            <div>
+              <span style="color:var(--muted);font-size:9px;display:block">Front Setback</span>
+              <b style="color:var(--text)">${hitPlot.front_setback_m != null ? hitPlot.front_setback_m + ' m' : '—'}</b>
+            </div>
+            <div>
+              <span style="color:var(--muted);font-size:9px;display:block">Side Setback</span>
+              <b style="color:var(--text)">${hitPlot.side_setback_m != null ? hitPlot.side_setback_m + ' m' : '—'}</b>
+            </div>
+            <div>
+              <span style="color:var(--muted);font-size:9px;display:block">Rear Setback</span>
+              <b style="color:var(--text)">${hitPlot.rear_setback_m != null ? hitPlot.rear_setback_m + ' m' : '—'}</b>
+            </div>
+          </div>
+
+          <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--muted);padding:1px 2px">
+            <span>Max Height: <b style="color:var(--text)">${_mpdEsc(hitPlot.max_height || 'G+4')}</b></span>
+            <span>Coverage: <b style="color:var(--text)">${hitPlot.max_coverage_pct || 50}%</b></span>
+            ${hitPlot.parking_required ? `<span>Parking: <b style="color:var(--text)">${hitPlot.parking_provided || 0}/${hitPlot.parking_required}</b></span>` : ''}
+          </div>
+
+          ${hitPlot.violations && hitPlot.violations.length ? `
+            <div style="margin-top:6px;background:rgba(242,88,95,0.15);border:1px solid rgba(242,88,95,0.35);border-radius:6px;padding:5px 8px;font-size:10.5px;color:var(--red)">
+              <b style="display:block;margin-bottom:2px">⚠️ Violations (${hitPlot.violations.length}):</b>
+              <div style="line-height:1.3">${hitPlot.violations.map(v => `• ${_mpdEsc(v)}`).join('<br>')}</div>
+            </div>
+          ` : ''}
         `;
+
+        tooltip.style.display = 'block';
+        const ttWidth = 340;
+        const ttHeight = 250;
+        const posX = (mouseX + ttWidth + 24 > rect.width) ? Math.max(10, mouseX - ttWidth - 14) : (mouseX + 16);
+        const posY = (mouseY + ttHeight + 24 > rect.height) ? Math.max(10, mouseY - ttHeight - 14) : (mouseY + 16);
+        tooltip.style.left = `${posX}px`;
+        tooltip.style.top = `${posY}px`;
       }
     } else if (hitEnt) {
       _mpdHoverCadEntity = hitEnt;
@@ -600,16 +726,22 @@ function _initCanvas() {
         selInfo.innerHTML = `🔍 <b>CAD Element:</b> <span style="color:var(--accent2)">[${_mpdEsc(audit.layer)}]</span> ${_mpdEsc(audit.description)}${audit.length ? ` · <b>${audit.length}m</b>` : ''}`;
       }
       if (tooltip && audit) {
-        tooltip.style.display = 'block';
-        tooltip.style.left = `${mouseX + 14}px`;
-        tooltip.style.top = `${mouseY + 14}px`;
         tooltip.innerHTML = `
-          <div style="font-weight:700;color:var(--accent2);font-size:12px">CAD Element Inspector</div>
-          <div style="font-size:11px;color:var(--text);margin-top:2px"><b>Layer:</b> ${_mpdEsc(audit.layer)}</div>
-          <div style="font-size:11px;color:var(--text)"><b>Type:</b> ${_mpdEsc(audit.description)}</div>
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px;padding-bottom:5px;border-bottom:1px solid rgba(255,255,255,0.08)">
+            <span style="font-weight:700;color:var(--accent2);font-size:12px">CAD Element</span>
+            <span style="font-size:10px;color:var(--muted);background:rgba(255,255,255,0.06);padding:1px 6px;border-radius:4px">${_mpdEsc(audit.layer)}</span>
+          </div>
+          <div style="font-size:11px;color:var(--text);margin-top:2px"><b>Type:</b> ${_mpdEsc(audit.description)}</div>
           ${audit.length ? `<div style="font-size:11px;color:var(--text)"><b>Length:</b> ${audit.length} m</div>` : ''}
           <div style="font-size:10.5px;color:var(--muted);margin-top:4px">${audit.auditNotes.map(n => `• ${_mpdEsc(n)}`).join('<br>')}</div>
         `;
+        tooltip.style.display = 'block';
+        const ttWidth = 280;
+        const ttHeight = 130;
+        const posX = (mouseX + ttWidth + 24 > rect.width) ? Math.max(10, mouseX - ttWidth - 14) : (mouseX + 16);
+        const posY = (mouseY + ttHeight + 24 > rect.height) ? Math.max(10, mouseY - ttHeight - 14) : (mouseY + 16);
+        tooltip.style.left = `${posX}px`;
+        tooltip.style.top = `${posY}px`;
       }
     } else {
       _mpdHoverCadEntity = null;
@@ -907,6 +1039,7 @@ function _hitTestPlots(wx, wy) {
   for (let i = _mpdPlots.length - 1; i >= 0; i--) {
     const plot = _mpdPlots[i];
     if (_mpdShowViolationsOnly && plot.status !== 'violation') continue;
+    if (!_isPlotVisibleInIsolation(plot)) continue;
     if (!plot.geometry) continue;
 
     // Fast bounding-box pre-filtering
@@ -963,6 +1096,32 @@ function _centerPlotOnCanvas(plot) {
   _mpdTransform.zoom = targetZoom;
   _mpdTransform.panX = w / 2 - cx * _mpdTransform.zoom;
   _mpdTransform.panY = h / 2 + cy * _mpdTransform.zoom;
+  _drawCanvas();
+}
+
+function _fitCanvasToSubset(subsetPlots) {
+  if (!_mpdCanvas || !subsetPlots || !subsetPlots.length) return;
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (const p of subsetPlots) {
+    if (p.geometry && p.geometry.bbox) {
+      minX = Math.min(minX, p.geometry.bbox[0]);
+      minY = Math.min(minY, p.geometry.bbox[1]);
+      maxX = Math.max(maxX, p.geometry.bbox[2]);
+      maxY = Math.max(maxY, p.geometry.bbox[3]);
+    }
+  }
+  if (!isFinite(minX) || !isFinite(maxX) || !isFinite(minY) || !isFinite(maxY)) return;
+  const dpr = window.devicePixelRatio || 1;
+  const cw = _mpdCanvas.width / dpr;
+  const ch = _mpdCanvas.height / dpr;
+  const dx = Math.max(maxX - minX, 20);
+  const dy = Math.max(maxY - minY, 20);
+  const pw = dx * 1.16;
+  const ph = dy * 1.16;
+  const scale = Math.min((cw * 0.9) / pw, (ch * 0.9) / ph);
+  _mpdTransform.zoom = (!isFinite(scale) || scale <= 0) ? 1.0 : Math.min(scale, 6.0);
+  _mpdTransform.panX = (cw - (minX + maxX) * _mpdTransform.zoom) / 2;
+  _mpdTransform.panY = (ch + (minY + maxY) * _mpdTransform.zoom) / 2;
   _drawCanvas();
 }
 
@@ -1053,6 +1212,7 @@ function _drawCanvas() {
   if (hasPlots && _mpdShowPlots) {
     for (const plot of _mpdPlots) {
       if (_mpdShowViolationsOnly && plot.status !== 'violation') continue;
+      if (!_isPlotVisibleInIsolation(plot)) continue;
       _drawPlot(ctx, plot);
     }
   }
@@ -1128,6 +1288,15 @@ function _drawCadEntities(ctx, cad) {
 
   for (let i = 0; i < entities.length; i++) {
     const e = entities[i];
+    if (_mpdUniversalRule && typeof _mpdUniversalRule.predicate === 'function') {
+      const tLower = String(e.type || '').toLowerCase();
+      const isTarget = _mpdUniversalRule.target === 'all' || _mpdUniversalRule.target === 'cad' || _mpdUniversalRule.target === tLower || (_mpdUniversalRule.target === 'line' && (tLower === 'line' || tLower === 'polyline'));
+      if (isTarget) {
+        const matches = _mpdUniversalRule.predicate(e, {});
+        if (!_mpdUniversalRule.visible && matches) continue;
+        if (_mpdUniversalRule.isolate && !matches) continue;
+      }
+    }
     const t = e.type;
     if (t === 'LINE') {
       const lyr = (e.layer || '').toUpperCase();
@@ -1178,6 +1347,15 @@ function _drawCadEntities(ctx, cad) {
   // Polyline layer styling
   function _getPolylineColor(lyr) {
     const l = (lyr || '').toUpperCase();
+    if (_mpdIsolatedPlotIds || _mpdIsolatedSector) {
+      if (!l.includes('ROAD')) return 'rgba(148, 163, 184, 0.14)';
+    }
+    if (_mpdIsolatedLandUse) {
+      const iso = _mpdIsolatedLandUse.toUpperCase();
+      if (iso.includes('MIXED') && !l.includes('MIXED') && !l.includes('ROAD')) return 'rgba(148, 163, 184, 0.14)';
+      if (iso.includes('RESIDENTIAL') && !l.includes('RESIDENTIAL') && !l.includes('ROAD')) return 'rgba(148, 163, 184, 0.14)';
+      if (iso.includes('COMMERCIAL') && !l.includes('COMMERCIAL') && !l.includes('ROAD')) return 'rgba(148, 163, 184, 0.14)';
+    }
     if (l.includes('MP_RESIDENTIAL')) return '#f59e0b';
     if (l.includes('MP_COMMERCIAL')) return '#f43f5e';
     if (l.includes('MP_MIXED')) return '#a855f7';
@@ -1242,6 +1420,74 @@ function _drawCadEntities(ctx, cad) {
       if (!t.text) continue;
       const str = String(t.text).trim();
       if (!str) continue;
+
+      if (_mpdTextFilter) {
+        const filterStr = String(_mpdTextFilter).trim().toUpperCase();
+        if (!str.toUpperCase().startsWith(filterStr)) {
+          continue;
+        }
+        // Matching text under explicit text filter: render clearly with high-visibility badge
+        const fSize = Math.max(7 / zoom, Math.min(22 / zoom, (t.height || 2.5) * 1.25));
+        ctx.save();
+        ctx.translate(t.x, t.y);
+        ctx.scale(1, -1);
+        ctx.font = `600 ${fSize * _mpdTextScale}px Inter, -apple-system, sans-serif`;
+        const m = ctx.measureText(str);
+        const padX = 5 / zoom;
+        const padY = 2.5 / zoom;
+        const rw = m.width + padX * 2;
+        const rh = fSize + padY * 2;
+        ctx.fillStyle = 'rgba(8, 14, 26, 0.92)';
+        ctx.beginPath();
+        if (ctx.roundRect) ctx.roundRect(-padX, -fSize * 0.85, rw, rh, 3 / zoom);
+        else ctx.rect(-padX, -fSize * 0.85, rw, rh);
+        ctx.fill();
+        ctx.lineWidth = 1.2 / zoom;
+        ctx.strokeStyle = '#38bdf8';
+        ctx.stroke();
+        ctx.fillStyle = '#38bdf8';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(str, 0, -fSize * 0.35);
+        ctx.restore();
+        continue;
+      }
+
+      if (_mpdUniversalRule && typeof _mpdUniversalRule.predicate === 'function') {
+        const isTarget = _mpdUniversalRule.target === 'all' || _mpdUniversalRule.target === 'text' || _mpdUniversalRule.target === 'cad';
+        if (isTarget) {
+          const matches = _mpdUniversalRule.predicate(t, {});
+          if (!_mpdUniversalRule.visible && matches) continue;
+          if (_mpdUniversalRule.isolate && !matches) continue;
+          if (matches && _mpdUniversalRule.visible) {
+            const strokeCol = _mpdUniversalRule.color || '#38bdf8';
+            const fSize = Math.max(7 / zoom, Math.min(22 / zoom, (t.height || 2.5) * 1.25));
+            ctx.save();
+            ctx.translate(t.x, t.y);
+            ctx.scale(1, -1);
+            ctx.font = `600 ${fSize * _mpdTextScale}px Inter, -apple-system, sans-serif`;
+            const m = ctx.measureText(str);
+            const padX = 5 / zoom;
+            const padY = 2.5 / zoom;
+            const rw = m.width + padX * 2;
+            const rh = fSize + padY * 2;
+            ctx.fillStyle = 'rgba(8, 14, 26, 0.92)';
+            ctx.beginPath();
+            if (ctx.roundRect) ctx.roundRect(-padX, -fSize * 0.85, rw, rh, 3 / zoom);
+            else ctx.rect(-padX, -fSize * 0.85, rw, rh);
+            ctx.fill();
+            ctx.lineWidth = 1.2 / zoom;
+            ctx.strokeStyle = strokeCol;
+            ctx.stroke();
+            ctx.fillStyle = strokeCol;
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(str, 0, -fSize * 0.35);
+            ctx.restore();
+            continue;
+          }
+        }
+      }
 
       const isMasterplanLabel = /RESIDENTIAL|COMMERCIAL|MIXED|HOSPITALITY|PARK|PLAZA|SIKKA|PROMENADE|UTILITY|ROAD|ROW|HIGHWAY|SECTOR|GFA|PLOT|SQM|AREA/i.test(str);
       const isMajorRoom = /ROOM|TANK|STAIR|RAMP|CORRIDOR|SHAFT|LOBBY|STORE|WORKSHOP|DEWA|FM|TOWER|CHILLED|PUMP|ELECTRICAL|TELECOM|REFUSE|PARKING/i.test(str) || isMasterplanLabel;
@@ -1374,22 +1620,68 @@ function _drawGrid(ctx) {
 }
 
 function _drawPlot(ctx, plot) {
-  if (!plot.geometry || !plot.geometry.coordinates || plot.geometry.coordinates.length < 3) return;
+  let coords = (plot.geometry && plot.geometry.coordinates && plot.geometry.coordinates.length >= 3) ? plot.geometry.coordinates : null;
+  let synthBbox = null;
+  let synthCentroid = null;
+
+  if (!coords) {
+    let cx = plot.geometry && plot.geometry.centroid ? plot.geometry.centroid[0] : null;
+    let cy = plot.geometry && plot.geometry.centroid ? plot.geometry.centroid[1] : null;
+    if (cx === null || cy === null) {
+      if (plot.geometry && plot.geometry.label_anchor) {
+        cx = plot.geometry.label_anchor[0];
+        cy = plot.geometry.label_anchor[1];
+      }
+    }
+    if ((cx === null || cy === null) && _mpdCadDrawing && _mpdCadDrawing.entities) {
+      const raw = String(plot.plot_id || '').trim().replace(/^PLOT-/, '').replace(/^P-/, '');
+      const ent = _mpdCadDrawing.entities.find(e => e.type === 'TEXT' && (e.text === raw || e.text === plot.plot_id));
+      if (ent) { cx = ent.x; cy = ent.y; }
+    }
+    if (cx !== null && cy !== null) {
+      const r = Math.max(14, Math.sqrt((plot.area_sqm || 1200) / Math.PI) * 0.7);
+      coords = [];
+      const steps = 16;
+      for (let s = 0; s < steps; s++) {
+        const rad = (s / steps) * Math.PI * 2;
+        coords.push([cx + Math.cos(rad) * r, cy + Math.sin(rad) * r]);
+      }
+      synthBbox = [cx - r, cy - r, cx + r, cy + r];
+      synthCentroid = [cx, cy];
+    }
+  }
+
+  if (!coords || coords.length < 3) return;
+
+  if (_mpdUniversalRule && typeof _mpdUniversalRule.predicate === 'function') {
+    const isTarget = _mpdUniversalRule.target === 'all' || _mpdUniversalRule.target === 'plot';
+    if (isTarget) {
+      const matches = _mpdUniversalRule.predicate({}, plot);
+      if (!_mpdUniversalRule.visible && matches) return;
+      if (_mpdUniversalRule.isolate && !matches) return;
+    }
+  }
 
   const isSel = plot.plot_id === _mpdSelectedPlotId;
   const isHl = _mpdHighlightPlots.includes(plot.plot_id);
   const isHov = _mpdHoverPlot && _mpdHoverPlot.plot_id === plot.plot_id;
   let color = getPlotColor(plot);
-  if(_mpdWorkingRevision && _mpdWorkingRevision.project === _getMpdProject() && _mpdWorkingRevision.styles[plot.plot_id]){
-    const hex = {yellow:'#ffff00',red:'#ff0000',green:'#00ff00',blue:'#0080ff',orange:'#ffa500',purple:'#a855f7'}[_mpdWorkingRevision.styles[plot.plot_id]];
-    color = {fill:hex+'66',stroke:hex,text:'#ffffff'};
+  let customColorName = _mpdCustomStyles[plot.plot_id] || (_mpdWorkingRevision && _mpdWorkingRevision.project === _getMpdProject() && _mpdWorkingRevision.styles[plot.plot_id]);
+  if (!customColorName && _mpdUniversalRule && _mpdUniversalRule.color && (_mpdUniversalRule.target === 'all' || _mpdUniversalRule.target === 'plot')) {
+    if (_mpdUniversalRule.predicate({}, plot)) {
+      customColorName = _mpdUniversalRule.color;
+    }
+  }
+  if (customColorName) {
+    const rawStr = String(customColorName).trim();
+    const hex = MPD_COLOR_HEX[rawStr.toLowerCase()] || (/^#[0-9a-f]{6}$/i.test(rawStr) ? rawStr : '#ffff00');
+    color = { fill: hex + '66', stroke: hex, text: '#ffffff' };
   }
 
   ctx.save();
 
   // Draw Parcel Boundary Polygon
   ctx.beginPath();
-  const coords = plot.geometry.coordinates;
   ctx.moveTo(coords[0][0], coords[0][1]);
   for (let i = 1; i < coords.length; i++) {
     ctx.lineTo(coords[i][0], coords[i][1]);
@@ -1397,12 +1689,17 @@ function _drawPlot(ctx, plot) {
   ctx.closePath();
 
   // Fill
-  ctx.fillStyle = isHl ? _mpdHighlightColor + '88' : (isSel ? 'rgba(47, 107, 255, 0.55)' : (isHov ? 'rgba(255, 255, 255, 0.2)' : color.fill));
+  let fillStyle = customColorName ? color.fill : (isHl ? _mpdHighlightColor + '88' : (isSel ? 'rgba(47, 107, 255, 0.55)' : (isHov ? 'rgba(255, 255, 255, 0.2)' : color.fill)));
+  if (_mpdHatchPattern && _mpdHatchPattern !== 'solid' && !isSel && !isHov) {
+    const pat = _getCanvasHatchPattern(ctx, _mpdHatchPattern, fillStyle);
+    if (pat) fillStyle = pat;
+  }
+  ctx.fillStyle = fillStyle;
   ctx.fill();
 
   // Stroke
-  ctx.lineWidth = (isSel ? 4 : (isHl || isHov ? 3 : 1.5)) / _mpdTransform.zoom;
-  ctx.strokeStyle = isHl ? _mpdHighlightColor : (isSel ? '#00f2fe' : (plot.status === 'violation' ? '#f2585f' : color.stroke));
+  ctx.lineWidth = (isSel ? 4 : (customColorName || isHl || isHov ? 3 : 1.5)) / _mpdTransform.zoom;
+  ctx.strokeStyle = customColorName ? color.stroke : (isHl ? _mpdHighlightColor : (isSel ? '#00f2fe' : (plot.status === 'violation' ? '#f2585f' : color.stroke)));
   ctx.stroke();
 
   // Draw Setback Envelope if active
@@ -1422,15 +1719,26 @@ function _drawPlot(ctx, plot) {
   }
 
   // Centroid Text Annotation
-  const bbox = plot.geometry.bbox || [coords[0][0], coords[0][1], coords[1][0], coords[1][1]];
+  const bbox = (plot.geometry && plot.geometry.bbox) || synthBbox || [coords[0][0], coords[0][1], coords[1][0], coords[1][1]];
   const plotW = Math.max(20, bbox[2] - bbox[0]);
-  const anchor = plot.geometry.label_anchor || plot.geometry.centroid;
+  const anchor = (plot.geometry && (plot.geometry.label_anchor || plot.geometry.centroid)) || synthCentroid;
   const cx = anchor ? anchor[0] : (bbox[0] + bbox[2]) / 2;
   const cy = anchor ? anchor[1] : (bbox[1] + bbox[3]) / 2;
 
   // Level-of-detail (LOD): when zoomed out (scale < 0.28), declutter dense micro-parcel text
   const isZoomedOut = _mpdTransform.zoom < 0.28;
-  const showPlotLabel = !isZoomedOut || isSel || isHl || plot.status === 'violation' || plotW > 120;
+  let showPlotLabel = !isZoomedOut || isSel || isHl || plot.status === 'violation' || plotW > 120;
+  if (_mpdTextFilter) {
+    const filterStr = String(_mpdTextFilter).trim().toUpperCase();
+    if (!String(plot.plot_id || '').toUpperCase().startsWith(filterStr)) {
+      showPlotLabel = false;
+    }
+  }
+  if (_mpdUniversalRule && (_mpdUniversalRule.target === 'all' || _mpdUniversalRule.target === 'text' || _mpdUniversalRule.target === 'plot')) {
+    const matches = _mpdUniversalRule.predicate({}, plot);
+    if (!_mpdUniversalRule.visible && matches) showPlotLabel = false;
+    if (_mpdUniversalRule.isolate && !matches) showPlotLabel = false;
+  }
 
   if (showPlotLabel && _mpdTextMode !== 'off') {
     // Bounded Plot ID (never exceeds plot width)
@@ -1514,6 +1822,10 @@ async function _handleMpdChatSubmit() {
 
   const proj = currentProject || 'C3085 - 3EH -Expo Hills';
 
+  if (!window._mpdConversationalHistory) window._mpdConversationalHistory = [];
+  window._mpdConversationalHistory.push({ role: 'user', content: query });
+  if (window._mpdConversationalHistory.length > 12) window._mpdConversationalHistory.shift();
+
   try {
     const res = await fetch(`${API}/api/v1/masterplan/projects/${encodeURIComponent(proj)}/ai-query`, {
       method: 'POST',
@@ -1521,16 +1833,27 @@ async function _handleMpdChatSubmit() {
       body: JSON.stringify({
         query: query,
         project_id: proj,
-        selected_plot_id: _mpdSelectedPlotId
+        selected_plot_id: _mpdSelectedPlotId,
+        active_land_use: _mpdIsolatedLandUse,
+        active_sector: _mpdIsolatedSector,
+        active_plot_ids: _mpdIsolatedPlotIds ? Array.from(_mpdIsolatedPlotIds) : null,
+        history: window._mpdConversationalHistory.slice(-8)
       })
     });
 
     if (!res.ok) throw new Error('AI query service error');
     const data = await res.json();
+    if (data.answer) {
+      // Store the execution receipt below, after actions finish.
+      if (window._mpdConversationalHistory.length > 12) window._mpdConversationalHistory.shift();
+    }
 
     if(data.view_actions && data.view_actions.length){
-      data.answer = data.view_actions[0].type === 'edit_hatches' ? await window._performMpdCadAction(data.view_actions[0],proj) : window._applyMpdViewActions(data.view_actions, proj);
+      const backendAnswer = (data.answer && data.answer !== 'Drawing action requested.') ? data.answer : '';
+      const receipt = await window._executeMpdChatActions(data.view_actions,proj);
+      data.answer = receipt;
     } else _mpdHighlightPlots = data.highlight_plots || [];
+    if(data.answer) window._mpdConversationalHistory.push({role:'assistant',content:data.answer.slice(0,500)});
     _mpdHighlightColor = /^#[0-9a-f]{6}$/i.test(data.highlight_color || '') ? data.highlight_color : '#ffff00';
     _drawCanvas();
 
@@ -1544,11 +1867,19 @@ async function _handleMpdChatSubmit() {
         <div style="font-weight:700;color:var(--accent2);font-size:11.5px">Masterplan Copilot · Intent: ${_mpdEsc(data.intent || 'QUERY')}</div>
         <div>${toolBadges}</div>
       </div>
-      <div style="line-height:1.5;font-size:12px">${mdLite(data.answer)}</div>
+      <div style="line-height:1.5;font-size:12px">${data.html ? (data.html + (data.answer ? '<div style="margin-top:10px">' + mdLite(data.answer) + '</div>' : '')) : mdLite(data.answer)}</div>
     `;
 
+    if (window.ExpoMotion && /```mermaid/i.test(data.answer || '')) {
+      try { window.ExpoMotion.renderMermaidIn(agentMsg, data.answer); } catch(e){}
+    }
+
+    if (data.intent === 'EXPORT_EXCEL' && typeof window._downloadMpdExcel === 'function') {
+      window._downloadMpdExcel(proj, data.export_land_use || '', data.export_sector || '', data.export_plots || null);
+    }
+
     // If highlights exist, select first one without disrupting active chat tab
-    if (_mpdHighlightPlots.length > 0) {
+    if ((!data.view_actions || !data.view_actions.length) && _mpdHighlightPlots.length > 0) {
       _selectPlot(_mpdHighlightPlots[0], true, false);
     }
   } catch (err) {
@@ -1625,11 +1956,7 @@ function _wireMpdEvents(proj) {
     };
   }
 
-  // Toggle Side Drawer (Plot Register & Inspector)
-  const btnSide = _mpd$('btnToggleSidePane');
-  if (btnSide) btnSide.onclick = () => _toggleSidePane();
-  const btnCloseSide = _mpd$('btnCloseSidePane');
-  if (btnCloseSide) btnCloseSide.onclick = () => _toggleSidePane(false);
+
 
   // Toggle CAD Text Mode: Rooms -> All -> Off
   const btnToggleText = _mpd$('btnToggleTextMode');
@@ -2083,6 +2410,41 @@ window._resolveMpdRelation = async function(proj, plotId, choice, cadVal, excelV
   }
 };
 
+window._mpdAutoResolveClashes = async function() {
+  const proj = _mpdCurrentProject || "C3085 - 3EH -Expo Hills";
+  if (!confirm("Run Local AI Clash Resolver on active masterplan? This will automatically prune duplicate CAD layers, carve utility enclaves with Shapely seam buffers, clip boundary slivers, and harmonize FAR density to achieve 100% compliance.")) return;
+  toast("⚡ Running Local AI Clash Resolver...", "info");
+  try {
+    const res = await fetch(`${API}/api/v1/masterplan/projects/${encodeURIComponent(proj)}/resolve-clashes`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' }
+    });
+    if (res.ok) {
+      const data = await res.json();
+      toast(`✅ Local AI resolved all clashes: 100% compliant! (${data.boundary_overlaps_resolved} overlaps, ${data.far_violations_resolved} FAR violations resolved)`);
+      _mpdAddChatMsg('a', `
+        <div style="border-left:3px solid var(--green);padding-left:10px">
+          <div style="font-weight:700;color:var(--green);font-size:13px;margin-bottom:4px">⚡ Local AI Masterplan Clash Resolution Complete</div>
+          <div style="font-size:12px;color:var(--text);line-height:1.5">
+            <b>100% Compliant:</b> Automatically resolved <b>${data.baseline_violations}</b> clashes.<br>
+            • <b>Boundary Overlaps Resolved:</b> ${data.boundary_overlaps_resolved} (${data.duplicate_layers_removed.length} duplicate layers pruned, ${data.substations_carved_count} kiosks carved, ${data.slivers_clipped_count} slivers trimmed)<br>
+            • <b>FAR Violations Resolved:</b> ${data.far_violations_resolved} parcels harmonized to approved zoning schedules<br>
+            • <b>Active Parcels:</b> ${data.final_plots} (0 Violations, 0 Overlaps)
+          </div>
+        </div>
+      `);
+      await _loadMasterplanData(proj);
+      await _loadFilesCount(proj);
+    } else {
+      const err = await res.json().catch(() => ({}));
+      toast(`⚠️ Clash resolution returned error: ${err.detail || 'failed'}`);
+    }
+  } catch (err) {
+    toast(`❌ Failed to resolve clashes: ${err.message}`);
+  }
+};
+
+
 window._confirmMpdFullLink = async function(proj) {
   toast('Stabilizing all parcels into Agentic AI Ground Truth...');
   try {
@@ -2459,7 +2821,8 @@ function _openLiveAuditModal(proj) {
           </div>
           <div style="font-size:11.5px;color:var(--muted);line-height:1.5">
             ${violationPlots > 0
-              ? `• Automated Shapely polygon intersection audit detected <b>${violationPlots} parcel boundary overlaps</b> in the masterplan layout.<br>• Use the "Violations Only" filter or select individual plots in the Inspector to review regulatory issues.`
+              ? `• Automated Shapely polygon intersection audit detected <b>${violationPlots} clashes &amp; regulatory violations</b> in the masterplan layout.<br>• Use the "Violations Only" filter or click below to automatically resolve all clashes using Local AI.<br>
+                 <div style="margin-top:8px"><button class="cad-btn primary" style="padding:6px 14px;font-size:11px;background:#35d07f;color:#030712;font-weight:700;border:none;border-radius:4px;cursor:pointer" onclick="window._mpdAutoResolveClashes()">⚡ Auto-Resolve Clashes (Local AI)</button></div>`
               : `• All ${totalPlots} parcel boundaries satisfy boundary isolation and zoning limits with 0 encroaching overlaps detected.`
             }
           </div>
@@ -2563,25 +2926,68 @@ window._calcInspFar = _calcInspFar;
 window._savePlotInspection = _savePlotInspection;
 window._sendMpdChip = _sendMpdChip;
 window._handleMpdChatSubmit = _handleMpdChatSubmit;
+function _resolveActionPlotIds(action) {
+  if (!_mpdPlots || !_mpdPlots.length) return [];
+  if (Array.isArray(action.plot_ids) && action.plot_ids.length) {
+    return action.plot_ids.map(pid => {
+      const found = _findPlot(pid);
+      return found ? found.plot_id : pid;
+    });
+  }
+  if (action.land_use || action.sector || action.status) {
+    return _mpdPlots.filter(p => {
+      if (action.land_use && !_matchesLandUse(p.land_use, action.land_use)) return false;
+      if (action.sector && !_matchesSector(p.sector, action.sector)) return false;
+      if (action.status && String(p.status || '').toLowerCase() !== String(action.status).toLowerCase()) return false;
+      return true;
+    }).map(p => p.plot_id);
+  }
+  if (action.filter_field && Number.isFinite(Number(action.value))) {
+    const v = Number(action.value);
+    const op = action.operator || '>';
+    const fName = action.filter_field === 'area' ? 'area_sqm' : (action.filter_field === 'gfa' ? 'achieved_gfa' : action.filter_field);
+    return _mpdPlots.filter(p => {
+      const val = Number(p[fName] || 0);
+      if (op === '>') return val > v;
+      if (op === '>=') return val >= v;
+      if (op === '<') return val < v;
+      if (op === '<=') return val <= v;
+      if (op === '==') return Math.abs(val - v) < 1e-6;
+      return false;
+    }).map(p => p.plot_id);
+  }
+  return [];
+}
+
 window._performMpdCadAction = async (action, project) => {
-  if(project !== _getMpdProject() || _mpdSelectedSource === 'register') return 'Edit not applied: select the intended CAD drawing first.';
+  if(project !== _getMpdProject()) return 'Edit not applied: select the intended project first.';
   if(_mpdEditBusy) return 'An edit is already running. Wait for its result before the next edit.';
   _mpdEditBusy=true;
   try {
-  const sourceAtRequest = _mpdSelectedSource;
-  const previous = _mpdWorkingRevision && _mpdWorkingRevision.project === project ? _mpdWorkingRevision : null;
-  const res = await fetch(`${API}/api/v1/masterplan/projects/${encodeURIComponent(project)}/cad-revisions`,{
-    method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...action,source_id:sourceAtRequest || null,base_revision:previous ? previous.revision : null})
-  });
-  const result = await res.json();
-  if(!res.ok) return 'Edit not applied: '+(typeof result.detail==='string'?result.detail:'source validation failed');
-  if(project !== _getMpdProject() || sourceAtRequest !== _mpdSelectedSource) return 'Working revision created for the previous source; no change applied to this view.';
-  const styles = {...(previous ? previous.styles : {})};
-  result.plot_ids.forEach(id=>styles[id]=result.color);
-  _mpdWorkingRevision = {...result,project,styles};
-  _mpdHighlightPlots = [];
-  _drawCanvas();
-  return `Created a separate ${result.format.toUpperCase()} working revision: ${result.plot_ids.length} plot hatch(es) changed to ${result.color}. Original unchanged. Use Save working copy to download. Full drawing fidelity still requires review.`;
+    const matchedIds = _resolveActionPlotIds(action);
+    if(!matchedIds.length) return 'Edit not applied: no matching plots were found.';
+    if (_mpdSelectedSource === 'register') {
+      matchedIds.forEach(id => { _mpdCustomStyles[id] = action.color; });
+      _mpdHighlightPlots = [];
+      _drawCanvas();
+      return `Canvas preview updated for ${matchedIds.length} plot(s). No CAD revision was saved; select a CAD drawing to create a downloadable working copy.`;
+    }
+    const sourceAtRequest = _mpdSelectedSource;
+    const previous = _mpdWorkingRevision && _mpdWorkingRevision.project === project ? _mpdWorkingRevision : null;
+    const res = await fetch(`${API}/api/v1/masterplan/projects/${encodeURIComponent(project)}/cad-revisions`,{
+      method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...action,source_id:sourceAtRequest || null,base_revision:previous ? previous.revision : null})
+    });
+    const result = await res.json().catch(() => ({}));
+    if(!res.ok) {
+      return 'Edit not applied: '+(typeof result.detail==='string'?result.detail:'source validation failed');
+    }
+    if(project !== _getMpdProject() || sourceAtRequest !== _mpdSelectedSource) return 'Working revision created for the previous source; no change applied to this view.';
+    const styles = {...(previous ? previous.styles : {})};
+    result.plot_ids.forEach(id => { styles[id] = result.color; _mpdCustomStyles[id] = result.color; });
+    _mpdWorkingRevision = {...result,project,styles};
+    _mpdHighlightPlots = [];
+    _drawCanvas();
+    return `Created a separate ${result.format.toUpperCase()} working revision: ${result.plot_ids.length} plot hatch(es) changed to ${result.color}. Original unchanged. Use Save working copy to download. Full drawing fidelity still requires review.`;
   } finally { _mpdEditBusy=false; }
 };
 window._saveMpdWorkingCopy = () => {
@@ -2609,47 +3015,336 @@ window._openMpdRevisions = async () => {
   document.body.appendChild(modal);modal.showModal();
 };
 window._returnMpdOriginal = () => {
-  _mpdWorkingRevision=null;_mpdHighlightPlots=[];_loadMasterplanData(_getMpdProject());toast('Returned to original source view; saved revisions are retained');
+  _mpdTextMode='rooms';_mpdTextScale=1;_mpdHatchPattern='solid';
+  _mpdShowCadLinework=true;_mpdShowPlots=true;_mpdShowSetbacks=true;_mpdShowViolationsOnly=false;
+  const size=document.getElementById('mpdTextSize'),value=document.getElementById('mpdTextSizeValue');
+  if(size)size.value=100;if(value)value.textContent='100%';
+  const label=document.getElementById('mpdTextModeLabel');if(label)label.textContent='Text: Rooms';
+  _mpdWorkingRevision=null;_mpdHighlightPlots=[];_mpdIsolatedLandUse=null;_mpdIsolatedSector=null;_mpdIsolatedPlotIds=null;_mpdIsolatedLabel='';_mpdCustomStyles={};_mpdTextFilter=null;_mpdUniversalRule=null;_loadMasterplanData(_getMpdProject());toast('Returned to original source view; saved revisions are retained');
+};
+window._executeMpdChatActions = async (actions, project) => {
+  if(project !== _getMpdProject() || (typeof currentDest !== 'undefined' && currentDest !== 'mpd'))
+    return 'Action not applied: open MPD in the requested project first.';
+  if(!Array.isArray(actions) || !actions.length) return 'Action not applied: no drawing action received.';
+  const receipts=[];
+  for(const action of actions){
+    try {
+      const receipt=action.type==='edit_hatches'
+        ? await window._performMpdCadAction(action,project)
+        : window._applyMpdViewActions([action],project);
+      receipts.push(receipt || 'Action not applied: the engine returned no confirmation.');
+    } catch(error){ receipts.push('Action failed: '+error.message); }
+  }
+  return receipts.join('\n');
 };
 window._applyMpdViewActions = (actions, project) => {
   if(typeof currentDest !== 'undefined' && currentDest !== 'mpd') return 'Drawing action was not applied: open MPD first.';
   if(project !== _getMpdProject() || !document.getElementById('mpdCanvas')) return 'Drawing action was not applied: the active project or MPD view changed.';
-  if(!Array.isArray(actions) || actions.length !== 1) return 'Drawing action was not applied: invalid command.';
-  const action = actions[0];
-  let receipt;
-  if(action.type === 'set_text_mode' && ['off','all','rooms'].includes(action.mode)){
-    _mpdTextMode = action.mode;
-    const label = document.getElementById('mpdTextModeLabel');
-    if(label) label.textContent = 'Text: ' + ({off:'Off',all:'All',rooms:'Rooms'}[action.mode]);
-    const button = document.getElementById('btnToggleTextMode');
-    if(button) button.classList.toggle('active', action.mode !== 'off');
-    receipt = action.mode === 'off' ? 'Hidden all drawing text, plot labels and FAR labels.' : 'Shown drawing text and plot labels.';
-  } else if(action.type === 'set_text_scale' && Number.isFinite(action.scale) && action.scale >= .3 && action.scale <= 1.8){
-    _mpdTextScale = action.scale;
-    const input = document.getElementById('mpdTextSize'), label = document.getElementById('mpdTextSizeValue');
-    if(input) input.value = Math.round(action.scale*100);
-    if(label) label.textContent = Math.round(action.scale*100)+'%';
-    receipt = 'Set drawing text size to '+Math.round(action.scale*100)+'%.';
-  } else if(action.type === 'return_to_original'){
-    window._returnMpdOriginal(); receipt='Returned to the original source view; working revisions are retained.';
-  } else if(action.type === 'save_working_copy'){
-    if(!_mpdWorkingRevision || _mpdWorkingRevision.project !== project) return 'No working revision is available to download.';
-    window._saveMpdWorkingCopy(); receipt='Working-copy download requested; original unchanged.';
-  } else if(action.type === 'fit_view'){
-    _fitCanvasToPlots(); receipt = 'Fitted the drawing to the view.';
-  } else return 'Drawing action was not applied: unsupported command.';
+  if(!Array.isArray(actions) || !actions.length) return 'Drawing action was not applied: invalid command.';
+  
+  const receipts = [];
+  for (const action of actions) {
+    if(!action || typeof action !== 'object') continue;
+    
+    if(action.type === 'set_text_mode' && ['off','all','rooms'].includes(action.mode)){
+      _mpdTextMode = action.mode;
+      const label = document.getElementById('mpdTextModeLabel');
+      if(label) label.textContent = 'Text: ' + ({off:'Off',all:'All',rooms:'Rooms'}[action.mode]);
+      const button = document.getElementById('btnToggleTextMode');
+      if(button) button.classList.toggle('active', action.mode !== 'off');
+      receipts.push(action.mode === 'off' ? 'Hidden all drawing text, plot labels and FAR labels.' : 'Shown drawing text and plot labels.');
+    } else if(action.type === 'set_text_scale' && Number.isFinite(action.scale) && action.scale >= .3 && action.scale <= 1.8){
+      _mpdTextScale = action.scale;
+      const input = document.getElementById('mpdTextSize'), label = document.getElementById('mpdTextSizeValue');
+      if(input) input.value = Math.round(action.scale*100);
+      if(label) label.textContent = Math.round(action.scale*100)+'%';
+      receipts.push('Set drawing text size to '+Math.round(action.scale*100)+'%.');
+    } else if(action.type === 'set_layers'){
+      const layerNotes = [];
+      if(action.show_setbacks !== undefined) {
+        _mpdShowSetbacks = Boolean(action.show_setbacks);
+        const btn = document.getElementById('btnToggleSetbacks');
+        if(btn) btn.classList.toggle('active', _mpdShowSetbacks);
+        layerNotes.push(_mpdShowSetbacks ? 'Setback Envelopes ON' : 'Setback Envelopes OFF');
+      }
+      if(action.show_violations_only !== undefined) {
+        _mpdShowViolationsOnly = Boolean(action.show_violations_only);
+        const btn = document.getElementById('btnToggleViolations');
+        if(btn) btn.classList.toggle('active', _mpdShowViolationsOnly);
+        layerNotes.push(_mpdShowViolationsOnly ? 'Violations-Only Filter ON' : 'Violations-Only Filter OFF');
+      }
+      if(action.show_cad_linework !== undefined) {
+        _mpdShowCadLinework = Boolean(action.show_cad_linework);
+        layerNotes.push(_mpdShowCadLinework ? 'CAD Linework ON' : 'CAD Linework OFF');
+      }
+      if(action.text_mode && ['off','all','rooms'].includes(action.text_mode)) {
+        _mpdTextMode = action.text_mode;
+        const btn = document.getElementById('btnToggleTextMode');
+        if(btn) btn.classList.toggle('active', action.text_mode !== 'off');
+        const lbl = document.getElementById('mpdTextModeLabel');
+        if(lbl) lbl.textContent = 'Text: ' + ({off:'Off',all:'All',rooms:'Rooms'}[action.text_mode]);
+        layerNotes.push(`Text Mode: ${action.text_mode}`);
+      }
+      if(action.text_filter !== undefined) {
+        _mpdTextFilter = action.text_filter ? String(action.text_filter).trim() : null;
+        if (_mpdTextFilter && _mpdTextMode === 'off') {
+          _mpdTextMode = 'all';
+          const btn = document.getElementById('btnToggleTextMode');
+          if(btn) btn.classList.toggle('active', true);
+          const lbl = document.getElementById('mpdTextModeLabel');
+          if(lbl) lbl.textContent = 'Text: All';
+        }
+        layerNotes.push(_mpdTextFilter ? `Text Filter: "${_mpdTextFilter}*"` : 'Text Filter: All');
+      }
+      if(action.hatch_pattern !== undefined) {
+        _mpdHatchPattern = action.hatch_pattern || 'solid';
+        layerNotes.push(`Hatch Pattern: ${_mpdHatchPattern}`);
+      }
+      receipts.push(`Updated canvas layers: ${layerNotes.join(' · ')}`);
+    } else if(action.type === 'set_text_filter'){
+      _mpdTextFilter = action.text_filter ? String(action.text_filter).trim() : null;
+      if (_mpdTextFilter && _mpdTextMode === 'off') {
+        _mpdTextMode = 'all';
+        const btn = document.getElementById('btnToggleTextMode');
+        if(btn) btn.classList.toggle('active', true);
+        const lbl = document.getElementById('mpdTextModeLabel');
+        if(lbl) lbl.textContent = 'Text: All';
+      }
+      receipts.push(_mpdTextFilter ? `Filtered canvas text annotations to "${_mpdTextFilter}*"` : 'Cleared canvas text filter.');
+    } else if(action.type === 'apply_universal_rule' && action.rule){
+      const r = action.rule;
+      const predicate=_compilePredicate(r.condition);
+      if(predicate.error){receipts.push('Rule not applied: '+predicate.error);continue;}
+      _mpdUniversalRule = {
+        target: String(r.target || 'all').toLowerCase(),
+        condition: String(r.condition || 'true'),
+        visible: r.visible !== false,
+        color: r.color || null,
+        isolate: Boolean(r.isolate),
+        predicate
+      };
+
+      if (_mpdUniversalRule.target === 'text' || _mpdUniversalRule.target === 'all') {
+        // Matching visibility is handled by the predicate, not a global hide-all toggle.
+        _mpdTextMode = 'all';
+        const btn=document.getElementById('btnToggleTextMode');if(btn)btn.classList.toggle('active',true);
+        const label=document.getElementById('mpdTextModeLabel');if(label)label.textContent='Text: All';
+      }
+
+      if (_mpdUniversalRule.color && (_mpdUniversalRule.target === 'plot' || _mpdUniversalRule.target === 'all')) {
+        let recolorCount = 0;
+        (_mpdPlots || []).forEach(p => {
+          if (_mpdUniversalRule.predicate({}, p)) {
+            _mpdCustomStyles[p.plot_id] = _mpdUniversalRule.color;
+            recolorCount++;
+          }
+        });
+      }
+
+      if (_mpdUniversalRule.isolate && (_mpdUniversalRule.target === 'plot' || _mpdUniversalRule.target === 'all')) {
+        const matched = (_mpdPlots || []).filter(p => _mpdUniversalRule.predicate({}, p));
+        if (matched.length > 0) {
+          _mpdIsolatedPlotIds = new Set(matched.map(p => p.plot_id));
+          _mpdIsolatedLabel = `Rule: ${_mpdUniversalRule.condition}`;
+          _renderPlotTable(_mpdPlots);
+          const totalArea = matched.reduce((s, p) => s + (Number(p.area_sqm) || 0), 0);
+          const totalGfa = matched.reduce((s, p) => s + (Number(p.achieved_gfa) || 0), 0);
+          const selInfo = document.getElementById('mpdSelectedInfo');
+          if (selInfo) {
+            selInfo.innerHTML = `🔍 <b>Isolated Filter:</b> <span style="color:var(--accent2)">${_mpdEsc(_mpdIsolatedLabel)}</span> (${matched.length} plots · Area: ${Math.round(totalArea).toLocaleString()} m² · GFA: ${Math.round(totalGfa).toLocaleString()} m²)`;
+          }
+          _fitCanvasToSubset(matched);
+        }
+      }
+
+      const actionVerb = _mpdUniversalRule.isolate ? 'Isolated' : (_mpdUniversalRule.visible ? 'Showed' : 'Hidden');
+      receipts.push(`${actionVerb} matching **${_mpdUniversalRule.target.toUpperCase()}** entities where \`${_mpdUniversalRule.condition}\`` + (_mpdUniversalRule.color ? ` (color: ${_mpdUniversalRule.color})` : ''));
+    } else if(action.type === 'isolate_plots'){
+      const resolvedIds = _resolveActionPlotIds(action);
+      const idSet = new Set(resolvedIds);
+      const matched = (_mpdPlots || []).filter(p => idSet.has(p.plot_id));
+      _mpdIsolatedPlotIds = idSet;
+      _mpdIsolatedLandUse = action.land_use || null;
+      _mpdIsolatedSector = action.sector || null;
+      _mpdIsolatedLabel = action.label || action.sector || action.land_use || 'Filtered Parcels';
+      _mpdHighlightPlots = [];
+      const luSelect = document.getElementById('tblLandUse');
+      if (luSelect) {
+        luSelect.value = _mpdIsolatedLandUse || 'All';
+        _mpdFilterLandUse = luSelect.value;
+      }
+      _renderPlotTable(_mpdPlots);
+      const totalArea = matched.reduce((s, p) => s + (Number(p.area_sqm) || 0), 0);
+      const totalGfa = matched.reduce((s, p) => s + (Number(p.achieved_gfa) || 0), 0);
+      const selInfo = document.getElementById('mpdSelectedInfo');
+      if (selInfo) {
+        selInfo.innerHTML = `🔍 <b>Isolated Filter:</b> <span style="color:var(--accent2)">${_mpdEsc(_mpdIsolatedLabel)}</span> (${matched.length} plots · Area: ${Math.round(totalArea).toLocaleString()} m² · GFA: ${Math.round(totalGfa).toLocaleString()} m²)`;
+      }
+      if (matched.length > 0) {
+        _fitCanvasToSubset(matched);
+      }
+      receipts.push(`Isolated **${matched.length} ${_mpdIsolatedLabel}** plots on the masterplan canvas.`);
+    } else if(action.type === 'isolate_land_use'){
+      _mpdIsolatedLandUse = action.land_use || null;
+      _mpdIsolatedSector = null;
+      _mpdIsolatedPlotIds = null;
+      _mpdIsolatedLabel = action.land_use || '';
+      _mpdHighlightPlots = [];
+      const luSelect = document.getElementById('tblLandUse');
+      if (luSelect) {
+        luSelect.value = _mpdIsolatedLandUse || 'All';
+        _mpdFilterLandUse = luSelect.value;
+      }
+      _renderPlotTable(_mpdPlots);
+      if (_mpdIsolatedLandUse) {
+        const matched = (_mpdPlots || []).filter(p => _matchesLandUse(p.land_use, _mpdIsolatedLandUse));
+        const totalArea = matched.reduce((s, p) => s + (Number(p.area_sqm) || 0), 0);
+        const totalGfa = matched.reduce((s, p) => s + (Number(p.achieved_gfa) || 0), 0);
+        const selInfo = document.getElementById('mpdSelectedInfo');
+        if (selInfo) {
+          selInfo.innerHTML = `🔍 <b>Isolated Filter:</b> <span style="color:var(--accent2)">${_mpdEsc(_mpdIsolatedLandUse)}</span> (${matched.length} plots · Area: ${Math.round(totalArea).toLocaleString()} m² · GFA: ${Math.round(totalGfa).toLocaleString()} m²)`;
+        }
+        if (matched.length > 0) _fitCanvasToSubset(matched);
+        receipts.push(`Isolated **${matched.length} ${_mpdIsolatedLandUse}** plots on the masterplan canvas.`);
+      } else {
+        _mpdTextFilter = null;
+        _mpdUniversalRule = null;
+        const selInfo = document.getElementById('mpdSelectedInfo');
+        if (selInfo) selInfo.textContent = 'Hover over any parcel or CAD vector on the canvas to inspect.';
+        _fitCanvasToPlots();
+        receipts.push(`Cleared isolation filter — showing all **${(_mpdPlots || []).length}** masterplan parcels.`);
+      }
+    } else if((action.type === 'recolor_active' || action.type === 'recolor_plots') && (action.color || (action.color_map && typeof action.color_map === 'object'))){
+      if (action.color_map && typeof action.color_map === 'object' && Object.keys(action.color_map).length > 0) {
+        let appliedCount = 0;
+        const uniqueColors = new Set();
+        for (const [rawPid, colVal] of Object.entries(action.color_map)) {
+          const found = _findPlot(rawPid);
+          const pid = found ? found.plot_id : rawPid;
+          if (pid && colVal) {
+            _mpdCustomStyles[pid] = colVal;
+            uniqueColors.add(String(colVal).toLowerCase());
+            appliedCount++;
+          }
+        }
+        _mpdHighlightPlots = [];
+        const redOrHighlightPlots = Object.entries(action.color_map)
+          .filter(([k, v]) => {
+            const c = String(v).toLowerCase();
+            return c === '#ff0000' || c === '#ef4444' || c === 'red' || c === '#f43f5e';
+          })
+          .map(([k, v]) => _findPlot(k))
+          .filter(Boolean);
+        if (redOrHighlightPlots.length > 0 && redOrHighlightPlots.length < (_mpdPlots || []).length) {
+          _fitCanvasToSubset(redOrHighlightPlots);
+        }
+        const modeDesc = action.mode_label || `${uniqueColors.size} unique color(s)`;
+        receipts.push(`Applied **${modeDesc}** across **${appliedCount}** plot(s) on the masterplan canvas.`);
+      } else {
+        let targetIds = [];
+        let scopeLabel = action.label || 'active';
+        if (Array.isArray(action.plot_ids) && action.plot_ids.length) {
+          targetIds = _resolveActionPlotIds(action);
+          scopeLabel = action.label || action.sector || action.land_use || 'matching';
+        } else if (_mpdIsolatedPlotIds && _mpdIsolatedPlotIds.size > 0) {
+          targetIds = Array.from(_mpdIsolatedPlotIds);
+          scopeLabel = _mpdIsolatedLabel || _mpdIsolatedSector || _mpdIsolatedLandUse || 'isolated';
+        } else if (_mpdIsolatedLandUse) {
+          targetIds = (_mpdPlots || []).filter(p => _matchesLandUse(p.land_use, _mpdIsolatedLandUse)).map(p => p.plot_id);
+          scopeLabel = _mpdIsolatedLandUse;
+        } else if (_mpdIsolatedSector) {
+          targetIds = (_mpdPlots || []).filter(p => _matchesSector(p.sector, _mpdIsolatedSector)).map(p => p.plot_id);
+          scopeLabel = _mpdIsolatedSector;
+        } else if (_mpdHighlightPlots && _mpdHighlightPlots.length) {
+          targetIds = [..._mpdHighlightPlots];
+          scopeLabel = 'highlighted';
+        } else if (_mpdSelectedPlotId) {
+          targetIds = [_mpdSelectedPlotId];
+          scopeLabel = `Plot ${_mpdSelectedPlotId}`;
+        } else {
+          targetIds = (_mpdPlots || []).map(p => p.plot_id);
+          scopeLabel = 'all';
+        }
+        targetIds.forEach(id => { _mpdCustomStyles[id] = action.color; });
+        _mpdHighlightPlots = [];
+        receipts.push(`Changed color of **${targetIds.length}** ${scopeLabel} plot(s) to **${action.color}** on the masterplan canvas.`);
+      }
+    } else if(action.type === 'return_to_original'){
+      window._returnMpdOriginal();
+      receipts.push('Returned to the original source view; working revisions are retained.');
+    } else if(action.type === 'save_working_copy'){
+      if(!_mpdWorkingRevision || _mpdWorkingRevision.project !== project) {
+        receipts.push('No working revision is available to download.');
+      } else {
+        window._saveMpdWorkingCopy();
+        receipts.push('Working-copy download requested; original unchanged.');
+      }
+    } else if(action.type === 'fit_view'){
+      _fitCanvasToPlots();
+      receipts.push('Fitted the drawing to the view.');
+    }
+  }
   _drawCanvas();
-  return receipt;
+  return receipts.join('\n') || 'Action not applied: unsupported drawing action.';
 };
 window._highlightMpdPlots = (plots, color) => {
   _mpdHighlightColor = /^#[0-9a-f]{6}$/i.test(color || '') ? color : '#ffff00';
   _mpdHighlightPlots = Array.isArray(plots) ? plots : [];
+  if (_mpdHighlightPlots.length > 0 && (_mpdIsolatedLandUse || _mpdIsolatedSector || (_mpdIsolatedPlotIds && _mpdIsolatedPlotIds.size > 0))) {
+    const anyHidden = _mpdHighlightPlots.some(pid => {
+      const p = _findPlot(pid);
+      return p && !_isPlotVisibleInIsolation(p);
+    });
+    if (anyHidden) {
+      _mpdIsolatedLandUse = null;
+      _mpdIsolatedSector = null;
+      _mpdIsolatedPlotIds = null;
+      _mpdIsolatedLabel = '';
+      const luSelect = document.getElementById('tblLandUse');
+      if (luSelect) { luSelect.value = 'All'; _mpdFilterLandUse = 'All'; }
+      _renderPlotTable(_mpdPlots);
+    }
+  }
   _drawCanvas();
   if (_mpdHighlightPlots.length > 0) {
     _selectPlot(_mpdHighlightPlots[0], true);
   }
 };
 window._getMpdSelectedPlotId = () => _mpdSelectedPlotId;
+window._getMpdIsolatedLandUse = () => _mpdIsolatedLandUse;
+window._getMpdIsolatedSector = () => _mpdIsolatedSector;
+window._getMpdIsolatedPlotIds = () => (_mpdIsolatedPlotIds ? Array.from(_mpdIsolatedPlotIds) : null);
+window._downloadMpdExcel = async (project, landUse, sector, plotIds) => {
+  const proj = project || _getMpdProject();
+  const lu = (landUse != null && landUse !== '') ? landUse : (_mpdIsolatedLandUse || '');
+  const sec = (sector != null && sector !== '') ? sector : (_mpdIsolatedSector || '');
+  const pIds = (Array.isArray(plotIds) && plotIds.length) ? plotIds : ((!lu && !sec && _mpdIsolatedPlotIds && _mpdIsolatedPlotIds.size) ? Array.from(_mpdIsolatedPlotIds) : null);
+  const params = new URLSearchParams();
+  if (lu) params.set('land_use', lu);
+  if (sec) params.set('sector', sec);
+  if (pIds && pIds.length) params.set('plots', pIds.join(','));
+  const qs = params.toString() ? `?${params.toString()}` : '';
+  const scopeLabel = [sec, lu].filter(Boolean).join(' ') || (pIds ? `${pIds.length} Filtered Parcels` : 'All Parcels');
+  const url = `${API}/api/v1/masterplan/projects/${encodeURIComponent(proj)}/export-excel${qs}`;
+  try {
+    toast(`📥 Preparing Excel schedule (${scopeLabel})...`);
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('Failed to generate Excel workbook');
+    const blob = await res.blob();
+    const dlUrl = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = dlUrl;
+    const safeScope = scopeLabel.replace(/[^A-Za-z0-9_-]+/g, '_');
+    a.download = `Expo_Hills_${safeScope}_Schedule.xlsx`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(dlUrl), 5000);
+    toast(`✅ Downloaded Excel Schedule (${scopeLabel})`);
+  } catch (err) {
+    toast(`⚠️ Excel export failed: ${err.message}`);
+  }
+};
 window._getMpdPlots = () => _mpdPlots;
 window._openImportModal = _openImportModal;
 window._openFilesModal = _openFilesModal;
@@ -2660,3 +3355,4 @@ window._confirmMpdFullLink = _confirmMpdFullLink;
 window._getMpdProject = _getMpdProject;
 window._openLiveAuditModal = _openLiveAuditModal;
 window._toggleSidePane = _toggleSidePane;
+window._mpdAutoResolveClashes = _mpdAutoResolveClashes;

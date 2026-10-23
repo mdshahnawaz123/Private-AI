@@ -8,12 +8,17 @@
     "ifc2frag": "./convert_ifc_to_frag.mjs"
   },
   "scripts": {
+    "build:browser": "node build_browser.mjs",
     "convert": "node convert_ifc_to_frag.mjs",
     "backfill": "node backfill.mjs"
   },
+  "engines": { "node": ">=20.11.0" },
   "dependencies": {
-    "@thatopen/fragments": "3.4.7",
+    "@thatopen/fragments": "3.4.8",
     "three": "0.186.1",
     "web-ifc": "0.0.77"
+  },
+  "devDependencies": {
+    "esbuild": "0.25.12"
   }
 }

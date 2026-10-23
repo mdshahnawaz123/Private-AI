@@ -134,7 +134,7 @@ class MasterplanExcelParser:
         logger.info(f"Using sheet '{sheet.title}' for schedule data. Columns: {col_map} at header row {header_idx}")
 
         row_count = 0
-        for row in rows[header_idx + 1:]:
+        for row_number, row in enumerate(rows[header_idx + 1:], start=header_idx + 2):
             if not row or all(v is None for v in row):
                 continue
 
@@ -197,10 +197,12 @@ class MasterplanExcelParser:
                 parking_provided=prk_val,
                 status="compliant",
                 violations=[],
+                provenance=[{"filename": os.path.basename(file_path), "sheet": sheet.title, "row": row_number, "kind": "excel_register"}],
                 notes="Imported from Excel Plot Schedule"
             )
             plots.append(plot)
             row_count += 1
 
+        wb.close()
         logger.info(f"MasterplanExcelParser extracted {len(plots)} plots from {file_path}")
         return plots

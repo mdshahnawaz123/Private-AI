@@ -1,0 +1,9 @@
+{
+  "reviewed_on": "2026-10-22",
+  "reason": "Switched local image workflows from FLUX.2 Klein 4B to FLUX 3 Image Klein (distilled int8, KSampler 16 steps cfg 1) at the user's request; FLUX.2 files removed.",
+  "files": {
+    "workflows/architecture_concept.json": "c26e1adb4e6b8cfa8bca0c31d34f8c2708d09cf1d2254304a8fd8ca399dcbdbf",
+    "workflows/render_enhancement.json": "600af430f9361e2be5e5cf7de00ef4bb639c880be834a8608349f0933a43e46a",
+    "workflows/sketch_to_render.json": "b919e2523fa96976a76d4d46412b85aa8ab567ef93999d136b99ea2d5ae217cc"
+  }
+}

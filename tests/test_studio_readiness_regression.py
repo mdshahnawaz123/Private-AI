@@ -20,7 +20,7 @@ class StudioReadinessRegression(unittest.TestCase):
   r=self.registry();info=self.info(r);info['UNETLoader']['input']['required']['unet_name']=[[]]
   self.assertIn('architecture_concept',r.validate_against_comfy_object_info(info, validate_models=True))
  def test_missing_node_unavailable(self):
-  r=self.registry();info=self.info(r);del info['SamplerCustomAdvanced'];self.assertIn('architecture_concept',r.validate_against_comfy_object_info(info, validate_models=True))
+  r=self.registry();info=self.info(r);del info['KSampler'];self.assertIn('architecture_concept',r.validate_against_comfy_object_info(info, validate_models=True))
  def test_frontend_uses_api_fields(self):
   s=Path('ui/app.js').read_text(encoding='utf-8');self.assertNotIn('_studioActiveJob.id',s);self.assertNotIn('comfy_online',s);self.assertIn('_studioActiveJob.progress_percent',s);self.assertIn('updated.error',s)
  def test_preflight_precedes_database_insert(self):

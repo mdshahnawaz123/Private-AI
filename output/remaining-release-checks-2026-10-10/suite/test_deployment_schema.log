@@ -1,6 +1,0 @@
-test_empty_install_upgrade_data_preservation_and_downgrade (test_deployment_schema.DeploymentSchema.test_empty_install_upgrade_data_preservation_and_downgrade) ... ok
-
-----------------------------------------------------------------------
-Ran 1 test in 2.585s
-
-OK

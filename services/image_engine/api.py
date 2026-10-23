@@ -10,6 +10,7 @@ Provides project-isolated REST endpoints for:
 """
 
 import asyncio
+from loguru import logger
 import uuid
 from pathlib import Path
 from typing import List, Optional, Dict, Any
@@ -209,8 +210,13 @@ async def submit_image_job(request: Request):
         try:
             width = int(form.get("width")) if form.get("width") else 1024
             height = int(form.get("height")) if form.get("height") else 1024
-            steps = int(form.get("steps")) if form.get("steps") else 25
-            cfg = float(form.get("cfg")) if form.get("cfg") else 7.0
+            # steps / cfg only when the user set them; otherwise each workflow's own
+            # defaults apply (FLUX 3 Klein: 16 steps, cfg 1.0 - a fixed 25 / 7.0 is out of range).
+            _opt = {}
+            if form.get("steps"):
+                _opt["steps"] = int(form.get("steps"))
+            if form.get("cfg"):
+                _opt["cfg"] = float(form.get("cfg"))
             seed = int(form.get("seed")) if form.get("seed") else None
 
             enhance_prompt_val = str(form.get("enhance_prompt", "")).lower() in ("true", "1", "yes")
@@ -222,9 +228,8 @@ async def submit_image_job(request: Request):
                 negative_prompt=str(form.get("negative_prompt", "")) or None,
                 width=width,
                 height=height,
-                steps=steps,
-                cfg=cfg,
                 seed=seed,
+                **_opt,
                 architectural_style=str(form.get("architectural_style", "")) or None,
                 building_type=str(form.get("building_type", "")) or None,
                 input_image_path=input_image_path,
@@ -571,10 +576,21 @@ async def _background_download_wan():
 async def trigger_download_wan(request: Request):
     """
     Trigger automated background download of Wan 2.2 model weights into ComfyUI.
+    Requires admin privileges and performs disk space preflight checks.
     """
-    auth.require_user(request)
+    auth.require_roles(request, "admin")
     if _video_download_state.get("active"):
         return {"status": "already_running", "download_state": _video_download_state}
+
+    import shutil
+    try:
+        drive_target = str(COMFY_MODELS_ROOT.resolve())
+        free_bytes = shutil.disk_usage(drive_target).free
+        free_gb = free_bytes / (1024 ** 3)
+        if free_gb < 20.0:
+            raise HTTPException(400, f"Insufficient disk space for Wan 2.2 models: {free_gb:.1f} GB free, minimum 20.0 GB required")
+    except OSError as e:
+        logger.warning(f"Disk check failed: {e}")
 
     asyncio.create_task(_background_download_wan())
     return {"status": "started", "download_state": _video_download_state}

@@ -1,8 +1,0 @@
-test_current_role_overrides_stale_admin_token (test_auth_current_user.CurrentUserAuthorization.test_current_role_overrides_stale_admin_token) ... ok
-test_disabled_and_deleted_user_tokens_are_rejected (test_auth_current_user.CurrentUserAuthorization.test_disabled_and_deleted_user_tokens_are_rejected) ... ok
-test_password_rotation_revokes_previous_token (test_auth_current_user.CurrentUserAuthorization.test_password_rotation_revokes_previous_token) ... ok
-
-----------------------------------------------------------------------
-Ran 3 tests in 0.004s
-
-OK

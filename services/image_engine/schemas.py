@@ -168,6 +168,7 @@ class PromptEnhanceRequest(BaseModel):
     protected_elements: List[Annotated[str, Field(min_length=1, max_length=150)]] = Field(default_factory=list, max_length=20)
     materials: str = Field(default="", max_length=600)
     lighting: str = Field(default="", max_length=300)
+    option_count: int = Field(default=3, ge=1, le=6, description="Number of design options (one render each)")
 
 
 class PromptEnhanceResponse(BaseModel):

@@ -15,6 +15,8 @@ class OCRSerializationTests(unittest.TestCase):
             visual=EasyOCRExtractor().extract('fixture')
             self.assertEqual(json.loads(json.dumps(visual))['raw_text'],'Grade 40/50')
             engine=OCREngine()
+            engine._paddle_ocr = reader
+            engine._paddle_available = True
             result=engine.recognize('fixture',page=13)
             records=json.loads(json.dumps([asdict(record) for record in result.results]))
             self.assertEqual(records[0]['page'],13)

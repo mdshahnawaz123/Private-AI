@@ -2,10 +2,10 @@
   "_meta": {
     "id": "sketch_to_render",
     "name": "Sketch to Render",
-    "version": "2.0.0",
+    "version": "3.0.0",
     "category": "sketch",
-    "description": "Transforms an uploaded architectural sketch or massing study into a photorealistic concept render guided by the source image.",
-    "license_notes": "Uses the installed FLUX.2 Klein 4B image-edit workflow. Image generation is AI-based; exact geometry preservation is not guaranteed.",
+    "description": "Transforms an uploaded architectural sketch or massing study into a photorealistic concept render guided by the source image (FLUX 3 Image Klein).",
+    "license_notes": "FLUX 3 Image Klein (5.6B, step-distilled, int8): FLUX Kommunity License - free commercial use only for individuals/organisations under US$5M annual revenue; larger organisations need a licence from Black Forest Labs. Text encoder qwen3vl_4b and flux2-vae under their own licences. Runs fully offline.",
     "parameters": [
       {
         "name": "prompt",
@@ -13,14 +13,6 @@
         "label": "Design Brief / Prompt",
         "description": "Architectural visualization instructions",
         "required": true
-      },
-      {
-        "name": "negative_prompt",
-        "type": "string",
-        "label": "Avoid / Negative Prompt",
-        "description": "Elements and defects to avoid",
-        "required": false,
-        "default": "unreadable sketch marks, distorted building outline, warped perspective, random extra floors, missing major openings, impossible structure, duplicated columns, messy annotations, text overlay, watermark, blurry image, low detail, oversaturated colors, cartoon style, excessive visual clutter"
       },
       {
         "name": "input_image_path",
@@ -33,19 +25,19 @@
         "name": "steps",
         "type": "integer",
         "label": "Sampling Steps",
-        "description": "FLUX.2 Klein base model sampling steps",
-        "default": 20,
-        "min_value": 8,
-        "max_value": 30
+        "description": "FLUX 3 Image Klein (distilled) sampling steps; 16 recommended",
+        "default": 16,
+        "min_value": 4,
+        "max_value": 24
       },
       {
         "name": "cfg",
         "type": "float",
         "label": "Guidance Scale",
-        "description": "Guidance scale for the FLUX.2 Klein base workflow",
-        "default": 5.0,
+        "description": "Fixed at 1.0 for FLUX 3 Image Klein (distilled)",
+        "default": 1.0,
         "min_value": 1.0,
-        "max_value": 8.0
+        "max_value": 1.0
       },
       {
         "name": "seed",
@@ -78,35 +70,9 @@
       "title": "Load Image"
     }
   },
-  "75:61": {
+  "75:64": {
+    "class_type": "KSampler",
     "inputs": {
-      "sampler_name": "euler"
-    },
-    "class_type": "KSamplerSelect",
-    "_meta": {
-      "title": "KSamplerSelect"
-    }
-  },
-  "75:62": {
-    "inputs": {
-      "steps": 20,
-      "width": [
-        "75:100",
-        0
-      ],
-      "height": [
-        "75:100",
-        1
-      ]
-    },
-    "class_type": "Flux2Scheduler",
-    "_meta": {
-      "title": "Flux2Scheduler"
-    }
-  },
-  "75:63": {
-    "inputs": {
-      "cfg": 5.0,
       "model": [
         "75:70",
         0
@@ -118,39 +84,20 @@
       "negative": [
         "75:79:101",
         0
-      ]
-    },
-    "class_type": "CFGGuider",
-    "_meta": {
-      "title": "CFG Guider"
-    }
-  },
-  "75:64": {
-    "inputs": {
-      "noise": [
-        "75:73",
-        0
-      ],
-      "guider": [
-        "75:63",
-        0
-      ],
-      "sampler": [
-        "75:61",
-        0
-      ],
-      "sigmas": [
-        "75:62",
-        0
       ],
       "latent_image": [
         "75:66",
         0
-      ]
+      ],
+      "seed": 42,
+      "steps": 16,
+      "cfg": 1.0,
+      "sampler_name": "euler",
+      "scheduler": "simple",
+      "denoise": 1.0
     },
-    "class_type": "SamplerCustomAdvanced",
     "_meta": {
-      "title": "SamplerCustomAdvanced"
+      "title": "KSampler (FLUX 3)"
     }
   },
   "75:65": {
@@ -169,18 +116,9 @@
       "title": "VAE Decode"
     }
   },
-  "75:73": {
-    "inputs": {
-      "noise_seed": 42
-    },
-    "class_type": "RandomNoise",
-    "_meta": {
-      "title": "RandomNoise"
-    }
-  },
   "75:70": {
     "inputs": {
-      "unet_name": "flux-2-klein-4b.safetensors",
+      "unet_name": "flux3-image-klein-int8-convrot.safetensors",
       "weight_dtype": "default"
     },
     "class_type": "UNETLoader",
@@ -190,8 +128,8 @@
   },
   "75:71": {
     "inputs": {
-      "clip_name": "qwen_3_4b.safetensors",
-      "type": "flux2",
+      "clip_name": "qwen3vl_4b_int8_convrot.safetensors",
+      "type": "flux3",
       "device": "default"
     },
     "class_type": "CLIPLoader",

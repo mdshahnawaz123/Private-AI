@@ -15,6 +15,8 @@ Reports include evidence and source references.
 import os
 import json
 import datetime
+import uuid
+from pathlib import Path
 from typing import List, Dict, Any, Optional
 from dataclasses import dataclass, field
 
@@ -51,6 +53,29 @@ class Report:
     format: str = "pdf"
 
 
+def project_findings(findings, project_id):
+    """Filter at collection and publication boundaries; unowned rows are unsafe."""
+    result = []
+    for item in findings:
+        row = dict(item) if isinstance(item, dict) else dict(vars(item))
+        if str(row.get("project_id", "")) == str(project_id):
+            result.append(row)
+    return result
+
+
+def project_report_directory(data_dir, project_id):
+    from services.project_cleanup import validate_project_name
+    validate_project_name(str(project_id))
+    root = Path(data_dir).resolve() / 'reports'
+    target = root / str(project_id)
+    for path in (root, target):
+        if path.is_symlink() or path.is_junction():
+            raise ValueError('Linked report directories are not allowed')
+    if not target.resolve().is_relative_to(root.resolve()):
+        raise ValueError('Report directory is outside managed storage')
+    return str(target)
+
+
 class ReportEngine:
     """
     Report generation engine.
@@ -66,8 +91,9 @@ class ReportEngine:
                                    discipline: str = "",
                                    created_by: str = "system") -> Report:
         """Generate a compliance report."""
+        findings = project_findings(findings, project_id)
         report = Report(
-            report_id=f"RPT-{datetime.datetime.utcnow().strftime('%Y%m%d%H%M%S')}",
+            report_id="RPT-" + uuid.uuid4().hex,
             title=f"Compliance Report — {project_id}",
             report_type="compliance",
             project_id=project_id,
@@ -111,8 +137,9 @@ class ReportEngine:
                                 findings: List[Dict[str, Any]],
                                 created_by: str = "system") -> Report:
         """Generate a BIM QA report."""
+        findings = project_findings(findings, project_id)
         report = Report(
-            report_id=f"RPT-{datetime.datetime.utcnow().strftime('%Y%m%d%H%M%S')}",
+            report_id="RPT-" + uuid.uuid4().hex,
             title=f"BIM QA Report — {project_id}",
             report_type="bim_qa",
             project_id=project_id,
@@ -143,8 +170,9 @@ class ReportEngine:
                                        findings: List[Dict[str, Any]],
                                        created_by: str = "system") -> Report:
         """Generate a drawing review report."""
+        findings = project_findings(findings, project_id)
         report = Report(
-            report_id=f"RPT-{datetime.datetime.utcnow().strftime('%Y%m%d%H%M%S')}",
+            report_id="RPT-" + uuid.uuid4().hex,
             title=f"Drawing Review Report — {project_id}",
             report_type="drawing_review",
             project_id=project_id,
@@ -174,8 +202,9 @@ class ReportEngine:
                                 findings: List[Dict[str, Any]],
                                 created_by: str = "system") -> Report:
         """Generate an issue register."""
+        findings = project_findings(findings, project_id)
         report = Report(
-            report_id=f"RPT-{datetime.datetime.utcnow().strftime('%Y%m%d%H%M%S')}",
+            report_id="RPT-" + uuid.uuid4().hex,
             title=f"Issue Register — {project_id}",
             report_type="issue_register",
             project_id=project_id,
@@ -383,6 +412,12 @@ class ReportEngine:
             raise
 
     def export(self, report: Report, output_path: str, format: str = "pdf") -> str:
+        from services.project_cleanup import active_project_operation
+        import db
+        with active_project_operation(db.DATA_DIR, report.project_id):
+            return self._export(report, output_path, format)
+
+    def _export(self, report: Report, output_path: str, format: str = "pdf") -> str:
         """Export report in the specified format."""
         if format == "pdf":
             return self.export_pdf(report, output_path)

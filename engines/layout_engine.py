@@ -71,11 +71,16 @@ class LayoutEngine:
     def _check_backends(self):
         """Check which layout backends are available."""
         try:
-            from paddleocr import PPStructure  # noqa: F401
+            from paddleocr import LayoutDetection, PPStructureV3  # noqa: F401
             self._pp_available = True
-            logger.info("PP-DocLayout available")
+            logger.info("PP-DocLayout available (LayoutDetection / PPStructureV3)")
         except ImportError:
-            logger.info("PP-DocLayout not available")
+            try:
+                from paddleocr import PPStructure  # noqa: F401
+                self._pp_available = True
+                logger.info("PP-DocLayout available")
+            except ImportError:
+                logger.info("PP-DocLayout not available")
 
         self._vision_available = True
         logger.info("Vision model layout detection available")
@@ -106,54 +111,63 @@ class LayoutEngine:
             return LayoutPageResult(page_number=page or 0)
 
     def _detect_pp(self, image_path: str, page: int) -> LayoutPageResult:
-        """Detect layout using PP-DocLayout."""
+        """Detect layout using PP-DocLayout / LayoutDetection."""
         try:
-            from paddleocr import PPStructure
-            engine = PPStructure(show_log=False)
-            result = engine(image_path)
+            try:
+                from paddleocr import LayoutDetection
+                engine = LayoutDetection()
+                raw_result = engine(image_path)
+            except Exception:
+                from paddleocr import PPStructure
+                engine = PPStructure(show_log=False)
+                raw_result = engine(image_path)
 
             blocks = []
             has_table = False
             has_figure = False
             has_image = False
 
-            for region in result:
-                region_type = region.get('type', 'unknown')
-                bbox = region.get('bbox', [0, 0, 0, 0])
+            items = raw_result if isinstance(raw_result, (list, tuple)) else (raw_result.get('layout', []) if isinstance(raw_result, dict) else [])
+            for region in items:
+                if not isinstance(region, dict):
+                    continue
+                region_type = str(region.get('type') or region.get('label') or region.get('category') or 'unknown').lower()
+                bbox = region.get('bbox') or region.get('coordinate') or [0, 0, 0, 0]
 
                 block_type = LayoutBlockType.TEXT
-                if region_type == 'table':
+                if 'table' in region_type:
                     block_type = LayoutBlockType.TABLE
                     has_table = True
-                elif region_type == 'figure':
+                elif 'figure' in region_type or 'chart' in region_type:
                     block_type = LayoutBlockType.FIGURE
                     has_figure = True
-                elif region_type == 'image':
+                elif 'image' in region_type or 'photo' in region_type:
                     block_type = LayoutBlockType.IMAGE
                     has_image = True
-                elif region_type == 'header':
+                elif 'header' in region_type:
                     block_type = LayoutBlockType.HEADER
-                elif region_type == 'footer':
+                elif 'footer' in region_type:
                     block_type = LayoutBlockType.FOOTER
-                elif region_type == 'title':
+                elif 'title' in region_type:
                     block_type = LayoutBlockType.TITLE
-                elif region_type == 'caption':
+                elif 'caption' in region_type:
                     block_type = LayoutBlockType.CAPTION
-                elif region_type == 'footnote':
+                elif 'footnote' in region_type:
                     block_type = LayoutBlockType.FOOTNOTE
-                elif region_type == 'page_number':
+                elif 'page_number' in region_type or 'number' in region_type:
                     block_type = LayoutBlockType.PAGE_NUMBER
 
+                x0, y0, x1, y1 = bbox[0], bbox[1], bbox[2], bbox[3] if len(bbox) >= 4 else (0, 0, 0, 0)
                 blocks.append(LayoutBlock(
                     block_type=block_type,
                     bounding_box={
-                        "x": bbox[0],
-                        "y": bbox[1],
-                        "w": bbox[2] - bbox[0],
-                        "h": bbox[3] - bbox[1],
+                        "x": x0,
+                        "y": y0,
+                        "w": max(0, x1 - x0),
+                        "h": max(0, y1 - y0),
                     },
-                    content=region.get('text', ''),
-                    confidence=region.get('score', 0.0),
+                    content=str(region.get('text') or region.get('content') or ''),
+                    confidence=float(region.get('score') or region.get('confidence') or 0.0),
                     page=page,
                 ))
 

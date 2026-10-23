@@ -19,7 +19,7 @@ VIZ_Q = re.compile(r"\b(chart|graph|visuali[sz]\w*|dashboard|pie|donut|bar\s*cha
                    r"|(?:^|[.?!]\s*|\b(?:please|can you|could you|and)\s+)plot\b(?!\s+(?:no|number|area|size|id|ids)\b)"
                    r"|\bplot\s+(?:the|a|an|it|this|these|of|me)\b", re.I)
 DASH_Q = re.compile(r"\bdashboard\b", re.I)
-_ID_COL = re.compile(r"\b(id|no\.?|number|plot|code|ref|year|date|item)\b", re.I)
+_ID_COL = re.compile(r"\b(id|no\.?|number|plot|code|ref|year|date|item|page|sheet no|s\.? ?no)\b", re.I)
 _cache: dict = {}
 _pairs_cache: dict = {}
 
@@ -57,8 +57,130 @@ def _excel_tables(path):
         for t in found:
             t["sheet"] = title
             t["page"] = title
+        filled = sum(1 for r in grid if sum(1 for c in r if str(c or "").strip()) >= 2)
+        def _bad_header(t):
+            # A sheet title merged across the header ("MODEL REGISTER - ... (6)") instead of real column names.
+            base = [re.sub(r"\s*\(\d+\)$", "", str(c)).strip().lower() for c in t.get("columns") or []]
+            return len(base) >= 3 and len(set(base)) <= max(1, len(base) // 3)
+        big = [t for t in found if len(t.get("rows") or []) >= 0.5 * filled]
+        bad = [t for t in found if _bad_header(t)]
+        if filled >= 12 and (not big or all(_bad_header(t) for t in big) or sum(len(t.get("rows") or []) for t in bad) >= 0.5 * filled):
+            rec = _record_table(title, grid)
+            if rec:
+                found = [t for t in found if t not in big and t not in bad] + [rec]
         out.extend(found)
     return out
+
+
+def _record_table(title, grid):
+    """Registers, logs and lists (model register, issue log, transmittal): mostly text columns, so the
+    numeric table reader skips them. Find the header row and keep every record so the dashboard can
+    count rows by category (status, discipline, type...)."""
+    cell = lambda v: re.sub(r"\s+", " ", str(v if v is not None else "")).strip()
+    rows = [[cell(c) for c in r] for r in grid]
+    for i, r in enumerate(rows[:40]):
+        nonempty = [c for c in r if c]
+        if len(nonempty) < 3 or sum(1 for c in nonempty if _num(c) is None) < 0.7 * len(nonempty):
+            continue
+        if len(set(nonempty)) < 0.8 * len(nonempty):
+            continue  # a merged title spread across the row, not column names
+        body = rows[i + 1:i + 6]
+        if sum(1 for b in body if sum(1 for c in b if c) >= max(2, len(nonempty) // 2)) < 3:
+            continue
+        idx = [j for j, c in enumerate(r) if c]
+        cols, seen = [], {}
+        for j in idx:
+            n = r[j]; seen[n] = seen.get(n, 0) + 1
+            cols.append(n if seen[n] == 1 else "%s (%d)" % (n, seen[n]))
+        data, blanks = [], 0
+        for b in rows[i + 1:]:
+            vals = [b[j] if j < len(b) else "" for j in idx]
+            if sum(1 for v in vals if v) < 2:
+                blanks += 1
+                if blanks >= 3:
+                    break
+                continue
+            blanks = 0
+            data.append(vals)
+        if len(data) >= 10:
+            return {"title": "Sheet: %s | Table: %s" % (title, "records"), "columns": cols, "rows": data,
+                    "sheet": title, "page": title, "records": True}
+    return None
+
+
+_COUNT_Q = re.compile(r"\b(number of|count|how many|records?|items?|entries|per|by)\b", re.I)
+
+
+def _category_cols(t):
+    """Columns worth counting by: 2-25 distinct values, mostly filled, not IDs or numbers."""
+    n = len(t["rows"])
+    out = []
+    for j, c in enumerate(t["columns"]):
+        if j in t.get("numeric", []) or j in t.get("serial", []):
+            continue
+        vals = [str(r[j]).strip() for r in t["rows"] if j < len(r) and str(r[j]).strip()]
+        if len(vals) < 0.6 * n:
+            continue
+        k = len(set(vals))
+        if 2 <= k <= 25 and k < 0.5 * len(vals) and not re.search(r"\b(name|description|title|remarks?|comments?)\b", c, re.I):
+            out.append((k, j))
+    return [j for _, j in sorted(out)]
+
+
+def count_chart(t, x, question="", top_n=15):
+    """Count of records per value of column x (values counted in code)."""
+    from collections import Counter
+    cnt = Counter(str(r[x]).strip() for r in t["rows"] if x < len(r) and str(r[x]).strip())
+    if len(cnt) < 2:
+        return None
+    order = [k for k, _ in cnt.most_common(top_n)]
+    col = re.sub(r"\s+", " ", t["columns"][x]).strip()
+    pie = len(order) <= 8 and re.search(r"\b(pie|donut|share|percent|proportion|split)\b", question or "", re.I)
+    src = t["title"].replace("Sheet: ", "")
+    spec = {"chart_type": "pie" if pie else "bar", "title": ("Records by %s" % col)[:90], "units": "records",
+            "subtitle": "Counted from %s - %d records%s" % (src, len(t["rows"]), " (top %d)" % top_n if len(cnt) > top_n else ""),
+            "sources": [{"page": t.get("page"), "table": t["title"]}]}
+    if pie:
+        spec["data"] = [{"name": k, "value": cnt[k]} for k in order]
+    else:
+        spec["categories"] = order
+        spec["series"] = [{"name": "Records", "data": [cnt[k] for k in order]}]
+    from intelligence.visualization_schema import validate_chart_spec
+    ok, clean, err = validate_chart_spec(spec)
+    if not ok:
+        return None
+    clean["table_id"] = t["id"]
+    return clean
+
+
+def count_chart_for_question(question, doc_paths):
+    """'Number of models by discipline', 'issues per status', 'how many drawings by type'."""
+    if not _COUNT_Q.search(question or ""):
+        return None
+    qw = _words(question) - _GENERIC
+    explicit = re.search(r"\b(number of|count|how many|records?|entries)\b", question or "", re.I)
+    if not explicit:
+        # "fire resistance by element" names a measure: chart that measure, do not count rows.
+        for path in doc_paths:
+            for t in tables_for(path):
+                if any(_words(t["columns"][j]) & qw for j in t.get("numeric", [])):
+                    return None
+    best = None
+    for path in doc_paths:
+        for t in tables_for(path):
+            if len(t["rows"]) < 5:
+                continue
+            for j in _category_cols(t):
+                cw = _words(t["columns"][j])
+                sc = len(cw & qw) * 3 + (1 if t.get("records") else 0) + min(len(t["rows"]), 500) / 1000
+                if (cw & qw) and (best is None or sc > best[0]):
+                    best = (sc, t, j, path)
+    if not best:
+        return None
+    spec = count_chart(best[1], best[2], question)
+    if spec:
+        spec["sources"][0]["filename"] = os.path.basename(best[3])
+    return spec
 
 
 def _looks_like_data_header(cols):
@@ -83,6 +205,19 @@ def _repair_headers(found):
         t["columns"] = list(prev["columns"])
 
 
+def _fix_pdf_cell(c):
+    """Repair PDF text-layer artefacts in a table cell: a decimal point or thousands comma printed
+    on its own baseline ("78 5\n." -> 78.5, "29 725\n," -> 29,725, "5 0*\n." -> 5.0*) and words run
+    together when the PDF has no space glyphs ("TypeOfMaterial" -> "Type Of Material")."""
+    s = re.sub(r"\s+", " ", str(c or "")).strip()
+    m = re.fullmatch(r"(\d+) (\d+)(\*?) ?([.,])", s)
+    if m:
+        return m.group(1) + m.group(4) + m.group(2) + m.group(3)
+    if " " not in s and len(s) > 12 and re.search(r"[a-z][A-Z]", s):
+        s = re.sub(r"(?<=[a-z])(?=[A-Z][a-z])|(?<=[a-z])(?=\()", " ", s)
+    return s
+
+
 def _pdf_tables(path):
     out = []
     meta = {}
@@ -104,8 +239,10 @@ def _pdf_tables(path):
                 if i in ocr_pages:
                     continue
                 try:
-                    for k, tb in enumerate(page.find_tables().tables, 1):
-                        grid = [[re.sub(r"\s+", " ", str(c or "")).strip() for c in row] for row in tb.extract()]
+                    from services.pdf_text_quality import safe_find_tables
+                    _ft = safe_find_tables(page)
+                    for k, tb in enumerate(_ft.tables if _ft else [], 1):
+                        grid = [[_fix_pdf_cell(c) for c in row] for row in tb.extract()]
                         ocr_pages.setdefault(i, []).append(("", grid))
                 except Exception:
                     continue
@@ -114,6 +251,9 @@ def _pdf_tables(path):
     for page, items in sorted(ocr_pages.items(), key=lambda kv: (kv[0] is None, kv[0])):
         for cap, grid in items:
             found = []
+            two = _two_col_table(grid, page, cap)
+            if two:
+                out.append(two)
             table_row_units(grid, "Page %s" % page, cap, collect=found)
             _repair_headers(found)
             for t in found:
@@ -165,24 +305,194 @@ def tables_for(path):
     ext = os.path.splitext(path)[1].lower()
     found = _excel_tables(path) if ext in (".xlsx", ".xlsm", ".xls") else _pdf_tables(path) if ext == ".pdf" else []
     tables = [t for t in found if t.get("columns")]
-    # One combined table per sheet when its sections share the same columns
-    # (e.g. "Proposed Residential", "Proposed Commercial" ... blocks of one plot schedule).
+    # One combined table per sheet when its sections share the sheet layout
+    # (e.g. "Proposed Residential", "Proposed Commercial", "Proposed Mixed Use" blocks of one plot schedule).
     by_sheet = {}
     for t in tables:
-        if t.get("sheet"):
-            by_sheet.setdefault((t["sheet"], tuple(c.lower() for c in t["columns"])), []).append(t)
+        if t.get("sheet") and t.get("columns"):
+            # Group by sheet and column count so sections with sub-headers are not dropped
+            by_sheet.setdefault((t["sheet"], len(t["columns"])), []).append(t)
     for (sheet, _), group in by_sheet.items():
         if len(group) >= 2:
-            tables.append({"title": "Sheet: %s | Table: all sections" % sheet, "columns": list(group[0]["columns"]),
-                           "rows": [r for g in group for r in g["rows"]], "sheet": sheet, "page": sheet, "combined": True})
+            # Pick canonical column headers with the most descriptive sub-headers
+            best_table = max(group, key=lambda g: sum(1 for c in g.get("columns", []) if " / " in str(c)))
+            cols = list(best_table["columns"])
+            comb_rows = []
+            seen_tuples = set()
+            for g in group:
+                for r in g.get("rows", []):
+                    # Filter out accidental repeated headers inside section blocks
+                    if any(str(r[k]).strip().lower() in ("plot no.", "plot no", "land use", "zone", "item") for k in range(min(4, len(r)))):
+                        continue
+                    if _is_total(r):
+                        continue
+                    r_tuple = tuple(str(x) for x in r)
+                    if r_tuple in seen_tuples:
+                        continue
+                    seen_tuples.add(r_tuple)
+                    comb_rows.append(r)
+            tables.append({
+                "title": "Sheet: %s | Table: all sections" % sheet,
+                "columns": cols,
+                "rows": comb_rows,
+                "sheet": sheet,
+                "page": sheet,
+                "combined": True
+            })
     _pairs_cache[key] = [p for t in found for p in (t.get("pairs") or [])]
     tables = _split_side_by_side(tables)
+    _seen_rows[:] = [set(_fix_pdf_cell(r[0]) for r in t["rows"]) | set(str(r[0]) for r in t["rows"]) for t in tables if t.get("pairs_table")]
+    tables = tables + _section_compare_tables(tables) + _pair_tables(_pairs_cache[key])
     for i, t in enumerate(tables):
         t["id"] = i
         t["serial"] = [j for j in range(len(t["columns"])) if _serial_col(t, j)]
         t["numeric"] = [j for j, c in enumerate(t["columns"]) if _numeric_col(t, j) and j not in t["serial"]]
     _cache[key] = tables
     return tables
+
+
+def _clean_head(h):
+    """'2 Uniform(kN/m )' -> 'Uniform (kN/m²)': a superscript 2 that the PDF placed before the text."""
+    h = re.sub(r"\s+", " ", str(h or "")).strip()
+    m = re.match(r"^([23])\s+(.*?)\(\s*(k?N/m|m|mm)\s*\)\s*$", h)
+    if m:
+        h = "%s (%s%s)" % (m.group(2).strip(), m.group(3), "²" if m.group(1) == "2" else "³")
+    return re.sub(r"(?<=[a-z])(?=\()", " ", h)
+
+
+def _two_col_table(grid, page, cap=""):
+    """A label | value table (material densities, live loads, fire ratings) keeps its real header
+    here; the generic reader turns 2-column tables into key/value pairs and loses it."""
+    rows = [list(r) for r in grid if any(str(c or "").strip() for c in r)]
+    if not rows:
+        return None
+    keep = [j for j in range(max(len(r) for r in rows)) if any(j < len(r) and str(r[j] or "").strip() for r in rows)]
+    rows = [[str(r[j] if j < len(r) else "").strip() for j in keep] for r in rows]
+    if len(keep) < 2:
+        return None
+    # header: last row before the first numeric value in column 2
+    first = next((i for i, r in enumerate(rows) if _num(r[1].rstrip("*")) is not None and r[0]), None)
+    if first is None or first == 0:
+        return None
+    head = rows[first - 1]
+    if not head[0] or not head[1] or _num(head[1]) is not None:
+        return None
+    data = [r[:2] for r in rows[first:] if r[0] and _num(r[1].rstrip("*")) is not None]
+    if len(data) < 2 or len(data) < 0.6 * len(rows[first:]):
+        return None
+    title_cap = cap or (rows[first - 2][0] if first >= 2 and rows[first - 2][0] and not rows[first - 2][1] else "")
+    return {"title": "Page %s | Table: %s" % (page, title_cap or "%s by %s" % (_clean_head(head[1]), _clean_head(head[0]))),
+            "columns": [_clean_head(head[0]), _clean_head(head[1])], "rows": [[k, v.rstrip("*")] for k, v in data], "page": page, "pairs_table": True}
+
+
+_seen_rows = []
+
+
+def _pair_tables(pairs):
+    """Two-column tables (label | value) are stored as key/value pairs, so 'Material density by type',
+    'Live load by occupancy' or 'Fire resistance by element' never became charts. Turn each run of 3+
+    numeric pairs under the same heading into a small table; a preceding text/text pair is its header."""
+    out, run, head, where = [], [], None, None
+    def flush():
+        if len(run) >= 2 and not any(set(r[0] for r in run) <= _covered for _covered in _seen_rows):
+            cols = [_clean_head(h) for h in head] if head else ["Item", "Value"]
+            cap = str(where or "")
+            out.append({"title": cap + ("" if " | Table: " in cap else " | Table: %s by %s" % (cols[1], cols[0])),
+                        "columns": cols, "rows": [list(r) for r in run], "page": cap.split(" | ")[0].replace("Page ", ""),
+                        "pairs_table": True})
+    for label, k, v in pairs:
+        k, v = _fix_pdf_cell(k), _fix_pdf_cell(v)
+        n = _num(str(v).rstrip("*"))
+        if label != where:
+            flush(); run, head, where = [], None, label
+        if n is None:
+            flush(); run = []
+            head = (k, v) if (_num(k) is None and len(k) < 60 and len(v) < 60) else None
+            continue
+        run.append((k, str(v).rstrip("*")))
+    flush()
+    return out
+
+
+def _section_compare_tables(tables):
+    """Repeated per-section tables (TOWER 1..8, BLOCK A..D, BUILDING 01..) -> one comparison table with a
+    row per section, taken from each section's TOTAL row (or the sum of its level rows when the PDF
+    reader lost it). PDF readers split these tables into fragments (the TOTAL row ends up in a second
+    'TOWER n' piece whose header is a data row), shift columns by one, and drop a heading that falls on
+    the previous page - so columns are located by name and fragments are stitched by section."""
+    norm = lambda c: re.sub(r"\s+", " ", str(c)).strip().lower()
+    sec_re = re.compile(r"^(.*?)[\s\-_#]*(\d{1,3}|[A-Z])$")
+    name_of = lambda t: str(t.get("title") or "").replace("Sheet: ", "").split(" | Table: ")[-1].strip() if " | Table: " in str(t.get("title") or "") else ""
+    measure = lambda c: bool(re.search(r"\((sq ?m|sqm|m2|m²|sq ?ft|unit|units|no\.?|aed|usd|\$|kg|t|m3|m³)\)|\b(gfa|gia|nsa|nia|bua|area|units?|cost|amount|qty|quantity|count)\b", c, re.I)) \
+        and not re.search(r"efficien|ratio|percent|%|level|storey|floor no", c.split(" / ")[-1] if "(" in c else c, re.I) and not re.match(r"^column \d+$", norm(c))
+    stems = {}
+    for t in tables:
+        m = sec_re.match(name_of(t))
+        if m and m.group(1).strip() and not re.match(r"^(page|section|table)$", m.group(1).strip(), re.I):
+            stems.setdefault(m.group(1).strip().lower(), set()).add(m.group(2))
+    out = []
+    for kind, ids in stems.items():
+        if len(ids) < 3:
+            continue
+        # main tables: header names at least 2 measures
+        mains, order = {}, []
+        heads = None
+        for k, t in enumerate(tables):
+            if t.get("combined") or t.get("records") or t.get("compare"):
+                continue
+            nm = name_of(t)
+            m = sec_re.match(nm)
+            is_sec = bool(m and m.group(1).strip().lower() == kind)
+            meas = [c for c in t.get("columns") or [] if measure(c)]
+            if is_sec and len(meas) >= 2 and nm.upper() not in mains:
+                mains[nm.upper()] = [t]; order.append(nm.upper()); heads = heads or meas
+            elif is_sec and nm.upper() in mains:
+                mains[nm.upper()].append(t)            # continuation fragment (ROOF / TOTAL rows)
+            elif not nm and heads and len([c for c in t.get("columns") or [] if c in heads]) >= 2 and len(t.get("rows") or []) >= 3:
+                mains["?%d" % k] = [t]; order.append("?%d" % k)  # heading lost across a page break
+        if len(order) < 3 or not heads:
+            continue
+        nums = sorted(int(x.split()[-1]) for x in order if not x.startswith("?") and x.split()[-1].isdigit())
+        missing = sorted(set(range(1, (max(nums) if nums else 0) + 2)) - set(nums)) if nums else []
+        rows = []
+        for key in order:
+            frags = mains[key]
+            if key.startswith("?"):
+                if not missing:
+                    continue
+                key = "%s %d" % (kind.upper(), missing.pop(0))
+            main = frags[0]
+            idx = {h: main["columns"].index(h) for h in heads if h in main["columns"]}
+            cand = list(main["rows"])
+            for f in frags[1:]:
+                cand += [list(f["columns"])] + list(f["rows"])   # a fragment's 'header' is often a data row
+            tot = next((r for r in cand if any(re.match(r"^(grand\s+)?total$", str(c).strip(), re.I) for c in r[:6])), None)
+            vals = []
+            for h in heads:
+                j = idx.get(h)
+                if j is None:
+                    vals.append(None); continue
+                v = _num(tot[j]) if tot is not None and j < len(tot) else None
+                if v is None:
+                    v = sum(_num(r[j]) or 0 for r in main["rows"] if j < len(r) and re.search(r"level|floor|ground|roof|basement|podium|^l\d", " ".join(str(c) for c in r[:6]), re.I))
+                vals.append(v)
+            rows.append([key] + ["%g" % round(v, 2) if v is not None else "" for v in vals])
+        if len(rows) < 3:
+            continue
+        rows.sort(key=lambda r: int(r[0].split()[-1]) if r[0].split()[-1].isdigit() else 0)
+        cols_out = [kind.title()] + heads
+        unit_cols = [k for k, h in enumerate(heads, 1) if re.search(r"\(units?\)", h, re.I)]
+        if len(unit_cols) >= 3:
+            # many unit-type columns (1 Bed-A ... 3 Bed-D): add the per-section total, keep the area columns
+            for r in rows:
+                r.append("%g" % sum(_num(r[k]) or 0 for k in unit_cols))
+            keep = [0] + [k for k in range(1, len(cols_out)) if k not in unit_cols]
+            rows = [[r[k] for k in keep] + [r[-1]] for r in rows]
+            cols_out = [cols_out[k] for k in keep] + ["Total units"]
+        out.append({"title": "Comparison by %s (%d %ss)" % (kind, len(rows), kind),
+                    "columns": cols_out, "rows": rows,
+                    "page": tables[0].get("page"), "sheet": tables[0].get("sheet"), "compare": True})
+    return out
 
 
 def _serial_col(t, j):
@@ -206,6 +516,8 @@ def _numeric_col(t, j):
         return _num(vals[0]) is not None
     if len(vals) < 2:
         return False
+    if sum(1 for v in vals if re.match(r"^0\d{2,}$", str(v).strip())) >= 0.6 * len(vals):
+        return False  # zero-padded codes ("0000001", "007") are identifiers, not quantities
     return sum(_num(v) is not None for v in vals) >= 0.7 * len(vals)
 
 
@@ -459,6 +771,9 @@ def build_chart(t, question, choice=None, top_n=15):
 
 def chart_for_question(question, doc_paths, preferred_pages=(), use_model=True):
     """Best chart for the question across the given documents, or None."""
+    counted = count_chart_for_question(question, doc_paths)
+    if counted:
+        return counted
     scored = []
     for path in doc_paths:
         for t in tables_for(path):
@@ -479,6 +794,12 @@ def chart_for_question(question, doc_paths, preferred_pages=(), use_model=True):
                 t, spec = cand, sp
                 break
     if spec:
+        # Honesty check: the chosen table must share at least one meaningful word with the question
+        # (its title or columns); otherwise say no table fits instead of showing an unrelated chart.
+        qw = {w for w in _words(question) - _GENERIC if len(w) > 2} - {"chart", "graph", "pie", "bar", "line", "show", "plot", "type", "by"}
+        tw = _words(" ".join([t.get("title") or ""] + [str(c) for c in t.get("columns") or []]))
+        if qw and not (qw & tw):
+            return None
         spec["sources"][0]["filename"] = os.path.basename(t["_path"])
     return spec
 
@@ -530,6 +851,8 @@ def _dash_choice(t):
 
 def _importance(t):
     n = len(t["rows"])
+    if t.get("compare"):
+        return -1
     if t.get("combined"):
         return 0
     if 5 <= n <= 40:
@@ -546,6 +869,11 @@ def dashboard_for(path, max_charts=8):
     kpis, charts, previews, seen = [], [], [], set()
     colors_used = 0
     # 1) KPIs: labelled single values (key/value cells), then "Total" rows of summary tables
+    for t in [t for t in tables if t.get("compare")][:1]:
+        for j in t["numeric"][:3]:
+            tot = sum(_num(r[j]) or 0 for r in t["rows"])
+            kpis.append({"label": "Total %s (all %d %ss)" % (t["columns"][j], len(t["rows"]), t["columns"][0].lower()),
+                         "value": round(tot, 2), "context": "Sum of the section totals", "count": len(t["rows"])})
     for label, k, v in pairs:
         n = _num(v)
         if n is not None and len(kpis) < 8:
@@ -558,11 +886,30 @@ def dashboard_for(path, max_charts=8):
                     if n:
                         kpis.append({"label": "%s - %s" % (t["columns"][j].split(" / ")[-1], t["title"].replace("Sheet: ", "").split(" | Table: ")[-1]),
                                      "value": round(n, 2), "context": t["title"], "count": 1})
+    # 1b) section comparison (towers / blocks): one chart per key measure, and skip the per-section
+    #     floor-by-floor charts, which are not what a schedule dashboard is for.
+    cmp_t = [t for t in tables if t.get("compare")]
+    for t in cmp_t[:1]:
+        picks = [j for j in t["numeric"] if re.search(r"gfa|bua|units|cost|amount|total", t["columns"][j], re.I)][:3] or t["numeric"][:3]
+        for j in picks:
+            sp = build_chart(t, "", {"x": 0, "y": [j], "chart": "pie" if re.search(r"units", t["columns"][j], re.I) else "bar"})
+            if sp:
+                sp["title"] = "%s by %s" % (re.sub(r"\s*\((sqm|sq m|m2)\)", " (m²)", t["columns"][j]).strip(), t["columns"][0])
+                sp["sources"][0]["filename"] = os.path.basename(path)
+                charts.append(sp); seen.add(("cmp", j))
+    if cmp_t:
+        sec_names = {str(r[0]).strip().upper() for r in cmp_t[0]["rows"]}
+        _heads = set(cmp_t[0]["columns"][1:3])
+        tables = [t for t in tables if t.get("compare") or (
+            str(t.get("title") or "").split(" | Table: ")[-1].strip().upper() not in sec_names
+            and not _heads <= set(t.get("columns") or []))]
     # 2) charts: summary tables first (few rows), then group-bys of detail tables
     order = sorted(tables, key=_importance)
     for t in order:
         if len(charts) >= max_charts:
             break
+        if t.get("compare") and cmp_t:
+            continue  # its measures were charted in step 1b
         ch = _dash_choice(t)
         if not ch:
             continue
@@ -578,6 +925,33 @@ def dashboard_for(path, max_charts=8):
         spec["sources"][0]["filename"] = os.path.basename(path)
         spec["subtitle"] = spec["subtitle"].replace("Computed from ", "")
         charts.append(spec)
+    # 3) registers / logs: count records by category (status, discipline, type...)
+    for t in sorted([t for t in tables if len(t["rows"]) >= 10 and (t.get("records") or not t.get("numeric"))],
+                    key=lambda t: (not t.get("records"), -len(t["rows"]))):
+        for j in _category_cols(t)[:4]:
+            if len(charts) >= max_charts:
+                break
+            sp = count_chart(t, j, "share" if colors_used % 3 == 1 else "")
+            if sp:
+                colors_used += 1
+                sp["sources"][0]["filename"] = os.path.basename(path)
+                charts.append(sp)
+    # Same chart title from different sections: name the section so they can be told apart.
+    _orig = [c["title"] for c in charts]
+    for c, _ot in zip(charts, _orig):
+        if _orig.count(_ot) > 1:
+            src = str((c.get("sources") or [{}])[0].get("table") or "").replace("Sheet: ", "")
+            sheet, _, sec = src.partition(" | Table: ")
+            tag = sec if sec and sec != "all sections" else sheet
+            if tag and " - " in tag and len(set(tag.split(" - "))) == 1:
+                tag = tag.split(" - ")[0]
+            if tag and tag.lower() not in _ot.lower():
+                c["title"] = (_ot + " - " + tag)[:90]
+    _seen = {}
+    for c in charts:
+        _seen[c["title"]] = _seen.get(c["title"], 0) + 1
+        if _seen[c["title"]] > 1:
+            c["title"] = "%s (%d)" % (c["title"], _seen[c["title"]])
     for t in sorted([t for t in tables if not t.get("combined")], key=_importance)[:6]:
         previews.append({"title": t["title"], "columns": t["columns"], "rows": t["rows"][:12], "total_rows": len(t["rows"])})
     return {"filename": os.path.basename(path), "kpis": kpis[:8], "charts": charts, "tables": previews,

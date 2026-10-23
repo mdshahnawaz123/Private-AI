@@ -1,0 +1,452 @@
+{
+  "version": 2,
+  "provenance": "New synthetic acceptance benchmark authored on 2026-10-21; not a reconstruction of missing v1. Explicit expected decisions are independent of test output.",
+  "cases": [
+    {
+      "id": "CS001",
+      "question": "What does the source state?",
+      "candidate_answer": "AHU-813 design pressure is 275 Pa. [SOURCE: fixture.pdf | PAGE 1]",
+      "evidence": "[SOURCE: fixture.pdf | PAGE 1]\nAHU-813 design pressure is 275 Pa.",
+      "sources": [
+        {
+          "source": "fixture.pdf",
+          "page": 1
+        }
+      ],
+      "expected_action": "ANSWER",
+      "rationale": "The cited source states this fact."
+    },
+    {
+      "id": "CS002",
+      "question": "What does the source state?",
+      "candidate_answer": "AHU-813 design pressure is 999 Pa. [SOURCE: fixture.pdf | PAGE 1]",
+      "evidence": "[SOURCE: fixture.pdf | PAGE 1]\nAHU-813 design pressure is 275 Pa.",
+      "sources": [
+        {
+          "source": "fixture.pdf",
+          "page": 1
+        }
+      ],
+      "expected_action": "WITHHOLD",
+      "rationale": "The source does not support the candidate assertion."
+    },
+    {
+      "id": "CS003",
+      "question": "What does the source state?",
+      "candidate_answer": "AHU-813 design pressure is 400 Pa. [SOURCE: fixture.pdf | PAGE 1]",
+      "evidence": "[SOURCE: fixture.pdf | PAGE 1]\nAHU-813 design pressure is 275 Pa.\nAHU-922 design pressure is 400 Pa.",
+      "sources": [
+        {
+          "source": "fixture.pdf",
+          "page": 1
+        }
+      ],
+      "expected_action": "WITHHOLD",
+      "rationale": "A value from another equipment row is not support."
+    },
+    {
+      "id": "CS004",
+      "question": "What does the source state?",
+      "candidate_answer": "AHU-813 design pressure is 275 Pa. [SOURCE: other.pdf | PAGE 1]",
+      "evidence": "[SOURCE: fixture.pdf | PAGE 1]\nAHU-813 design pressure is 275 Pa.",
+      "sources": [
+        {
+          "source": "fixture.pdf",
+          "page": 1
+        }
+      ],
+      "expected_action": "WITHHOLD",
+      "rationale": "The source does not support the candidate assertion."
+    },
+    {
+      "id": "CS005",
+      "question": "What does the source state?",
+      "candidate_answer": "AHU-813 design pressure is 275 Pa.",
+      "evidence": "[SOURCE: fixture.pdf | PAGE 1]\nAHU-813 design pressure is 275 Pa.",
+      "sources": [
+        {
+          "source": "fixture.pdf",
+          "page": 1
+        }
+      ],
+      "expected_action": "WITHHOLD",
+      "rationale": "The source does not support the candidate assertion."
+    },
+    {
+      "id": "CS006",
+      "question": "What does the source state?",
+      "candidate_answer": "AHU-813 design pressure is 275 kPa. [SOURCE: fixture.pdf | PAGE 1]",
+      "evidence": "[SOURCE: fixture.pdf | PAGE 1]\nAHU-813 design pressure is 275 Pa.",
+      "sources": [
+        {
+          "source": "fixture.pdf",
+          "page": 1
+        }
+      ],
+      "expected_action": "WITHHOLD",
+      "rationale": "The source does not support the candidate assertion."
+    },
+    {
+      "id": "CS007",
+      "question": "What does the source state?",
+      "candidate_answer": "AHU-813 design pressure is 275. [SOURCE: fixture.pdf | PAGE 1]",
+      "evidence": "[SOURCE: fixture.pdf | PAGE 1]\nAHU-813 design pressure is 275 Pa.",
+      "sources": [
+        {
+          "source": "fixture.pdf",
+          "page": 1
+        }
+      ],
+      "expected_action": "WITHHOLD",
+      "rationale": "The source does not support the candidate assertion."
+    },
+    {
+      "id": "CS008",
+      "question": "What does the source state?",
+      "candidate_answer": "AHU-813 design pressure is 400 Pa. [SOURCE: fixture.pdf | PAGE 1]",
+      "evidence": "[SOURCE: fixture.pdf | PAGE 1]\nAHU-813 design pressure is 275 Pa.\n\n[SOURCE: fixture.pdf | PAGE 2]\nAHU-813 design pressure is 400 Pa.",
+      "sources": [
+        {
+          "source": "fixture.pdf",
+          "page": 1
+        },
+        {
+          "source": "fixture.pdf",
+          "page": 2
+        }
+      ],
+      "expected_action": "WITHHOLD",
+      "rationale": "The source does not support the candidate assertion."
+    },
+    {
+      "id": "CS009",
+      "question": "What does the source state?",
+      "candidate_answer": "Design stage: Developed Design [SOURCE: fixture.pdf | PAGE 1]",
+      "evidence": "[SOURCE: fixture.pdf | PAGE 1]\nDesign stage: Developed Design",
+      "sources": [
+        {
+          "source": "fixture.pdf",
+          "page": 1
+        }
+      ],
+      "expected_action": "ANSWER",
+      "rationale": "The cited source states this fact."
+    },
+    {
+      "id": "CS010",
+      "question": "What does the source state?",
+      "candidate_answer": "Design stage: Detailed Design [SOURCE: fixture.pdf | PAGE 1]",
+      "evidence": "[SOURCE: fixture.pdf | PAGE 1]\nDesign stage: Concept Design",
+      "sources": [
+        {
+          "source": "fixture.pdf",
+          "page": 1
+        }
+      ],
+      "expected_action": "WITHHOLD",
+      "rationale": "The source does not support the candidate assertion."
+    },
+    {
+      "id": "CS011",
+      "question": "What does the source state?",
+      "candidate_answer": "The document status is approved. [SOURCE: fixture.pdf | PAGE 1]",
+      "evidence": "[SOURCE: fixture.pdf | PAGE 1]\nStatus: Approved with comments",
+      "sources": [
+        {
+          "source": "fixture.pdf",
+          "page": 1
+        }
+      ],
+      "expected_action": "WITHHOLD",
+      "rationale": "The source does not support the candidate assertion."
+    },
+    {
+      "id": "CS012",
+      "question": "What does the source state?",
+      "candidate_answer": "The document status is approved. [SOURCE: fixture.pdf | PAGE 1]",
+      "evidence": "[SOURCE: fixture.pdf | PAGE 1]\nStatus: Draft",
+      "sources": [
+        {
+          "source": "fixture.pdf",
+          "page": 1
+        }
+      ],
+      "expected_action": "WITHHOLD",
+      "rationale": "The source does not support the candidate assertion."
+    },
+    {
+      "id": "CS013",
+      "question": "What does the source state?",
+      "candidate_answer": "The document status is draft. [SOURCE: fixture.pdf | PAGE 1]",
+      "evidence": "[SOURCE: fixture.pdf | PAGE 1]\nStatus: Approved with comments",
+      "sources": [
+        {
+          "source": "fixture.pdf",
+          "page": 1
+        }
+      ],
+      "expected_action": "WITHHOLD",
+      "rationale": "The source does not support the candidate assertion."
+    },
+    {
+      "id": "CS014",
+      "question": "What does the source state?",
+      "candidate_answer": "AHU-813 design pressure is 275 Pa. [SOURCE: fixture.pdf | PAGE 1]",
+      "evidence": "[SOURCE: fixture.pdf | PAGE 1]\nAHU-813 design pressure is 275 Pa, subject to vendor confirmation.",
+      "sources": [
+        {
+          "source": "fixture.pdf",
+          "page": 1
+        }
+      ],
+      "expected_action": "WITHHOLD",
+      "rationale": "The source does not support the candidate assertion."
+    },
+    {
+      "id": "CS015",
+      "question": "What does the source state?",
+      "candidate_answer": "Combustible insulation is permitted in the service shaft. [SOURCE: fixture.pdf | PAGE 1]",
+      "evidence": "[SOURCE: fixture.pdf | PAGE 1]\nCombustible insulation is not permitted in the service shaft.",
+      "sources": [
+        {
+          "source": "fixture.pdf",
+          "page": 1
+        }
+      ],
+      "expected_action": "WITHHOLD",
+      "rationale": "The source does not support the candidate assertion."
+    },
+    {
+      "id": "CS016",
+      "question": "What does the source state?",
+      "candidate_answer": "The document revision is A. [SOURCE: fixture.pdf | PAGE 1]",
+      "evidence": "[SOURCE: fixture.pdf | PAGE 1]\nRevision: B\nStatus: Draft",
+      "sources": [
+        {
+          "source": "fixture.pdf",
+          "page": 1
+        }
+      ],
+      "expected_action": "WITHHOLD",
+      "rationale": "The source does not support the candidate assertion."
+    },
+    {
+      "id": "CS017",
+      "question": "What is the current AHU-813 design pressure?",
+      "candidate_answer": "The current AHU-813 design pressure is 275 Pa. [SOURCE: fixture.pdf | PAGE 1] [SOURCE: fixture.pdf | PAGE 2]",
+      "evidence": "[SOURCE: fixture.pdf | PAGE 1]\nRevision: A\nAHU-813 design pressure is 275 Pa.\n\n[SOURCE: fixture.pdf | PAGE 2]\nRevision: B\nAHU-813 design pressure is 400 Pa.",
+      "sources": [
+        {
+          "source": "fixture.pdf",
+          "page": 1
+        },
+        {
+          "source": "fixture.pdf",
+          "page": 2
+        }
+      ],
+      "expected_action": "AMBIGUOUS",
+      "rationale": "The source does not support the candidate assertion."
+    },
+    {
+      "id": "CS018",
+      "question": "What does the source state?",
+      "candidate_answer": "AHU-813 design pressure is 275 Pa. [SOURCE: fixture.pdf | PAGE 1]",
+      "evidence": "[SOURCE: fixture.pdf | PAGE 1]\n[UNVERIFIED OCR]\nAHU-813 design pressure is 275 Pa.",
+      "sources": [
+        {
+          "source": "fixture.pdf",
+          "page": 1
+        }
+      ],
+      "expected_action": "WITHHOLD",
+      "rationale": "The source does not support the candidate assertion."
+    },
+    {
+      "id": "CS019",
+      "question": "What does the source state?",
+      "candidate_answer": "The pressure is not stated.",
+      "evidence": "[SOURCE: fixture.pdf | PAGE 1]\nThe pressure is not stated.",
+      "sources": [
+        {
+          "source": "fixture.pdf",
+          "page": 1
+        }
+      ],
+      "expected_action": "ANSWER",
+      "rationale": "The cited source states this fact."
+    },
+    {
+      "id": "CS020",
+      "question": "What does the source state?",
+      "candidate_answer": "AHU-814 design pressure is 275 Pa. [SOURCE: fixture.pdf | PAGE 1]",
+      "evidence": "[SOURCE: fixture.pdf | PAGE 1]\nAHU-813 design pressure is 275 Pa.",
+      "sources": [
+        {
+          "source": "fixture.pdf",
+          "page": 1
+        }
+      ],
+      "expected_action": "WITHHOLD",
+      "rationale": "The source does not support the candidate assertion."
+    },
+    {
+      "id": "CS021",
+      "question": "What does the source state?",
+      "candidate_answer": "AHU-813 design pressure is 275 Pa. [SOURCE: fixture.pdf | PAGE 1] [SOURCE: fixture.pdf | PAGE 2]",
+      "evidence": "[SOURCE: fixture.pdf | PAGE 1]\nEquipment tag: AHU-813\n\n[SOURCE: fixture.pdf | PAGE 2]\nDesign pressure is 275 Pa.",
+      "sources": [
+        {
+          "source": "fixture.pdf",
+          "page": 1
+        },
+        {
+          "source": "fixture.pdf",
+          "page": 2
+        }
+      ],
+      "expected_action": "AMBIGUOUS",
+      "rationale": "The source does not support the candidate assertion."
+    },
+    {
+      "id": "CS022",
+      "question": "What does the source state?",
+      "candidate_answer": "AHU-813 operating pressure is 275 Pa. [SOURCE: fixture.pdf | PAGE 1]",
+      "evidence": "[SOURCE: fixture.pdf | PAGE 1]\nAHU-813 design pressure is 275 Pa; operating pressure is 200 Pa.",
+      "sources": [
+        {
+          "source": "fixture.pdf",
+          "page": 1
+        }
+      ],
+      "expected_action": "WITHHOLD",
+      "rationale": "The source does not support the candidate assertion."
+    },
+    {
+      "id": "CS023",
+      "question": "What does the source state?",
+      "candidate_answer": "The drawing requires noncombustible insulation.",
+      "evidence": "[SOURCE: fixture.pdf | PAGE 1]\nThe drawing requires noncombustible insulation.",
+      "sources": [
+        {
+          "source": "fixture.pdf",
+          "page": 1
+        }
+      ],
+      "expected_action": "WITHHOLD",
+      "rationale": "The source does not support the candidate assertion."
+    },
+    {
+      "id": "CS024",
+      "question": "What does the source state?",
+      "candidate_answer": "The document revision is B. [SOURCE: fixture.pdf | PAGE 1]",
+      "evidence": "[SOURCE: fixture.pdf | PAGE 1]\nRevision: B",
+      "sources": [
+        {
+          "source": "fixture.pdf",
+          "page": 1
+        }
+      ],
+      "expected_action": "ANSWER",
+      "rationale": "The cited source states this fact."
+    },
+    {
+      "id": "CS025",
+      "question": "What does the source state?",
+      "candidate_answer": "The drawing status is draft. [SOURCE: fixture.pdf | PAGE 1]",
+      "evidence": "[SOURCE: fixture.pdf | PAGE 1]\nDrawing status: Draft",
+      "sources": [
+        {
+          "source": "fixture.pdf",
+          "page": 1
+        }
+      ],
+      "expected_action": "ANSWER",
+      "rationale": "The cited source states this fact."
+    },
+    {
+      "id": "CS026",
+      "question": "What does the source state?",
+      "candidate_answer": "AHU-813 design pressure is 275 Pa, subject to vendor confirmation. [SOURCE: fixture.pdf | PAGE 1]",
+      "evidence": "[SOURCE: fixture.pdf | PAGE 1]\nAHU-813 design pressure is 275 Pa, subject to vendor confirmation.",
+      "sources": [
+        {
+          "source": "fixture.pdf",
+          "page": 1
+        }
+      ],
+      "expected_action": "ANSWER",
+      "rationale": "The cited source states this fact."
+    },
+    {
+      "id": "CS027",
+      "question": "What does the source state?",
+      "candidate_answer": "Submit the report within five business days. [SOURCE: fixture.pdf | PAGE 1]",
+      "evidence": "[SOURCE: fixture.pdf | PAGE 1]\nReview the pending markup with the design coordinator.",
+      "sources": [
+        {
+          "source": "fixture.pdf",
+          "page": 1
+        }
+      ],
+      "expected_action": "WITHHOLD",
+      "rationale": "The source does not support the candidate assertion."
+    },
+    {
+      "id": "CS028",
+      "question": "What does the source state?",
+      "candidate_answer": "Submit the report within 5 business days. [SOURCE: fixture.pdf | PAGE 1]",
+      "evidence": "[SOURCE: fixture.pdf | PAGE 1]\nReview the pending markup with the design coordinator.",
+      "sources": [
+        {
+          "source": "fixture.pdf",
+          "page": 1
+        }
+      ],
+      "expected_action": "WITHHOLD",
+      "rationale": "The source does not support the candidate assertion."
+    },
+    {
+      "id": "CS029",
+      "question": "Summarize the report.",
+      "candidate_answer": "The report design pressure is 999 Pa. [SOURCE: fixture.pdf | PAGE 1]",
+      "evidence": "[SOURCE: fixture.pdf | PAGE 1]\nThe report states a design pressure of 275 Pa.",
+      "sources": [
+        {
+          "source": "fixture.pdf",
+          "page": 1
+        }
+      ],
+      "expected_action": "WITHHOLD",
+      "rationale": "The source does not support the candidate assertion."
+    },
+    {
+      "id": "CS030",
+      "question": "What does the source state?",
+      "candidate_answer": "Submit the report within five business days. [SOURCE: fixture.pdf | PAGE 1]",
+      "evidence": "[SOURCE: fixture.pdf | PAGE 1]\nSubmit the report within five business days.",
+      "sources": [
+        {
+          "source": "fixture.pdf",
+          "page": 1
+        }
+      ],
+      "expected_action": "ANSWER",
+      "rationale": "The cited source states this fact."
+    },
+    {
+      "id": "CS031",
+      "question": "What does the source state?",
+      "candidate_answer": "AHU-813 design pressure is 275 Pa. [SOURCE: fixture.pdf | PAGE 1]",
+      "evidence": "[SOURCE: fixture.pdf | PAGE 1]\n| Equipment | Design pressure (Pa) |\n|---|---|\n| AHU-813 | 275 |",
+      "sources": [
+        {
+          "source": "fixture.pdf",
+          "page": 1
+        }
+      ],
+      "expected_action": "ANSWER",
+      "rationale": "The value and unit are bound by the table header and row."
+    }
+  ]
+}

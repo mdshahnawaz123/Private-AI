@@ -11,7 +11,7 @@ services:
       EXPO_OLLAMA_HOST: http://host.docker.internal:11434
       EXPO_CORS_ORIGINS: http://localhost:8090,http://127.0.0.1:8090
       EXPO_CHAT_MODEL: qwen3.5:9b
-      EXPO_VISION_MODEL: qwen2.5vl:7b
+      EXPO_VISION_MODEL: paddleocr
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:

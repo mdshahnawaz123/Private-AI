@@ -141,7 +141,9 @@ def page_tables(path, digest, page_number, rotation, captions=(), timeout=240):
     jobs, layout = [], []
     with fitz.open(path) as document:
         page = document[page_number - 1]
-        tables = page.find_tables().tables
+        from services.pdf_text_quality import safe_find_tables
+        _ft = safe_find_tables(page)
+        tables = _ft.tables if _ft else []
         # Reading order of tables (left column top-to-bottom, then right), so
         # captions found in the OCR text ("Table 5 ...") line up with them.
         matrix = fitz.Matrix(1, 1).prerotate(rotation)

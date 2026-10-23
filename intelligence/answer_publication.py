@@ -9,6 +9,16 @@ from pathlib import Path
 _READY_STATUSES = {"ready", "ready_with_warnings", "verified", "published"}
 
 
+def ambiguous_document_names(documents):
+    """Legacy basename-only indexes cannot distinguish these source identities."""
+    names = {}
+    for document in documents:
+        filename = str(document.get('filename') or '')
+        if filename:
+            names[filename.casefold()] = names.get(filename.casefold(), 0) + 1
+    return {name for name, count in names.items() if count > 1}
+
+
 def source_context_for_sources(documents, sources):
     """Rebuild native source/page evidence for an early deterministic answer.
 
@@ -17,11 +27,20 @@ def source_context_for_sources(documents, sources):
     hash (when recorded), and exact page are available in that set. Visual
     observations remain explicitly unverified.
     """
-    by_name = {str(doc.get("filename") or ""): doc for doc in documents
-               if isinstance(doc, dict) and doc.get("filename")}
+    by_name = {}
+    for doc in documents:
+        if isinstance(doc, dict) and doc.get("filename"):
+            by_name.setdefault(str(doc["filename"]), []).append(doc)
     context = []
     allowed = []
     seen = set()
+    claims = {}
+    for source in sources:
+        if isinstance(source, dict):
+            marker = (str(source.get('source') or source.get('filename') or ''), str(source.get('page')))
+            identity = (str(source.get('document_id', source.get('doc_id', ''))),
+                        str(source.get('path') or source.get('source_path') or ''))
+            claims.setdefault(marker, set()).add(identity)
     for item in sources:
         if not isinstance(item, dict):
             continue
@@ -33,11 +52,28 @@ def source_context_for_sources(documents, sources):
             page_number = int(raw_page)
         except (TypeError, ValueError):
             continue
+        candidates = list(by_name.get(filename, []))
+        # Basenames are display labels, not document identities. Only accept
+        # an ambiguous label when the caller supplies a matching stable ID/path.
+        source_id = item.get("document_id", item.get("doc_id"))
+        source_path_hint = item.get("path") or item.get("source_path")
+        if source_id is not None:
+            candidates = [d for d in candidates
+                          if str(d.get("id", d.get("document_id"))) == str(source_id)]
+        if source_path_hint:
+            candidates = [d for d in candidates if Path(str(d.get("path") or "")).resolve()
+                          == Path(str(source_path_hint)).resolve()]
+        if len(candidates) != 1:
+            continue
+        doc = candidates[0]
+        # The citation grammar currently exposes filename/page. Never combine
+        # two distinct physical documents under that same public marker.
         key = (filename, str(page_number))
+        if len(claims.get(key, set())) > 1:
+            continue
         if key in seen:
             continue
         seen.add(key)
-        doc = by_name.get(filename)
         if not doc or doc.get("status", "ready") not in _READY_STATUSES:
             continue
         source_path = Path(str(doc.get("path") or ""))

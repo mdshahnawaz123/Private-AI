@@ -18279,6 +18279,7 @@ class BufferAttribute {
 	 */
 	getX( index ) {
 
+		if ( ! this.array || ( index * this.itemSize ) >= this.array.length ) return 0;
 		let x = this.array[ index * this.itemSize ];
 
 		if ( this.normalized ) x = denormalize( x, this.array );
@@ -18312,6 +18313,7 @@ class BufferAttribute {
 	 */
 	getY( index ) {
 
+		if ( ! this.array || ( index * this.itemSize + 1 ) >= this.array.length ) return 0;
 		let y = this.array[ index * this.itemSize + 1 ];
 
 		if ( this.normalized ) y = denormalize( y, this.array );
@@ -18345,6 +18347,7 @@ class BufferAttribute {
 	 */
 	getZ( index ) {
 
+		if ( ! this.array || ( index * this.itemSize + 2 ) >= this.array.length ) return 0;
 		let z = this.array[ index * this.itemSize + 2 ];
 
 		if ( this.normalized ) z = denormalize( z, this.array );
@@ -18378,6 +18381,7 @@ class BufferAttribute {
 	 */
 	getW( index ) {
 
+		if ( ! this.array || ( index * this.itemSize + 3 ) >= this.array.length ) return 0;
 		let w = this.array[ index * this.itemSize + 3 ];
 
 		if ( this.normalized ) w = denormalize( w, this.array );
@@ -23940,6 +23944,7 @@ class InterleavedBufferAttribute {
 	 */
 	getX( index ) {
 
+		if ( ! this.data || ! this.data.array || ( index * this.data.stride + this.offset ) >= this.data.array.length ) return 0;
 		let x = this.data.array[ index * this.data.stride + this.offset ];
 
 		if ( this.normalized ) x = denormalize( x, this.array );
@@ -23956,6 +23961,7 @@ class InterleavedBufferAttribute {
 	 */
 	getY( index ) {
 
+		if ( ! this.data || ! this.data.array || ( index * this.data.stride + this.offset + 1 ) >= this.data.array.length ) return 0;
 		let y = this.data.array[ index * this.data.stride + this.offset + 1 ];
 
 		if ( this.normalized ) y = denormalize( y, this.array );
@@ -23972,6 +23978,7 @@ class InterleavedBufferAttribute {
 	 */
 	getZ( index ) {
 
+		if ( ! this.data || ! this.data.array || ( index * this.data.stride + this.offset + 2 ) >= this.data.array.length ) return 0;
 		let z = this.data.array[ index * this.data.stride + this.offset + 2 ];
 
 		if ( this.normalized ) z = denormalize( z, this.array );
@@ -23988,6 +23995,7 @@ class InterleavedBufferAttribute {
 	 */
 	getW( index ) {
 
+		if ( ! this.data || ! this.data.array || ( index * this.data.stride + this.offset + 3 ) >= this.data.array.length ) return 0;
 		let w = this.data.array[ index * this.data.stride + this.offset + 3 ];
 
 		if ( this.normalized ) w = denormalize( w, this.array );

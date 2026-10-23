@@ -20,7 +20,7 @@
 <script type="module">
 import * as THREE from "three";
 import { OrbitControls } from "./vendor_fragments/OrbitControls.js?b=5";
-import * as FRAGS from "./vendor_fragments/fragments/index.mjs?b=5";
+import * as FRAGS from "./vendor_fragments/fragments/index.mjs?v=3.4.8";
 import * as WebIFC from "web-ifc";
 import * as CoordXform from "/ui/coordinate_transform.js";
 
@@ -63,7 +63,7 @@ async function main(){
   const tConv = performance.now()-tConv0;
   log("IFC->Fragments conversion:", fragBytes.length, "bytes in", tConv.toFixed(0), "ms");
 
-  const workerUrl = new URL("./vendor_fragments/fragments/Worker/worker.mjs", location.href).toString();
+  const workerUrl = new URL("./vendor_fragments/fragments/Worker/worker.mjs?v=3.4.8", location.href).toString();
   const fragments = new FRAGS.FragmentsModels(workerUrl);
   const tLoad0 = performance.now();
   const model = await fragments.load(fragBytes, { modelId: "poc-model", camera });

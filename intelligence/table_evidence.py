@@ -30,6 +30,14 @@ def _label_value(label, value):
 
 
 def table_row_units(markdown):
+    raw_lines = [line.strip() for line in markdown.splitlines()]
+    explicit_headers = set()
+    for previous, following in zip(raw_lines, raw_lines[1:]):
+        cells = [cell.strip() for cell in following.strip('|').split('|')]
+        if (previous.startswith('|') and len([c for c in previous.strip('|').split('|') if c.strip()]) >= 2
+                and following.startswith('|') and cells and all(
+                re.fullmatch(r':?-+:?', cell) for cell in cells)):
+            explicit_headers.add(previous)
     title = ''
     root_title = ''
     header = []
@@ -84,6 +92,9 @@ def table_row_units(markdown):
         cells = [c.strip() for c in line.strip('|').split('|')]
         filled = [c for c in cells if c]
         if all(not c or re.fullmatch(r':?-+:?', c) for c in cells):
+            continue
+        if line in explicit_headers:
+            header = cells
             continue
         for cell in cells:
             match = re.fullmatch(r'TOWER\s*\d+', cell, re.I)

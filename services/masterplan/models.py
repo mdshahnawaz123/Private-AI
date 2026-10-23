@@ -18,7 +18,7 @@ class MasterplanPlot(BaseModel):
     plot_id: str = Field(..., description="Unique Plot Identifier, e.g. P-101")
     project_id: str = Field(default="C3085 - 3EH -Expo Hills", description="Parent project ID")
     sector: str = Field(default="Sector 1", description="Sector or sub-district name")
-    land_use: str = Field(default="Residential", description="Zoning land use category")
+    land_use: str = Field(default="Unassigned", description="Zoning land use category")
     area_sqm: float = Field(default=0.0, description="Plot footprint area in square meters")
     permitted_gfa: float = Field(default=0.0, description="Permitted Gross Floor Area (GFA) in sqm")
     achieved_gfa: float = Field(default=0.0, description="Achieved/Designed GFA in sqm")
@@ -35,7 +35,16 @@ class MasterplanPlot(BaseModel):
     violations: List[str] = Field(default_factory=list, description="List of rule violation descriptions")
     geometry: Optional[PlotGeometry] = Field(default=None, description="Spatial 2D polygon")
     notes: Optional[str] = Field(default="", description="Design review notes")
+    provenance: List[Dict[str, Any]] = Field(default_factory=list, description="Actual source filenames, sheets and rows; empty for legacy records")
     updated_at: Optional[str] = Field(default=None, description="ISO timestamp of last update")
+
+    @property
+    def x(self) -> float:
+        return float(self.geometry.centroid[0]) if (self.geometry and self.geometry.centroid) else 0.0
+
+    @property
+    def y(self) -> float:
+        return float(self.geometry.centroid[1]) if (self.geometry and self.geometry.centroid) else 0.0
 
 
 class MasterplanProject(BaseModel):
@@ -68,6 +77,10 @@ class MasterplanAIQueryRequest(BaseModel):
     query: str
     project_id: str = "C3085 - 3EH -Expo Hills"
     selected_plot_id: Optional[str] = None
+    active_land_use: Optional[str] = None
+    active_sector: Optional[str] = None
+    active_plot_ids: Optional[List[str]] = None
+    history: Optional[List[Dict[str, str]]] = Field(default_factory=list)
 
 
 class MasterplanAIQueryResponse(BaseModel):
@@ -82,3 +95,7 @@ class MasterplanAIQueryResponse(BaseModel):
     action_performed: Optional[str] = None
     html: Optional[str] = None
     reconciliation: Optional[Dict[str, Any]] = None
+    export_land_use: Optional[str] = None
+    export_sector: Optional[str] = None
+    export_plots: Optional[List[str]] = None
+

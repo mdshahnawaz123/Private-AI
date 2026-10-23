@@ -34,49 +34,133 @@ td.n{text-align:right;font-variant-numeric:tabular-nums}
 @keyframes rise{to{opacity:1;transform:none}}
 @media (max-width:640px){header,main{padding-left:16px;padding-right:16px}.grid{grid-template-columns:1fr}}
 @media (prefers-reduced-motion:reduce){.kpi,.cell{animation:none;opacity:1;transform:none}}
+.ask{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:6px 0 4px}
+.ask input{flex:1;min-width:260px;background:var(--card);border:1px solid var(--border2);color:var(--text);border-radius:8px;padding:9px 12px;font-size:13px}
+.hint{color:var(--muted);font-size:12px}
+.cell{background:transparent}
+.cbar{display:flex;gap:6px;margin-top:6px}
+.cbar input{flex:1;background:#0d1626;border:1px solid var(--border);color:var(--text);border-radius:7px;padding:5px 9px;font-size:11.5px}
+.btn.sm{padding:4px 9px;font-size:11px}
+.btn:disabled{opacity:.5;cursor:default}
+.filt{float:right;background:#0d1626;border:1px solid var(--border);color:var(--text);border-radius:6px;padding:3px 8px;font-size:11.5px;font-weight:400;width:180px}
+th[data-j]{cursor:pointer;user-select:none}
+th[data-s]:not([data-s=""])::after{content:" " attr(data-s);color:var(--accent)}
+#toast{display:none;position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:#16233b;border:1px solid var(--border2);padding:10px 16px;border-radius:10px;z-index:20;max-width:90vw}
+@media print{.noprint,header .btn{display:none!important}}
+@media (max-width:640px){.filt{float:none;display:block;width:100%;margin-top:6px}}
 </style>
 </head>
 <body>
 <header>
   <div><h1 id="title">Dashboard</h1><div class="sub" id="sub">Loading...</div></div>
-  <div style="display:flex;gap:8px"><button class="btn" id="replay">Replay animation</button><button class="btn primary" onclick="window.print()">Print / PDF</button></div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" id="replay">Replay animation</button><button class="btn" id="save">Save to Reports</button><button class="btn primary" onclick="window.print()">Print / PDF</button></div>
 </header>
 <main id="main"><div class="empty">Building dashboard from the file...</div></main>
+<div id="toast"></div>
 <script src="/ui/vendor_components/chart_renderer.js?v=6"></script>
 <script src="/ui/vendor_components/expo_motion.js?v=2"></script>
 <script>
 (async function(){
   const q = new URLSearchParams(location.search);
-  const project = q.get('project') || '', filename = q.get('filename') || '';
+  const project = q.get('project') || '', filename = q.get('filename') || '', att = q.get('att') || '', saved = q.get('saved') || '';
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const isNum = s => /^[-+]?[\d,]*\.?\d+%?$/.test(String(s).replace(/\s/g,''));
+  const num = s => { const v = parseFloat(String(s).replace(/[,%\s]/g,'')); return isNaN(v) ? null : v; };
   const colors = ['#2f6bff','#35d07f','#8a6cff','#f5b73d','#31d0c5','#f2585f','#ff8d3b','#60a5fa'];
-  document.getElementById('title').textContent = filename || 'Dashboard';
-  let token = null; try { token = localStorage.getItem('expo_token'); } catch(e) {}
-  const main = document.getElementById('main');
-  let d;
+  const $ = id => document.getElementById(id);
+  const main = $('main');
+  const api = (url, opt) => fetch(url, opt).then(async r => { const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(r.status === 401 ? 'Please sign in to Expo Design AI first, then reopen this page.' : (j.detail || ('Error ' + r.status))); return j; });
+  const P = '/projects/' + encodeURIComponent(project);
+  let d, source = {filename, attachment_id: att ? +att : 0}, title = filename;
   try {
-    const r = await fetch('/projects/' + encodeURIComponent(project) + '/dashboard?filename=' + encodeURIComponent(filename), { headers: token ? { Authorization: 'Bearer ' + token } : {} });
-    if (!r.ok) throw new Error(r.status === 401 ? 'Please sign in to Expo Design AI first, then reopen this link.' : 'Could not build the dashboard (' + r.status + ').');
-    d = await r.json();
-  } catch (e) { main.innerHTML = '<div class="err">' + esc(e.message) + '</div>'; document.getElementById('sub').textContent = ''; return; }
-  document.getElementById('sub').textContent = project + ' - ' + d.table_count + ' tables found - all values computed from the file (built in ' + d.built_in_s + ' s)';
+    if (saved) {
+      const m = await api(P + '/dashboards/' + encodeURIComponent(saved));
+      d = m.data; title = m.title; source = d.source || {};
+      $('sub').textContent = project + ' - saved dashboard by ' + m.created_by + ' on ' + m.created_at + ' - from ' + (m.source || 'a file');
+    } else {
+      d = await api(P + '/dashboard?' + (att ? 'attachment_id=' + encodeURIComponent(att) : 'filename=' + encodeURIComponent(filename)));
+      title = d.filename || filename;
+      $('sub').textContent = project + ' - ' + d.table_count + ' tables found - every value computed from the file (built in ' + d.built_in_s + ' s)';
+    }
+  } catch (e) { main.innerHTML = '<div class="err">' + esc(e.message) + '</div>'; $('sub').textContent = ''; return; }
+  $('title').textContent = title; document.title = title + ' - Dashboard';
+  d.charts = d.charts || []; d.kpis = d.kpis || []; d.tables = d.tables || [];
+
   let html = '';
-  if (d.kpis.length) html += '<div class="kpis">' + d.kpis.map((k, i) => `<div class="kpi" style="--c:${colors[i % colors.length]};animation-delay:${i * 70}ms"><div class="l">${esc(k.label)}</div><div class="v" data-v="${k.value}">0</div><div class="c">${k.count > 1 ? "Total of " + k.count + " rows" : esc(k.context)}</div></div>`).join('') + '</div>';
-  if (d.charts.length) html += '<h2>Charts</h2><div class="grid" id="charts"></div>';
-  if (d.tables.length) html += '<h2>Data</h2>' + d.tables.map(t => `<div class="tbl"><div class="t">${esc(t.title.replace('Sheet: ',''))} <span style="color:var(--faint);font-weight:400">- showing ${t.rows.length} of ${t.total_rows} rows</span></div><table><thead><tr>${t.columns.map(c => '<th>' + esc(c) + '</th>').join('')}</tr></thead><tbody>${t.rows.map(r => '<tr>' + t.columns.map((_, j) => `<td class="${isNum(r[j] || '') ? 'n' : ''}">${esc(r[j] || '')}</td>`).join('') + '</tr>').join('')}</tbody></table></div>`).join('');
-  if (!html) html = '<div class="empty">No numeric tables were found in this file.</div>';
+  if (d.kpis.length) html += '<div class="kpis">' + d.kpis.map((k, i) => `<div class="kpi" style="--c:${colors[i % colors.length]};animation-delay:${i * 70}ms"><div class="l">${esc(k.label)}</div><div class="v" data-v="${k.value}">0</div><div class="c">${k.count > 1 ? 'Total of ' + k.count + ' rows' : esc(k.context)}</div></div>`).join('') + '</div>';
+  html += `<div class="ask noprint"><input id="askIn" placeholder="Add a chart: e.g. &quot;total cost by building&quot;, &quot;GFA by land use as a pie&quot;, &quot;top 10 items by amount&quot;" maxlength="400"><button class="btn primary" id="askBtn">Add chart</button><span id="askMsg" class="hint"></span></div>`;
+  html += '<h2>Charts</h2><div class="grid" id="charts"></div>';
+  if (d.tables.length) html += '<h2>Data</h2>' + d.tables.map((t, ti) => `<div class="tbl"><div class="t">${esc(String(t.title).replace('Sheet: ',''))} <span style="color:var(--faint);font-weight:400">- showing ${t.rows.length} of ${t.total_rows} rows</span><input class="filt noprint" data-t="${ti}" placeholder="Filter rows…"></div><table data-t="${ti}"><thead><tr>${t.columns.map((c, j) => `<th data-j="${j}" title="Click to sort">${esc(c)}</th>`).join('')}</tr></thead><tbody></tbody></table></div>`).join('');
   main.innerHTML = html;
   const counters = () => document.querySelectorAll('.kpi .v').forEach(el => window.ExpoMotion.countUp(el, +el.dataset.v, 1400));
   counters();
-  const grid = document.getElementById('charts'); const wraps = [];
-  (d.charts || []).forEach((spec, i) => {
-    const cell = document.createElement('div'); cell.className = 'cell'; cell.style.animationDelay = (200 + i * 120) + 'ms';
-    grid.appendChild(cell);
-    const w = window.ExpoChartRenderer.render(spec, cell);
-    if (w) { w.style.margin = '0'; wraps.push(w); window.ExpoMotion.attach(w, { delay: 250 + i * 160 }); }
-  });
-  document.getElementById('replay').onclick = () => { counters(); document.querySelectorAll('[data-motion="Replay"]').forEach((b, i) => setTimeout(() => b.click(), i * 160)); };
+
+  // ---- tables: filter + click-to-sort
+  const tstate = d.tables.map(() => ({f: '', j: -1, asc: true}));
+  const drawTable = ti => {
+    const t = d.tables[ti], st = tstate[ti];
+    let rows = t.rows.filter(r => !st.f || r.some(c => String(c || '').toLowerCase().includes(st.f)));
+    if (st.j >= 0) rows = rows.slice().sort((a, b) => { const x = num(a[st.j]), y = num(b[st.j]); const c = (x != null && y != null) ? x - y : String(a[st.j] || '').localeCompare(String(b[st.j] || '')); return st.asc ? c : -c; });
+    document.querySelector(`table[data-t="${ti}"] tbody`).innerHTML = rows.map(r => '<tr>' + t.columns.map((_, j) => `<td class="${isNum(r[j] || '') ? 'n' : ''}">${esc(r[j] || '')}</td>`).join('') + '</tr>').join('') || `<tr><td colspan="${t.columns.length}" style="color:var(--faint)">No matching rows</td></tr>`;
+    document.querySelectorAll(`table[data-t="${ti}"] th`).forEach(th => th.dataset.s = (+th.dataset.j === st.j) ? (st.asc ? '▲' : '▼') : '');
+  };
+  d.tables.forEach((_, ti) => drawTable(ti));
+  document.querySelectorAll('.filt').forEach(inp => inp.oninput = () => { tstate[+inp.dataset.t].f = inp.value.trim().toLowerCase(); drawTable(+inp.dataset.t); });
+  document.querySelectorAll('th[data-j]').forEach(th => th.onclick = () => { const ti = +th.closest('table').dataset.t, st = tstate[ti], j = +th.dataset.j; st.asc = st.j === j ? !st.asc : false; st.j = j; drawTable(ti); });
+
+  // ---- charts: each card can be edited ("make it a pie", "top 5", "show labels") or removed
+  const grid = $('charts');
+  const addCard = (spec, i, animate) => {
+    const cell = document.createElement('div'); cell.className = 'cell'; cell.style.animationDelay = animate ? (200 + i * 120) + 'ms' : '0ms';
+    cell._spec = spec;
+    const bar = document.createElement('div'); bar.className = 'cbar noprint';
+    bar.innerHTML = `<input placeholder="Change this chart: pie, top 5, show labels…" maxlength="200"><button class="btn sm" data-a="edit">Apply</button><button class="btn sm" data-a="del" title="Remove chart">✕</button>`;
+    const host = document.createElement('div');
+    cell.appendChild(host); cell.appendChild(bar); grid.appendChild(cell);
+    const draw = (sp, delay) => { host.innerHTML = ''; const w = window.ExpoChartRenderer.render(sp, host); if (w) { w.style.margin = '0'; window.ExpoMotion.attach(w, {delay: delay || 0}); } };
+    draw(spec, animate ? 250 + i * 160 : 0);
+    const inp = bar.querySelector('input');
+    const apply = async () => {
+      const ins = inp.value.trim(); if (!ins) return;
+      inp.disabled = true;
+      try {
+        const r = await api('/api/visualize/edit', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({spec: cell._spec, instruction: ins, project, question: cell._spec.title || ''})});
+        if (r.spec) { cell._spec = r.spec; d.charts[[...grid.children].indexOf(cell)] = r.spec; draw(r.spec, 0); inp.value = ''; dirty(); }
+        else toast(r.message || 'That change could not be applied - try "pie chart", "top 5" or "sort descending".');
+      } catch (e) { toast(e.message); } finally { inp.disabled = false; }
+    };
+    bar.querySelector('[data-a="edit"]').onclick = apply; inp.onkeydown = e => { if (e.key === 'Enter') apply(); };
+    bar.querySelector('[data-a="del"]').onclick = () => { const k = [...grid.children].indexOf(cell); d.charts.splice(k, 1); cell.remove(); dirty(); };
+  };
+  d.charts.forEach((spec, i) => addCard(spec, i, true));
+  if (!d.charts.length) $('askMsg').textContent = 'No chart could be built automatically - ask for one above.';
+
+  const canAsk = !!(source.filename || source.attachment_id);
+  if (!canAsk) { $('askIn').disabled = true; $('askIn').placeholder = 'The source file of this saved dashboard is not available to you'; $('askBtn').disabled = true; }
+  const ask = async () => {
+    const question = $('askIn').value.trim(); if (!question) return;
+    $('askBtn').disabled = true; $('askMsg').textContent = 'Building chart from the file…';
+    try {
+      const r = await api(P + '/dashboard/chart', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(Object.assign({question}, source))});
+      if (!r.spec) { $('askMsg').textContent = r.message || 'No table fits that question.'; return; }
+      d.charts.push(r.spec); addCard(r.spec, 0, false); grid.lastChild.scrollIntoView({behavior: 'smooth', block: 'center'});
+      $('askIn').value = ''; $('askMsg').textContent = 'Added. Values computed from ' + (r.spec.sources && r.spec.sources[0] ? r.spec.sources[0].filename : 'the file') + '.'; dirty();
+    } catch (e) { $('askMsg').textContent = e.message; } finally { $('askBtn').disabled = false; }
+  };
+  $('askBtn').onclick = ask; $('askIn').onkeydown = e => { if (e.key === 'Enter') ask(); };
+
+  function toast(m) { const t = $('toast'); t.textContent = m; t.style.display = 'block'; clearTimeout(t._h); t._h = setTimeout(() => t.style.display = 'none', 4000); }
+  function dirty() { $('save').textContent = 'Save to Reports *'; }
+  $('save').onclick = async () => {
+    const name = prompt('Name this dashboard (project members will see it under Reports):', title);
+    if (name === null) return;
+    try {
+      const body = {title: name.trim() || title, source: title, data: Object.assign({}, d, {source})};
+      const r = await api(P + '/dashboards', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)});
+      $('save').textContent = 'Saved ✓'; toast('Saved as "' + r.title + '" - open it any time from Reports.');
+    } catch (e) { toast(e.message); }
+  };
+  $('replay').onclick = () => { counters(); document.querySelectorAll('[data-motion="Replay"]').forEach((b, i) => setTimeout(() => b.click(), i * 160)); };
 })();
 </script>
 </body>

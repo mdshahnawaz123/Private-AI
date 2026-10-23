@@ -208,6 +208,7 @@ class MasterplanReconciliationEngine:
                     parking_required=exc_p.parking_required or int(ach_gfa / 100),
                     parking_provided=exc_p.parking_provided or int(ach_gfa / 100),
                     geometry=cad_p.geometry,
+                    provenance=list(exc_p.provenance) + list(cad_p.provenance),
                     notes=f"Reconciled from CAD geometry & Excel register ({author})"
                 )
 

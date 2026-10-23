@@ -33,7 +33,14 @@ class MasterplanDxfParser:
             import cad
             doc = cad.load_doc(file_path)
         else:
-            doc = ezdxf.readfile(file_path)
+            try:
+                doc = ezdxf.readfile(file_path)
+            except Exception as read_err:
+                import ezdxf.recover
+                logger.warning(f"Standard DXF read failed ({read_err}); attempting fault-tolerant ezdxf recovery...")
+                doc, auditor = ezdxf.recover.readfile(file_path)
+                if auditor and auditor.has_errors:
+                    logger.info(f"ezdxf recovery repaired {len(auditor.errors)} issues in {os.path.basename(file_path)}")
 
         msp = doc.modelspace()
         from services.masterplan.parsers.hatch_link import linked_hatches
@@ -41,11 +48,11 @@ class MasterplanDxfParser:
         has_hatches = bool(msp.query('HATCH')) or any(bool(block.query('HATCH')) for block in doc.blocks)
         if hatch_records or has_hatches:
             logger.info('Linked {} unambiguous hatch parcels; polygon fallback not mixed into this dataset', len(hatch_records))
-            return [MasterplanPlot(project_id=project_id, **record) for record in hatch_records]
+            return [MasterplanPlot(project_id=project_id, provenance=[{"filename":os.path.basename(file_path),"page":"CAD Model Space","kind":"cad"}], **record) for record in hatch_records]
 
-        # Step 0: Explode INSERT block references in modelspace to unpack nested text tags and boundary lines
+        # Step 0: Explode INSERT block references in modelspace to unpack nested text tags and boundary lines (limit depth to protect memory)
         try:
-            for ins in list(msp.query("INSERT")):
+            for ins in list(msp.query("INSERT"))[:500]:
                 try:
                     ins.explode()
                 except Exception:
@@ -276,6 +283,7 @@ class MasterplanDxfParser:
                 status="compliant",
                 violations=[],
                 geometry=geom,
+                provenance=[{"filename":os.path.basename(file_path),"page":"CAD Model Space","kind":"cad","layer":layer_name}],
                 notes=f"Parsed from CAD Layer: {layer_name}"
             )
             plots.append(plot)

@@ -117,7 +117,17 @@ class JobService:
                     or parameter.max_value is not None and value > parameter.max_value):
                 raise ValueError(f"{parameter.name} is outside this workflow's supported range")
             settings[parameter.name] = value
-        if "denoise" in request.model_fields_set and not any("denoise" in node.get("inputs", {}) for node in graph.values()):
+        def _denoise_effective(g):
+            # Partial denoise only matters when the sampler starts from the encoded source
+            # image (img2img). With an empty latent + reference conditioning it does nothing.
+            for node in g.values():
+                ins = node.get("inputs", {})
+                if "denoise" in ins:
+                    src = ins.get("latent_image")
+                    if isinstance(src, list) and src and g.get(src[0], {}).get("class_type") == "VAEEncode":
+                        return True
+            return False
+        if "denoise" in request.model_fields_set and not _denoise_effective(graph):
             raise ValueError("Denoise is not supported by this workflow")
         if request.negative_prompt and not any(p.name == "negative_prompt" for p in metadata.parameters):
             raise ValueError("Negative prompts are not supported by this workflow")

@@ -163,7 +163,7 @@ async def parse_cad_file(
     Parse an uploaded DXF file or an existing project drawing into CADCraft JSON entities.
     """
     settings = get_settings()
-    auth.require_user(request)
+    user = auth.require_user(request)
     if project:
         auth.require_project(request, project)
 
@@ -220,6 +220,16 @@ async def parse_cad_file(
         if not target_path or not os.path.exists(target_path):
             raise HTTPException(404, f"Drawing '{filename}' not found in project '{project}'")
 
+        # Enforce folder-level read permissions for the requesting user
+        allow_all, folder_ids = db.folder_access(user, project)
+        if not allow_all:
+            user_docs = db.list_documents(project, user)
+            matching_doc = next((d for d in user_docs if d.get("filename") == filename or os.path.basename(d.get("path", "")) == filename), None)
+            if not matching_doc:
+                raise HTTPException(403, f"Access to drawing '{filename}' in restricted folder is denied")
+            if matching_doc.get("folder_id") and matching_doc["folder_id"] not in folder_ids:
+                raise HTTPException(403, f"Access to drawing '{filename}' in restricted folder is denied")
+
         ext = os.path.splitext(filename)[-1].lower()
         if ext == ".dxf":
             try:
@@ -265,6 +275,11 @@ async def save_cad_to_project(request: Request, payload: SaveCadRequest):
     else:
         fid = target_folder["id"] if isinstance(target_folder, dict) else int(target_folder)
 
+    # Enforce folder-level write permissions
+    allow_all, folder_ids = db.folder_access(user, payload.project)
+    if not allow_all and fid not in folder_ids:
+        raise HTTPException(403, f"Write access to folder '{folder_name}' is denied")
+
     docs_dir = os.path.join(settings.data_dir, "docs")
     fsafe = re.sub(r"[^A-Za-z0-9._-]+", "_", folder_name).strip("_")
     proj_doc_dir = os.path.join(docs_dir, payload.project, fsafe)
@@ -278,6 +293,20 @@ async def save_cad_to_project(request: Request, payload: SaveCadRequest):
         raise HTTPException(400, f"Invalid drawing data: {e}")
 
     existed = os.path.exists(out_path)
+    if existed:
+        # Preserve original drawing revision before replacing (S05)
+        import time as _time
+        import shutil as _shutil
+        rev_dir = os.path.join(settings.data_dir, "cad_revisions", payload.project, fsafe)
+        os.makedirs(rev_dir, exist_ok=True)
+        stem, ext = os.path.splitext(clean_name)
+        rev_backup = os.path.join(rev_dir, f"{stem}_rev_{int(_time.time())}{ext}")
+        try:
+            _shutil.copyfile(out_path, rev_backup)
+        except Exception as e:
+            logger.error(f"Failed to create CAD revision backup: {e}")
+            raise HTTPException(500, f"Cannot safely replace drawing: revision backup failed: {e}")
+
     tmp_out = out_path + ".tmp"
     with open(tmp_out, "w", encoding="utf-8") as f:
         f.write(dxf_content)
@@ -287,18 +316,33 @@ async def save_cad_to_project(request: Request, payload: SaveCadRequest):
     file_size = os.path.getsize(out_path)
     client_ip = request.client.host if request.client else "127.0.0.1"
     if not existed:
-      db.record_document(
-        project=payload.project,
-        filename=clean_name,
-        path=out_path,
-        chunks=0,
-        discipline="Architectural",
-        status="ready",
-        folder_id=fid,
-        user=user,
-        ip=client_ip,
-    )
+        db.record_document(
+            project=payload.project,
+            filename=clean_name,
+            path=out_path,
+            chunks=0,
+            discipline="Architectural",
+            status="ready",
+            folder_id=fid,
+            user=user,
+            ip=client_ip,
+        )
+    else:
+        with db.SessionLocal() as s:
+            proj_obj = s.query(db.Project).filter_by(name=payload.project).first()
+            if proj_obj:
+                doc = s.query(db.Document).filter_by(project_id=proj_obj.id, filename=clean_name).first()
+                if doc:
+                    from datetime import datetime, timezone
+                    doc.file_size = file_size
+                    doc.updated_at = datetime.now(timezone.utc)
+                    s.commit()
+        db.audit("cad.save_revision", project=payload.project, user=user, ip=client_ip,
+                 detail={"filename": clean_name, "folder": folder_name, "entities": len(payload.entities)})
 
+    # Let the AI read the saved drawing (layers, text, title block, dimensions).
+    from services.cad_index import queue_cad_indexing
+    queue_cad_indexing(payload.project, out_path, clean_name, fid)
     logger.info(f"Saved CAD drawing '{clean_name}' ({len(payload.entities)} entities) to project '{payload.project}'")
 
     return {

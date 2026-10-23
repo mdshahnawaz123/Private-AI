@@ -185,8 +185,8 @@ def _get_model_config():
         }
     except Exception:
         return {
-            "worker_model": "qwen2.5vl:7b", "worker_url": OLLAMA_URL,
-            "author_model": "qwen2.5vl:7b", "author_url": OLLAMA_URL,
+            "worker_model": "qwen3.5:9b", "worker_url": OLLAMA_URL,
+            "author_model": "qwen3.5:9b", "author_url": OLLAMA_URL,
             "enable_model_tiering": False,
         }
 

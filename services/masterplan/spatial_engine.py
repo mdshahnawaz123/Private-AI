@@ -31,12 +31,20 @@ class SpatialReasoningEngine:
             evidence = {}
         if isinstance(evidence, dict) and evidence.get('method') == 'hatch_label_containment':
             return 'under_review', ['Hatch/label association only; approved zoning and engineering limits are not established']
+        lu_clean = (plot.land_use or "").strip().lower()
+        if not lu_clean or lu_clean in ("unassigned", "unknown", "none", "unregulated"):
+            return "under_review", ["Zoning land use is unassigned or unknown; approved planning regulations cannot be validated"]
+
         violations: List[str] = []
         status = "compliant"
 
         # Check FAR
         calculated_far = round(plot.achieved_gfa / plot.area_sqm, 2) if plot.area_sqm > 0 else 0.0
-        if calculated_far > plot.max_far:
+        if plot.max_far is None or plot.max_far <= 0:
+            if lu_clean not in ("open space", "open space / park", "park", "utilities", "utility"):
+                violations.append("Permissible FAR regulation is missing or unestablished")
+                status = "under_review"
+        elif calculated_far > plot.max_far:
             diff = calculated_far - plot.max_far
             violations.append(f"FAR {calculated_far:.2f} exceeds maximum permitted FAR {plot.max_far:.2f} (+{diff:.2f})")
             status = "violation"
@@ -84,8 +92,9 @@ class SpatialReasoningEngine:
 
     def check_boundary_overlaps(self, plots: List[MasterplanPlot]) -> List[Dict[str, Any]]:
         """
-        Checks for any spatial boundary intersections or encroachments among plots.
+        Checks for any spatial boundary intersections or encroachments among plots using STRtree spatial indexing.
         """
+        from shapely.validation import make_valid
         overlap_issues = []
         plot_polys: List[Tuple[str, Polygon]] = []
 
@@ -93,42 +102,81 @@ class SpatialReasoningEngine:
             if p.geometry and p.geometry.coordinates and len(p.geometry.coordinates) >= 3:
                 try:
                     poly = Polygon(p.geometry.coordinates)
-                    if poly.is_valid:
-                        plot_polys.append((p.plot_id, poly))
-                except Exception:
-                    pass
+                    if not poly.is_valid:
+                        poly = make_valid(poly)
+                    if poly and not poly.is_empty:
+                        if isinstance(poly, MultiPolygon):
+                            poly = max(poly.geoms, key=lambda g: g.area)
+                        if isinstance(poly, Polygon) and poly.is_valid and poly.area > 0:
+                            plot_polys.append((p.plot_id, poly))
+                except Exception as poly_err:
+                    logger.debug(f"Skipping malformed plot boundary {p.plot_id}: {poly_err}")
 
-        # Pairwise intersection
         n = len(plot_polys)
-        for i in range(n):
-            for j in range(i + 1, n):
-                pid1, poly1 = plot_polys[i]
-                pid2, poly2 = plot_polys[j]
-                if poly1.intersects(poly2):
-                    intersection = poly1.intersection(poly2)
-                    if intersection.area > 1.0:  # Ignore microscopic line contact
-                        overlap_issues.append({
-                            "plot_1": pid1,
-                            "plot_2": pid2,
-                            "overlap_area_sqm": round(intersection.area, 2),
-                            "description": f"Boundary encroachment between Plot {pid1} and Plot {pid2} ({intersection.area:.1f} m²)"
-                        })
+        if n < 2:
+            return overlap_issues
+
+        # High-performance STRtree spatial index: O(N log N) vs O(N^2)
+        try:
+            from shapely.strtree import STRtree
+            polys = [p[1] for p in plot_polys]
+            tree = STRtree(polys)
+
+            for i, (pid1, poly1) in enumerate(plot_polys):
+                candidate_indices = tree.query(poly1)
+                for j in candidate_indices:
+                    if j <= i:  # Avoid self-intersection and duplicate pairs
+                        continue
+                    pid2, poly2 = plot_polys[j]
+                    if poly1.intersects(poly2):
+                        intersection = poly1.intersection(poly2)
+                        if intersection.area > 1.0:  # Ignore microscopic line contact
+                            overlap_issues.append({
+                                "plot_1": pid1,
+                                "plot_2": pid2,
+                                "overlap_area_sqm": round(intersection.area, 2),
+                                "description": f"Boundary encroachment between Plot {pid1} and Plot {pid2} ({intersection.area:.1f} m²)"
+                            })
+        except Exception as exc:
+            logger.warning(f"Spatial index query fallback to pairwise: {exc}")
+            for i in range(n):
+                for j in range(i + 1, n):
+                    pid1, poly1 = plot_polys[i]
+                    pid2, poly2 = plot_polys[j]
+                    if poly1.intersects(poly2):
+                        intersection = poly1.intersection(poly2)
+                        if intersection.area > 1.0:
+                            overlap_issues.append({
+                                "plot_1": pid1,
+                                "plot_2": pid2,
+                                "overlap_area_sqm": round(intersection.area, 2),
+                                "description": f"Boundary encroachment between Plot {pid1} and Plot {pid2} ({intersection.area:.1f} m²)"
+                            })
 
         return overlap_issues
 
     def calculate_setback_polygon(self, coords: List[List[float]], front_m: float, rear_m: float, side_m: float) -> List[List[float]]:
         """
         Computes the inner buildable envelope polygon by applying setback offsets.
+        Self-healing: automatically validates and repairs degenerate CAD boundary lines.
         """
         try:
+            from shapely.validation import make_valid
             poly = Polygon(coords)
             if not poly.is_valid:
+                poly = make_valid(poly)
+                if isinstance(poly, MultiPolygon):
+                    poly = max(poly.geoms, key=lambda g: g.area)
+            if not isinstance(poly, Polygon) or not poly.is_valid or poly.is_empty:
                 return coords
+
             avg_setback = (front_m + rear_m + 2 * side_m) / 4.0
             # Inner buffer offset
             inner = poly.buffer(-avg_setback)
             if inner.is_empty:
                 return coords
+            if not inner.is_valid:
+                inner = make_valid(inner)
             if isinstance(inner, Polygon):
                 return [[round(x, 2), round(y, 2)] for x, y in inner.exterior.coords]
             elif isinstance(inner, MultiPolygon):

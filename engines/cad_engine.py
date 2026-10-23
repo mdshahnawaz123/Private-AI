@@ -81,6 +81,34 @@ class CadIntelligenceEngine:
                 return None
         return None
 
+    @staticmethod
+    def _clean_text(s: str) -> str:
+        """Readable text for the AI: strip MTEXT formatting codes (\\P, {\\H0.6x;...}) that some
+        tools put even in TEXT entities, and repair UTF-8 that was decoded as Windows-1252
+        (one or more times), e.g. "mÃ‚Â²" -> "m²"."""
+        if not s:
+            return ""
+        if "\\P" in s or "{\\" in s or "\\H" in s:
+            try:
+                from ezdxf.tools.text import plain_mtext
+                s = plain_mtext(s)
+            except Exception:
+                s = s.replace("\\P", "\n")
+        for _ in range(3):
+            if not any(ch in s for ch in "ÃÂâ"):
+                break
+            try:
+                fixed = s.encode("cp1252").decode("utf-8")
+            except (UnicodeEncodeError, UnicodeDecodeError):
+                try:
+                    fixed = s.encode("latin-1").decode("utf-8")
+                except (UnicodeEncodeError, UnicodeDecodeError):
+                    break
+            if fixed == s:
+                break
+            s = fixed
+        return s.strip()
+
     def extract_dxf_data(self, doc) -> Dict[str, Any]:
         """Pull structured engineering annotations out of an ezdxf Drawing object."""
         result = {
@@ -110,7 +138,7 @@ class CadIntelligenceEngine:
 
             try:
                 if t == "TEXT":
-                    s = (e.dxf.text or "").strip()
+                    s = self._clean_text(e.dxf.text or "")
                     if s:
                         result["texts"].append(s)
                 elif t == "MTEXT":
@@ -119,6 +147,7 @@ class CadIntelligenceEngine:
                         s = e.plain_text().strip()
                     except Exception:
                         s = (getattr(e, "text", "") or "").strip()
+                    s = self._clean_text(s)
                     if s:
                         result["texts"].append(s)
                 elif t == "DIMENSION":
@@ -135,7 +164,7 @@ class CadIntelligenceEngine:
                 elif t == "INSERT":
                     for a in getattr(e, "attribs", []):
                         tag = (a.dxf.tag or "").strip()
-                        val = (a.dxf.text or "").strip()
+                        val = self._clean_text(a.dxf.text or "")
                         if val:
                             result["block_attributes"].append(f"{tag} = {val}")
                             if any(k in tag.lower() for k in ["dwg", "drawing_no", "drawing_num", "sheet"]):

@@ -1,7 +1,0 @@
-test_decimal_sum_and_difference_preserve_sources (test_calculations.Calculations.test_decimal_sum_and_difference_preserve_sources) ... ok
-test_unsupported_calculation_never_falls_through_to_model (test_calculations.Calculations.test_unsupported_calculation_never_falls_through_to_model) ... ok
-
-----------------------------------------------------------------------
-Ran 2 tests in 0.036s
-
-OK

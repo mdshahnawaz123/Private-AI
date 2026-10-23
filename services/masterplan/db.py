@@ -12,12 +12,24 @@ from typing import List, Dict, Any, Optional
 from loguru import logger
 from services.masterplan.models import MasterplanPlot, MasterplanProject, AuditLogEntry, PlotGeometry
 
-DB_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "data", "masterplan.db")
+def get_db_path() -> str:
+    override = os.environ.get("EXPO_MP_DB_PATH")
+    if override:
+        return override
+    try:
+        from config import get_settings
+        return os.path.join(get_settings().data_dir, "masterplan.db")
+    except Exception:
+        return os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "data", "masterplan.db")
+
+
+DB_PATH = get_db_path()
 
 
 def get_connection() -> sqlite3.Connection:
-    os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
-    conn = sqlite3.connect(DB_PATH)
+    path = get_db_path()
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    conn = sqlite3.connect(path)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA journal_mode=WAL")
     conn.execute("PRAGMA synchronous=NORMAL")
@@ -105,6 +117,23 @@ def init_db():
                     updated_at TEXT NOT NULL
                 )
             """)
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS mp_plot_snapshots (
+                    id TEXT PRIMARY KEY,
+                    project_id TEXT NOT NULL,
+                    snapshot_name TEXT NOT NULL,
+                    plots_json TEXT NOT NULL,
+                    created_at TEXT NOT NULL
+                )
+            """)
+            columns = {r[1] for r in conn.execute("PRAGMA table_info(mp_plots)")}
+            if "provenance_json" not in columns:
+                try:
+                    conn.execute("ALTER TABLE mp_plots ADD COLUMN provenance_json TEXT NOT NULL DEFAULT '[]'")
+                except sqlite3.OperationalError:
+                    if "provenance_json" not in {r[1] for r in conn.execute("PRAGMA table_info(mp_plots)")}:
+                        raise
+            conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_mp_snapshots_proj_name ON mp_plot_snapshots(project_id, snapshot_name)")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_mp_plots_project ON mp_plots(project_id)")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_mp_audit_project ON mp_audit_log(project_id, timestamp)")
             conn.execute("CREATE INDEX IF NOT EXISTS idx_mp_files_project ON mp_files(project_id, uploaded_at)")
@@ -135,7 +164,7 @@ def row_to_plot(row: sqlite3.Row) -> MasterplanPlot:
         plot_id=row["plot_id"],
         project_id=row["project_id"],
         sector=row["sector"] or "Sector 1",
-        land_use=row["land_use"] or "Residential",
+        land_use=row["land_use"] or "Unassigned",
         area_sqm=float(row["area_sqm"] or 0),
         permitted_gfa=float(row["permitted_gfa"] or 0),
         achieved_gfa=float(row["achieved_gfa"] or 0),
@@ -152,6 +181,7 @@ def row_to_plot(row: sqlite3.Row) -> MasterplanPlot:
         violations=violations,
         geometry=geom_data,
         notes=row["notes"] or "",
+        provenance=json.loads(row["provenance_json"] or "[]") if "provenance_json" in row.keys() else [],
         updated_at=row["updated_at"]
     )
 
@@ -203,7 +233,7 @@ def save_plot(project_id: str, plot: MasterplanPlot, author: str = "Design Revie
     plot.updated_at = now_iso
     prev = get_plot(project_id, plot.plot_id)
 
-    geom_json = json.dumps(plot.geometry.dict()) if plot.geometry else None
+    geom_json = json.dumps(plot.geometry.model_dump() if hasattr(plot.geometry, 'model_dump') else plot.geometry.dict()) if plot.geometry else None
     viol_json = json.dumps(plot.violations)
 
     try:
@@ -232,6 +262,9 @@ def save_plot(project_id: str, plot: MasterplanPlot, author: str = "Design Revie
                 plot.parking_provided, plot.status, viol_json, geom_json, plot.notes or "", now_iso
             ))
 
+            conn.execute("UPDATE mp_plots SET provenance_json=? WHERE project_id=? AND plot_id=?",
+                         (json.dumps(plot.provenance), project_id, plot.plot_id))
+
         # Log audit entry
         log_audit(
             project_id=project_id,
@@ -255,7 +288,7 @@ def save_plots_bulk(project_id: str, plots: List[MasterplanPlot], author: str = 
         with conn:
             for plot in plots:
                 plot.updated_at = now_iso
-                geom_json = json.dumps(plot.geometry.dict()) if plot.geometry else None
+                geom_json = json.dumps(plot.geometry.model_dump() if hasattr(plot.geometry, 'model_dump') else plot.geometry.dict()) if plot.geometry else None
                 viol_json = json.dumps(plot.violations)
                 conn.execute("""
                     INSERT INTO mp_plots (
@@ -280,6 +313,8 @@ def save_plots_bulk(project_id: str, plots: List[MasterplanPlot], author: str = 
                     plot.front_setback_m, plot.rear_setback_m, plot.side_setback_m, plot.parking_required,
                     plot.parking_provided, plot.status, viol_json, geom_json, plot.notes or "", now_iso
                 ))
+                conn.execute("UPDATE mp_plots SET provenance_json=? WHERE project_id=? AND plot_id=?",
+                             (json.dumps(plot.provenance), project_id, plot.plot_id))
         log_audit(
             project_id=project_id,
             action_type="BULK_IMPORT",
@@ -341,6 +376,33 @@ def get_project_summary(project_id: str) -> MasterplanProject:
         violation_plots=violation,
         land_use_breakdown=breakdown
     )
+
+
+def list_projects() -> List[Dict[str, Any]]:
+    """Returns all registered Masterplan projects from mp_projects and plots."""
+    conn = get_connection()
+    try:
+        rows = conn.execute("SELECT DISTINCT project_id FROM mp_plots UNION SELECT project_id FROM mp_projects").fetchall()
+        return [{"project_id": r["project_id"], "name": r["project_id"]} for r in rows if r["project_id"]]
+    finally:
+        conn.close()
+
+
+def delete_project_records(project_id: str) -> bool:
+    """Deletes all MPD database rows (project, plots, audit logs, file records) for permanent project cleanup."""
+    init_db()
+    conn = get_connection()
+    try:
+        with conn:
+            conn.execute("DELETE FROM mp_plots WHERE project_id = ?", (project_id,))
+            conn.execute("DELETE FROM mp_audit_log WHERE project_id = ?", (project_id,))
+            conn.execute("DELETE FROM mp_files WHERE project_id = ?", (project_id,))
+            conn.execute("DELETE FROM mp_file_relations WHERE project_id = ?", (project_id,))
+            conn.execute("DELETE FROM mp_plot_snapshots WHERE project_id = ?", (project_id,))
+            conn.execute("DELETE FROM mp_projects WHERE project_id = ?", (project_id,))
+        return True
+    finally:
+        conn.close()
 
 
 def log_audit(project_id: str, action_type: str, description: str, plot_id: Optional[str] = None,

@@ -1,1 +1,0 @@
-{"version": 1, "embedding_model": "bge-m3", "dimensions": 1024, "chunks": 2026, "sha256": {"index.faiss": "63aecca99b05245d68a2552742dc16ade5d885fd70c2eb23ef3271dd00cb2803", "index.pkl": "cc4813632a96a3c76a8ffeab6955dd0ee732aee81172012ef891b544776b97a9"}}

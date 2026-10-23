@@ -21,7 +21,7 @@ class ContractTests(unittest.TestCase):
         self.registry = WorkflowRegistry('workflows')
         self.registry.discover_and_load()
     def request(self, **kw):
-        args = dict(project='Owned', workflow_id='render_enhancement', prompt='Change only the stone finish.', input_image_path='reference.png', steps=20, cfg=5, seed=123)
+        args = dict(project='Owned', workflow_id='render_enhancement', prompt='Change only the stone finish.', input_image_path='reference.png', steps=16, cfg=1, seed=123)
         args.update(kw)
         return JobSubmissionRequest(**args)
     def test_edit_dimensions_keep_source_links(self):
@@ -31,7 +31,7 @@ class ContractTests(unittest.TestCase):
                 g=self.registry.build_prompt_graph(self.request(width=width,height=height))
                 self.assertEqual(g['75:66']['inputs']['width'],raw['75:66']['inputs']['width'])
                 self.assertEqual(g['75:66']['inputs']['height'],raw['75:66']['inputs']['height'])
-                self.assertEqual(g['75:62']['inputs']['width'],g['75:66']['inputs']['width'])
+                self.assertEqual(g['75:64']['inputs']['latent_image'],raw['75:64']['inputs']['latent_image'])
     def test_positive_and_negative_constraints_survive(self):
         raw=self.registry.get_workflow('render_enhancement')
         g=self.registry.build_prompt_graph(self.request(negative_prompt='No new balconies'))
@@ -47,17 +47,17 @@ class ContractTests(unittest.TestCase):
         self.assertNotIn('Requested edit:',g['75:67']['inputs']['text'])
     def test_reference_and_seed_mapping(self):
         g=self.registry.build_prompt_graph(self.request())
-        self.assertEqual(g['75:73']['inputs']['noise_seed'],123)
+        self.assertEqual(g['75:64']['inputs']['seed'],123)
         self.assertEqual(g['76']['inputs']['image'],'reference.png')
         self.assertEqual(g['75:79:77']['inputs']['latent'],['75:79:78',0])
         self.assertEqual(g['75:79:78']['inputs']['pixels'],['75:80',0])
     def test_unsafe_overrides_rejected(self):
         with self.assertRaises(ValueError):self.registry.build_prompt_graph(self.request(extra_params={'76':{'image':'other-project.png'}}))
     def test_text_only_dimensions_and_defaults(self):
-        g=self.registry.build_prompt_graph(JobSubmissionRequest(project='Owned',workflow_id='architecture_concept',prompt='Villa',width=512,height=768,seed=99,steps=4,cfg=1))
+        g=self.registry.build_prompt_graph(JobSubmissionRequest(project='Owned',workflow_id='architecture_concept',prompt='Villa',width=512,height=768,seed=99,steps=16,cfg=1))
         self.assertEqual(g['6']['inputs']['width'],512)
-        self.assertEqual(g['9']['inputs']['height'],768)
-        self.assertEqual(g['7']['inputs']['noise_seed'],99)
+        self.assertEqual(g['6']['inputs']['height'],768)
+        self.assertEqual(g['11']['inputs']['seed'],99)
 
 class StorageTests(unittest.TestCase):
     def setUp(self):
@@ -97,7 +97,7 @@ class SubmissionTests(unittest.IsolatedAsyncioTestCase):
     async def test_effective_seed_and_metadata_defaults_persist(self):
         req=JobSubmissionRequest(project='Owned',workflow_id='architecture_concept',prompt='Villa')
         await self.service.submit_job(req,1)
-        params=self.created.call_args.kwargs['input_params'];self.assertIsInstance(params['seed'],int);self.assertEqual(params['steps'],4);self.assertEqual(params['cfg'],1)
+        params=self.created.call_args.kwargs['input_params'];self.assertIsInstance(params['seed'],int);self.assertEqual(params['steps'],16);self.assertEqual(params['cfg'],1)
     async def test_reference_required_before_enqueue(self):
         with self.assertRaises(ValueError):await self.service.submit_job(JobSubmissionRequest(project='Owned',workflow_id='render_enhancement',prompt='Stone'),1)
         self.created.assert_not_called();self.client.check_health.assert_not_awaited()
@@ -148,7 +148,7 @@ class BoundaryTests(unittest.TestCase):
             client.assert_not_called()
     def test_workflow_jsons_unchanged(self):
         import hashlib
-        manifest=json.loads(Path('output/studio-stage1-20261015/before-sha256.json').read_text())
+        manifest=json.loads(Path('tests/fixtures/image_workflow_sha256.json').read_text(encoding='utf-8'))['files']
         for name in ['architecture_concept','render_enhancement','sketch_to_render']:
             path='workflows/'+name+'.json'
             self.assertEqual(hashlib.sha256(Path(path).read_bytes()).hexdigest(),manifest[path])

@@ -10,7 +10,7 @@ import os
 import base64
 
 OLLAMA_URL = os.getenv("EXPO_OLLAMA_HOST", os.getenv("OLLAMA_HOST", "http://127.0.0.1:11434")).rstrip("/")
-VISION_MODEL = os.getenv("EXPO_VISION_MODEL", "qwen2.5vl:7b")
+VISION_MODEL = os.getenv("EXPO_VISION_MODEL", "qwen3.5:9b")
 # Pilot architecture blueprint Sec 6.2: point the (heavy, image-bearing) vision
 # workload at a separate Ollama process/port than the text/chat workload, so
 # concurrent admin uploads never starve concurrent user chat. Empty/unset ->
@@ -93,6 +93,11 @@ def describe_image(path, instruction=None, model=None, timeout=600):
 
     Serialized (one inference at a time) and retried with backoff so a transient
     refusal while the big model is loading does not fail the page."""
+    try:
+        from services.chat_activity import wait_until_idle as _wait_idle
+        _wait_idle()
+    except Exception:
+        pass
     import httpx
     payload = build_payload(encode_image(path), instruction, model)
     last_err = None

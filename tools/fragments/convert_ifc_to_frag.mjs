@@ -8,11 +8,9 @@
 // This mirrors the proven browser PoC (ui/_fragments_poc.html) exactly:
 //   const importer = new FRAGS.IfcImporter();
 //   importer.wasm.path = <dir with web-ifc wasm>; importer.wasm.absolute = true;
-//   importer.webIfcSettings = { COORDINATE_TO_ORIGIN: false };
+//   importer.webIfcSettings = { COORDINATE_TO_ORIGIN: true };
 //   const fragBytes = await importer.process({ bytes });
-// COORDINATE_TO_ORIGIN:false keeps raw IFC geometry (no stream-order-dependent
-// auto-shift) so the viewer's own placement layer stays authoritative -- the
-// same setting the web-ifc load path uses today.
+// The existing coordinate/recentering policy below is retained during upgrades.
 //
 // Usage:   node convert_ifc_to_frag.mjs <input.ifc> <output.frag>
 // Output:  writes <output.frag>; prints a one-line JSON status to STDOUT.

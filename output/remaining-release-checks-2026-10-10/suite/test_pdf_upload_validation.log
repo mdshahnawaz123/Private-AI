@@ -1,6 +1,0 @@
-test_valid_corrupt_empty_and_encrypted_sources (test_pdf_upload_validation.PdfUploadValidationTests.test_valid_corrupt_empty_and_encrypted_sources) ... ok
-
-----------------------------------------------------------------------
-Ran 1 test in 0.263s
-
-OK

@@ -12,13 +12,13 @@
 
 import * as THREE from "three";
 import { OrbitControls } from "/ui/vendor_fragments/OrbitControls.js?v=1";
-import * as FRAGS from "/ui/vendor_fragments/fragments/index.mjs?v=1";
+import * as FRAGS from "/ui/vendor_fragments/fragments/index.mjs?v=3.4.8";
 import * as WebIFC from "web-ifc";
 
 const $ = (id) => document.getElementById(id);
 const q = new URLSearchParams(location.search);
 const project = q.get("project") || "default";
-const token = q.get("token") || "";
+const token = null || "";
 const rels = q.getAll("rel");
 
 // Diagnostics bridge to the inline capture in viewer_frag.html (also mirrors to
@@ -32,7 +32,7 @@ const toSurvey = (x, y, z) => ({ E: x, N: z, Z: y });
 dlog("module-loaded", { three: (typeof THREE !== "undefined" && THREE.REVISION) || "?", rels: rels.length });
 
 function fileURL(rel) {
-  return `${location.origin}/projects/${encodeURIComponent(project)}/file?rel=${encodeURIComponent(rel)}&token=${encodeURIComponent(token)}`;
+  return `${location.origin}/projects/${encodeURIComponent(project)}/file?rel=${encodeURIComponent(rel)}`;
 }
 function setLoading(msg) { const l = $("loading"); if (!l) return; if (msg == null) { l.style.display = "none"; } else { l.style.display = "flex"; const m = $("loadMsg"); if (m) m.textContent = msg; } }
 function showErr(msg) { setLoading(null); const e = $("err"); if (e) { e.style.display = "flex"; const m = $("errMsg"); if (m) m.textContent = msg; } }
@@ -72,7 +72,7 @@ function orthoFrustum() {
 window.addEventListener("resize", resize);
 
 // ---- Fragments engine ----
-const workerUrl = new URL("/ui/vendor_fragments/fragments/Worker/worker.mjs?v=2", location.href).toString();
+const workerUrl = new URL("/ui/vendor_fragments/fragments/Worker/worker.mjs?v=3.4.8", location.href).toString();
 dlog("fragments-worker", workerUrl);
 const fragments = new FRAGS.FragmentsModels(workerUrl);
 dlog("fragments-engine-created");

@@ -205,7 +205,8 @@ class TestReasoningAPIAndJobExecution(unittest.TestCase):
                 spec = mock_info.setdefault(node.get("class_type"), {"input": {"required": {}}})
                 for k, v in node.get("inputs", {}).items():
                     if isinstance(k, str) and k.endswith("_name"):
-                        spec["input"]["required"][k] = [[v]]
+                        choices = spec["input"]["required"].setdefault(k, [[]])[0]
+                        if v not in choices: choices.append(v)
         self.mock_comfy.get_object_info.return_value = mock_info
 
         self.job_service = JobService(
@@ -235,7 +236,7 @@ class TestReasoningAPIAndJobExecution(unittest.TestCase):
         }
 
         with patch(
-            "services.image_engine.prompt_reasoner.enhance_architectural_prompt",
+            "services.image_engine.design_brief.generate_design_brief",
             new_callable=AsyncMock,
         ) as mock_enhance:
             mock_enhance.return_value = mock_result

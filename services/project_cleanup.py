@@ -32,6 +32,19 @@ def project_is_retired(data_dir, name):
     return _receipt(data_dir, name).exists()
 
 
+@contextmanager
+def active_project_operation(data_dir, name):
+    """Keep artifact creation mutually exclusive with permanent project cleanup."""
+    import db
+    validate_project_name(name)
+    with _lock(_receipt(data_dir, name)):
+        with db.SessionLocal() as session:
+            project = session.query(db.Project).filter_by(name=name).first()
+            if project is None or project.deleted_at is not None or project_is_retired(data_dir, name):
+                raise ValueError('An active project is required; retired projects cannot create artifacts')
+        yield
+
+
 def allow_explicit_recreation(data_dir, name, remove=False):
     receipt = _receipt(data_dir, name)
     _validate(receipt, Path(data_dir).resolve())
@@ -121,7 +134,23 @@ def inventory(root, name, other_names, uploads):
             raise ProjectCleanupError('Project document directories resolve to shared storage')
     paths = {root/'docs'/name, root/'faiss_index'/name,
              root/'workspace'/_slug(name, 'workspace'), root/'projects'/name,
-             root/'recycle_bin'/_slug(name, 'recycle')}
+             root/'recycle_bin'/_slug(name, 'recycle'), root/'reports'/name}
+    # Blender jobs have UUID directories; ownership comes from their manifest,
+    # never from a filename prefix. Unknown manifests fail cleanup closed.
+    blender = Path(os.getenv('EXPO_BLENDER_DATA', str(root/'blender_jobs'))).resolve()
+    if blender.exists():
+        for job in blender.iterdir():
+            if not re.fullmatch(r'[0-9a-f]{32}', job.name):
+                raise ProjectCleanupError('Unmapped Blender artifact requires ownership review')
+            try:
+                owner = json.loads((job/'job.json').read_text(encoding='utf-8'))
+            except (OSError, ValueError) as exc:
+                raise ProjectCleanupError('Unreadable Blender job ownership; cleanup not verified') from exc
+            if owner.get('project') == name:
+                if (job/'operation.lock').exists():
+                    raise ProjectCleanupError('A Blender operation is active; retry cleanup after it finishes')
+                _validate(job, root)
+                paths.add(job)
     indexes = root/'faiss_index'
     if indexes.exists():
         for entry in indexes.iterdir():
@@ -221,11 +250,14 @@ def purge_project(name, data_dir, queue, clear_caches=None):
             old_generation = (len(relative) == 2 and relative[0] == 'faiss_index'
                               and relative[1].startswith((name+'.previous-', name+'.staging-'))
                               and relative[1].casefold() not in {n.casefold() for n in others})
+            old_blender = (len(relative) == 2 and relative[0] == 'blender_jobs'
+                           and re.fullmatch(r'[0-9a-f]{32}', relative[1]) is not None
+                           and not candidate.exists())
             old_recycle = (len(relative) == 3 and relative[:2] == ('recycle_bin', '_projects')
                            and re.fullmatch(r'\d{8}-\d{6}-'+re.escape(_slug(name, 'recycle')), relative[2]))
             missing_quarantine = (len(relative) == 3 and relative[:2] == ('recovery', 'quarantine')
                                   and not candidate.exists())
-            if candidate not in paths and not (old_private or old_generation or old_recycle or missing_quarantine):
+            if candidate not in paths and not (old_private or old_generation or old_recycle or missing_quarantine or old_blender):
                 raise ProjectCleanupError('Invalid ownership path in cleanup receipt')
             if candidate not in paths:
                 paths.append(candidate)
@@ -268,6 +300,22 @@ def purge_project(name, data_dir, queue, clear_caches=None):
                     if project is not None and 'project_id' in table.c:
                         if session.execute(table.select().where(table.c.project_id == record['project_id']).limit(1)).first():
                             raise ProjectCleanupIOError('Project rows remain in ' + table.name)
+
+                # Purge Masterplan SQLite database records (D01)
+                try:
+                    from services.masterplan import db as mp_db
+                    mp_ok = mp_db.delete_project_records(name)
+                    if not mp_ok:
+                        raise ProjectCleanupIOError(f"Masterplan DB purge failed for project '{name}'")
+                    if record.get('project_id'):
+                        mp_ok_pid = mp_db.delete_project_records(str(record['project_id']))
+                        if not mp_ok_pid:
+                            raise ProjectCleanupIOError(f"Masterplan DB purge failed for project id '{record['project_id']}'")
+                except Exception as mp_err:
+                    if isinstance(mp_err, ProjectCleanupError):
+                        raise
+                    raise ProjectCleanupIOError(f"Masterplan DB purge failed for '{name}': {mp_err}") from mp_err
+
                 session.commit()
             record.update(state='COMPLETE', removed_jobs=len(owned))
             _write(receipt, record)

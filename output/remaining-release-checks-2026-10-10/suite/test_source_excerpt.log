@@ -1,9 +1,0 @@
-test_conflicting_values_never_selected (test_source_excerpt.SourceExcerptTests.test_conflicting_values_never_selected) ... ok
-test_native_quote_retains_qualification_source_and_exact_tag (test_source_excerpt.SourceExcerptTests.test_native_quote_retains_qualification_source_and_exact_tag) ... ok
-test_vision_and_foreign_pages_cannot_be_quoted_as_native (test_source_excerpt.SourceExcerptTests.test_vision_and_foreign_pages_cannot_be_quoted_as_native) ... ok
-test_wrong_entity_property_or_approval_is_not_answered (test_source_excerpt.SourceExcerptTests.test_wrong_entity_property_or_approval_is_not_answered) ... ok
-
-----------------------------------------------------------------------
-Ran 4 tests in 0.005s
-
-OK

@@ -57,12 +57,20 @@ class OCREngine:
 
     def _check_backends(self):
         """Check which OCR backends are available."""
-        # Importing a package does not establish installed offline model weights.
         import shutil
         self._tesseract_available = bool(shutil.which('tesseract'))
-        # Paddle constructors may download weights: only use explicitly provisioned
-        # local models. EasyOCR below is configured to forbid downloads.
-        self._paddle_available = False
+        try:
+            import os
+            os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
+            try:
+                import torch
+            except ImportError:
+                pass
+            os.environ.setdefault('PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK', 'True')
+            import paddleocr
+            self._paddle_available = True
+        except Exception:
+            self._paddle_available = False
         self._vision_available = True  # Request failure is reported by recognize.
 
     def is_available(self) -> bool:
@@ -71,9 +79,6 @@ class OCREngine:
 
     def get_backend(self) -> str:
         """Get the best available backend name."""
-        from services.vision_adapter import EasyOCRExtractor
-        if EasyOCRExtractor().reader is not None:
-            return 'easyocr_offline'
         if self._paddle_available:
             return "paddleocr"
         elif self._tesseract_available:
@@ -88,26 +93,9 @@ class OCREngine:
         Recognize text in an image.
         Returns OCRPageResult with text, confidence, and bounding boxes.
         """
-        try:
-            from services.vision_adapter import EasyOCRExtractor
-            reader = EasyOCRExtractor().reader
-            if reader is not None:
-                raw = reader.readtext(image_path)
-                records = []
-                for polygon, text, confidence in raw:
-                    xs, ys = [p[0] for p in polygon], [p[1] for p in polygon]
-                    records.append(OCRResult(text=text,confidence=float(confidence),
-                        bounding_box={'x':float(min(xs)),'y':float(min(ys)),'w':float(max(xs)-min(xs)),'h':float(max(ys)-min(ys))},
-                        page=page,source_doc=source_doc,source_version=source_version))
-                if records:
-                    return OCRPageResult(page_number=page or 0,results=records,
-                        full_text='\n'.join(r.text for r in records),
-                        average_confidence=sum(r.confidence for r in records)/len(records))
-        except Exception as exc:
-            logger.warning('Offline EasyOCR failed: {}',exc)
         if self._paddle_available:
             return self._recognize_paddle(image_path, page, source_doc, source_version)
-        elif self._tesseract_available:
+        if self._tesseract_available:
             return self._recognize_tesseract(image_path, page, source_doc, source_version)
         elif self._vision_available:
             return self._recognize_vision(image_path, page, source_doc, source_version)
@@ -120,37 +108,46 @@ class OCREngine:
         """Recognize using PaddleOCR."""
         try:
             if self._paddle_ocr is None:
+                import os
+                os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
+                try:
+                    import torch
+                except ImportError:
+                    pass
                 from paddleocr import PaddleOCR
-                self._paddle_ocr = PaddleOCR(use_angle_cls=True, lang='en', show_log=False)
+                self._paddle_ocr = PaddleOCR(use_textline_orientation=True, lang='en', enable_mkldnn=False)
 
-            result = self._paddle_ocr.ocr(image_path, cls=True)
+            from services.vision_adapter import _parse_paddle_results
+            if hasattr(self._paddle_ocr, "predict"):
+                raw = list(self._paddle_ocr.predict(image_path))
+            elif hasattr(self._paddle_ocr, "ocr"):
+                raw = self._paddle_ocr.ocr(image_path)
+            elif hasattr(self._paddle_ocr, "readtext"):
+                raw = self._paddle_ocr.readtext(image_path)
+            else:
+                raw = []
+
+            parsed = _parse_paddle_results(raw)
             results = []
             texts = []
-
-            if result and result[0]:
-                for line in result[0]:
-                    if line:
-                        bbox = line[0]
-                        text = line[1][0]
-                        conf = line[1][1]
-                        # Convert bbox to {x, y, w, h}
-                        xs = [p[0] for p in bbox]
-                        ys = [p[1] for p in bbox]
-                        bounding_box = {
-                            "x": min(xs),
-                            "y": min(ys),
-                            "w": max(xs) - min(xs),
-                            "h": max(ys) - min(ys),
-                        }
-                        results.append(OCRResult(
-                            text=text,
-                            confidence=conf,
-                            bounding_box=bounding_box,
-                            page=page,
-                            source_doc=source_doc,
-                            source_version=source_version,
-                        ))
-                        texts.append(text)
+            for polygon, text, conf in parsed:
+                xs = [p[0] for p in polygon]
+                ys = [p[1] for p in polygon]
+                bounding_box = {
+                    "x": float(min(xs)),
+                    "y": float(min(ys)),
+                    "w": float(max(xs) - min(xs)),
+                    "h": float(max(ys) - min(ys)),
+                }
+                results.append(OCRResult(
+                    text=text,
+                    confidence=float(conf),
+                    bounding_box=bounding_box,
+                    page=page,
+                    source_doc=source_doc,
+                    source_version=source_version,
+                ))
+                texts.append(text)
 
             avg_conf = sum(r.confidence for r in results) / len(results) if results else 0.0
             return OCRPageResult(

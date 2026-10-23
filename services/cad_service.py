@@ -445,10 +445,10 @@ class CadService:
         title: str = "Drawing"
     ) -> str:
         """
-        Generate a compliant AutoCAD DXF R2000 string from structured web entities.
+        Generate a compliant AutoCAD DXF R2010 (UTF-8) string from structured web entities.
         Can be opened directly in AutoCAD, CADCraft, Revit, or Rhino.
         """
-        doc = ezdxf.new("R2000")
+        doc = ezdxf.new("R2010")
         msp = doc.modelspace()
 
         def _lname(n):
@@ -548,6 +548,8 @@ class CadService:
 
         stream = io.StringIO()
         doc.write(stream)
+        # DXF R2010 is stored as UTF-8 (R2000 was Windows-1252), so m², °, Ø and Arabic text
+        # survive save/reopen instead of turning into "mÂ²". Files are written as UTF-8.
         return stream.getvalue()
 
     @staticmethod

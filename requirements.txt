@@ -35,6 +35,7 @@ matplotlib                # render CAD drawings to images for the vision model
 
 # ── Data processing ────────────────────────────────────────
 pandas
+shapely                   # required by MPD spatial engine and Blender geometry
 tabulate
 # networkx — removed for now, not needed until BIM graph work
 

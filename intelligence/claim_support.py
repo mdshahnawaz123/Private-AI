@@ -83,7 +83,9 @@ _STOP_WORDS = {
 _ABSTENTION_RE = re.compile(
     r"\b(?:i\s+could\s+not\s+(?:find|verify|establish)|could\s+not\s+be\s+established|"
     r"not\s+stated\b|not\s+available\s+in\s+the\s+evidence|please\s+review|"
-    r"conflicting\s+source\s+evidence|ambiguous\s+source\s+evidence|abstain)\b", re.I,
+    r"conflicting\s+source\s+evidence|ambiguous\s+source\s+evidence|abstain|"
+    r"(?:is|are|was|were)\s+not\s+(?:named|mentioned|identified|specified|listed|given|found)\s+(?:in|anywhere)|"
+    r"\bno\s+[\w\s*-]{1,40}?\s+(?:(?:is|are)\s+)?(?:named|mentioned|identified|specified|listed)\b)", re.I,
 )
 
 # A stage is a qualitative field, not permission to reuse arbitrary words
@@ -130,6 +132,8 @@ def _property_matches(text: str):
     hits = []
     for label, pattern in _PROPERTY_PATTERNS:
         for match in re.finditer(pattern, text, re.I):
+            if label == 'quantity' and any(q.start() <= match.start() < q.end() for q in _UNIT_NUMBER_RE.finditer(text)):
+                continue  # "3 racks" is a value/unit, not a following property label.
             hits.append((match.start(), match.end(), label))
     # Prefer the longest phrase at the same location (e.g. design pressure).
     hits.sort(key=lambda item: (item[0], -(item[1] - item[0])))
@@ -168,9 +172,15 @@ def _answer_segments(answer: str):
     text = re.sub(r"(?<=\d)\.(?=\d)", "\uE000", text)
     text = re.sub(r"\b(sq|no|rev)\.(?=[a-z])", lambda m: m.group(1) + "\uE001", text, flags=re.I)
     text = re.sub(r"\b(sq\uE001m|sq\uE001ft)\.(?=\s|\b|[.,;])", lambda m: m.group(1) + "\uE002", text, flags=re.I)
+    for filename in {key[0] for _, key in citations}:
+        text = text.replace(filename, filename.replace('.', '\uE003'))
+    # Markdown commonly places a property label on the line before its value.
+    # Join that one boundary while preserving offsets/citation positions.
+    text = re.sub(r'(?m)^[^\n.!?]{1,100}:\*{0,2}[ \t]*\n(?=[ \t]*(?:[-*][ \t]+)?\*{0,2}[-+]?\d)',
+                  lambda m:m[0].replace('\n',' '),text)
     segments = []
-    for match in re.finditer(r"[^.!?\n]+(?:[.!?]+|$)", text):
-        body = match.group().replace("\uE000", ".").replace("\uE001", ".").replace("\uE002", ".").strip()
+    for match in re.finditer(r"[^.!?\n]+(?:[.!?]+|(?=\n)|$)", text):
+        body = match.group().replace("\uE000", ".").replace("\uE001", ".").replace("\uE002", ".").replace("\uE003", ".").strip()
         if body:
             segments.append((match.start(), match.end(), body))
     attached = []
@@ -212,6 +222,13 @@ def _span_lines(body: str):
             lines.extend(table_row_units(body))
         except Exception:
             pass
+    # PDF text wraps one sentence over several lines; a whole sentence is one
+    # source span too (2026-10-21: "+-20C ... super structure" was split).
+    prose = " ".join(l for l in lines if not l.startswith("|") and not l.startswith("[TABLE"))
+    for sent in re.split(r"(?<=[.;])\s+(?=[A-Z(\u2022\-*\d])|\s*\u2022\s*", prose):
+        sent = sent.strip()
+        if 20 <= len(sent) <= 600 and sent not in lines:
+            lines.append(sent)
     return lines
 
 
@@ -230,6 +247,8 @@ def claim_support_issues(answer: str, evidence: str, sources, question: str = ""
     from intelligence.answer_guard import MARKER, _excerpts_by_page, numbers, quantity_pairs
     from intelligence.source_semantics import explicit_states, native_revision, requested_authority
 
+    # PDFs often encode the degree sign as a letter: "20OC", "20 oC", "20ºC".
+    evidence = re.sub(r"(?<=\d)\s?[Oo\u00ba\u00b0]\s?C\b", "\u00b0C", evidence or "")
     excerpts = _excerpts_by_page(evidence)
     allowed = {
         (str(s.get("source") or s.get("filename") or ""),
@@ -238,6 +257,10 @@ def claim_support_issues(answer: str, evidence: str, sources, question: str = ""
     }
     issues = []
     segments = _answer_segments(answer)
+    plain_lines = [line.strip() for line in MARKER.sub('',answer).splitlines()]
+    table_headers = {before for before,after in zip(plain_lines,plain_lines[1:])
+                     if before.startswith('|') and after.startswith('|')
+                     and all(re.fullmatch(r':?-+:?',cell.strip()) for cell in after.strip('|').split('|'))}
     answer_without_server_notes = re.split(r"(?im)^\s*Source qualifications:", answer, maxsplit=1)[0]
     answer_revisions = {m.group(1).upper() for m in _REVISION_RE.finditer(answer_without_server_notes)}
 
@@ -246,7 +269,24 @@ def claim_support_issues(answer: str, evidence: str, sources, question: str = ""
         query_entities = set()
 
     for segment, cited_keys in segments:
+        if segment.strip() in table_headers:
+            continue  # The data rows still bind their values to these headers.
         if not _material(segment):
+            continue
+        # A narrowly shaped source/list introduction is presentation, not an
+        # engineering assertion. Keep checking every substantive list item.
+        intro = re.sub(r'[*_`]+', '', segment).strip()
+        for source in sources:
+            if isinstance(source, dict):
+                name = str(source.get('source') or source.get('filename') or '')
+                if name:
+                    intro = re.sub(re.escape(name), '', intro, flags=re.I)
+        if re.fullmatch(r'Based on (?:the )?(?:attached|provided|uploaded) document\s*[,;:]?\s*(?:here (?:are|is)|the following)\b[^.!?]*:',intro,re.I):
+            without_pages = re.sub(r'\bpage\s+\d+\b','',intro,flags=re.I)
+            if not numbers(without_pages) and not _UNIT_NUMBER_RE.search(intro):
+                continue
+        if (intro.rstrip().endswith(':') and re.match(r'(?i)\s*(?:based on|according to|from|in)\b', intro)
+                and not numbers(re.sub(r'\bpage\s+\d+\b', '', intro, flags=re.I))):
             continue
         valid_keys = [key for key in cited_keys if key in allowed and key in excerpts]
         if not valid_keys:
@@ -261,7 +301,13 @@ def claim_support_issues(answer: str, evidence: str, sources, question: str = ""
             if len(stage_values) > 1:
                 issues.append("AMBIGUOUS: cited sources contain conflicting design-stage values")
             if not stage_claim or _metadata_text(stage_claim.group(1)) not in stage_values:
-                issues.append("Claimed design stage is not bound to a supported cited source field")
+                # Prose form: "the Concept design stage" is supported when the cited
+                # page states the same "<name> design stage" phrase (2026-10-21).
+                _named = [m.group(1).casefold() for m in re.finditer(r"\b([A-Za-z][\w-]*)\s+design\s+stage\b", stage_segment, re.I)
+                          if m.group(1).casefold() not in {"the", "this", "that", "which", "a", "current", "same"}]
+                _body_text = " ".join(re.sub(r"\s+", " ", b) for _, b in bodies).casefold()
+                if not (_named and all(re.search(r"\b%s\s+design\s+stage\b" % re.escape(n), _body_text) for n in _named)):
+                    issues.append("Claimed design stage is not bound to a supported cited source field")
         props = _property_matches(segment)
         entities = [m.group() for m in _IDENTIFIER_RE.finditer(segment)]
         if not entities and len(query_entities) > 1 and _UNIT_NUMBER_RE.search(segment):
@@ -305,9 +351,38 @@ def claim_support_issues(answer: str, evidence: str, sources, question: str = ""
                         entity_pages.add(key)
                     if prop and not re.search(_property_pattern(prop), line, re.I):
                         continue
+                    # A line may contain several columns/properties. Bind a
+                    # value to its own property span rather than pooling the
+                    # whole row (design pressure is not operating pressure).
+                    source_props = _property_matches(line)
+                    property_spans = []
+                    for position, hit in enumerate(source_props):
+                        if hit[2] == prop:
+                            end = source_props[position + 1][0] if position + 1 < len(source_props) else len(line)
+                            property_spans.append(line[hit[0]:end])
+                    pair_text = '\n'.join(property_spans) if len(source_props) > 1 else line
                     value_unit_matches = any(
                         v == value and _unit_equal(u, unit)
-                        for v, u in quantity_pairs(line))
+                        for v, u in quantity_pairs(pair_text))
+                    if (not value_unit_matches and len(source_props) > 1 and len(line) >= 40
+                            and not line.startswith(('|', '[TABLE')) and '|' not in line):
+                        # Prose sentence (not a table row): property word and exact
+                        # value+unit in the same sentence is one supported span.
+                        # Only "<value> ... <property>" inside one clause: no other
+                        # number, property or clause break between them.
+                        for vm in re.finditer(r"(?<![\d.])%s(?![\d])" % re.escape(str(value)), line):
+                            if not any(v == value and _unit_equal(u, unit) for v, u in quantity_pairs(line[vm.start():vm.end() + 6])):
+                                continue
+                            tail = line[vm.end():]
+                            pm = re.search(_property_pattern(prop), tail, re.I)
+                            if not pm:
+                                continue
+                            gap = tail[:pm.start()]
+                            gap_no_unit = re.sub(r"^\s*[A-Za-z\u00b0%/\u00b2\u00b3\u00b5]{0,6}", "", gap)
+                            if (len(gap) <= 80 and not re.search(r"[;,:]|\d", gap_no_unit)
+                                    and not any(h[0] >= vm.end() and h[0] < vm.end() + pm.start() for h in source_props)):
+                                value_unit_matches = True
+                                break
                     if value_unit_matches and key:
                         value_property_pages.add(key)
                     if value_unit_matches and (not entity or _contains_phrase(line, entity)):
@@ -373,20 +448,34 @@ def claim_support_issues(answer: str, evidence: str, sources, question: str = ""
                 for match in pattern.finditer(body):
                     if _BOILERPLATE_QUALIFIER_RE.search(match.group()):
                         continue
-                    core = [w.casefold() for w in re.findall(r"[A-Za-z]{3,}", match.group())
+                    # Stop at a following "Label:" line (evidence metadata such as
+                    # "Entity:"/"Page:"), which is not part of the qualifier.
+                    _qtext = re.split(r"\n\s*[A-Za-z][\w /-]{0,30}:", match.group())[0]
+                    core = [w.casefold() for w in re.findall(r"[A-Za-z]{3,}", _qtext)
                             if w.casefold() not in _STOP_WORDS]
                     if not core:
                         continue
                     match_pos = match.start()
-                    line_start = body.rfind('\n', 0, match_pos)
-                    line_end = body.find('\n', match.end())
-                    qual_sentence = body[line_start if line_start != -1 else 0 : line_end if line_end != -1 else len(body)]
+                    sent_start = 0
+                    for sm in re.finditer(r'(?:(?<=[.!?])\s+|\n+)', body[:match_pos]):
+                        sent_start = sm.end()
+                    sent_end_match = re.search(r'(?:(?<=[.!?])(?:\s+|$)|[\n;])', body[match.end():])
+                    sent_end = match.end() + sent_end_match.start() if sent_end_match else len(body)
+                    qual_sentence = body[sent_start:sent_end]
                     qual_context_words = {w.casefold() for w in re.findall(r"[A-Za-z]{3,}", qual_sentence)} - _STOP_WORDS - set(core)
                     segment_words = {w.casefold() for w in re.findall(r"[A-Za-z]{3,}", segment)} - _STOP_WORDS
                     if qual_context_words and not (qual_context_words & segment_words):
                         continue
+                    _qn = set(numbers(qual_sentence))
+                    if _qn and not (_qn & set(numbers(segment))):
+                        continue  # a numeric limit qualifies only statements of that value
                     if not all(re.search(r"\b" + re.escape(word) + r"\b", segment, re.I) for word in core):
                         issues.append("Answer omits or changes a source qualification")
+                        try:
+                            from loguru import logger as _lg
+                            _lg.info("Qualification check: source={!r} core={} segment={!r}", match.group()[:160], core, segment[:300])
+                        except Exception:
+                            pass
                         break
 
         # Preserve polarity for matching source/candidate propositions.
@@ -449,6 +538,10 @@ def claim_support_issues(answer: str, evidence: str, sources, question: str = ""
             _seg_words = {w.casefold() for w in re.findall(r"[A-Za-z]{3,}", segment)} - _STOP_WORDS
             _src_words = {w.casefold() for _, body in bodies for w in re.findall(r"[A-Za-z]{3,}", body)}
             if len(_seg_words) >= 4 and len(_seg_words & _src_words) / len(_seg_words) >= 0.8:
+                structured = True
+        if domain_words and not structured and answer_numbers:
+            _seg_nums = set(numbers(re.sub(r'(?i)\b(?:page|section|clause|table|figure)\s+[\d.]+', ' ', segment)))
+            if any(_seg_nums <= set(numbers(body)) for _, body in bodies):
                 structured = True
         if domain_words and not structured:
             issues.append("Unparsed material engineering claim requires review")

@@ -1,7 +1,0 @@
-warning: The `fitz` API is deprecated and will be removed in future. Use `import pymupdf` instead.
-test_no_stage_failure_publishes_ready_and_retry_can_complete (test_stage_failure_matrix.StageFailureMatrix.test_no_stage_failure_publishes_ready_and_retry_can_complete) ... ok
-
-----------------------------------------------------------------------
-Ran 1 test in 1.686s
-
-OK

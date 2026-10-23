@@ -16,7 +16,7 @@ def load_pair(reference_path, mask_path):
     r, g, b, a = rgba.split()
     if r.tobytes() != g.tobytes() or r.tobytes() != b.tobytes() or a.getextrema() != (255, 255):
         raise ValueError('Mask must be opaque black and white; transparency and colour are unsupported')
-    values = set(r.getdata())
+    values = set(r.tobytes())  # single-band 8-bit: bytes are the pixel values
     if values != {0, 255}:
         raise ValueError('Mask must contain both black protected pixels and white editable pixels, with no grey')
     return reference, r

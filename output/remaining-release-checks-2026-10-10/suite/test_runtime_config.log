@@ -1,7 +1,0 @@
-test_cors_both_formats (test_runtime_config.RuntimeConfigTests.test_cors_both_formats) ... ok
-test_no_32b_or_arbitrary_models (test_runtime_config.RuntimeConfigTests.test_no_32b_or_arbitrary_models) ... ok
-
-----------------------------------------------------------------------
-Ran 2 tests in 0.009s
-
-OK

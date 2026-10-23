@@ -1,11 +1,11 @@
 {
   "_meta": {
     "id": "architecture_concept",
-    "name": "FLUX.2 Klein 4B \u2014 Text to Image",
-    "version": "1.1.0",
+    "name": "FLUX 3 Image Klein - Text to Image",
+    "version": "3.0.0",
     "category": "concept",
-    "description": "Local distilled FLUX.2-klein-4B architectural concept rendering, four sampling steps.",
-    "license_notes": "FLUX.2-klein-4B: Apache-2.0. Required text encoder and VAE use their respective model licenses.",
+    "description": "Local FLUX 3 Image Klein (distilled, int8) architectural concept rendering, 16 sampling steps.",
+    "license_notes": "FLUX 3 Image Klein (5.6B, step-distilled, int8): FLUX Kommunity License - free commercial use only for individuals/organisations under US$5M annual revenue; larger organisations need a licence from Black Forest Labs. Text encoder qwen3vl_4b and flux2-vae under their own licences. Runs fully offline.",
     "parameters": [
       {
         "name": "prompt",
@@ -41,9 +41,10 @@
         "name": "steps",
         "type": "integer",
         "label": "Steps",
-        "default": 4,
-        "min_value": 1,
-        "max_value": 4
+        "default": 16,
+        "min_value": 4,
+        "max_value": 24,
+        "description": "FLUX 3 Image Klein (distilled) sampling steps; 16 recommended"
       },
       {
         "name": "cfg",
@@ -51,22 +52,23 @@
         "label": "CFG Scale",
         "default": 1.0,
         "min_value": 1.0,
-        "max_value": 1.0
+        "max_value": 1.0,
+        "description": "Fixed at 1.0 for FLUX 3 Image Klein (distilled)"
       }
     ]
   },
   "1": {
     "class_type": "UNETLoader",
     "inputs": {
-      "unet_name": "flux-2-klein-4b.safetensors",
+      "unet_name": "flux3-image-klein-int8-convrot.safetensors",
       "weight_dtype": "default"
     }
   },
   "2": {
     "class_type": "CLIPLoader",
     "inputs": {
-      "clip_name": "qwen_3_4b.safetensors",
-      "type": "flux2",
+      "clip_name": "qwen3vl_4b_int8_convrot.safetensors",
+      "type": "flux3",
       "device": "default"
     }
   },
@@ -103,28 +105,8 @@
       "batch_size": 1
     }
   },
-  "7": {
-    "class_type": "RandomNoise",
-    "inputs": {
-      "noise_seed": 42
-    }
-  },
-  "8": {
-    "class_type": "KSamplerSelect",
-    "inputs": {
-      "sampler_name": "euler"
-    }
-  },
-  "9": {
-    "class_type": "Flux2Scheduler",
-    "inputs": {
-      "steps": 4,
-      "width": 1024,
-      "height": 768
-    }
-  },
-  "10": {
-    "class_type": "CFGGuider",
+  "11": {
+    "class_type": "KSampler",
     "inputs": {
       "model": [
         "1",
@@ -138,32 +120,19 @@
         "5",
         0
       ],
-      "cfg": 1.0
-    }
-  },
-  "11": {
-    "class_type": "SamplerCustomAdvanced",
-    "inputs": {
-      "noise": [
-        "7",
-        0
-      ],
-      "guider": [
-        "10",
-        0
-      ],
-      "sampler": [
-        "8",
-        0
-      ],
-      "sigmas": [
-        "9",
-        0
-      ],
       "latent_image": [
         "6",
         0
-      ]
+      ],
+      "seed": 42,
+      "steps": 16,
+      "cfg": 1.0,
+      "sampler_name": "euler",
+      "scheduler": "simple",
+      "denoise": 1.0
+    },
+    "_meta": {
+      "title": "KSampler (FLUX 3)"
     }
   },
   "12": {
@@ -186,7 +155,7 @@
         "12",
         0
       ],
-      "filename_prefix": "Expo_Flux_Klein"
+      "filename_prefix": "Expo_Flux3_Klein"
     }
   }
 }

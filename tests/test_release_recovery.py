@@ -6,7 +6,7 @@ from services.jobs import JobQueue
 
 class ReleaseRecovery(unittest.TestCase):
     def test_configured_page_limit_and_truncation_cannot_publish_ready(self):
-        tree=ast.parse((Path(__file__).resolve().parents[1]/'main.py').read_text())
+        tree=ast.parse((Path(__file__).resolve().parents[1]/'main.py').read_text(encoding='utf-8'))
         function=next(n for n in tree.body if isinstance(n,ast.FunctionDef) and n.name=='process_document')
         with tempfile.TemporaryDirectory() as root:
             path=str(Path(root)/'source.pdf');Path(path).write_bytes(b'%PDF synthetic source')
@@ -28,7 +28,7 @@ class ReleaseRecovery(unittest.TestCase):
             self.assertFalse(Path(path+'.index.json').exists())
 
     def test_index_flush_failure_preserves_published_generation(self):
-        tree=ast.parse((Path(__file__).resolve().parents[1]/'main.py').read_text())
+        tree=ast.parse((Path(__file__).resolve().parents[1]/'main.py').read_text(encoding='utf-8'))
         function=next(n for n in tree.body if isinstance(n,ast.FunctionDef) and n.name=='_persist_index_generation')
         with tempfile.TemporaryDirectory() as root:
             target=Path(root)/'Synthetic';target.mkdir();(target/'index.faiss').write_bytes(b'published')
@@ -97,7 +97,7 @@ class ReleaseRecovery(unittest.TestCase):
             self.assertEqual(meta['pages'][0]['verification_state'],'REVIEW_REQUIRED')
 
     def test_pipeline_does_not_publish_ready_or_skip_failed_pages(self):
-        tree=ast.parse((Path(__file__).resolve().parents[1]/'services/pipeline.py').read_text())
+        tree=ast.parse((Path(__file__).resolve().parents[1]/'services/pipeline.py').read_text(encoding='utf-8'))
         function=next(n for n in tree.body if isinstance(n,ast.FunctionDef) and n.name=='process_document_pipeline')
         assignments=[n for n in ast.walk(function) if isinstance(n,ast.Assign)
                      and any(isinstance(t,ast.Attribute) and t.attr=='status' for t in n.targets)]

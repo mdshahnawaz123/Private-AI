@@ -17,18 +17,20 @@ from alembic import command
 from alembic.config import Config
 from alembic.migration import MigrationContext
 from alembic.autogenerate import compare_metadata
-from sqlalchemy import inspect
+from sqlalchemy import inspect, text
 import db
 cfg=Config('alembic.ini')
 command.upgrade(cfg,'ccc9bcc47ca6')
 with db.SessionLocal() as session:
-    session.add(db.User(username='migration-fixture',password_hash='synthetic-not-a-login',role='user'))
+    # Raw SQL: the initial schema predates later ORM user fields (e.g. auth_provider).
+    session.execute(text("INSERT INTO users(username,password_hash,role,is_active,auth_version) VALUES ('migration-fixture','synthetic-not-a-login','user',1,0)"))
     session.commit()
 command.upgrade(cfg,'b2c3d4e5f6a7')
 with db.SessionLocal() as session:
-    project=db.Project(name='migration-fixture-project')
-    session.add(project);session.flush()
-    session.add(db.Document(project_id=project.id,filename='synthetic.pdf',path='synthetic.pdf',status='ready'))
+    # The intermediate schema intentionally predates current ORM fields.
+    session.execute(text("INSERT INTO projects(name) VALUES ('migration-fixture-project')"))
+    project_id=session.execute(text("SELECT id FROM projects WHERE name='migration-fixture-project'")).scalar_one()
+    session.add(db.Document(project_id=project_id,filename='synthetic.pdf',path='synthetic.pdf',status='ready'))
     session.commit()
 command.upgrade(cfg,'head')
 with db.SessionLocal() as session:

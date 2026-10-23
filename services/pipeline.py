@@ -25,88 +25,55 @@ def get_images_from_page(doc, page_num):
 def classify_image(w, h):
     area = w * h
     ratio = w / h if h else 1
-    if area < 20000:
-        return "UNKNOWN"  # Small engineering tags/legends can still be evidence.
-    if ratio > 5.0 or ratio < 0.2:
-        return "UNKNOWN"  # Aspect ratio cannot establish decorative content.
+    # Tiny logos, stamp icons, bullets, and thin divider lines (< 10k px or < 80px dimension)
+    if area < 10000 or w < 80 or h < 80:
+        return "DECORATIVE"
     if area > 100000 and 0.5 < ratio < 2.0:
         return "ENGINEERING_TABLE"
     return "UNKNOWN"
 
-def run_easyocr(img_path):
-    if not ocr_reader:
-        return None, "EasyOCR not installed"
-
+def run_paddleocr(img_path):
+    from services.vision_adapter import PaddleOCRExtractor
     t0 = time.time()
     try:
-        results = ocr_reader.readtext(img_path)
+        extractor = PaddleOCRExtractor()
+        res = extractor.extract(img_path)
+        if res.get("success") and res.get("raw_text"):
+            t = time.time() - t0
+            return res["raw_text"], f"Time: {t:.1f}s"
+        return None, res.get("error", "No text found")
     except Exception as e:
         return None, str(e)
 
-    # Simple heuristic to see if it's a clean table
-    if not results:
-        return None, "No text found"
-
-    # Group by Y-coordinate
-    rows = []
-    current_row = []
-    current_y = None
-
-    # Sort by Y top-left
-    results.sort(key=lambda x: x[0][0][1])
-
-    for bbox, text, conf in results:
-        y = bbox[0][1]
-        if current_y is None:
-            current_y = y
-
-        if abs(y - current_y) < 15: # 15px threshold
-            current_row.append((bbox[0][0], text)) # x-coord, text
-        else:
-            current_row.sort(key=lambda x: x[0])
-            rows.append([t for _, t in current_row])
-            current_row = [(bbox[0][0], text)]
-            current_y = y
-
-    if current_row:
-        current_row.sort(key=lambda x: x[0])
-        rows.append([t for _, t in current_row])
-
-    # Check if we have a consistent grid
-    if len(rows) < 2:
-        return None, "Not enough rows for table"
-
-    # If standard deviation of column counts is high, it's not a clean table
-    col_counts = [len(r) for r in rows]
-    avg_cols = sum(col_counts) / len(col_counts)
-    if avg_cols < 2:
-        return None, "Not enough columns"
-
-    diffs = [abs(c - avg_cols) for c in col_counts]
-    if sum(diffs) / len(diffs) > 1.0: # Too much variance
-        return None, "Ambiguous row/column mapping"
-
-    # Build markdown table string
-    md = ""
-    for r in rows:
-        md += "| " + " | ".join(r) + " |\n"
-        if md.count("\n") == 1:
-            md += "|---" * len(r) + "|\n"
-
-    t = time.time() - t0
-    return md, f"Time: {t:.1f}s"
+# Backward compatibility alias
+run_easyocr = run_paddleocr
 
 def run_qwen_vl(img_path, page_text=""):
+    try:
+        from services.chat_activity import wait_until_idle as _wait_idle
+        _wait_idle()  # background upload work pauses while someone is chatting
+    except Exception:
+        pass
     t0 = time.time()
     with open(img_path, "rb") as f:
         b64 = base64.b64encode(f.read()).decode()
 
     prompt = f"Extract all engineering tables and numerical values from this image. Output strictly as a Markdown table. Page context: {page_text[:500]}"
     try:
-        res = httpx.post('http://localhost:11434/api/chat', json={
-            'model': 'qwen2.5vl:7b',
+        from config import resolve_role
+        vision_role = resolve_role('vision')
+        base_url = vision_role.get('base_url', '')
+        if not base_url or not base_url.startswith('http'):
+            chat_role = resolve_role('chat')
+            base_url = chat_role.get('base_url', 'http://127.0.0.1:11434')
+        model_name = 'qwen2.5vl:7b' if vision_role.get('model') in ('paddleocr', 'qwen2.5vl:7b') else vision_role.get('model', 'qwen2.5vl:7b')
+        if model_name not in ('qwen2.5vl:7b', 'qwen3.5:9b', 'qwen2.5:7b'):
+            model_name = 'qwen2.5vl:7b'
+        res = httpx.post(f"{base_url.rstrip('/')}/api/chat", json={
+            'model': model_name,
             'stream': False,
-            'messages': [{'role': 'user', 'content': prompt, 'images': [b64]}]
+            'messages': [{'role': 'user', 'content': prompt, 'images': [b64]}],
+            'options': {'temperature': 0, 'num_ctx': 8192}
         }, timeout=120)
         text = res.json().get('message', {}).get('content', '')
         t = time.time() - t0
@@ -196,9 +163,11 @@ def process_document_pipeline(project_id, save_path, filename, resume=False, exp
 
             tabs = []
             try:
-                tabs = page.find_tables().tables if page.find_tables() else []
-            except:
-                pass
+                from services.pdf_text_quality import safe_find_tables
+                _ft = safe_find_tables(page)
+                tabs = _ft.tables if _ft else []
+            except Exception:
+                tabs = []
 
             if damaged_native:
                 tabs = []
@@ -445,21 +414,22 @@ def process_document_pipeline(project_id, save_path, filename, resume=False, exp
                 if itype in ("ENGINEERING_TABLE", "UNKNOWN"):
                     from services.vision_adapter import extract_visual_table
 
-                    # Ruled table inside the image -> cell-by-cell OCR grid
-                    # (services/image_tables.py); otherwise the usual OCR/vision.
-                    _grid = None
-                    try:
-                        from services.image_tables import table_from_image
-                        _grid = table_from_image(img_path)
-                    except Exception as _te:
-                        logger.warning(f"Image table detection failed for {img_filename}: {_te}")
-                    if _grid:
-                        res = {"success": True, "engine": "IMAGE_TABLE_CELL_OCR",
-                               "raw_text": "\n".join("| " + " | ".join(r) + " |" for r in _grid)}
-                    elif xref in xref_results:
+                    if itype != "ENGINEERING_TABLE" and xref in xref_results:
                         res = dict(xref_results[xref])
                     else:
-                        res = extract_visual_table(img_path, text,drawing=True)
+                        # Ruled table inside the image -> cell-by-cell OCR grid
+                        # (services/image_tables.py); otherwise the usual OCR/vision.
+                        _grid = None
+                        try:
+                            from services.image_tables import table_from_image
+                            _grid = table_from_image(img_path)
+                        except Exception as _te:
+                            logger.warning(f"Image table detection failed for {img_filename}: {_te}")
+                        if _grid:
+                            res = {"success": True, "engine": "IMAGE_TABLE_CELL_OCR",
+                                   "raw_text": "\n".join("| " + " | ".join(r) + " |" for r in _grid)}
+                        else:
+                            res = extract_visual_table(img_path, text, drawing=True)
                         if res.get("raw_text"):
                             xref_results[xref] = dict(res)
                     ext_method = res.get("engine", "FAILED")
@@ -528,10 +498,17 @@ def process_document_pipeline(project_id, save_path, filename, resume=False, exp
                                     )
                                     session.add(rec)
                     else:
-                        ir.vision_status = "FAILED"
-                        ir.structured_extraction_status = "FAILED"
-                        ir.processing_error = res.get("error") or "Visual extraction failed"
-                        pipeline_warnings = True
+                        err_str = str(res.get("error") or "")
+                        # Non-text graphic/solid color or empty detection is not a system failure
+                        if "No text found" in err_str or "completely black" in err_str.lower() or not err_str:
+                            ir.vision_status = "SKIPPED"
+                            ir.structured_extraction_status = "NOT_REQUIRED"
+                            ir.visual_description = "[NON-TEXT GRAPHIC / DECORATIVE]"
+                        else:
+                            ir.vision_status = "FAILED"
+                            ir.structured_extraction_status = "FAILED"
+                            ir.processing_error = err_str or "Visual extraction failed"
+                            pipeline_warnings = True
 
                 session.commit()
                 img_idx += 1

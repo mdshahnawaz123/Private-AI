@@ -15,7 +15,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 class WorkspaceTests(unittest.IsolatedAsyncioTestCase):
     async def test_selected_cad_is_used_and_deleted_source_rejected(self):
-        from fastapi import Query, HTTPException
+        from fastapi import Query, HTTPException, Request
         import os
         tree=ast.parse((ROOT/'services/masterplan/api.py').read_text(encoding='utf-8'))
         fn=next(n for n in tree.body if isinstance(n,ast.AsyncFunctionDef) and n.name=='get_project_cad_drawing')
@@ -26,23 +26,27 @@ class WorkspaceTests(unittest.IsolatedAsyncioTestCase):
             files=[{'id':'A','file_type':'cad','file_path':str(a)},{'id':'B','file_type':'cad','file_path':str(b)}]
             cache={('Test',str(a),os.path.getmtime(a)):{'selected':'A'},('Test',str(b),os.path.getmtime(b)):{'selected':'B'}}
             from typing import Optional
-            env={'Optional':Optional,'Query':Query,'HTTPException':HTTPException,'db':types.SimpleNamespace(get_file_records=lambda p:files),'os':os,'_CAD_DRAWING_CACHE':cache}
+            auth_mock = types.SimpleNamespace(require_user=lambda r: {'id': 'admin', 'role': 'admin'}, user_has_project=lambda u, p: True, require_project=lambda r, p: None)
+            env={'Request':Request,'Optional':Optional,'Query':Query,'HTTPException':HTTPException,'db':types.SimpleNamespace(get_file_records=lambda p:files),'os':os,'_CAD_DRAWING_CACHE':cache,'auth':auth_mock}
             exec(compile(ast.Module(body=[fn],type_ignores=[]),'api','exec'),env)
-            self.assertEqual((await env['get_project_cad_drawing']('Test','B'))['selected'],'B')
+            mock_req = types.SimpleNamespace()
+            self.assertEqual((await env['get_project_cad_drawing']('Test', file_id='B', request=mock_req))['selected'],'B')
             with self.assertRaises(HTTPException) as error:
-                await env['get_project_cad_drawing']('Test','Deleted')
+                await env['get_project_cad_drawing']('Test', file_id='Deleted', request=mock_req)
             self.assertEqual(error.exception.status_code,404)
 
     async def test_mixed_type_routes_without_model_and_retains_all_ids_and_color(self):
         models = runpy.run_path(str(ROOT/'services/masterplan/models.py'))
         tree = ast.parse((ROOT/'services/masterplan/agent.py').read_text(encoding='utf-8'))
         cls = next(n for n in tree.body if isinstance(n, ast.ClassDef))
-        cls.body = [n for n in cls.body if isinstance(n, ast.FunctionDef) and n.name in ('_execute_tool','_fallback_deterministic_plan') or isinstance(n, ast.AsyncFunctionDef) and n.name == 'process_query']
+        cls.body = [n for n in cls.body if isinstance(n, ast.FunctionDef) and n.name in ('_execute_tool','_fallback_deterministic_plan','_extract_plot_ids_from_query') or isinstance(n, ast.AsyncFunctionDef) and n.name == 'process_query']
         plots = [types.SimpleNamespace(plot_id=f'P-{i}', far=1.0, achieved_gfa=10, area_sqm=10, sector='A',land_use='Mixed Use',status='compliant', dict=lambda **kw: {}) for i in range(34)]
         for p in plots:
             p.dict = lambda p=p, **kw: vars(p)
         database = types.SimpleNamespace(get_plots=Mock(return_value=plots))
-        env = {'parse_view_command':runpy.run_path(str(ROOT/'services/masterplan/view_commands.py'))['parse_view_command'],'re':re,'db':database,'Dict':dict,'Any':object,'MasterplanAIQueryResponse':models['MasterplanAIQueryResponse'],'MasterplanAIQueryRequest':models['MasterplanAIQueryRequest']}
+        from typing import Optional, List, Tuple, Dict, Any
+        from loguru import logger
+        env = {'parse_view_command':runpy.run_path(str(ROOT/'services/masterplan/view_commands.py'))['parse_view_command'],'re':re,'db':database,'Dict':Dict,'Any':Any,'Optional':Optional,'List':List,'Tuple':Tuple,'logger':logger,'MasterplanAIQueryResponse':models['MasterplanAIQueryResponse'],'MasterplanAIQueryRequest':models['MasterplanAIQueryRequest']}
         exec(compile(ast.Module(body=[cls],type_ignores=[]),'agent','exec'),env)
         agent = env['MasterplanAIAgent']()
         result = await agent.process_query(models['MasterplanAIQueryRequest'](query='show all mixed type in yellow',project_id='Test'))
@@ -56,7 +60,8 @@ class WorkspaceTests(unittest.IsolatedAsyncioTestCase):
         tree=ast.parse((ROOT/'services/masterplan/agent.py').read_text(encoding='utf-8'))
         cls=next(n for n in tree.body if isinstance(n,ast.ClassDef))
         method=next(n for n in cls.body if isinstance(n,ast.FunctionDef) and n.name=='_fallback_deterministic_plan')
-        env={'re':re,'MasterplanAIQueryResponse':models['MasterplanAIQueryResponse']}
+        from typing import Optional, List, Tuple, Dict, Any
+        env={'re':re,'MasterplanAIQueryResponse':models['MasterplanAIQueryResponse'],'Optional':Optional,'List':List,'Tuple':Tuple,'Dict':Dict,'Any':Any}
         exec(compile(ast.Module(body=[method],type_ignores=[]),'agent','exec'),env)
         result=env['_fallback_deterministic_plan'](None,'audit cad','Test')
         self.assertEqual(result.confidence,0)

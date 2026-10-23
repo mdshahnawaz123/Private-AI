@@ -6,6 +6,7 @@ import ast
 import re
 import runpy
 import types
+from typing import Optional, List, Dict, Any
 import ezdxf
 
 spec=importlib.util.spec_from_file_location('hatch_link',Path(__file__).resolve().parents[1]/'services/masterplan/parsers/hatch_link.py')
@@ -69,9 +70,12 @@ class HatchTests(unittest.TestCase):
         tree=ast.parse((root/'services/masterplan/agent.py').read_text(encoding='utf-8'))
         cls=next(n for n in tree.body if isinstance(n,ast.ClassDef))
         fn=next(n for n in cls.body if isinstance(n,ast.FunctionDef) and n.name=='_fallback_deterministic_plan')
-        env={'re':re,'json':json,'db':types.SimpleNamespace(get_plots=lambda p:[plot]),'MasterplanAIQueryResponse':models['MasterplanAIQueryResponse']}
+        env={'re':re,'json':json,'db':types.SimpleNamespace(get_plots=lambda p:[plot],get_plot=lambda p,pid:plot),'MasterplanAIQueryResponse':models['MasterplanAIQueryResponse'],'Optional':Optional,'List':List,'Dict':Dict,'Any':Any}
         exec(compile(ast.Module(body=[fn],type_ignores=[]),'agent','exec'),env)
-        result=env['_fallback_deterministic_plan'](None,'tell me area of 5210766','Test')
+        class FakeSelf:
+            def _extract_plot_ids_from_query(self, query, all_plots):
+                return ['P-5210766'] if '5210766' in str(query) else []
+        result=env['_fallback_deterministic_plan'](FakeSelf(),'tell me area of 5210766','Test')
         self.assertEqual(result.intent,'INSPECT_PLOT')
         self.assertIn('400.00',result.answer)
         self.assertIn('100.00',result.answer)

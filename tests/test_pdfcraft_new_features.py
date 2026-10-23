@@ -1,21 +1,21 @@
+import os
+import unittest
+if __name__ != "__main__" or os.getenv("EXPO_RUN_LIVE_SECURITY_TESTS") != "1":
+    raise unittest.SkipTest("Manual live PDF script: explicit opt-in and test credentials required")
 import requests
 import sqlite3
 import os
 import sys
 
-sys.path.insert(0, os.path.abspath("."))
-import auth
-
-conn = sqlite3.connect("data/expo.db")
-cur = conn.cursor()
-user_row = cur.execute("SELECT id, username, role FROM users WHERE username='admin'").fetchone()
-token = auth.make_token({"id": user_row[0], "username": user_row[1], "role": user_row[2]})
-headers = {"Authorization": f"Bearer {token}"}
+BASE_URL = os.environ["EXPO_TEST_BASE_URL"].rstrip("/")
+login = requests.post(BASE_URL + "/auth/login", json={"username":os.environ["EXPO_TEST_USERNAME"], "password":os.environ["EXPO_TEST_PASSWORD"]}, timeout=10)
+login.raise_for_status()
+headers = {"Authorization": "Bearer " + login.json()["token"]}
 
 print("=" * 60)
 print("TEST 1: Loading Architectural Sample PDF in PdfCraft Studio")
 print("=" * 60)
-r = requests.get("http://127.0.0.1:8090/api/v1/pdf/sample/sample_expo_masterplan_spec", headers=headers)
+r = requests.get(f"{BASE_URL}/api/v1/pdf/sample/sample_expo_masterplan_spec", headers=headers)
 assert r.status_code == 200, f"Expected 200, got {r.status_code}: {r.text}"
 doc_id = r.json()["doc_id"]
 print(f" PASS: Opened document: {doc_id}")
@@ -23,7 +23,7 @@ print(f" PASS: Opened document: {doc_id}")
 print("\n" + "=" * 60)
 print("TEST 2: Running Redaction Security Audit (storytold/pdfcraft crates/audit)")
 print("=" * 60)
-audit_resp = requests.get(f"http://127.0.0.1:8090/api/v1/pdf/audit?doc_id={doc_id}", headers=headers)
+audit_resp = requests.get(f"{BASE_URL}/api/v1/pdf/audit?doc_id={doc_id}", headers=headers)
 assert audit_resp.status_code == 200, f"Expected 200, got {audit_resp.status_code}: {audit_resp.text}"
 audit_data = audit_resp.json()
 print(" PASS: Audit executed successfully!")
@@ -33,7 +33,7 @@ print(f"       Summary: {audit_data.get('summary')}")
 print("\n" + "=" * 60)
 print("TEST 3: Computing Document Statistics (storytold/pdfcraft text_word_count)")
 print("=" * 60)
-stats_resp = requests.get(f"http://127.0.0.1:8090/api/v1/pdf/stats?doc_id={doc_id}", headers=headers)
+stats_resp = requests.get(f"{BASE_URL}/api/v1/pdf/stats?doc_id={doc_id}", headers=headers)
 assert stats_resp.status_code == 200, f"Expected 200, got {stats_resp.status_code}: {stats_resp.text}"
 stats_data = stats_resp.json()
 print(" PASS: Statistics computed successfully!")
@@ -47,7 +47,7 @@ print("\n" + "=" * 60)
 print("TEST 4: Testing Permanent Redaction Burn & Sanitize Engine")
 print("=" * 60)
 redact_resp = requests.post(
-    "http://127.0.0.1:8090/api/v1/pdf/redact-apply",
+    f"{BASE_URL}/api/v1/pdf/redact-apply",
     json={
         "doc_id": doc_id,
         "redactions": [

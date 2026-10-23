@@ -1,7 +1,0 @@
-test_active_runner_and_nonempty_destination_are_rejected (test_backup_restore.BackupRestoreTests.test_active_runner_and_nonempty_destination_are_rejected) ... ok
-test_restore_database_and_artifact_and_reject_corruption (test_backup_restore.BackupRestoreTests.test_restore_database_and_artifact_and_reject_corruption) ... ok
-
-----------------------------------------------------------------------
-Ran 2 tests in 0.317s
-
-OK

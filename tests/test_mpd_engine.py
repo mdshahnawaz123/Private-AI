@@ -17,14 +17,31 @@ from services.masterplan.cad_graphics import MasterplanGraphicsEngine
 from services.masterplan.agent import MasterplanAIAgent
 
 
-TEST_PROJECT = "C3085 - 3EH -Expo Hills"
+TEST_PROJECT = "MPD ENGINE TEST"
+
+
+import pytest
+@pytest.fixture(autouse=True)
+def isolated_masterplan(tmp_path, monkeypatch):
+    monkeypatch.setenv('EXPO_MP_DB_PATH', str(tmp_path / 'masterplan.db'))
+    db.init_db()
+    plots=[]
+    for i, pid in enumerate(['P-105','P-203','P-333']):
+        x=i*400
+        plots.append(MasterplanPlot(plot_id=pid,project_id=TEST_PROJECT,
+            land_use='Residential' if i<2 else 'Commercial',area_sqm=30000,
+            achieved_gfa=120000 if i==0 else 30000,far=4 if i==0 else 1,
+            geometry=PlotGeometry(coordinates=[[x,0],[x+100,0],[x+100,300],[x,300]],
+                                  centroid=[x+50,150],bbox=[x,0,x+100,300])))
+    db.save_plots_bulk(TEST_PROJECT,plots)
+
 
 
 def test_masterplan_db_seeding():
     db.init_db()
     db.seed_default_masterplan(TEST_PROJECT)
     summary = db.get_project_summary(TEST_PROJECT)
-    assert summary.total_plots >= 20
+    assert summary.total_plots == 3
     assert summary.total_area_sqm > 50000.0
     assert "Residential" in summary.land_use_breakdown
 

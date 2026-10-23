@@ -1,0 +1,53 @@
+<!doctype html><meta charset="utf-8"><title>Fragments upgrade verification</title>
+<style>body{margin:0;background:#101827;color:white;font:16px system-ui}#status{padding:16px}canvas{display:block}</style>
+<div id="status">Checking model and worker…</div>
+<script>
+window.addEventListener('error', event => { document.getElementById('status').textContent = 'FAIL — ' + (event.message || 'Module or asset failed to load'); });
+window.addEventListener('unhandledrejection', event => { document.getElementById('status').textContent = 'FAIL — ' + event.reason; });
+</script>
+<script type="importmap">{"imports":{"three":"/assets/three.module.js","three/":"/assets/","web-ifc":"/assets/web-ifc-api.js"}}</script>
+<script type="module">
+import * as THREE from 'three';
+import * as FRAGS from '/assets/fragments/index.mjs?v=3.4.8';
+import {createBimTools} from '/bim_ai_tools.js';
+const status = document.getElementById('status');
+const check = (condition, message) => { if (!condition) throw new Error(message); };
+let engine;
+try {
+  const renderer = new THREE.WebGLRenderer({antialias:true});
+  renderer.setSize(1000, 650); document.body.appendChild(renderer.domElement);
+  const scene = new THREE.Scene(); scene.background = new THREE.Color('#101827');
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x555555, 3));
+  const camera = new THREE.PerspectiveCamera(60, 1000/650, 0.1, 100000);
+  engine = new FRAGS.FragmentsModels('/assets/fragments/Worker/worker.mjs?v=3.4.8');
+  const model = await engine.load(new Uint8Array(await (await fetch('/model.frag')).arrayBuffer()), {modelId:'verification', camera});
+  model.useCamera(camera); scene.add(model.object);
+  const box = model.box, center = box.getCenter(new THREE.Vector3());
+  const size = box.getSize(new THREE.Vector3()).length();
+  check(Number.isFinite(size) && size > 0, 'Missing model bounds');
+  camera.position.copy(center).add(new THREE.Vector3(size, size*0.6, size));
+  camera.lookAt(center); camera.updateMatrixWorld(true);
+  await engine.update(true);
+  const ids = await model.getItemsIdsWithGeometry();
+  check(ids.length > 0, 'Missing geometry IDs');
+  await model.highlight([ids[0]], {color:new THREE.Color('yellow'), renderedFaces:1, opacity:1, transparent:false});
+  await model.resetHighlight();
+  await engine.update(true); renderer.render(scene, camera);
+  check(renderer.info.render.triangles > 0, 'No triangles rendered');
+  const tools=createBimTools({getModels:()=>[{model,name:'Real IFC QA model'}],getSelected:()=>({modelId:model.modelId,localId:ids[0]}),
+    makeColor:x=>new THREE.Color(x),fit:()=>{},update:async()=>{await engine.update(true);renderer.render(scene,camera);}});
+  const run=async action=>{const result=await tools.execute([action]);check(result.ok,result.message);return result;};
+  const context=await tools.context();check(context.categories.length>0,'Missing category context');
+  await run({tool:'hide',selected:true});check((await model.getVisible([ids[0]]))[0]===false,'Hide did not change real visibility');
+  await run({tool:'undo'});check((await model.getVisible([ids[0]]))[0]===true,'Undo did not restore visibility');
+  await run({tool:'color',selected:true,color:'#ffff00'});
+  const properties=await run({tool:'properties',selected:true});check(properties.sources[0].data.length>0,'Properties were not read');
+  const category=context.categories.find(c=>c==='IFCDOOR')||context.categories[0];
+  await run({tool:'isolate',category});
+  await run({tool:'reset'});check((await model.getVisible(ids)).every(Boolean),'Reset did not restore all geometry');
+  const miss=await tools.execute([{tool:'isolate',category:'IFCNONEXISTENT'}]);check(!miss.ok,'Unknown category was not rejected');
+  status.textContent = `PASS — ${ids.length} real IFC items; ${renderer.info.render.triangles} triangles. Chat tools: hide, undo, colour, properties, isolate, reset and no-match checks passed.`;
+} catch(error) {
+  status.textContent = 'FAIL — ' + error.message; console.error(error);
+}
+</script>

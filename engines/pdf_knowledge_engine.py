@@ -210,7 +210,9 @@ class PDFKnowledgeEngine:
                                          "kind": "native_text", "quote": block[4], "bbox": list(block[:4]),
                                          "state": "INTERPRETED", "topics": _topics(block[4])})
                 try:
-                    tables = page.find_tables().tables
+                    from services.pdf_text_quality import safe_find_tables
+                    _ft = safe_find_tables(page)
+                    tables = _ft.tables if _ft else []
                     for number, table in enumerate(tables):
                         grid = [[str(c) if c is not None else "" for c in row] for row in table.extract()]
                         bbox = list(table.bbox)

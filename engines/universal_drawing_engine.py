@@ -295,6 +295,16 @@ class UniversalDrawingEngine:
         }
 
         # 1. Use PyMuPDF find_tables with line geometry inside schedule header bounds
+        # Safeguard against vector explosions on giant CAD drawing sheets
+        doc = getattr(page, "doc", None) or getattr(page, "parent", None)
+        if doc:
+            try:
+                xrefs = page.get_contents()
+                if sum(len(doc.xref_stream(x)) for x in xrefs) > 1_500_000:
+                    return schedules
+            except Exception:
+                pass
+
         for b in blocks:
             txt = b[4].strip()
             if any(k in txt.upper() for k in ["SCHEDULE", "SCEDULE"]):
@@ -443,6 +453,8 @@ class UniversalDrawingEngine:
             })
 
         return infra
+
+    def _extract_grids_and_dimensions(self, full_text: str) -> Dict[str, Any]:
         grids = {"lines": [], "dimensions": [], "bay_spacings": []}
         # Grid bubble lines (F1..F9, FA..FZ, J1..J9)
         lines = re.findall(r'\b(F[1-9]|F[A-Z]|J[1-9])\b', full_text)

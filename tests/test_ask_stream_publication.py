@@ -104,6 +104,9 @@ def _event_payload(frame):
 class AskStreamPublicationTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
+        import os
+        cls._prev_agent_mode = os.environ.get("EXPO_AGENT_MODE")
+        os.environ["EXPO_AGENT_MODE"] = "off"
         tree = ast.parse((ROOT / "main.py").read_text(encoding="utf-8"))
         route = next(node for node in tree.body
                      if isinstance(node, ast.AsyncFunctionDef) and node.name == "ask_stream")
@@ -112,6 +115,14 @@ class AskStreamPublicationTests(unittest.TestCase):
         for arg in (*route.args.posonlyargs, *route.args.args, *route.args.kwonlyargs):
             arg.annotation = None
         cls.route_code = compile(ast.Module(body=[route], type_ignores=[]), "ask_stream-under-test", "exec")
+
+    @classmethod
+    def tearDownClass(cls):
+        import os
+        if cls._prev_agent_mode is None:
+            os.environ.pop("EXPO_AGENT_MODE", None)
+        else:
+            os.environ["EXPO_AGENT_MODE"] = cls._prev_agent_mode
 
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory(dir=ROOT / "tests")

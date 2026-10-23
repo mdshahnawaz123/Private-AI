@@ -187,6 +187,11 @@ _SYSTEM_PROMPT = (
 
 
 def _call_model(window_text: str, model_role: str = "REASONING_LLM") -> List[Dict[str, Any]]:
+    try:
+        from services.chat_activity import wait_until_idle as _wait_idle
+        _wait_idle()  # document memory is background work: let chat questions go first
+    except Exception:
+        pass
     from core.model_registry import get_registry
     provider = get_registry().get_provider(model_role)
     if provider is None:

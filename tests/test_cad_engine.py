@@ -181,7 +181,7 @@ class TestCadAPI(unittest.TestCase):
     def test_agent_cad_inspect(self):
         from intelligence.agent_loop import Agent
         agent = Agent(self.project_name, self.user, "inspect apartment", [], lambda q: ([], ""), "http://127.0.0.1:11434", "qwen3.5:9b")
-        res = agent.t_cad_inspect("apartment")
+        res = agent.t_cad_inspect("sample_apartment_plan")
         self.assertIn("Apartment Floor Plan", res)
         self.assertIn("LIVING & DINING ROOM", res)
         self.assertIn("[Open in CADCraft Studio](cadcraft:sample_apartment_plan)", res)
@@ -190,7 +190,7 @@ class TestCadAPI(unittest.TestCase):
         from intelligence.agent_loop import Agent
         agent = Agent(self.project_name, self.user, "draft floor plan", [], lambda q: ([], ""), "http://127.0.0.1:11434", "qwen3.5:9b")
         res = agent.t_cad_draft("apartment", "agent_plan.dxf", "Agent Floor Plan")
-        self.assertIn("Successfully drafted", res)
+        self.assertIn("TEMPLATE drawing", res)
         self.assertIn("[Open in CADCraft Studio](cadcraft:agent_plan.dxf)", res)
 
 

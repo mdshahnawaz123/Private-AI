@@ -91,7 +91,7 @@
     btn && (btn.textContent = '...');
     try {
       for (let k = 0; k <= n; k++) { apply(k / n); frames.push((await svgFrame(svg, 1.5, bg)).toDataURL('image/png')); }
-      const token = (() => { try { return localStorage.getItem('expo_token'); } catch (e) { return null; } })();
+      const token = (() => { try { return null; } catch (e) { return null; } })();
       const r = await fetch('/api/visualize/gif', { method: 'POST', headers: Object.assign({ 'Content-Type': 'application/json' }, token ? { Authorization: 'Bearer ' + token } : {}),
         body: JSON.stringify({ frames, fps, hold_ms: 2000, name }) });
       if (!r.ok) throw new Error('GIF export failed (' + r.status + ')');

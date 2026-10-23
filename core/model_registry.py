@@ -148,6 +148,34 @@ class OllamaProvider(ModelProvider):
             return False, {"model": self.config.name, "error": str(e)}
 
 
+class PaddleOCRProvider(ModelProvider):
+    """PaddleOCR model provider for high-speed local OCR and table extraction."""
+
+    def __init__(self, config: ModelConfig):
+        self.config = config
+
+    def chat(self, messages: List[dict], **kwargs) -> str:
+        raise NotImplementedError("PaddleOCR does not support chat")
+
+    def stream(self, messages: List[dict], **kwargs) -> Iterator[str]:
+        raise NotImplementedError("PaddleOCR does not support chat streaming")
+
+    def embed(self, texts: List[str]) -> List[List[float]]:
+        raise NotImplementedError("PaddleOCR does not support embedding")
+
+    def vision(self, image_path: str, prompt: str = "") -> str:
+        from services.vision_adapter import PaddleOCRExtractor
+        res = PaddleOCRExtractor().extract(image_path)
+        return res.get("raw_text", "")
+
+    def health(self) -> Tuple[bool, dict]:
+        try:
+            import paddleocr
+            return True, {"model": self.config.name, "installed": True, "backend": "paddleocr"}
+        except Exception as e:
+            return False, {"model": self.config.name, "error": str(e)}
+
+
 # ── Model Registry ──────────────────────────────────────────
 class ModelRegistry:
     """
@@ -184,10 +212,10 @@ class ModelRegistry:
             # Fall back to the old independent defaults if config isn't
             # importable for some reason (e.g. this module used standalone).
             _host = os.getenv("OLLAMA_HOST", "http://127.0.0.1:11434").rstrip("/")
-            chat_role = {"model": os.getenv("EXPO_VISION_MODEL", "qwen2.5vl:7b"), "base_url": _host}
-            vision_role = {"model": os.getenv("EXPO_VISION_MODEL", "qwen2.5vl:7b"), "base_url": _host}
+            chat_role = {"model": os.getenv("EXPO_CHAT_MODEL", "qwen3.5:9b"), "base_url": _host}
+            vision_role = {"model": os.getenv("EXPO_VISION_MODEL", "paddleocr"), "base_url": _host}
             embed_role = {"model": os.getenv("EXPO_EMBED_MODEL", "bge-m3"), "base_url": _host}
-        ollama_host = vision_role["base_url"]
+        ollama_host = chat_role["base_url"]
 
         # Reasoning / chat model -- the actual answer-synthesis model (Sec 6.1
         # 'chat' role), not vision_model: this used to report vision_model
@@ -207,19 +235,31 @@ class ModelRegistry:
             fallback_roles=[ModelRole.FAST_LLM],
         ))
 
-        # Vision model -- its own role/endpoint (Sec 6.1 'vision'); may live on a
-        # separate Ollama process/port from chat once EXPO_VISION_OLLAMA_HOST is set.
+        # Vision model -- paddleocr for fast accurate extraction, or vision model
+        is_paddle = vision_role["model"] == "paddleocr"
         self.register(ModelConfig(
             role=ModelRole.VISION_MODEL,
             name=vision_role["model"],
-            provider="ollama",
-            endpoint=vision_role["base_url"],
+            provider="paddleocr" if is_paddle else "ollama",
+            endpoint="local" if is_paddle else vision_role["base_url"],
             context_length=int(os.getenv("EXPO_NUM_CTX", "16384")),
-            capabilities=["vision", "chat", "reasoning"],
+            capabilities=["vision", "ocr"],
             modalities=["text", "image"],
             priority=1,
             is_local=True,
             fallback_roles=[ModelRole.REASONING_LLM],
+        ))
+
+        # OCR Model
+        self.register(ModelConfig(
+            role=ModelRole.OCR_MODEL,
+            name="paddleocr",
+            provider="paddleocr",
+            endpoint="local",
+            capabilities=["ocr"],
+            modalities=["image"],
+            priority=1,
+            is_local=True,
         ))
 
         # Embedding model
@@ -275,6 +315,8 @@ class ModelRegistry:
         """Create a provider instance for a model config."""
         if config.provider == "ollama":
             return OllamaProvider(config)
+        elif config.provider == "paddleocr":
+            return PaddleOCRProvider(config)
         raise ValueError(f"Unknown provider: {config.provider}")
 
     def get(self, role: str) -> Optional[ModelConfig]:

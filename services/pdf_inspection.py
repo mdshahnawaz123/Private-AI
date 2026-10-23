@@ -9,7 +9,12 @@ VERSION = 1
 
 def inspect_page(page):
     spans = []
-    for block in page.get_text('dict').get('blocks', []):
+    try:
+        import pymupdf
+        text_data = page.get_text('dict', flags=pymupdf.TEXTFLAGS_DICT & ~pymupdf.TEXT_PRESERVE_IMAGES)
+    except TypeError:
+        text_data = page.get_text('dict')
+    for block in text_data.get('blocks', []):
         for line in block.get('lines', []):
             for span in line.get('spans', []):
                 if span.get('text', '').strip():
@@ -58,7 +63,7 @@ def supplement_inspection(path,meta,timeout=90):
     with fitz.open(path) as document:
         for entry in meta.get('pages',[]):
             page=document[entry['page']-1]
-            inspection=inspect_page(page)
+            inspection=entry.get('inspection') or inspect_page(page)
             for annotation in inspection['annotations']:
                 if annotation['type']!='Stamp':continue
                 signature='signature' in annotation.get('subject','').lower()
@@ -96,8 +101,8 @@ def supplement_inspection(path,meta,timeout=90):
     return warnings
 
 if __name__=='__main__':
-    from services.vision_adapter import EasyOCRExtractor
-    result=EasyOCRExtractor().extract(sys.argv[1])
+    from services.vision_adapter import PaddleOCRExtractor
+    result=PaddleOCRExtractor().extract(sys.argv[1])
     destination=Path(sys.argv[2]);temporary=destination.with_suffix('.tmp')
     temporary.write_text(json.dumps(result,ensure_ascii=False),encoding='utf-8')
     temporary.replace(destination)

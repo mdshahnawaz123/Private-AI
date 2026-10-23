@@ -12,11 +12,14 @@ cd tools/fragments
 npm install
 ```
 
-This pins `@thatopen/fragments@3.4.7`, `web-ifc@0.0.77`, `three@0.186.1` — the exact
-versions proven in `OPENCOMPANY_FRAGMENTS_POC_RESULTS.md`. **web-ifc 0.0.78 is upstream-broken;
-do not bump it without re-verifying the `StreamMeshes` binding.**
+This pins `@thatopen/fragments@3.4.8`, `web-ifc@0.0.77`, `three@0.186.1`.
+Fragments 3.4.8 is a compatible patch with fixes for tile updates, three r185+
+transforms, highlights, disposal, grids and geometry deduplication. The existing
+web-ifc and Three.js pins satisfy its peer requirements and remain unchanged.
+Rebuild the offline viewer library and worker together with `npm run build:browser`.
+`ui/vendor_fragments/fragments/version.json` records their version and SHA256 hashes.
 
-Requires Node 18+ (`node --version`). On Windows, make sure `node` is on `PATH`.
+Requires Node 20.11+ (`node --version`). On Windows, make sure `node` is on `PATH`.
 
 ## Manual use / testing
 

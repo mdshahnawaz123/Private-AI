@@ -84,6 +84,49 @@ class QueryRouter:
         else:
             docs = db.list_documents(name, user)
 
+        # 0. Deterministic CAD / Masterplan view commands and plot queries
+        try:
+            from services.masterplan.view_commands import parse_view_command
+            cad_action = parse_view_command(question)
+        except Exception:
+            cad_action = None
+
+        if cad_action:
+            act_type = cad_action.get("type")
+            if act_type == "clarification_needed":
+                return RouteResult(
+                    route="cad_view",
+                    status="AMBIGUOUS",
+                    answer=cad_action.get("question", "Could you please clarify your request?"),
+                    is_deterministic=True,
+                )
+            if act_type == "get_plot_details":
+                try:
+                    from services.masterplan import db as mp_db
+                    plot = mp_db.get_plot(name or pid, cad_action.get("plot_id"))
+                    if not plot and pid != name:
+                        plot = mp_db.get_plot(pid, cad_action.get("plot_id"))
+                    if not plot:
+                        for p in mp_db.get_plots(name or pid):
+                            if str(cad_action.get("raw_id")) == p.plot_id.upper().removeprefix("P-"):
+                                plot = p
+                                break
+                    if plot:
+                        from services.masterplan.plot_answers import plot_answer
+                        ans, sources = plot_answer(plot, mp_db.get_file_records(name or pid))
+                        return RouteResult(route="masterplan_plot", status="SUCCESS", answer=ans,
+                            is_deterministic=True, sources=sources, provenance=sources,
+                            data=plot.model_dump() if hasattr(plot, "model_dump") else {})
+                except Exception as e:
+                    logger.warning(f"Plot lookup failed in query router: {e}")
+
+            if act_type in ("edit_hatches", "set_text_mode", "return_to_original",
+                            "save_working_copy", "isolate_land_use", "set_text_scale", "fit_view", "recolor_active"):
+                # This is a proposal. Only the client/engine receipt may say it was applied.
+                return RouteResult(route="cad_view", status="SUCCESS",
+                    answer="Drawing action requested.", is_deterministic=True,
+                    viewer_action=cad_action, data={"action_status": "pending"})
+
         # 1. Exact deterministic table answers
         try:
             import sys
@@ -107,8 +150,15 @@ class QueryRouter:
 
             if issues:
                 logger.warning("Exact answer withheld by final evidence checks: {}", issues)
-                ans = "I could not verify the deterministic answer against its source pages. Please review the source document."
-                src_items = []
+                return RouteResult(
+                    route="source_table",
+                    status="UNVERIFIED",
+                    answer="I could not verify the deterministic answer against its source pages. Please review the source document.",
+                    is_deterministic=True,
+                    sources=[],
+                    provenance=[],
+                    warnings=issues,
+                )
 
             return RouteResult(
                 route="source_table",
@@ -138,11 +188,31 @@ class QueryRouter:
                 if struct_res.get("status") == "SUCCESS":
                     try:
                         val_ans, issues, val_srcs = validate_precomputed_answer(ans, docs, src_items, question)
-                        if not issues:
-                            ans = val_ans
-                            src_items = val_srcs
-                    except Exception:
-                        pass
+                        if issues:
+                            return RouteResult(
+                                route="structured",
+                                status="UNVERIFIED",
+                                answer=val_ans or "I could not verify the retrieved value against verified document sources.",
+                                is_deterministic=True,
+                                sources=[],
+                                provenance=prov,
+                                query_plan=plan,
+                                warnings=issues,
+                            )
+                        ans = val_ans
+                        src_items = val_srcs
+                    except Exception as e:
+                        logger.warning("Structured query publication validation error: {}", e)
+                        return RouteResult(
+                            route="structured",
+                            status="UNVERIFIED",
+                            answer="I could not verify the retrieved value against verified document sources.",
+                            is_deterministic=True,
+                            sources=[],
+                            provenance=prov,
+                            query_plan=plan,
+                            warnings=[f"Validation error: {e}"],
+                        )
                 return RouteResult(
                     route="structured",
                     status=struct_res.get("status"),
@@ -178,8 +248,15 @@ class QueryRouter:
                         src_items = []
                     if issues:
                         logger.warning("Document-memory answer withheld by final evidence checks: {}", issues)
-                        ans = "I could not verify the retrieved answer against its source pages. Please review the source document."
-                        src_items = []
+                        return RouteResult(
+                            route="document_memory",
+                            status="UNVERIFIED",
+                            answer="I could not verify the retrieved answer against its source pages. Please review the source document.",
+                            is_deterministic=True,
+                            sources=[],
+                            provenance=[],
+                            warnings=issues,
+                        )
                     return RouteResult(
                         route="document_memory",
                         status="SUCCESS",

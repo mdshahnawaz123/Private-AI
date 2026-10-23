@@ -1,7 +1,0 @@
-test_failure_releases_capacity (test_model_admission.ModelAdmissionTests.test_failure_releases_capacity) ... ok
-test_limit_and_idempotent_release (test_model_admission.ModelAdmissionTests.test_limit_and_idempotent_release) ... ok
-
-----------------------------------------------------------------------
-Ran 2 tests in 0.000s
-
-OK

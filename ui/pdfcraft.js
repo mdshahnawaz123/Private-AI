@@ -63,7 +63,7 @@ let _pdfState = {
 function _getAuthToken() {
   if (typeof authToken !== 'undefined' && authToken) return authToken;
   try {
-    return localStorage.getItem('expo_token') || '';
+    return null || '';
   } catch (e) {
     return '';
   }
@@ -3410,7 +3410,7 @@ async function _openAiMarkupsReviewModal() {
       
       const discBadges = Object.entries(memo.by_discipline || {}).map(([d, c]) => `
         <span style="background:rgba(47,107,255,0.15);border:1px solid rgba(47,107,255,0.3);padding:3px 8px;border-radius:4px;font-size:11px;color:#93c5fd">
-          <b>${d}:</b> ${c}
+          <b>${_esc(d)}:</b> ${Array.isArray(c) ? c.length : Number(c) || 0}
         </span>
       `).join('');
 
@@ -3419,6 +3419,7 @@ async function _openAiMarkupsReviewModal() {
           ${_esc(item)}
         </li>
       `).join('');
+      const sourceFacts = (memo.facts || []).map(f => `<li>${_esc(f.text || '(No comment)')}<br><small>${_esc(f.citation?.document || '')} · Page ${_esc(String(f.page ?? 'unspecified'))} · Markup ${_esc(f.markup_id)} · ${_esc(f.status)}</small></li>`).join('');
 
       contEl.innerHTML = `
         <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
@@ -3441,6 +3442,7 @@ async function _openAiMarkupsReviewModal() {
           <div style="font-size:12px;line-height:1.6;color:#cbd5e1">${_esc(memo.executive_summary || 'Review completed.')}</div>
         </div>
 
+        <div style="font-size:12px;color:#cbd5e1"><b>Submitted markup facts</b><ul>${sourceFacts || '<li>No markup facts available.</li>'}</ul></div>
         <div>
           <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:6px">Discipline Breakdown</div>
           <div style="display:flex;flex-wrap:wrap;gap:6px">
@@ -3449,7 +3451,7 @@ async function _openAiMarkupsReviewModal() {
         </div>
 
         <div style="background:#070b15;border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:12px">
-          <div style="font-size:11px;font-weight:700;color:#f59e0b;text-transform:uppercase;margin-bottom:6px">⚡ Recommended Action Items</div>
+          <div style="font-size:11px;font-weight:700;color:#f59e0b;text-transform:uppercase;margin-bottom:6px">Workflow suggestions — not document requirements</div>
           <ul style="padding-left:18px;margin:0">
             ${actionItems || '<li style="color:var(--muted);font-size:11px">None identified</li>'}
           </ul>

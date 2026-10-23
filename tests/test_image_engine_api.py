@@ -95,7 +95,8 @@ class TestImageEngineAPI(unittest.TestCase):
                 spec = mock_info.setdefault(node.get("class_type"), {"input": {"required": {}}})
                 for k, v in node.get("inputs", {}).items():
                     if isinstance(k, str) and k.endswith("_name"):
-                        spec["input"]["required"][k] = [[v]]
+                        choices = spec["input"]["required"].setdefault(k, [[]])[0]
+                        if v not in choices: choices.append(v)
         self.mock_comfy.get_object_info.return_value = mock_info
 
         self.test_job_service = JobService(
@@ -175,7 +176,7 @@ class TestImageEngineAPI(unittest.TestCase):
             "prompt": "brutalist concrete library with atrium",
             "width": 1024,
             "height": 768,
-            "steps": 30,
+            "steps": 4,
             "seed": 12345,
         }
         res = self.client.post("/api/image-engine/jobs", json=payload, headers=self.user_a_headers)

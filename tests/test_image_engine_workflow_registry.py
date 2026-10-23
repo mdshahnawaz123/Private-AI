@@ -48,7 +48,7 @@ class TestImageEngineWorkflowRegistry(unittest.TestCase):
             width=1024,
             height=768,
             seed=123456,
-            steps=4,
+            steps=16,
             cfg=1.0,
         )
         graph = self.registry.build_prompt_graph(req)
@@ -63,11 +63,10 @@ class TestImageEngineWorkflowRegistry(unittest.TestCase):
         self.assertEqual(graph["5"]["class_type"], "ConditioningZeroOut")
         self.assertEqual(graph["6"]["inputs"]["width"], 1024)
         self.assertEqual(graph["6"]["inputs"]["height"], 768)
-        self.assertEqual(graph["9"]["inputs"]["width"], 1024)
-        self.assertEqual(graph["9"]["inputs"]["height"], 768)
-        self.assertEqual(graph["7"]["inputs"]["noise_seed"], 123456)
-        self.assertEqual(graph["9"]["inputs"]["steps"], 4)
-        self.assertEqual(graph["10"]["inputs"]["cfg"], 1.0)
+        self.assertEqual(graph["11"]["class_type"], "KSampler")
+        self.assertEqual(graph["11"]["inputs"]["seed"], 123456)
+        self.assertEqual(graph["11"]["inputs"]["steps"], 16)
+        self.assertEqual(graph["11"]["inputs"]["cfg"], 1.0)
 
     def test_rejects_comfyui_ui_format_with_nodes_list(self):
         with tempfile.TemporaryDirectory() as tmp_dir:

@@ -1,4 +1,4 @@
-"""Frozen Phase 2 regressions for deterministic claim-to-source validation."""
+"""Version 2 synthetic acceptance cases; missing v1 provenance is documented in fixtures."""
 import hashlib
 import ast
 import json
@@ -9,9 +9,8 @@ from intelligence.answer_guard import guarded_answer, publication_issues, guarde
 
 
 ROOT = Path(__file__).resolve().parents[1]
-EVAL = ROOT / "output" / "claim-source-eval"
-DATASET = EVAL / "benchmark_v1.json"
-EXPECTED_SHA256 = "551c89d28d4e6af733ce769fc220bf5ad9257386b90ffe3771ad819f1fb9429b"
+DATASET = ROOT / 'tests' / 'fixtures' / 'claim_support_v2.json'
+EXPECTED_SHA256 = '1d59be8fda0f2b56f51ff45ad7a2c70dbb5f8dd13b7a352def14fdf3f706859e'
 CASES = {c["id"]: c for c in json.loads(DATASET.read_text(encoding="utf-8"))["cases"]}
 
 
@@ -21,7 +20,7 @@ def evaluate(case):
 
 
 class ClaimSupportRegressionTests(unittest.TestCase):
-    def test_v1_ground_truth_is_unchanged_and_hash_pinned(self):
+    def test_v2_ground_truth_is_unchanged_and_hash_pinned(self):
         self.assertEqual(hashlib.sha256(DATASET.read_bytes()).hexdigest(), EXPECTED_SHA256)
 
     def test_all_frozen_cases_meet_expected_publish_or_withhold_decision(self):

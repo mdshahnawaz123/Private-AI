@@ -579,7 +579,7 @@ async def remove_security(doc_id: str = Form(...), password: str = Form(...)):
 
 
 @pdf_router.post("/save-to-project")
-async def save_to_project(req: SaveToProjectRequest):
+def save_to_project(req: SaveToProjectRequest):
     """Atomically saves modified PDF back to project documents folder."""
     src_path = _get_doc_path(req.doc_id)
     folder_name = req.folder or "Documents"
@@ -602,9 +602,17 @@ async def save_to_project(req: SaveToProjectRequest):
     try:
         shutil.copyfile(src_path,temporary)
         PdfService.inspect_pdf(temporary,password=_PDF_SESSION_CACHE[req.doc_id].get("password"))
-        with open(dest_path,'xb'): pass
         try:
-            os.replace(temporary,dest_path)
+            for _attempt in range(5):
+                try:
+                    os.replace(temporary,dest_path)
+                    break
+                except PermissionError:
+                    import gc, time
+                    gc.collect()
+                    time.sleep(0.05)
+            else:
+                os.replace(temporary,dest_path)
         except Exception:
             Path(dest_path).unlink(missing_ok=True)
             raise
@@ -622,7 +630,7 @@ async def save_to_project(req: SaveToProjectRequest):
     except Exception:
         pass
 
-    # Register in database using standard record_document
+    # Register in database using standard record_document and enqueue for background ingestion (D04)
     try:
         db.record_document(
             project=req.project,
@@ -630,9 +638,20 @@ async def save_to_project(req: SaveToProjectRequest):
             path=dest_path,
             chunks=0,
             discipline=None,
-            status="pending",
+            status="processing",
             folder_id=folder_id
         )
+        try:
+            from services.jobs import JobQueue
+            from config import get_settings
+            jq = JobQueue(get_settings().data_dir)
+            jq.enqueue('document', dest_path, dict(project=req.project, save_path=dest_path,
+                       filename=dest_filename, disc=None, category=None, folder_id=folder_id))
+        except Exception as q_err:
+            logger.error(f"Failed to enqueue saved PDF for indexing: {q_err}")
+            raise HTTPException(500, f"Saved PDF could not be queued for indexing: {q_err}") from q_err
+    except HTTPException:
+        raise
     except Exception as exc:
         logger.warning(f"Failed to record document in db: {exc}")
         raise HTTPException(500,'PDF copy saved but document registration failed; contact admin') from exc

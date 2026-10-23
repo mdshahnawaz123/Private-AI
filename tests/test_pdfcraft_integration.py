@@ -10,22 +10,21 @@ Tests:
 7. Error handling for nonexistent documents
 8. Non-PDF file preservation (verifying non-PDF files are not corrupted or misrouted)
 """
+import os
+import unittest
+if __name__ != "__main__" or os.getenv("EXPO_RUN_LIVE_SECURITY_TESTS") != "1":
+    raise unittest.SkipTest("Manual live PDF script: explicit opt-in and test credentials required")
+
 import sys
 import os
 import requests
 import json
 import sqlite3
 
-BASE_URL = "http://127.0.0.1:8090"
-
-# Generate auth token for admin
-sys.path.insert(0, os.path.abspath("."))
-import auth
-conn = sqlite3.connect("data/expo.db")
-cur = conn.cursor()
-user_row = cur.execute("SELECT id, username, role FROM users WHERE username='admin'").fetchone()
-token = auth.make_token({"id": user_row[0], "username": user_row[1], "role": user_row[2]})
-headers = {"Authorization": f"Bearer {token}"}
+BASE_URL = os.environ["EXPO_TEST_BASE_URL"].rstrip("/")
+login = requests.post(BASE_URL + "/auth/login", json={"username":os.environ["EXPO_TEST_USERNAME"], "password":os.environ["EXPO_TEST_PASSWORD"]}, timeout=10)
+login.raise_for_status()
+headers = {"Authorization": "Bearer " + login.json()["token"]}
 
 print("=" * 60)
 print("TEST 1: Opening existing project PDF from C3105 - GID")

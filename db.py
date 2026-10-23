@@ -36,7 +36,34 @@ DATABASE_URL = os.getenv(
 )
 
 _connect_args = {"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {}
-engine = create_engine(DATABASE_URL, connect_args=_connect_args, future=True)
+
+_engine_kwargs = {
+    "connect_args": _connect_args,
+    "future": True,
+}
+
+if not DATABASE_URL.startswith("sqlite"):
+    try:
+        from config import get_settings
+        _s = get_settings()
+        _pool_size = getattr(_s, "db_pool_size", 20)
+        _max_overflow = getattr(_s, "db_max_overflow", 10)
+        _pool_timeout = getattr(_s, "db_pool_timeout", 30)
+        _pool_recycle = getattr(_s, "db_pool_recycle", 1800)
+    except Exception:
+        _pool_size, _max_overflow, _pool_timeout, _pool_recycle = 20, 10, 30, 1800
+
+    _engine_kwargs.update({
+        "pool_size": int(os.getenv("EXPO_DB_POOL_SIZE", str(_pool_size))),
+        "max_overflow": int(os.getenv("EXPO_DB_MAX_OVERFLOW", str(_max_overflow))),
+        "pool_timeout": int(os.getenv("EXPO_DB_POOL_TIMEOUT", str(_pool_timeout))),
+        "pool_recycle": int(os.getenv("EXPO_DB_POOL_RECYCLE", str(_pool_recycle))),
+        "pool_pre_ping": True,
+    })
+else:
+    _engine_kwargs["pool_pre_ping"] = True
+
+engine = create_engine(DATABASE_URL, **_engine_kwargs)
 
 if DATABASE_URL.startswith("sqlite"):
     @event.listens_for(engine, "connect")
@@ -66,6 +93,10 @@ class User(Base):
     password_hash = Column(String(255), nullable=True)   # set when login lands (Phase 5)
     auth_version = Column(Integer, default=0, nullable=False)
     is_active = Column(Integer, default=1)
+    # Sign-in source: "local" (username + password) or an SSO provider key such as "microsoft".
+    auth_provider = Column(String(40), default="local", nullable=False)
+    # Stable id from the identity provider (OIDC "sub"/"oid"); never the email, which can change.
+    external_id = Column(String(255), nullable=True, index=True)
     created_at = Column(DateTime, default=_utcnow)
 
 class Project(Base):
@@ -73,6 +104,7 @@ class Project(Base):
     id = Column(Integer, primary_key=True)
     name = Column(String(200), unique=True, nullable=False)
     discipline = Column(String(40), nullable=True)       # Phase 3: Structural/Architecture/MEP/...
+    description = Column(Text, nullable=True)
     created_by = Column(Integer, ForeignKey("users.id"), nullable=True)
     created_at = Column(DateTime, default=_utcnow)
     updated_at = Column(DateTime, default=_utcnow, onupdate=_utcnow)
@@ -232,6 +264,13 @@ def init_db():
     if 'auth_version' not in {column['name'] for column in inspect(engine).get_columns('users')}:
         with engine.begin() as conn:
             conn.exec_driver_sql('ALTER TABLE users ADD COLUMN auth_version INTEGER NOT NULL DEFAULT 0')
+    _ucols = {column['name'] for column in inspect(engine).get_columns('users')}
+    if 'auth_provider' not in _ucols:
+        with engine.begin() as conn:
+            conn.exec_driver_sql("ALTER TABLE users ADD COLUMN auth_provider VARCHAR(40) NOT NULL DEFAULT 'local'")
+    if 'external_id' not in _ucols:
+        with engine.begin() as conn:
+            conn.exec_driver_sql("ALTER TABLE users ADD COLUMN external_id VARCHAR(255)")
     try:
         with engine.begin() as conn:
             conn.exec_driver_sql("ALTER TABLE documents ADD COLUMN status VARCHAR(20) DEFAULT 'ready'")
@@ -240,6 +279,11 @@ def init_db():
     try:
         with engine.begin() as conn:
             conn.exec_driver_sql("ALTER TABLE documents ADD COLUMN folder_id INTEGER")
+    except Exception:
+        pass
+    try:
+        with engine.begin() as conn:
+            conn.exec_driver_sql("ALTER TABLE projects ADD COLUMN description TEXT")
     except Exception:
         pass
     if DATABASE_URL.startswith("sqlite"):
@@ -775,7 +819,9 @@ class ProjectMember(Base):
 def _user_dict(u):
     return {"id": u.id, "username": u.username, "full_name": u.full_name or "",
             "email": u.email or "", "role": u.role, "is_active": bool(u.is_active), 'auth_version':u.auth_version or 0,
-            "created_at": u.created_at.isoformat() if u.created_at else None}
+            "created_at": u.created_at.isoformat() if u.created_at else None,
+            "auth_provider": getattr(u, "auth_provider", None) or "local",
+            "has_password": bool(u.password_hash)}
 
 def get_user_by_username(username):
     with SessionLocal() as s:
@@ -795,13 +841,15 @@ def list_users():
     with SessionLocal() as s:
         return [_user_dict(u) for u in s.query(User).order_by(User.username).all()]
 
-def create_user(username, password_hash, role="user", full_name="", email="", by=None):
+def create_user(username, password_hash, role="user", full_name="", email="", by=None,
+                auth_provider="local", external_id=None):
     role = role if role in ROLES else "user"
     with SessionLocal() as s:
         if s.query(User).filter(User.username == username).first():
             raise ValueError("username already exists")
         u = User(username=username, password_hash=password_hash, role=role,
-                 full_name=full_name, email=email, is_active=1)
+                 full_name=full_name, email=email, is_active=1,
+                 auth_provider=auth_provider or "local", external_id=external_id)
         s.add(u); s.commit(); uid = u.id
     audit("user.create", target=username, detail={"role": role}, user=by or SYSTEM_USER)
     return get_user(uid)
@@ -884,6 +932,79 @@ def set_user_role(uid, role, by=None):
     audit("user.role", target=un, detail={"role": role}, user=by or SYSTEM_USER)
     return True
 
+def find_sso_user(provider, external_id, email=None):
+    """Find the account for an SSO sign-in: first by provider + stable id, then (to link an
+    existing local account the first time) by email, case-insensitive. Returns (user_dict, matched_by)."""
+    from sqlalchemy import func
+    with SessionLocal() as s:
+        u = s.query(User).filter(User.auth_provider == provider, User.external_id == external_id).first()
+        if u:
+            return _user_dict(u), "id"
+        if email:
+            u = s.query(User).filter(func.lower(User.email) == email.strip().lower()).first()
+            if u:
+                return _user_dict(u), "email"
+    return None, None
+
+
+def link_sso_identity(uid, provider, external_id, full_name=None, email=None, by=None):
+    with SessionLocal() as s:
+        u = s.get(User, uid)
+        if not u:
+            return False
+        u.auth_provider = provider
+        u.external_id = external_id
+        if full_name and not u.full_name:
+            u.full_name = full_name
+        if email and not u.email:
+            u.email = email
+        s.commit(); un = u.username
+    audit("user.sso_link", target=un, detail={"provider": provider}, user=by or SYSTEM_USER)
+    return True
+
+
+def count_active_admins(exclude_uid=None):
+    with SessionLocal() as s:
+        q = s.query(User).filter(User.role == "admin", User.is_active == 1, User.username != "system")
+        if exclude_uid is not None:
+            q = q.filter(User.id != exclude_uid)
+        return q.count()
+
+
+def delete_user(uid, by=None):
+    """Permanently remove a user account and their personal data.
+
+    Removed: the account row (name, email, password hash, SSO link), project and folder
+    memberships, and their private chat attachments (rows; the caller deletes the files).
+    Kept, but no longer linked to the person: project documents, chats, findings and images
+    they created (attribution set to empty, or to the internal system account where the
+    column cannot be empty), so shared project work is not lost. The audit log is
+    append-only by design and keeps its historical entries.
+    Returns {"username", "private_upload_paths"} or None if not found.
+    """
+    with SessionLocal() as s:
+        u = s.get(User, uid)
+        if not u:
+            return None
+        username = u.username
+        paths = [r.path for r in s.query(UserUpload).filter(UserUpload.user_id == uid).all() if r.path]
+        s.query(UserUpload).filter(UserUpload.user_id == uid).delete(synchronize_session=False)
+        s.query(ProjectMember).filter(ProjectMember.user_id == uid).delete(synchronize_session=False)
+        s.query(FolderMember).filter(FolderMember.user_id == uid).delete(synchronize_session=False)
+        for model, cols in ((Project, ("created_by", "deleted_by")), (Chat, ("created_by",)),
+                            (Finding, ("created_by",)), (Folder, ("created_by",)),
+                            (QAFinding, ("created_by", "verified_by")),
+                            (Document, ("uploaded_by", "deleted_by"))):
+            for c in cols:
+                s.query(model).filter(getattr(model, c) == uid).update({c: None}, synchronize_session=False)
+        s.query(ImageJob).filter(ImageJob.user_id == uid).update({"user_id": SYSTEM_USER["id"]}, synchronize_session=False)
+        s.delete(u)
+        s.commit()
+    audit("user.delete", target=username, detail={"user_id": uid, "private_uploads_removed": len(paths)},
+          user=by or SYSTEM_USER)
+    return {"username": username, "private_upload_paths": paths}
+
+
 def set_user_active(uid, active, by=None):
     with SessionLocal() as s:
         u = s.get(User, uid)
@@ -893,20 +1014,31 @@ def set_user_active(uid, active, by=None):
     audit("user.active", target=un, detail={"active": bool(active)}, user=by or SYSTEM_USER)
     return True
 
-def create_project(name, by, discipline=None):
+def create_project(name, by, discipline=None, description=None):
     by = by or SYSTEM_USER
     with SessionLocal() as s:
         if s.query(Project).filter_by(name=name).first():
             raise ValueError("project already exists")
         from services.project_cleanup import allow_explicit_recreation
         allow_explicit_recreation(DATA_DIR, name)
-        proj = Project(name=name, discipline=discipline, created_by=by["id"])
+        proj = Project(name=name, discipline=discipline, description=description, created_by=by["id"])
         s.add(proj); s.flush()
         s.add(ProjectMember(project_id=proj.id, user_id=by["id"], added_by=by["id"]))
         s.commit()
     allow_explicit_recreation(DATA_DIR, name, remove=True)
-    audit("project.create", project=name, detail={"discipline": discipline}, user=by)
+    audit("project.create", project=name, detail={"discipline": discipline, "description": description}, user=by)
     return True
+
+def get_project_creator_username(project_name):
+    if not project_name:
+        return "admin"
+    with SessionLocal() as s:
+        proj = s.query(Project).filter_by(name=project_name).first()
+        if proj and proj.created_by:
+            u = s.get(User, proj.created_by)
+            if u and u.username:
+                return u.username
+    return "admin"
 
 def assign_member(project, user_id, by=None):
     by = by or SYSTEM_USER

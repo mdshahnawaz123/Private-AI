@@ -77,6 +77,27 @@ Output valid JSON ONLY with these exact keys:
 """
 
 
+def _render_skill_text() -> str:
+    """FLUX 3 render-prompting rules from skills/architectural-render-prompting (2026-10-22)."""
+    import os, re
+    path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+                        "skills", "architectural-render-prompting", "SKILL.md")
+    try:
+        text = open(path, encoding="utf-8").read()
+        return re.sub(r"^---.*?---\s*", "", text, flags=re.S).strip()
+    except OSError:
+        return ""
+
+
+def _system_prompt() -> str:
+    skill = _render_skill_text()
+    if not skill:
+        return SYSTEM_ARCHITECTURAL_DIRECTOR_PROMPT
+    return (SYSTEM_ARCHITECTURAL_DIRECTOR_PROMPT +
+            "\n\nFLUX 3 RENDER-PROMPTING RULES (these take precedence over the camera, lighting, wording and "
+            "option-style defaults above whenever they conflict; keep the same JSON keys and output format):\n" + skill)
+
+
 def _detect_user_invariants(prompt: str, building_type: Optional[str] = None) -> List[str]:
     """Detect explicit architectural constraints like floor count, podium, typology."""
     constraints = []
@@ -254,7 +275,7 @@ async def enhance_architectural_prompt(
     payload = {
         "model": REASONING_MODEL,
         "messages": [
-            {"role": "system", "content": SYSTEM_ARCHITECTURAL_DIRECTOR_PROMPT},
+            {"role": "system", "content": _system_prompt()},
             {"role": "user", "content": user_content},
         ],
         "stream": False,

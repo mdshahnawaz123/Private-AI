@@ -2290,7 +2290,7 @@ function logCmd(msg) {
    FILE OPERATIONS & SAMPLES
    ========================================================================== */
 function _getCadAuthHeaders(extraHeaders = {}) {
-  const t = (typeof authToken !== 'undefined' && authToken) ? authToken : (localStorage.getItem('expo_token') || '');
+  const t = (typeof authToken !== 'undefined' && authToken) ? authToken : (null || '');
   const headers = Object.assign({}, extraHeaders);
   if (t) headers['Authorization'] = `Bearer ${t}`;
   return headers;

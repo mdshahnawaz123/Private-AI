@@ -40,7 +40,7 @@ class ReleaseDatabase(unittest.TestCase):
     def test_legacy_ready_flag_does_not_override_incomplete_evidence(self):
         import ast,json,os
         from pathlib import Path
-        tree=ast.parse((Path(__file__).resolve().parents[1]/'main.py').read_text())
+        tree=ast.parse((Path(__file__).resolve().parents[1]/'main.py').read_text(encoding='utf-8'))
         function=next(n for n in tree.body if isinstance(n,ast.FunctionDef) and n.name=='_reconcile_completed_documents')
         scope={'db':db,'json':json,'os':os}
         exec(compile(ast.Module(body=[function],type_ignores=[]),'readiness-reconcile','exec'),scope)

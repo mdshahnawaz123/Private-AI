@@ -74,13 +74,17 @@ def embed_documents_task(self, texts: list, collection: str = "default"):
 def generate_report_task(self, report_type: str, project_id: str, format: str = "pdf"):
     """Generate a report in the background."""
     try:
+        format = {'excel': 'xlsx', 'word': 'docx'}.get(format, format)
+        if format not in ('pdf', 'xlsx', 'docx'):
+            raise ValueError('Unsupported report format')
         from intelligence.reports import get_report_engine
         engine = get_report_engine()
 
         # Gather data
         from intelligence.validation import get_validation_engine
         validation = get_validation_engine()
-        findings = list(validation._findings.values())
+        from intelligence.reports import project_findings
+        findings = project_findings(validation._findings.values(), project_id)
         findings = [f.__dict__ if hasattr(f, '__dict__') else f for f in findings]
 
         if report_type == "compliance":
@@ -91,7 +95,8 @@ def generate_report_task(self, report_type: str, project_id: str, format: str = 
             report = engine.generate_compliance_report(project_id, findings)
 
         # Export
-        output_dir = os.path.join(__import__("db").DATA_DIR, "reports", project_id)
+        from intelligence.reports import project_report_directory
+        output_dir = project_report_directory(__import__("db").DATA_DIR, project_id)
         os.makedirs(output_dir, exist_ok=True)
         output_path = os.path.join(output_dir, f"{report.report_id}.{format}")
         engine.export(report, output_path, format)

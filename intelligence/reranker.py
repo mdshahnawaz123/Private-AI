@@ -37,12 +37,19 @@ class Reranker:
             _cfg_model, _cfg_enabled = "bge-reranker-v2-m3", False
         # Use full BAAI/ prefix — CrossEncoder needs the exact repo ID
         _model = os.getenv("EXPO_RERANKER_MODEL", _cfg_model)
-        if not _model.startswith("BAAI/"):
+        if not os.path.isdir(_model) and "/" not in _model and "\\" not in _model:
             _model = "BAAI/" + _model
         self._model_name = _model
         self._enabled = os.getenv("EXPO_RERANKER_ENABLED", "1" if _cfg_enabled else "0") == "1"
         self._model = None  # Lazy-loaded on first use
         self._load_attempted = False
+        self._load_error = None
+
+    def status(self):
+        return {"configured_enabled": self._enabled, "loaded": self._model is not None,
+                "load_attempted": self._load_attempted, "device": "cpu",
+                "model": self._model_name, "last_error": self._load_error,
+                "fallback_active": self._enabled and self._load_attempted and self._model is None}
 
     def is_enabled(self) -> bool:
         """Check if reranker is enabled."""
@@ -56,13 +63,15 @@ class Reranker:
 
         try:
             from sentence_transformers import CrossEncoder
-            logger.info("Loading reranker model: {} (CPU)", self._model_name)
-            self._model = CrossEncoder(self._model_name, device="cpu")
-            logger.info("Reranker model loaded successfully")
+            dev = "cpu"
+            logger.info("Loading reranker model: {} ({})", self._model_name, dev.upper())
+            self._model = CrossEncoder(self._model_name, device=dev, local_files_only=True)
+            logger.info("Reranker model loaded successfully on {}", dev.upper())
             return True
         except Exception as e:
             logger.warning("Reranker model load failed (falling back to original order): {}", e)
             self._model = None
+            self._load_error = str(e)[:400]
             return False
 
     def rerank(self, query: str, documents: List[Dict[str, Any]],

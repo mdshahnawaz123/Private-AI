@@ -97,7 +97,8 @@ def stop_engine() -> Dict[str, Any]:
     """Stop only the still-live child created by this manager, never an arbitrary port owner."""
     global _owned_process
     if _owned_process is None or _owned_process.poll() is not None:
-        return {"status": "unmanaged", "available": is_engine_reachable(),
+        reachable = is_engine_reachable()
+        return {"status": "unmanaged" if reachable else "offline", "available": reachable,
                 "message": "No owned engine process to stop. Stop externally started ComfyUI from its launcher."}
     try:
         _owned_process.terminate()

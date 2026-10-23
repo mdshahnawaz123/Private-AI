@@ -3,7 +3,7 @@ let jobId=null,job=null,timer=null,loadedDigest=null,loadedPlan=null;
 const urls=[];
 async function api(path,options={}){
   const headers=new Headers(options.headers||{});
-  const token=localStorage.getItem('expo_token');
+  const token=null;
   if(token)headers.set('Authorization','Bearer '+token);
   const response=await fetch('/api/blender'+path,{...options,headers});
   if(!response.ok){let body=await response.json().catch(()=>({detail:response.statusText}));throw Error(typeof body.detail==='string'?body.detail:JSON.stringify(body.detail));}

@@ -1,4 +1,4 @@
-pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+// PDF library and security options are owned by pdf_preview.js.
 
 let pdfDoc = null;
 let pageNum = 1;
@@ -36,7 +36,7 @@ document.getElementById('fileInput').addEventListener('change', function(e) {
         const typedarray = new Uint8Array(this.result);
         currentPdfData = this.result; // keep ArrayBuffer for base64
         
-        pdfjsLib.getDocument(typedarray).promise.then(pdf => {
+        ExpoPDF.open(typedarray).then(pdf => {
             pdfDoc = pdf;
             document.getElementById('pageCount').innerText = pdf.numPages;
             pageNum = 1;

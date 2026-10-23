@@ -58,3 +58,8 @@ output/
 
 # Embedded vendor binaries
 vendor/
+
+# Test artifacts
+tests/tmp*/
+tmp*/
+_to_delete/

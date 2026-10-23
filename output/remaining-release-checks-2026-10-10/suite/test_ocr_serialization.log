@@ -1,6 +1,0 @@
-test_native_ocr_coordinates_survive_worker_json (test_ocr_serialization.OCRSerializationTests.test_native_ocr_coordinates_survive_worker_json) ... ok
-
-----------------------------------------------------------------------
-Ran 1 test in 0.028s
-
-OK

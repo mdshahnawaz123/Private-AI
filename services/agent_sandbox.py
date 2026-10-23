@@ -18,9 +18,11 @@ import contextlib
 
 BANNED_NAMES = {"open", "exec", "eval", "compile", "__import__", "input", "globals", "locals", "vars",
                 "getattr", "setattr", "delattr", "breakpoint", "exit", "quit", "help", "memoryview", "os", "sys",
-                "subprocess", "shutil", "socket", "pathlib", "importlib", "builtins"}
-BANNED_ATTRS = {"to_csv", "to_excel", "to_pickle", "to_parquet", "to_json", "to_sql", "to_html", "to_feather",
-                "read_csv", "read_excel", "read_pickle", "read_json", "read_sql", "read_html", "eval", "query", "system"}
+                "subprocess", "shutil", "socket", "pathlib", "importlib", "builtins", "requests", "urllib", "httpx"}
+
+BANNED_EXACT_ATTRS = {"eval", "query", "system", "popen", "read", "write", "load", "dump", "save", "pipe",
+                      "io", "compat", "clipboard", "sql", "table", "parquet", "feather", "stata", "sas", "spss",
+                      "memmap", "fromfile", "tofile", "loadtxt", "genfromtxt", "fromregex", "datasource", "savez"}
 
 
 def check(code):
@@ -30,8 +32,10 @@ def check(code):
             raise ValueError("imports are not allowed")
         if isinstance(node, ast.Name) and node.id in BANNED_NAMES:
             raise ValueError("'%s' is not allowed" % node.id)
-        if isinstance(node, ast.Attribute) and (node.attr.startswith("_") or node.attr in BANNED_ATTRS):
-            raise ValueError("attribute '%s' is not allowed" % node.attr)
+        if isinstance(node, ast.Attribute):
+            attr = node.attr.lower()
+            if attr.startswith(("_", "read_", "to_", "load_", "save_", "from_")) or attr in BANNED_EXACT_ATTRS:
+                raise ValueError("attribute '%s' is not allowed" % node.attr)
     return tree
 
 
@@ -78,11 +82,36 @@ def main():
             T[int(tid)] = df
         except ValueError:
             pass
+    class SafePandas:
+        Series = pd.Series
+        DataFrame = pd.DataFrame
+        concat = pd.concat
+        isna = pd.isna
+        notna = pd.notna
+        to_numeric = pd.to_numeric
+        merge = pd.merge
+        pivot_table = pd.pivot_table
+
     safe_builtins = {k: __builtins__[k] if isinstance(__builtins__, dict) else getattr(__builtins__, k)
                      for k in ("abs", "all", "any", "bool", "dict", "enumerate", "filter", "float", "int", "len", "list",
                                "map", "max", "min", "print", "range", "round", "set", "sorted", "str", "sum", "tuple",
                                "zip", "isinstance", "reversed", "Exception", "ValueError", "KeyError", "TypeError")}
-    env = {"__builtins__": safe_builtins, "T": T, "pd": pd, "math": math, "statistics": statistics}
+    import builtins
+    builtins.open = None
+    io.open = None
+    import os
+    os.open = None
+    os.system = None
+    os.popen = None
+
+    env = {
+        "__builtins__": safe_builtins,
+        "T": T,
+        "pd": SafePandas,
+        "math": math,
+        "statistics": statistics,
+    }
+
     buf = io.StringIO()
     try:
         with contextlib.redirect_stdout(buf):
